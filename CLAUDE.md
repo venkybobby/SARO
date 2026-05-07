@@ -3,16 +3,17 @@
 ## Architecture
 
 ```
-saro-platform/
+SARO/
 ├── main.py              # FastAPI entry point (uvicorn main:app)
 ├── engine.py            # Core scoring engine: DIR formula, SHAP, KS-test drift
 ├── auth.py / database.py / models.py / schemas.py
-├── routers/             # Route handlers: scan, traces, reports, auth, clients, demo
+├── routers/             # scan, traces, output_audit, reports, auth, clients,
+│                        # dashboard, github_integration, demo
 ├── frontend/            # Streamlit UI (migrating → React/Vite on Vercel)
 ├── saro-data-framework/ # Offline evaluation: TruthfulQA, PII, toxicity batch jobs
-├── tests/               # pytest suite
+├── tests/               # pytest suite (test_new_features.py, test_frontend_login.py)
 ├── .claude/             # Claude Code config: skills/, settings.json
-└── docs/                # COMPLIANCE_CLAIMS_MATRIX.md, TRACE_SPEC.md
+└── docs/                # COMPLIANCE_CLAIMS_MATRIX.md
 ```
 
 **Infrastructure (target)**
@@ -89,4 +90,4 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 - Compliance boundaries: @docs/COMPLIANCE_CLAIMS_MATRIX.md
 - API prefix: `/api/v1/`
 - Port: `$PORT` (Railway injects)
-- Health endpoint: `GET /health` → `{"status":"ok","version":"8.0.0"}`
+- Health endpoint: `GET /health` → `{"app":"SARO","version":"<app.version>","db_ok":true}`

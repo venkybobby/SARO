@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$PATH\" | grep -q 'rule_packs/'; then echo \"CONFIRM REQUIRED: About to write to rule pack: $PATH\" >&2; echo \"Rule pack changes affect risk scoring across all clients. Explicit user approval required.\" >&2; exit 2; fi"
+            "command": "WPATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$WPATH\" | grep -q 'rule_packs/'; then echo \"CONFIRM REQUIRED: About to write to rule pack: $WPATH\" >&2; echo \"Rule pack changes affect risk scoring across all clients. Explicit user approval required.\" >&2; exit 2; fi"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FPATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$FPATH\" | grep -qE '(routers/|engine\\.py|auth\\.py).*\\.py$|routers/.*\\.py$'; then echo \"[PostWrite] Running pytest after edit to $FPATH...\" >&2; python -m pytest tests/ -q --tb=short --no-header >&2 || echo \"WARNING: Tests failing after this edit — review before committing.\" >&2; fi"
+            "command": "FPATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$FPATH\" | grep -qE '(routers/.*[.]py|engine[.]py|auth[.]py|models[.]py|schemas[.]py)$'; then echo \"[PostWrite] Running pytest after edit to $FPATH...\" >&2; python -m pytest tests/ -q --tb=short --no-header >&2 || echo \"WARNING: Tests failing after this edit - review before committing.\" >&2; fi"
           }
         ]
       }
