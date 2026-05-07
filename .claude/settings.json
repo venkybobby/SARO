@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('command',''))\" 2>/dev/null); if echo \"$CMD\" | grep -qE 'rm -r|rm -f|rm \\*|del /f|rmdir /s|Remove-Item -Recurse'; then echo \"BLOCKED: Destructive command detected. Run manually if intentional: ${CMD:0:120}\" >&2; exit 2; fi; if echo \"$CMD\" | grep -q 'pip install' && ! echo \"$CMD\" | grep -q '\\-\\-dry-run'; then echo \"BLOCKED: Direct pip install not allowed. Add to requirements.txt instead: ${CMD:0:120}\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$PATH\" | grep -q 'rule_packs/'; then echo \"CONFIRM REQUIRED: About to write to rule pack: $PATH\" >&2; echo \"Rule pack changes affect risk scoring across all clients. Explicit user approval required.\" >&2; exit 2; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FPATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$FPATH\" | grep -qE '(routers/|engine\\.py|auth\\.py).*\\.py$|routers/.*\\.py$'; then echo \"[PostWrite] Running pytest after edit to $FPATH...\" >&2; python -m pytest tests/ -q --tb=short --no-header >&2 || echo \"WARNING: Tests failing after this edit — review before committing.\" >&2; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Stop hook] Verifying test suite before marking task complete...' >&2; python -m pytest tests/ -q --tb=line --no-header >&2 && echo 'All tests pass.' >&2 || { echo 'STOP: Tests are failing. Fix before marking task complete.' >&2; exit 2; }"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p .claude/transcripts && echo \"$(date -u '+%Y%m%dT%H%M%SZ') PreCompact triggered\" >> .claude/transcripts/compact_log.txt && echo '[PreCompact] Compaction event logged.' >&2"
+          }
+        ]
+      }
+    ]
+  }
+}
