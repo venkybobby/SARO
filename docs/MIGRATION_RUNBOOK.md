@@ -1,8 +1,8 @@
 # SARO v8.0.0 — Migration Runbook
 
 **Migration:** Neon PostgreSQL → Supabase · Koyeb → Railway
+**Status:** ✅ COMPLETED 2026-05-08 — Neon decommissioned, Supabase active
 **Owner:** Jordan Lee (Backend) + Venky (Lead)
-**Target completion:** schedule with team before executing
 
 ---
 
@@ -28,7 +28,8 @@ Complete every item before starting Phase 1.
 
 ```bash
 # Set from Neon dashboard → Connection Details
-export NEON_URL="postgresql://<user>:<password>@<host>.neon.tech/<db>?sslmode=require"
+export NEON_URL="postgresql://neondb_owner:[PASSWORD-ROTATED]@ep-spring-wave-ai5rol1x-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# NOTE: Neon project decommissioned 2026-05-08. Password rotated. This line is for historical reference only.
 
 # Full schema + data dump (custom format for parallel restore)
 pg_dump \
@@ -95,10 +96,10 @@ SQL
 
 ```bash
 # Supabase dashboard → Project Settings → Database → Connection string → URI (pooler, port 6543)
-export SUPABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/<db>?sslmode=require"
+export SUPABASE_URL="postgresql://postgres.fktfhtygvwqlmoazmhdf:[YOUR-PASSWORD]@aws-1-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
-# For pg_restore use the DIRECT connection (port 5432), not the pooler
-export SUPABASE_DIRECT="postgresql://postgres.<project-ref>:<password>@db.<project-ref>.supabase.co:5432/<db>?sslmode=require"
+# For pg_restore use the DIRECT connection (bypasses PgBouncer — needed for COPY protocol)
+export SUPABASE_DIRECT="postgresql://postgres.fktfhtygvwqlmoazmhdf:[YOUR-PASSWORD]@db.fktfhtygvwqlmoazmhdf.supabase.co:5432/postgres?sslmode=require"
 
 # Confirm connectivity
 psql "$SUPABASE_DIRECT" -c "SELECT version();"
@@ -328,16 +329,24 @@ If error rate exceeds pre-migration baseline by >2x, execute rollback immediatel
 
 ## Rollback Procedures
 
-### Database rollback (Supabase → Neon)
+### Database rollback
+> ⚠️ Neon is decommissioned. Database rollback means restoring from the pg_dump
+> artefact into a new Supabase project or a local PostgreSQL instance.
 
 ```bash
-# 1. Revert DATABASE_URL in Railway to Neon connection string
-railway variables set DATABASE_URL="$NEON_URL"
+# Create a fresh Supabase project (or local PG) and restore from the dump artefact
+pg_restore \
+  --dbname="postgresql://postgres:[PASSWORD]@<new-host>:5432/postgres?sslmode=require" \
+  --no-owner --no-acl --jobs=4 \
+  saro_neon_export_*.dump
 
-# 2. Redeploy
+# Point Railway at the restored DB
+# Railway dashboard → saro-api → Variables → DATABASE_URL → update value
+
+# Redeploy
 railway up --detach
 
-# 3. Verify health
+# Verify health
 curl -sf "https://$RAILWAY_URL/health"
 ```
 

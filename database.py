@@ -1,13 +1,13 @@
 """
 Database connection and session management.
 
-Uses NullPool so each connection is returned to Neon's pooler immediately —
-critical for serverless/edge deployments where persistent connections are not
-available.
+Uses NullPool so each connection is returned to Supabase's PgBouncer pooler
+immediately — required for transaction-mode pooling where persistent connections
+are not held between requests.
 
 Engine is created lazily on first use so that importing this module never
 raises a KeyError/RuntimeError when DATABASE_URL is not yet in the environment
-(e.g. during Koyeb startup before secrets are injected or during unit tests).
+(e.g. during Railway startup before variables are injected or during unit tests).
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _database_url() -> str:
     if not url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
-            "Add it as a Koyeb secret or set it in your .env file."
+            "Add it as a Railway variable or set it in your .env file."
         )
     return url
 
@@ -41,7 +41,7 @@ def _get_engine():
         _database_url(),
         poolclass=NullPool,
         echo=False,
-        connect_args={"connect_timeout": 10},
+        connect_args={"connect_timeout": 10, "sslmode": "require"},
     )
 
     @event.listens_for(eng, "connect")
