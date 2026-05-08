@@ -109,7 +109,7 @@ app = FastAPI(
         "4-gate pipeline: Data Quality → Fairness → Risk Classification → Compliance Mapping. "
         "Bayesian risk forecasting · MIT coverage · Incident matching · Fixed-delta."
     ),
-    version="1.0.0",
+    version="8.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",

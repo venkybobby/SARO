@@ -1,8 +1,9 @@
 """
 Gunicorn configuration for SARO FastAPI on Railway.
 
-Worker model: UvicornWorker — each worker is a full async uvicorn event loop,
-preserving FastAPI's async handlers and SQLAlchemy async sessions.
+Worker model: UvicornWorker — each worker is a full async uvicorn event loop.
+SARO uses synchronous SQLAlchemy sessions (psycopg2); UvicornWorker is still
+the correct choice because FastAPI itself requires an async-capable server.
 
 Sizing: (2 * CPU) + 1 is the standard formula. Railway Starter gives 1 vCPU,
 so 3 workers is the right default. Increase via GUNICORN_WORKERS env var if
