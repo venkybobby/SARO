@@ -368,6 +368,15 @@ def render(token: str) -> None:
                         )
                         st.code(copy_text, language=None)
 
+                    jira_body = (
+                        f"SARO Exception: {trace.get('check_name','')}\n\n"
+                        f"Audit: {selected_audit.get('dataset_name','')}\n"
+                        f"Audit ID: {audit_id}\n"
+                        f"Severity: {severity}\n"
+                        f"Finding: {trace.get('reason','')}\n\n"
+                        f"Remediation:\n{hint}"
+                    )
+
                     form_key = f"remedy_form_{trace['id']}"
                     with st.form(form_key):
                         notes = st.text_area(
@@ -376,36 +385,19 @@ def render(token: str) -> None:
                             key=f"notes_{trace['id']}",
                             height=80,
                         )
-                        ac1, ac2, ac3 = st.columns(3)
-                        with ac1:
-                            submitted = st.form_submit_button(
-                                "✅ Mark as Remediated",
-                                use_container_width=True,
-                                type="primary",
-                            )
-                        with ac2:
-                            # Jira export as download
-                            jira_body = (
-                                f"SARO Exception: {trace.get('check_name','')}\n\n"
-                                f"Audit: {selected_audit.get('dataset_name','')}\n"
-                                f"Audit ID: {audit_id}\n"
-                                f"Severity: {severity}\n"
-                                f"Finding: {trace.get('reason','')}\n\n"
-                                f"Remediation:\n{hint}"
-                            )
-                            st.form_submit_button(
-                                "📋 Export for Jira",
-                                use_container_width=True,
-                                disabled=False,
-                                help="Download pre-filled Jira ticket content",
-                            )
-                        with ac3:
-                            st.form_submit_button(
-                                "📄 Export as Markdown",
-                                use_container_width=True,
-                                disabled=True,
-                                help="Use the Export Markdown button above to export all issues",
-                            )
+                        submitted = st.form_submit_button(
+                            "✅ Mark as Remediated",
+                            use_container_width=True,
+                            type="primary",
+                        )
+
+                    st.download_button(
+                        "📋 Export for Jira",
+                        data=jira_body,
+                        file_name=f"saro_jira_{str(trace['id'])[:8]}.txt",
+                        mime="text/plain",
+                        key=f"jira_dl_{trace['id']}",
+                    )
 
                     if submitted:
                         try:
