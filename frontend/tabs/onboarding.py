@@ -14,10 +14,14 @@ import io
 import json
 from typing import Any
 
+import os
+
 import requests
 import streamlit as st
 
 from frontend import styles
+
+_API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
 
 _IDP_TEMPLATES: dict[str, dict[str, str]] = {
     "Okta": {
@@ -87,9 +91,8 @@ _SIZES = ["1–50", "51–200", "201–1,000", "1,000+"]
 
 
 def _api(token: str, method: str, path: str, **kwargs: Any) -> requests.Response:
-    base = st.session_state.get("api_base", "http://localhost:8000").rstrip("/")
     return getattr(requests, method)(
-        f"{base}{path}",
+        f"{_API_BASE}{path}",
         headers={"Authorization": f"Bearer {token}"},
         timeout=30,
         **kwargs,
