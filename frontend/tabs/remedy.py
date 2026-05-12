@@ -288,6 +288,7 @@ def render(token: str) -> None:
         )
 
         for trace in gate_traces_sorted:
+            _gate_key = gate_name.replace(" ", "_").replace(":", "")[:30]
             result = trace["result"]
             icon = result_icons.get(result, "•")
             color = result_colors.get(result, "#6b7280")
@@ -377,12 +378,12 @@ def render(token: str) -> None:
                         f"Remediation:\n{hint}"
                     )
 
-                    form_key = f"remedy_form_{trace['id']}"
+                    form_key = f"remedy_form_{_gate_key}_{trace['id']}"
                     with st.form(form_key):
                         notes = st.text_area(
                             "Remediation notes (optional)",
                             placeholder="Describe the corrective action taken — system prompt updated, guardrail added, etc.",
-                            key=f"notes_{trace['id']}",
+                            key=f"notes_{_gate_key}_{trace['id']}",
                             height=80,
                         )
                         submitted = st.form_submit_button(
@@ -396,7 +397,7 @@ def render(token: str) -> None:
                         data=jira_body,
                         file_name=f"saro_jira_{str(trace['id'])[:8]}.txt",
                         mime="text/plain",
-                        key=f"jira_dl_{trace['id']}",
+                        key=f"jira_dl_{_gate_key}_{trace['id']}",
                     )
 
                     if submitted:
