@@ -1,13 +1,27 @@
-[build]
+[services.backend.build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
-[deploy]
+[services.backend.deploy]
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-[deploy.environmentVariables]
+[services.backend.deploy.environmentVariables]
+PYTHONPATH = "/app"
+PYTHONUNBUFFERED = "1"
+
+[services.frontend.build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.frontend"
+
+[services.frontend.deploy]
+healthcheckPath = "/_stcore/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[services.frontend.deploy.environmentVariables]
 PYTHONPATH = "/app"
 PYTHONUNBUFFERED = "1"
