@@ -41,7 +41,13 @@ def _get_engine():
         _database_url(),
         poolclass=NullPool,
         echo=False,
-        connect_args={"connect_timeout": 10, "sslmode": "require"},
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={
+            "connect_timeout": 10,
+            "sslmode": "require",
+            "options": "-c statement_timeout=30000",
+        },
     )
 
     @event.listens_for(eng, "connect")
