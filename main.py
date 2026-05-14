@@ -3,7 +3,7 @@ SARO FastAPI Application Entry Point
 =====================================
 Smart AI Risk Orchestrator — production-grade FastAPI backend.
 
-Startup (standalone repo / Koyeb):
+Startup (standalone repo / Railway):
     uvicorn main:app --host 0.0.0.0 --port $PORT
 
 Environment variables (see .env.example):
@@ -19,7 +19,7 @@ import time
 
 # Ensure the repo root is on sys.path so that sibling modules (database,
 # models, auth, engine, schemas) and the routers sub-package are importable
-# regardless of whether uvicorn is invoked as `uvicorn main:app` (Koyeb /
+# regardless of whether uvicorn is invoked as `uvicorn main:app` (Railway /
 # standalone) or `uvicorn backend.main:app` (monorepo local dev).
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -86,11 +86,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     if not health_check():
         # Log a warning but do NOT crash — the process must bind its port so
-        # Koyeb's health check can pass.  Individual requests will fail with
+        # Railway's health check can pass.  Individual requests will fail with
         # 503 only if the DB is still unreachable when they arrive, which is
         # a much better failure mode than never starting at all.
         logger.warning(
-            "Database unreachable at startup. Check DATABASE_URL secret in Koyeb. "
+            "Database unreachable at startup. Check DATABASE_URL secret in Railway. "
             "API will return 503 on DB-dependent endpoints until the DB is reachable."
         )
     else:
@@ -116,14 +116,14 @@ app = FastAPI(
         "4-gate pipeline: Data Quality → Fairness → Risk Classification → Compliance Mapping. "
         "Bayesian risk forecasting · MIT coverage · Incident matching · Fixed-delta."
     ),
-    version="1.0.0",
+    version="8.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# Default to "*" so the Koyeb frontend can reach the API without needing
+# Default to "*" so the Railway frontend can reach the API without needing
 # ALLOWED_ORIGINS pre-configured.  Set ALLOWED_ORIGINS to a comma-separated
 # list of specific origins to lock down in production.
 # Note: allow_credentials=True is incompatible with allow_origins=["*"], so
@@ -201,7 +201,7 @@ app.include_router(remediation_router)
 @app.get("/health", tags=["ops"])
 def health() -> dict:
     """
-    Koyeb / load-balancer health probe.
+    Railway / load-balancer health probe.
 
     Also returns bootstrap_needed=True when the users table is empty so the
     frontend can display a first-run setup prompt instead of a plain login form.

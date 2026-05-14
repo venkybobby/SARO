@@ -1,0 +1,162 @@
+name: Claude Security Audit
+
+on:
+  schedule:
+    # Every Monday at 02:00 UTC
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual trigger"
+        required: false
+        default: "Manual security audit"
+
+jobs:
+  security-audit:
+    name: Weekly Security Audit
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audit tools
+        run: |
+          pip install pip-audit bandit safety
+          pip install -r requirements.txt
+
+      - name: Dependency vulnerability scan (pip-audit)
+        id: pip-audit
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit --format=markdown | tee pip-audit-report.md || true
+
+      - name: Bandit SAST scan
+        id: bandit
+        run: |
+          bandit -r . -x ./.git,./saro-data-framework,./__pycache__ \
+            -f json -o bandit-report.json \
+            --severity-level medium || true
+          bandit -r . -x ./.git,./saro-data-framework,./__pycache__ \
+            --severity-level medium | tee bandit-report.txt || true
+
+      - name: Secret scanning (trufflehog)
+        id: secrets
+        run: |
+          pip install truffleHog3 || true
+          trufflehog3 . --format json --output trufflehog-report.json || true
+
+      - name: Bundle audit reports
+        run: |
+          mkdir -p security-reports
+          cp pip-audit-report.json security-reports/ 2>/dev/null || true
+          cp pip-audit-report.md security-reports/ 2>/dev/null || true
+          cp bandit-report.json security-reports/ 2>/dev/null || true
+          cp bandit-report.txt security-reports/ 2>/dev/null || true
+          cp trufflehog-report.json security-reports/ 2>/dev/null || true
+          echo "Audit date: $(date -u)" > security-reports/AUDIT_META.txt
+          echo "Commit: ${{ github.sha }}" >> security-reports/AUDIT_META.txt
+          echo "Branch: ${{ github.ref_name }}" >> security-reports/AUDIT_META.txt
+
+      - name: Claude Security Analysis
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-opus-4-7
+          max_tokens: 100000
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are a security engineer conducting a weekly audit of the SARO platform (Smart AI Risk Orchestrator v8.0.0).
+
+            Read all files in the `security-reports/` directory and produce a comprehensive security audit report.
+
+            ## Audit Scope
+
+            ### 1. Dependency Vulnerabilities (pip-audit-report.json)
+            - List all HIGH and CRITICAL CVEs
+            - Provide remediation: specific version to upgrade to
+            - Flag any that affect SARO's core: fastapi, pydantic, sqlalchemy, python-jose, argon2-cffi
+
+            ### 2. SAST Findings (bandit-report.json)
+            - List HIGH severity findings with file:line references
+            - Flag OWASP Top 10 patterns: SQL injection, hardcoded secrets, insecure deserialization, path traversal
+            - Ignore false positives in test files (note them as excluded)
+
+            ### 3. Secret Scanning (trufflehog-report.json)
+            - List any exposed secrets, tokens, or credentials
+            - If found, treat as CRITICAL — these must be rotated immediately
+
+            ### 4. SARO-Specific Security Checks
+            Review the source files for these patterns:
+            - JWT validation: verify `python-jose` usage is correct (algorithm pinned, expiry checked)
+            - SQL: verify SQLAlchemy parameterised queries only (no string formatting)
+            - Auth bypass: any endpoint missing `Depends(get_current_user)` except /health and /auth/token
+            - Input validation: Pydantic field limits enforced (max_length on prompt/raw_output)
+            - CORS: verify `allow_origins` is not `["*"]` in production config
+
+            ## Output Format
+            Write the report to `security-reports/CLAUDE_SECURITY_REPORT.md` using this structure:
+
+            ```markdown
+            # SARO Security Audit Report
+            **Date:** {date}
+            **Commit:** {sha}
+            **Auditor:** Claude Opus (automated)
+
+            ## Executive Summary
+            - Critical findings: N
+            - High findings: N
+            - Action required by: {date + 72h for critical, date + 7d for high}
+
+            ## Critical Findings
+            ...
+
+            ## High Findings
+            ...
+
+            ## Dependency Upgrades Required
+            ...
+
+            ## No-Action Items
+            ...
+
+            ## Sign-off Required
+            Human security review required before closing critical findings.
+            ```
+
+            After writing the report, create a GitHub issue if there are any CRITICAL findings, titled:
+            `[SECURITY] Critical findings in weekly audit {date}`
+
+      - name: Upload security report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: saro-security-audit-${{ github.run_id }}
+          path: security-reports/
+          retention-days: 90
+
+      - name: Fail workflow on critical findings
+        run: |
+          if grep -q '"severity": "HIGH"' security-reports/bandit-report.json 2>/dev/null; then
+            echo "High severity SAST findings detected — review security-reports/"
+            exit 1
+          fi
+          if grep -q '"vulns"' security-reports/pip-audit-report.json 2>/dev/null; then
+            CRITICAL=$(python3 -c "import json; d=json.load(open('security-reports/pip-audit-report.json')); vulns=[v for p in d.get('dependencies',[]) for v in p.get('vulns',[]) if v.get('fix_versions')]; print(len(vulns))" 2>/dev/null || echo "0")
+            if [ "$CRITICAL" -gt "0" ]; then
+              echo "$CRITICAL vulnerable dependencies with available fixes — update requirements.txt"
+              exit 1
+            fi
+          fi
