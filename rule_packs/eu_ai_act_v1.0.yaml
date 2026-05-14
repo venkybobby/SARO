@@ -1,0 +1,36 @@
+name: EU AI Act
+version: "1.0.0"
+framework: EU-AI-ACT-2024
+last_updated: "2026-02-01"
+status: active
+description: >
+  Rules derived from the EU AI Act (2024/1689).
+  Focused on high-risk AI system requirements.
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-02-01"
+    changes:
+      - Initial release covering Annex III high-risk categories
+
+rules:
+  - id: EUAI-ART9-001
+    name: Risk Management System
+    description: High-risk AI systems must have a documented risk management system
+    severity: 5
+    category: Risk Management
+    check_type: documentation_check
+
+  - id: EUAI-ART13-001
+    name: Transparency Obligation
+    description: AI outputs must include disclosure that AI was used
+    severity: 4
+    category: Transparency
+    check_type: disclosure_check
+
+  - id: EUAI-ART14-001
+    name: Human Oversight
+    description: High-risk AI systems must allow human override
+    severity: 5
+    category: Human Oversight
+    check_type: oversight_check

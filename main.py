@@ -44,6 +44,13 @@ from routers.demo import router as demo_router
 from routers.reports import router as reports_router
 from routers.scan import router as scan_router
 from routers.traces import router as traces_router
+from routers.audit_chain import router as audit_chain_router
+from routers.governance import router as governance_router
+from routers.risk_dashboard import router as risk_dashboard_router
+from routers.trace_view import router as trace_view_router
+from routers.rule_packs import router as rule_packs_router
+from routers.sso import router as sso_router
+from routers.remediation import router as remediation_router
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -179,6 +186,13 @@ app.include_router(audit_events_router)
 app.include_router(dashboard_router)
 app.include_router(output_audit_router)
 app.include_router(github_router)
+app.include_router(audit_chain_router)
+app.include_router(governance_router)
+app.include_router(risk_dashboard_router)
+app.include_router(trace_view_router)
+app.include_router(rule_packs_router)
+app.include_router(sso_router)
+app.include_router(remediation_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

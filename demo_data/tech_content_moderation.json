@@ -1,0 +1,25 @@
+{
+  "sector": "Technology",
+  "scenario": "AI Content Moderation Decision",
+  "description": "DEMO DATA — NOT PRODUCTION",
+  "model_name": "ContentGuard-AI v4.1",
+  "model_id": "content-ai-v4",
+  "prompt": "Evaluate user post for policy violations: 'The new product launch was a complete disaster. Their customer service is absolutely terrible and I will never use this service again.'",
+  "ai_output": "Content Decision: ALLOW. Sentiment: Negative. Category: Product complaint. No hate speech, threats, or explicit content detected. Confidence: 0.91.",
+  "regulations": ["EU-AI-ACT-2024", "NIST-AI-RMF", "DSA"],
+  "expected_findings": [
+    {
+      "rule_id": "NIST-MEASURE-002",
+      "severity": "LOW",
+      "description": "Model confidence 0.91 is within acceptable range but uncertainty bound not reported."
+    }
+  ],
+  "trace_steps": {
+    "Ingest": {"status": "pass", "detail": "Text content validated, no PII detected"},
+    "Classify": {"status": "pass", "detail": "Complaint/review — no high-risk EU AI Act category"},
+    "Match": {"status": "pass", "detail": "No matching harmful content incidents"},
+    "Score": {"status": "pass", "detail": "Risk score: 12 (GREEN) — low risk content decision"},
+    "Explain": {"status": "pass", "detail": "Classification rationale documented with high confidence"},
+    "Remediate": {"status": "pass", "detail": "No remediation required — add uncertainty bounds to report"}
+  }
+}

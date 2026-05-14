@@ -11,7 +11,19 @@
       "Bash(cp C:/Users/shris/frontend/app.py C:/Users/shris/Fileprocessing/frontend/app.py)",
       "Bash(cp C:/Users/shris/frontend/tabs/reports.py C:/Users/shris/Fileprocessing/frontend/tabs/reports.py)",
       "Bash(cp C:/Users/shris/frontend/tabs/remedy.py C:/Users/shris/Fileprocessing/frontend/tabs/remedy.py)",
-      "Bash(python -m pytest tests/test_new_features.py -v)"
+      "Bash(python -m pytest tests/test_new_features.py -v)",
+      "Read(//c/Users/shris/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/64d41329-d73f-40e0-b8fa-27806eaca0a6/5b980f6b-0039-4fb8-bc38-10b7a732e487/skills/docx/**)",
+      "Bash(pandoc --track-changes=all \"C:\\\\Users\\\\shris\\\\Downloads\\\\SARO_Implementation_Plan_v2.docx\" -o output.md)",
+      "Bash(python \"C:\\\\Users\\\\shris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\64d41329-d73f-40e0-b8fa-27806eaca0a6\\\\5b980f6b-0039-4fb8-bc38-10b7a732e487\\\\skills\\\\docx\\\\scripts\\\\office\\\\unpack.py\" \"C:\\\\Users\\\\shris\\\\Downloads\\\\SARO_Implementation_Plan_v2.docx\" \"C:\\\\Users\\\\shris\\\\Downloads\\\\SARO_Plan_unpacked\")",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/test_epic6_security.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_epic1_audit.py tests/test_epic5_governance.py -v --tb=short)",
+      "Bash(python -c \"import ast, sys; [print\\(l.strip\\(\\)\\) for l in open\\('main.py'\\) if 'include_router' in l or \\('import' in l and 'router' in l.lower\\(\\)\\)]\")",
+      "Bash(python -m pytest tests/test_epic2_trace.py tests/test_epic3_risk.py tests/test_epic4_rule_packs.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short -q)",
+      "Bash(python -m pytest tests/test_epic1_audit.py tests/test_epic2_trace.py tests/test_epic3_risk.py tests/test_epic4_rule_packs.py tests/test_epic5_governance.py tests/test_epic6_security.py tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short)",
+      "Bash(git add *)"
     ]
   }
 }
