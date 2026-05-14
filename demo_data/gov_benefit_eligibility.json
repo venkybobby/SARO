@@ -1,0 +1,30 @@
+{
+  "sector": "Government",
+  "scenario": "AI Benefit Eligibility Decision",
+  "description": "DEMO DATA — NOT PRODUCTION",
+  "model_name": "BenefitScreen-AI v2.0",
+  "model_id": "benefit-ai-v2",
+  "prompt": "Determine eligibility for housing assistance: household income $28,000, family size 3, current rental cost $1,400/month, employment status part-time.",
+  "ai_output": "Eligibility: QUALIFIED. Income-to-rent ratio 60% exceeds threshold. Priority score: 7.2/10. Estimated wait time: 4-6 months. Recommendation: place on waitlist.",
+  "regulations": ["EU-AI-ACT-2024", "NIST-AI-RMF", "AIGP"],
+  "expected_findings": [
+    {
+      "rule_id": "NIST-GOVERN-001",
+      "severity": "MEDIUM",
+      "description": "AI governance policy for public benefit decisions not documented."
+    },
+    {
+      "rule_id": "EUAI-ART13-001",
+      "severity": "HIGH",
+      "description": "Applicant not informed that AI was used in eligibility determination."
+    }
+  ],
+  "trace_steps": {
+    "Ingest": {"status": "pass", "detail": "Application data validated — income brackets applied"},
+    "Classify": {"status": "fail", "detail": "EU AI Act: public services high-risk category"},
+    "Match": {"status": "pass", "detail": "No adverse incidents for this scenario type"},
+    "Score": {"status": "fail", "detail": "Risk score: 52 (AMBER) — transparency obligation"},
+    "Explain": {"status": "pass", "detail": "Scoring criteria and weighting documented"},
+    "Remediate": {"status": "pass", "detail": "Add AI disclosure to applicant notification letter"}
+  }
+}

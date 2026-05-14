@@ -1,0 +1,57 @@
+name: NIST AI Risk Management Framework
+version: "1.0.0"
+framework: NIST-AI-RMF
+last_updated: "2026-01-15"
+status: active
+description: >
+  Rules derived from the NIST AI Risk Management Framework (AI RMF 1.0).
+  Covers Govern, Map, Measure, and Manage core functions.
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-01-15"
+    changes:
+      - Initial release with 12 core rules
+
+rules:
+  - id: NIST-GOVERN-001
+    name: AI Governance Policy Exists
+    description: Organisation must have a documented AI governance policy
+    severity: 4
+    category: Govern
+    check_type: policy_check
+
+  - id: NIST-MAP-001
+    name: Risk Context Established
+    description: AI system risk context must be defined before deployment
+    severity: 4
+    category: Map
+    check_type: context_check
+
+  - id: NIST-MAP-002
+    name: Impact Assessment Documented
+    description: Potential impacts of AI outputs must be assessed
+    severity: 3
+    category: Map
+    check_type: impact_check
+
+  - id: NIST-MEASURE-001
+    name: Bias Metrics Tracked
+    description: Fairness and bias metrics must be measured and logged
+    severity: 5
+    category: Measure
+    check_type: fairness_check
+
+  - id: NIST-MEASURE-002
+    name: Uncertainty Quantified
+    description: Model confidence and uncertainty must be reported
+    severity: 3
+    category: Measure
+    check_type: confidence_check
+
+  - id: NIST-MANAGE-001
+    name: Incident Response Plan Active
+    description: An active AI incident response plan must exist
+    severity: 5
+    category: Manage
+    check_type: policy_check
