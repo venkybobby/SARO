@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -67,6 +68,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     # Roles: "super_admin" | "operator"
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="operator")
+    # Personas: "compliance_lead" | "risk_officer" | "ai_auditor" | "admin"
+    persona_role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -478,3 +481,20 @@ class DemoRequest(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Persona RBAC (one row per persona role — seeded by migration 004)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class PersonaPermission(Base):
+    __tablename__ = "persona_permissions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    persona_role: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    allowed_tabs: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
+    allowed_actions: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
+    denied_actions: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
+    trace_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="executive")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

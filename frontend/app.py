@@ -1,7 +1,7 @@
 """
 SARO Streamlit Application
 ===========================
-Smart AI Risk Orchestrator — Enterprise web frontend v2.2.
+Smart AI Risk Orchestrator — Enterprise web frontend v3.0.
 
 Run:
     streamlit run frontend/app.py
@@ -20,23 +20,74 @@ from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
-from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import onboarding as onboarding_tab
 from frontend import styles
 
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
 _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
 
+# Persona → tab mapping (tab_id: (label, module_attr))
+_TAB_REGISTRY: dict[str, tuple[str, str]] = {
+    "dashboard":       ("🏠 Dashboard",         "dashboard"),
+    "compliance_hub":  ("🏛️ Compliance Hub",    "compliance_hub"),
+    "trace_view":      ("🔍 TRACE View",         "trace_view"),
+    "evidence_export": ("📦 Evidence Export",    "trace_view"),
+    "risk_summary":    ("📊 Risk Summary",       "risk_summary"),
+    "vendor_risk":     ("🏢 Vendor Risk",        "risk_summary"),
+    "claims_matrix":   ("📋 Claims Matrix",      "how_saro_reasons"),
+    "how_saro_reasons":("💡 How SARO Reasons",   "how_saro_reasons"),
+    "dpa_governance":  ("📄 DPA & Governance",   "how_saro_reasons"),
+    "ir_plan":         ("🚨 IR Plan",            "how_saro_reasons"),
+    "rule_packs":      ("📦 Rule Packs",         "rule_packs_tab"),
+    "coverage_gap":    ("🗺️ Coverage Gap",       "coverage"),
+    "remediation":     ("🔧 Remediation",        "remedy"),
+    "drift_alerts":    ("📡 Drift Alerts",       "drift"),
+    "onboarding":      ("🏢 Onboarding",         "onboarding"),
+    "upload":          ("📤 Upload & Scan",      "upload"),
+    "admin_settings":  ("⚙️ Admin",              "dashboard"),
+}
+
+_PERSONA_TABS: dict[str, list[str]] = {
+    "compliance_lead": [
+        "compliance_hub", "trace_view", "evidence_export",
+        "claims_matrix", "how_saro_reasons", "dpa_governance",
+        "ir_plan", "onboarding", "upload", "dashboard",
+    ],
+    "risk_officer": [
+        "risk_summary", "vendor_risk", "ir_plan",
+        "trace_view", "dashboard",
+    ],
+    "ai_auditor": [
+        "dashboard", "trace_view", "evidence_export",
+        "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "upload",
+    ],
+    "admin": list(_TAB_REGISTRY.keys()),
+    # Fallback for legacy roles
+    "super_admin": list(_TAB_REGISTRY.keys()),
+    "operator": ["dashboard", "upload", "trace_view", "remediation"],
+}
+
+_PERSONA_ICONS: dict[str, str] = {
+    "compliance_lead": "⚖️",
+    "risk_officer": "📊",
+    "ai_auditor": "🔍",
+    "admin": "⚙️",
+    "super_admin": "⚙️",
+    "operator": "👤",
+}
+
+_PERSONA_LABELS: dict[str, str] = {
+    "compliance_lead": "Compliance Lead",
+    "risk_officer": "Risk Officer",
+    "ai_auditor": "AI Auditor",
+    "admin": "Admin",
+    "super_admin": "Super Admin",
+    "operator": "Operator",
+}
+
 
 def _check_bootstrap() -> dict | None:
-    """
-    Call GET /health and return JSON if reachable, else None.
-
-    Result is cached in session_state for 30 seconds to avoid a remote HTTP
-    round-trip on every Streamlit re-render (every button click triggers a
-    full script re-run, so without caching the login page makes a /health
-    request on each interaction — the main cause of Issue 1 login slowness).
-    """
     import time
     cache_key = "_health_cache"
     ts_key = "_health_cache_ts"
@@ -53,14 +104,12 @@ def _check_bootstrap() -> dict | None:
             return result
     except Exception:
         pass
-    # Cache the failure too so we don't hammer a cold-starting backend
     st.session_state[cache_key] = None
     st.session_state[ts_key] = now
     return None
 
 
 def _do_bootstrap(org_name: str, email: str, password: str) -> bool:
-    """Call POST /api/v1/auth/bootstrap; return True on success."""
     try:
         resp = requests.post(
             f"{_API_BASE}/api/v1/auth/bootstrap",
@@ -100,7 +149,6 @@ def _do_demo_signup(
     company_name: str,
     message: str,
 ) -> bool:
-    """Call POST /api/v1/demo/signup; return True on success."""
     try:
         resp = requests.post(
             f"{_API_BASE}/api/v1/demo/signup",
@@ -134,29 +182,23 @@ st.set_page_config(
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={"About": "SARO — Smart AI Risk Orchestrator v2.2"},
+    menu_items={"About": "SARO — Smart AI Risk Orchestrator v3.0"},
 )
 
-# Inject enterprise dark theme CSS immediately
 styles.apply()
-
-# ── Session state defaults ────────────────────────────────────────────────────
 
 for key, default in [
     ("token", None),
     ("user", None),
     ("last_report", None),
     ("demo_submitted", False),
+    ("active_tab", None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
 
-# ── Login helpers ─────────────────────────────────────────────────────────────
-
-
 def _login(email: str, password: str) -> bool:
-    """Attempt login; return True on success."""
     try:
         resp = requests.post(
             f"{_API_BASE}/api/v1/auth/token",
@@ -206,7 +248,6 @@ def _login(email: str, password: str) -> bool:
 
 
 def _render_login() -> None:
-    # Centered branding
     st.markdown(
         '<div style="text-align:center;padding:40px 0 24px">'
         '<div style="font-size:3rem">🛡️</div>'
@@ -252,11 +293,9 @@ def _render_login() -> None:
     if bootstrap_needed is None and health_data is None:
         st.warning(f"⚠️ Cannot reach the API at `{_API_BASE}`. Refresh to retry.")
 
-    # ── Login / Demo tabs ─────────────────────────────────────────────────────
     login_tab, demo_tab = st.tabs(["🔐 Sign In", "🚀 Request Demo"])
 
     with login_tab:
-        # Narrow login form
         _, c, _ = st.columns([1, 2, 1])
         with c:
             st.subheader("Sign in to SARO")
@@ -278,7 +317,6 @@ def _render_login() -> None:
 
 
 def _render_demo_signup() -> None:
-    """Render the public demo/trial signup form."""
     st.subheader("Request a Demo")
     st.caption(
         "Interested in SARO for your organisation? Submit your details and "
@@ -323,15 +361,49 @@ def _render_demo_signup() -> None:
                 st.rerun()
 
 
-# ── Authenticated layout ───────────────────────────────────────────────────────
+def _get_persona(user: dict) -> str:
+    """Resolve persona role from user dict, falling back to legacy role mapping."""
+    persona = user.get("persona_role") or user.get("role", "operator")
+    if persona in _PERSONA_TABS:
+        return persona
+    return "operator"
+
+
+def _render_persona_badge(persona: str, email: str) -> None:
+    icon = _PERSONA_ICONS.get(persona, "👤")
+    label = _PERSONA_LABELS.get(persona, persona.replace("_", " ").title())
+    st.markdown(
+        f'<div style="margin-bottom:12px">'
+        f'<div style="font-size:0.75rem;color:#475569;text-transform:uppercase;'
+        f'letter-spacing:0.05em;font-weight:600;margin-bottom:4px">Signed in as</div>'
+        f'<div style="font-size:0.85rem;color:#e2e8f0;font-weight:500">{email}</div>'
+        f'<div style="margin-top:4px">'
+        f'<span style="background:#1e3a5f;color:#60a5fa;padding:2px 10px;border-radius:4px;'
+        f'font-size:0.72rem;font-weight:600">{icon} {label}</span>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _load_tab_module(module_name: str):
+    """Dynamically import a tab module."""
+    import importlib
+    try:
+        return importlib.import_module(f"frontend.tabs.{module_name}")
+    except ImportError:
+        return None
 
 
 def _render_app() -> None:
     user = st.session_state["user"]
     token: str = st.session_state["token"]
+    persona = _get_persona(user)
 
     st.session_state["api_base"] = _API_BASE
+    st.session_state["persona"] = persona
 
+    # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown(
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">'
@@ -345,21 +417,8 @@ def _render_app() -> None:
         )
         st.divider()
 
-        role_label = {"super_admin": "Super Admin", "operator": "Operator"}.get(
-            user.get("role", ""), user.get("role", "").title()
-        )
-        st.markdown(
-            f'<div style="margin-bottom:12px">'
-            f'<div style="font-size:0.75rem;color:#475569;text-transform:uppercase;'
-            f'letter-spacing:0.05em;font-weight:600;margin-bottom:4px">Signed in as</div>'
-            f'<div style="font-size:0.85rem;color:#e2e8f0;font-weight:500">{user["email"]}</div>'
-            f'<div style="margin-top:3px">'
-            f'<span style="background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:4px;'
-            f'font-size:0.72rem;font-weight:600">{role_label}</span>'
-            f'</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        _render_persona_badge(persona, user.get("email", ""))
+
         st.divider()
 
         # API / DB health
@@ -369,7 +428,7 @@ def _render_app() -> None:
             db_ok = db_status == "ok"
             st.markdown(
                 f'<div style="font-size:0.78rem;color:#475569">'
-                f'<span style="color:{"#4ade80" if True else "#f87171"}">● API online</span>'
+                f'<span style="color:#4ade80">● API online</span>'
                 f'&nbsp;&nbsp;'
                 f'<span style="color:{"#4ade80" if db_ok else "#f87171"}">● DB {db_status}</span>'
                 f'</div>',
@@ -382,6 +441,17 @@ def _render_app() -> None:
             )
 
         st.divider()
+
+        if persona in ("admin", "super_admin") and st.expander("🔀 Switch Persona"):
+            new_persona = st.selectbox(
+                "View as",
+                options=["admin", "compliance_lead", "risk_officer", "ai_auditor"],
+                key="persona_switch",
+            )
+            if st.button("Apply", key="apply_persona_switch"):
+                st.session_state["user"]["persona_role"] = new_persona
+                st.rerun()
+
         if st.button("Sign Out", use_container_width=True):
             st.session_state["token"] = None
             st.session_state["user"] = None
@@ -390,52 +460,65 @@ def _render_app() -> None:
         st.markdown(
             '<div style="position:absolute;bottom:20px;left:16px;right:16px;'
             'font-size:0.7rem;color:#334155;text-align:center">'
-            'SARO v2.2 — Enterprise AI Governance'
+            'SARO v3.0 — Enterprise AI Governance'
             '</div>',
             unsafe_allow_html=True,
         )
 
-    # Main tabs
-    if user.get("role") == "super_admin":
-        (
-            tab_dashboard,
-            tab_upload,
-            tab_reports,
-            tab_remedy,
-            tab_onboarding,
-            tab_demo_requests,
-        ) = st.tabs([
-            "🏠 Dashboard",
-            "📤 Upload & Scan",
-            "📊 Reports",
-            "🔧 Remedy",
-            "🏢 Client Onboarding",
-            "📋 Demo Requests",
-        ])
-        with tab_onboarding:
-            onboarding_tab.render(token)
-        with tab_demo_requests:
-            _render_demo_requests(token)
-    else:
-        tab_dashboard, tab_upload, tab_reports, tab_remedy = st.tabs(
-            ["🏠 Dashboard", "📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
-        )
+    # ── Build persona-filtered tab list ───────────────────────────────────────
+    allowed_tab_ids = _PERSONA_TABS.get(persona, _PERSONA_TABS["operator"])
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique_tab_ids: list[str] = []
+    for tid in allowed_tab_ids:
+        if tid not in seen and tid in _TAB_REGISTRY:
+            seen.add(tid)
+            unique_tab_ids.append(tid)
 
-    with tab_dashboard:
-        dashboard_tab.render(token)
+    tab_labels = [_TAB_REGISTRY[tid][0] for tid in unique_tab_ids]
 
-    with tab_upload:
-        upload_tab.render(token)
+    if not tab_labels:
+        st.error("No tabs available for your persona. Contact your administrator.")
+        return
 
-    with tab_reports:
-        reports_tab.render(token)
+    # Admin gets demo requests tab
+    if persona in ("admin", "super_admin"):
+        tab_labels.append("📋 Demo Requests")
+        unique_tab_ids.append("_demo_requests")
 
-    with tab_remedy:
-        remedy_tab.render(token)
+    rendered_tabs = st.tabs(tab_labels)
+
+    for i, (tab_id, tab_obj) in enumerate(zip(unique_tab_ids, rendered_tabs)):
+        with tab_obj:
+            if tab_id == "_demo_requests":
+                _render_demo_requests(token)
+                continue
+
+            module_name = _TAB_REGISTRY[tab_id][1]
+
+            # Route to built-in modules first
+            if module_name == "dashboard":
+                dashboard_tab.render(token)
+            elif module_name == "upload":
+                upload_tab.render(token)
+            elif module_name == "remedy" or tab_id == "remediation":
+                remedy_tab.render(token)
+            elif module_name == "onboarding" or tab_id == "onboarding":
+                onboarding_tab.render(token)
+            elif module_name == "reports":
+                reports_tab.render(token)
+            else:
+                # Dynamically load new tab modules
+                mod = _load_tab_module(module_name)
+                if mod and hasattr(mod, "render"):
+                    mod.render(token)
+                else:
+                    # Graceful fallback if tab module not yet implemented
+                    st.info(f"**{_TAB_REGISTRY[tab_id][0]}** — tab loading…")
+                    st.caption(f"Module: `frontend.tabs.{module_name}`")
 
 
 def _render_demo_requests(token: str) -> None:
-    """Super-admin view: list and manage demo requests."""
     st.header("📋 Demo Requests")
 
     status_filter = st.selectbox(
