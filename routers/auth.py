@@ -190,3 +190,32 @@ def list_tenants(
 ) -> list[TenantOut]:
     """List all tenants (super_admin only)."""
     return [TenantOut.model_validate(t) for t in db.query(Tenant).all()]
+
+
+# ── Persona assignment ────────────────────────────────────────────────────────
+
+_VALID_PERSONAS = {"compliance_lead", "risk_officer", "ai_auditor", "admin"}
+
+
+@router.patch("/users/{user_id}/persona", response_model=UserOut)
+def set_user_persona(
+    user_id: uuid.UUID,
+    persona_role: str,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> UserOut:
+    """Set a user's persona role. Requires super_admin."""
+    if current.role != "super_admin":
+        raise HTTPException(status_code=403, detail="super_admin required")
+    if persona_role not in _VALID_PERSONAS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid persona. Must be one of: {sorted(_VALID_PERSONAS)}",
+        )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.persona_role = persona_role
+    db.commit()
+    db.refresh(user)
+    return UserOut.model_validate(user)

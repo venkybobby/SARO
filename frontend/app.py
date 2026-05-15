@@ -26,45 +26,53 @@ from frontend import styles
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
 _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
 
-# Persona → tab mapping (tab_id: (label, module_attr))
+# Persona → tab mapping (tab_id: (label, module_name))
 _TAB_REGISTRY: dict[str, tuple[str, str]] = {
-    "dashboard":       ("🏠 Dashboard",         "dashboard"),
-    "compliance_hub":  ("🏛️ Compliance Hub",    "compliance_hub"),
-    "trace_view":      ("🔍 TRACE View",         "trace_view"),
-    "evidence_export": ("📦 Evidence Export",    "trace_view"),
-    "risk_summary":    ("📊 Risk Summary",       "risk_summary"),
-    "vendor_risk":     ("🏢 Vendor Risk",        "risk_summary"),
-    "claims_matrix":   ("📋 Claims Matrix",      "how_saro_reasons"),
-    "how_saro_reasons":("💡 How SARO Reasons",   "how_saro_reasons"),
-    "dpa_governance":  ("📄 DPA & Governance",   "how_saro_reasons"),
-    "ir_plan":         ("🚨 IR Plan",            "how_saro_reasons"),
-    "rule_packs":      ("📦 Rule Packs",         "rule_packs_tab"),
-    "coverage_gap":    ("🗺️ Coverage Gap",       "coverage"),
-    "remediation":     ("🔧 Remediation",        "remedy"),
-    "drift_alerts":    ("📡 Drift Alerts",       "drift"),
-    "onboarding":      ("🏢 Onboarding",         "onboarding"),
-    "upload":          ("📤 Upload & Scan",      "upload"),
-    "admin_settings":  ("⚙️ Admin",              "dashboard"),
+    "dashboard":       ("🏠 Dashboard",          "dashboard"),
+    "compliance_hub":  ("🏛️ Compliance Hub",     "compliance_hub"),
+    "trace_view":      ("🔍 TRACE View",          "trace_view"),
+    "evidence_export": ("📦 Evidence Export",     "trace_view"),
+    "risk_summary":    ("📊 Risk Summary",        "risk_summary"),
+    "vendor_risk":     ("🏢 Vendor Risk",         "risk_summary"),
+    "claims_matrix":   ("📋 Claims Matrix",       "claims_matrix"),
+    "how_saro_reasons":("💡 How SARO Reasons",    "how_saro_reasons"),
+    "dpa_governance":  ("📄 DPA & Governance",    "governance_docs"),
+    "ir_plan":         ("🚨 IR Plan",             "governance_docs"),
+    "rule_packs":      ("📦 Rule Packs",          "rule_packs_tab"),
+    "coverage_gap":    ("🗺️ Coverage Gap",        "coverage"),
+    "remediation":     ("🔧 Remediation",         "remedy"),
+    "drift_alerts":    ("📡 Drift Alerts",        "drift"),
+    "onboarding":      ("🏢 Onboarding",          "onboarding"),
+    "upload":          ("📤 Upload & Scan",       "upload"),
+    "admin_settings":  ("⚙️ Admin Settings",      "dashboard"),
 }
 
 _PERSONA_TABS: dict[str, list[str]] = {
     "compliance_lead": [
-        "compliance_hub", "trace_view", "evidence_export",
+        "dashboard", "compliance_hub", "trace_view", "evidence_export",
         "claims_matrix", "how_saro_reasons", "dpa_governance",
-        "ir_plan", "onboarding", "upload", "dashboard",
+        "onboarding", "upload",
     ],
     "risk_officer": [
-        "risk_summary", "vendor_risk", "ir_plan",
-        "trace_view", "dashboard",
+        "dashboard", "risk_summary", "vendor_risk", "ir_plan", "trace_view",
     ],
     "ai_auditor": [
         "dashboard", "trace_view", "evidence_export",
-        "rule_packs", "coverage_gap", "remediation",
-        "drift_alerts", "upload",
+        "rule_packs", "coverage_gap", "remediation", "drift_alerts", "upload",
     ],
-    "admin": list(_TAB_REGISTRY.keys()),
+    "admin": [
+        "dashboard", "compliance_hub", "trace_view", "evidence_export",
+        "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
+        "dpa_governance", "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "onboarding", "upload", "admin_settings",
+    ],
     # Fallback for legacy roles
-    "super_admin": list(_TAB_REGISTRY.keys()),
+    "super_admin": [
+        "dashboard", "compliance_hub", "trace_view", "evidence_export",
+        "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
+        "dpa_governance", "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "onboarding", "upload", "admin_settings",
+    ],
     "operator": ["dashboard", "upload", "trace_view", "remediation"],
 }
 
@@ -507,6 +515,8 @@ def _render_app() -> None:
                 onboarding_tab.render(token)
             elif module_name == "reports":
                 reports_tab.render(token)
+            elif tab_id == "admin_settings":
+                _render_admin_settings(token)
             else:
                 # Dynamically load new tab modules
                 mod = _load_tab_module(module_name)
@@ -589,6 +599,54 @@ def _render_demo_requests(token: str) -> None:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Update failed: {e}")
+
+
+def _render_admin_settings(token: str) -> None:
+    """Admin Settings — user management and persona assignment."""
+    st.header("⚙️ Admin Settings")
+
+    st.subheader("👤 User Persona Assignment")
+    st.caption("Assign a persona role to any user. Personas control which tabs and actions are available.")
+
+    with st.form("persona_assign_form"):
+        user_id = st.text_input("User UUID", placeholder="e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6")
+        persona = st.selectbox(
+            "Persona Role",
+            options=["compliance_lead", "risk_officer", "ai_auditor", "admin"],
+            format_func=lambda x: {
+                "compliance_lead": "⚖️ Compliance Lead",
+                "risk_officer": "📊 Risk Officer",
+                "ai_auditor": "🔍 AI Auditor",
+                "admin": "⚙️ Admin",
+            }.get(x, x),
+        )
+        submitted = st.form_submit_button("Assign Persona", type="primary")
+
+    if submitted and user_id:
+        try:
+            resp = requests.patch(
+                f"{_API_BASE}/api/v1/auth/users/{user_id}/persona",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"persona_role": persona},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            st.success(f"✅ Persona `{persona}` assigned to user `{user_id}`.")
+        except requests.HTTPError as e:
+            st.error(f"Failed ({e.response.status_code}): {e.response.json().get('detail', str(e))}")
+        except Exception as exc:
+            st.error(f"Error: {exc}")
+
+    st.divider()
+    st.subheader("🔑 Persona Permissions Reference")
+    st.markdown(
+        "| Persona | Default Landing | Key Permissions |\n"
+        "|---------|----------------|------------------|\n"
+        "| ⚖️ Compliance Lead | Compliance Hub | TRACE (executive), evidence export, claims matrix, DPA |\n"
+        "| 📊 Risk Officer | Risk Summary | Risk dashboard, vendor risk, IR plan, board PDF |\n"
+        "| 🔍 AI Auditor | Dashboard | TRACE (technical), rule packs, coverage gap, remediation |\n"
+        "| ⚙️ Admin | Dashboard | All tabs and actions |"
+    )
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

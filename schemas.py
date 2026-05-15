@@ -40,6 +40,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
     role: str
+    persona_role: str | None = None
     tenant_id: uuid.UUID
     is_active: bool
     created_at: datetime
