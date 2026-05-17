@@ -171,7 +171,7 @@ def _render_vendor_risk(vendors: list[dict]) -> None:
         )
 
 
-def render(token: str) -> None:
+def render(token: str, tab_key: str = "risk_summary") -> None:
     st.header("Risk Officer Dashboard")
     st.caption("Board-level risk view — RAG status, trends, findings, and vendor exposure.")
 
@@ -196,7 +196,7 @@ def render(token: str) -> None:
     st.divider()
 
     # Board PDF export
-    if st.button("Export Board PDF", type="primary"):
+    if st.button("Export Board PDF", type="primary", key=f"{tab_key}_export_btn"):
         try:
             resp = _api(token, "get", "/api/v1/risk/board-export")
             if resp.status_code == 200:
@@ -205,7 +205,7 @@ def render(token: str) -> None:
                     data=resp.content,
                     file_name="saro_board_report.pdf",
                     mime="application/pdf",
-                    key="board_pdf_dl",
+                    key=f"{tab_key}_pdf_dl",
                 )
             else:
                 st.error(f"Export failed ({resp.status_code}): {resp.text[:200]}")
