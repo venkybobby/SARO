@@ -1,0 +1,97 @@
+name: Claude Interactive
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  respond:
+    name: Claude Team Q&A
+    runs-on: ubuntu-latest
+    # Only trigger when @claude is mentioned
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check author is team member
+        id: auth-check
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const author = context.payload.comment.user.login;
+            const teamMembers = ['venkybobby', 'alex-rivera', 'jordan-lee', 'sam-patel', 'taylor-kim'];
+            const isTeam = teamMembers.includes(author);
+            console.log(`Comment author: ${author}, is team: ${isTeam}`);
+            return isTeam ? 'true' : 'false';
+
+      - name: Claude Response
+        if: steps.auth-check.outputs.result == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-6
+          max_tokens: 20000
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are Claude, embedded in the SARO platform GitHub repo as a team assistant.
+
+            A team member has mentioned @claude in a comment. Respond helpfully and directly.
+
+            ## Your context
+            - SARO v8.0.0: Smart AI Risk Orchestrator
+            - Stack: FastAPI + Supabase PostgreSQL + Railway Redis + React/Vite (migrating)
+            - Team: Venky (Lead), Alex Rivera (ML), Jordan Lee (Backend), Sam Patel + Taylor Kim (QA)
+
+            ## Ground rules for your responses
+            - Answer technical questions about the codebase directly — read relevant files first
+            - If asked about compliance claims, always reference docs/COMPLIANCE_CLAIMS_MATRIX.md
+            - If asked to write code, follow .claude/skills/ conventions for the relevant area
+            - If asked to approve or certify compliance → decline and explain SARO's posture
+            - Keep responses concise — this is a team chat, not a document
+
+            ## SARO non-negotiables (never deviate from these)
+            1. Accepts only prompt + raw_output — no external AI calls
+            2. Returns risk score (0–100), TRACE, remediation only
+            3. Never writes to client systems
+            4. Never certifies compliance
+            5. Human-in-the-loop always
+            6. Read-only integration posture
+
+            Respond in the comment thread. Be direct. No padding.
+
+      - name: Decline unauthorized request
+        if: steps.auth-check.outputs.result == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `@${context.payload.comment.user.login} Claude is available to SARO team members only. If you're on the team, ask Venky to add your GitHub username to the allowlist in \`.github/workflows/claude-interactive.yml\`.`;
+            if (context.eventName === 'issue_comment') {
+              github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body
+              });
+            } else {
+              github.rest.pulls.createReplyForReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                comment_id: context.payload.comment.id,
+                body
+              });
+            }
