@@ -46,7 +46,10 @@ def _fetch_packs(token: str) -> tuple[list[dict], bool]:
     try:
         resp = _api(token, "/api/v1/rules/packs")
         resp.raise_for_status()
-        return resp.json(), True
+        data = resp.json()
+        # API returns {"packs": [...], "total": N} — extract the list
+        packs = data.get("packs", data) if isinstance(data, dict) else data
+        return packs if isinstance(packs, list) else _DEMO_PACKS, True
     except Exception:
         return _DEMO_PACKS, False
 
