@@ -189,7 +189,7 @@ def _risk_badge_html(color: str | None, score: float | None) -> str:
     return styles.risk_badge_html(color, score)
 
 
-def _render_audit_table(audits: list[dict[str, Any]]) -> int | None:
+def _render_audit_table(audits: list[dict[str, Any]], tab_key: str = "dashboard") -> int | None:
     """Render the sortable audit table. Returns selected audit index or None."""
     if not audits:
         st.markdown(
@@ -200,21 +200,29 @@ def _render_audit_table(audits: list[dict[str, Any]]) -> int | None:
             ),
             unsafe_allow_html=True,
         )
-        st.button("+ Audit New Output", type="primary")
+        st.button("+ Audit New Output", type="primary", key=f"{tab_key}_empty_new_btn")
         return None
 
     # Filters
     col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
     with col_f1:
-        search = st.text_input("Search by dataset name", placeholder="Filter audits…", label_visibility="collapsed")
+        search = st.text_input(
+            "Search by dataset name",
+            placeholder="Filter audits…",
+            label_visibility="collapsed",
+            key=f"{tab_key}_search",
+        )
     with col_f2:
         status_filter = st.selectbox(
-            "Status", ["All", "completed", "failed", "pending", "running"], label_visibility="collapsed"
+            "Status", ["All", "completed", "failed", "pending", "running"],
+            label_visibility="collapsed",
+            key=f"{tab_key}_status_filter",
         )
     with col_f3:
         risk_filter = st.selectbox(
             "Risk Level", ["All", "Low Risk (≥85)", "Moderate (50–84)", "High Risk (<50)"],
             label_visibility="collapsed",
+            key=f"{tab_key}_risk_filter",
         )
 
     # Apply filters
@@ -518,6 +526,7 @@ def _render_export_controls(trace: dict[str, Any]) -> None:
             file_name=f"saro_trace_{audit_id_short}.json",
             mime="application/json",
             use_container_width=True,
+            key=f"dl_json_{audit_id_short}",
             help=f"Signed export · SHA-256: {export_hash[:16]}…" if export_hash else "Download full trace",
         )
     with col2:
@@ -544,11 +553,12 @@ def _render_export_controls(trace: dict[str, Any]) -> None:
             file_name=f"saro_trace_{audit_id_short}.txt",
             mime="text/plain",
             use_container_width=True,
+            key=f"dl_pdf_{audit_id_short}",
             help="Plain-text export ready for PDF conversion",
         )
     with col3:
         # Copy JSON to clipboard via code block (Streamlit doesn't have native clipboard API)
-        if st.button("📋 Copy JSON", use_container_width=True):
+        if st.button("📋 Copy JSON", use_container_width=True, key=f"copy_json_{audit_id_short}"):
             st.code(trace_json, language="json")
             st.caption("Select all and copy ↑")
 
@@ -684,12 +694,12 @@ def _render_audit_remediate(token: str, audit: dict[str, Any]) -> None:
 
     if pending == 0:
         st.success(f"All {exceptions} exception(s) have been remediated.")
-        if st.button("Show remediated items"):
+        if st.button("Show remediated items", key=f"show_rem_{audit_id[:8]}"):
             pass  # falls through to load all below
 
     st.markdown(f"### {pending} Remediation(s) Required")
 
-    show_all = st.toggle("Show already-remediated items", value=False)
+    show_all = st.toggle("Show already-remediated items", value=False, key=f"show_all_{audit_id[:8]}")
     endpoint = f"/api/v1/traces/{audit_id}" + ("" if show_all else "/failed")
     traces = _safe_get(token, endpoint)
     if not traces:
@@ -825,9 +835,9 @@ def _render_audit_new_output_form(token: str) -> None:
 
     btn_col, cancel_col, _ = st.columns([1, 1, 4])
     with btn_col:
-        run_clicked = st.button("RUN SARO AUDIT", type="primary", use_container_width=True)
+        run_clicked = st.button("RUN SARO AUDIT", type="primary", use_container_width=True, key="run_saro_audit")
     with cancel_col:
-        if st.button("CANCEL", use_container_width=True):
+        if st.button("CANCEL", use_container_width=True, key="cancel_new_output"):
             st.session_state["show_new_output_form"] = False
             st.rerun()
 
@@ -897,7 +907,7 @@ def _render_new_output_result(result: dict[str, Any]) -> None:
     if audit_id:
         st.caption(f"Audit ID: `{audit_id}` — visible in the audit table below.")
 
-    if st.button("Audit Another Output", type="secondary"):
+    if st.button("Audit Another Output", type="secondary", key="audit_another_output"):
         st.session_state.pop("new_output_result", None)
         st.rerun()
 
@@ -987,6 +997,7 @@ def _render_enhanced_remediate_tab(token: str, audit: dict[str, Any], trace: dic
                 file_name=f"saro_remediation_{audit_id[:8]}.md",
                 mime="text/markdown",
                 use_container_width=True,
+                key=f"enh_dl_md_{audit_id[:8]}",
             )
         with ec2:
             trace_json = json.dumps(trace, indent=2, default=str)
@@ -996,6 +1007,7 @@ def _render_enhanced_remediate_tab(token: str, audit: dict[str, Any], trace: dic
                 file_name=f"saro_trace_{audit_id[:8]}.json",
                 mime="application/json",
                 use_container_width=True,
+                key=f"enh_dl_json_{audit_id[:8]}",
                 help=f"SHA-256: {trace.get('export_hash', 'N/A')}",
             )
         with ec3:
@@ -1196,7 +1208,7 @@ def _render_github_correlation(token: str, audit: dict[str, Any]) -> None:
 # ── Main render ───────────────────────────────────────────────────────────────
 
 
-def render(token: str) -> None:
+def render(token: str, tab_key: str = "dashboard") -> None:
     styles.apply()
     st.session_state["auth_token"] = token  # stored for remediation buttons
 
@@ -1210,7 +1222,8 @@ def render(token: str) -> None:
         )
     with btn_col:
         st.markdown("<br/>", unsafe_allow_html=True)
-        if st.button("+ Audit New Output", type="primary", use_container_width=True):
+        if st.button("+ Audit New Output", type="primary", use_container_width=True,
+                     key=f"{tab_key}_new_output_btn"):
             st.session_state["show_new_output_form"] = not st.session_state.get("show_new_output_form", False)
             st.session_state.pop("new_output_result", None)
 
@@ -1249,7 +1262,7 @@ def render(token: str) -> None:
     if "dashboard_selected_audit" not in st.session_state:
         st.session_state["dashboard_selected_audit"] = None
 
-    selected_idx = _render_audit_table(audits)
+    selected_idx = _render_audit_table(audits, tab_key=tab_key)
     if selected_idx is not None:
         st.session_state["dashboard_selected_audit"] = selected_idx
 
@@ -1262,7 +1275,7 @@ def render(token: str) -> None:
             with st.container():
                 close_col, _ = st.columns([1, 5])
                 with close_col:
-                    if st.button("✕ Close Detail"):
+                    if st.button("✕ Close Detail", key=f"{tab_key}_close_detail"):
                         st.session_state["dashboard_selected_audit"] = None
                         st.rerun()
                 _render_audit_detail(token, audit_detail)

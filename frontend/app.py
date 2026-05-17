@@ -504,9 +504,19 @@ def _render_app() -> None:
 
             module_name = _TAB_REGISTRY[tab_id][1]
 
-            # Route to built-in modules first
-            if module_name == "dashboard":
-                dashboard_tab.render(token)
+            # Route to built-in modules first.
+            # IMPORTANT: tab_id checks must come BEFORE module_name checks when
+            # multiple tab IDs share the same module (e.g. "dashboard" and
+            # "admin_settings" both map to module "dashboard").  If the
+            # module_name check fires first, render() is called twice in the
+            # same Streamlit pass → StreamlitDuplicateElementId on every
+            # keyless widget inside that module.
+            if tab_id == "admin_settings":
+                _render_admin_settings(token)
+            elif module_name == "dashboard":
+                # Pass tab_key so widgets are namespaced and never collide even
+                # if a future persona exposes two dashboard-module tabs at once.
+                dashboard_tab.render(token, tab_key=tab_id)
             elif module_name == "upload":
                 upload_tab.render(token)
             elif module_name == "remedy" or tab_id == "remediation":
@@ -515,8 +525,6 @@ def _render_app() -> None:
                 onboarding_tab.render(token)
             elif module_name == "reports":
                 reports_tab.render(token)
-            elif tab_id == "admin_settings":
-                _render_admin_settings(token)
             else:
                 # Dynamically load new tab modules
                 mod = _load_tab_module(module_name)
