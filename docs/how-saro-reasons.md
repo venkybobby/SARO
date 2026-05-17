@@ -74,7 +74,7 @@ Confidence in SARO refers to the width of the Bayesian credible interval:
 
 ---
 
-## What SARO Does NOT Do
+## Limitations && What SARO Does NOT Do
 
 - **SARO does not read or store your raw AI training data.** Only the submitted outputs are analysed.
 - **SARO does not make legal determinations.** Risk scores are analytical aids, not legal opinions.

@@ -1,11 +1,13 @@
 """Rule pack management API — versioned YAML rule packs with drift alerting."""
 from datetime import datetime
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
+
 from auth import get_current_user
-from services.rule_service import list_rule_packs, get_pack_by_name, validate_semver, check_drift
+from database import get_db
+from services.rule_service import check_drift, get_pack_by_name, list_rule_packs, validate_semver
 
 router = APIRouter(prefix="/api/v1/rules", tags=["rule-packs"])
 
@@ -41,23 +43,44 @@ def get_rule_pack(
     return pack
 
 
+def _build_drift_response() -> dict:
+    """Shared logic: compare active rule packs against latest known framework versions."""
+    alerts = []
+    current_versions: dict[str, Optional[str]] = {}
+
+    for pack in list_rule_packs():
+        framework = pack.get("framework")
+        current = pack.get("version")
+        if framework:
+            current_versions[framework] = current
+        latest = FRAMEWORK_VERSIONS.get(framework) if framework else None
+        if latest and current:
+            alert = check_drift(framework, current, latest)
+            if alert:
+                alerts.append(alert)
+
+    return {
+        "alerts": alerts,
+        "alert_count": len(alerts),
+        "current_versions": current_versions,
+        "latest_known_versions": FRAMEWORK_VERSIONS,
+        "checked_at": datetime.utcnow().isoformat(),
+    }
+
+
 @router.get("/drift-alerts")
 def get_drift_alerts(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Check all active rule packs against latest framework versions for drift."""
-    alerts = []
-    for pack in list_rule_packs():
-        framework = pack.get("framework")
-        current = pack.get("version")
-        latest = FRAMEWORK_VERSIONS.get(framework)
-        if latest and current:
-            alert = check_drift(framework, current, latest)
-            if alert:
-                alerts.append(alert)
-    return {
-        "alerts": alerts,
-        "alert_count": len(alerts),
-        "checked_at": datetime.utcnow().isoformat(),
-    }
+    return _build_drift_response()
+
+
+@router.get("/drift-check")
+def drift_check(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Alias for /drift-alerts — used by the Streamlit drift tab."""
+    return _build_drift_response()

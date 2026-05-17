@@ -178,6 +178,7 @@ def render(token: str) -> None:
     with st.spinner("Loading risk summary…"):
         summary = _safe_get(token, "/api/v1/risk/summary")
         vendors = _safe_get(token, "/api/v1/risk/vendors")
+        delta = _safe_get(token, "/api/v1/risk/whats-changed") or {}
 
     if not summary:
         st.warning("Risk summary data is unavailable. Check API connectivity.")
@@ -185,11 +186,11 @@ def render(token: str) -> None:
 
     _render_kpi_bar(summary)
     st.divider()
-    _render_trend_chart(summary.get("trend", []))
+    _render_trend_chart(summary.get("trend_90_days", summary.get("trend", [])))
     st.divider()
     _render_top_findings(summary.get("top_findings", []))
     st.divider()
-    _render_whats_changed(summary.get("changes_7d", []))
+    _render_whats_changed([delta] if delta else [])
     st.divider()
     _render_vendor_risk(vendors if isinstance(vendors, list) else [])
     st.divider()

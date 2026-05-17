@@ -24,7 +24,7 @@ _DOCS = [
         "download_name": "saro-sub-processors.md",
     },
     {
-        "label": "🚨 Incident Response Plan",
+        "label": "🚨 Incident Response Plan",  # ir_plan
         "file": "incident-response-plan.md",
         "description": "Procedures for false negatives, downtime, data breaches, and escalation.",
         "download_name": "saro-incident-response-plan.md",
