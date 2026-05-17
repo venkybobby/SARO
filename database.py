@@ -194,10 +194,19 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
     },
 }
 
+# Tables that must NEVER be dropped to fix drift — use ALTER TABLE ADD COLUMN
+# instead.  Maps table_name → {col_name: DDL_type_string}.
+_SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
+    "users": {
+        "persona_role": "VARCHAR(50)",
+    },
+    "tenants": {},
+}
+
 
 def ensure_app_schema() -> None:
     """
-    Self-healing schema check for the audits and scan_reports tables.
+    Self-healing schema check for all app tables.
 
     Algorithm (runs on every startup, completes in < 100 ms when healthy):
       1. For each app table, compare the live DB column names against the
@@ -207,7 +216,9 @@ def ensure_app_schema() -> None:
          to audits) inside a single transaction.
       3. Call create_all_tables() to recreate the freshly dropped tables
          with the exact schema defined by the current ORM models.
-      4. If every column is present, this function is a no-op.
+      4. For tables in _SAFE_ALTER_COLS (e.g. users, tenants) that must
+         NEVER be dropped, use ALTER TABLE ADD COLUMN IF NOT EXISTS instead.
+      5. If every column is present, this function is a no-op.
 
     This replaces the old _COLUMN_MIGRATIONS static list that required a
     manual code update every time a column was added to an ORM model.
@@ -267,6 +278,26 @@ def ensure_app_schema() -> None:
         "App tables recreated with current schema (drifted tables: %s)",
         sorted(drifted),
     )
+
+    # Step 4 — safe ALTER TABLE ADD COLUMN for precious tables (users, tenants)
+    #           that must never be dropped because they hold live data.
+    for table_name, col_defs in _SAFE_ALTER_COLS.items():
+        if not col_defs or not inspector.has_table(table_name):
+            continue
+        actual_cols = {c["name"] for c in inspector.get_columns(table_name)}
+        with eng.begin() as conn:
+            for col_name, col_type in col_defs.items():
+                if col_name not in actual_cols:
+                    logger.warning(
+                        "Adding missing column %r to %r via ALTER TABLE",
+                        col_name, table_name,
+                    )
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE "{table_name}" '
+                            f'ADD COLUMN IF NOT EXISTS "{col_name}" {col_type}'
+                        )
+                    )
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
