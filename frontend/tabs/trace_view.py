@@ -90,7 +90,7 @@ def _render_step(step_def: dict, step_data: dict | None, technical: bool) -> Non
                     st.json(step_data["raw"])
 
 
-def _render_trace(token: str, audit_id: str, technical: bool) -> None:
+def _render_trace(token: str, audit_id: str, technical: bool, tab_key: str = "trace_view") -> None:
     with st.spinner("Loading trace…"):
         trace = _safe_get(token, f"/api/v1/audit/{audit_id}/trace")
 
@@ -107,10 +107,10 @@ def _render_trace(token: str, audit_id: str, technical: bool) -> None:
         _render_step(step_def, steps_map.get(step_def["key"]), technical)
 
     st.divider()
-    _render_exports(token, audit_id, trace)
+    _render_exports(token, audit_id, trace, tab_key=tab_key)
 
 
-def _render_exports(token: str, audit_id: str, trace: dict) -> None:
+def _render_exports(token: str, audit_id: str, trace: dict, tab_key: str = "trace_view") -> None:
     st.markdown("#### Export")
     col_json, col_pdf, _ = st.columns([1, 1, 3])
 
@@ -121,10 +121,11 @@ def _render_exports(token: str, audit_id: str, trace: dict) -> None:
             file_name=f"saro_trace_{audit_id[:8]}.json",
             mime="application/json",
             use_container_width=True,
+            key=f"{tab_key}_json_dl",
         )
 
     with col_pdf:
-        if st.button("Download PDF", use_container_width=True, key="trace_pdf_btn"):
+        if st.button("Download PDF", use_container_width=True, key=f"{tab_key}_pdf_btn"):
             try:
                 resp = _api(token, "get", f"/api/v1/audit/{audit_id}/export/pdf")
                 if resp.status_code == 200:
@@ -133,7 +134,7 @@ def _render_exports(token: str, audit_id: str, trace: dict) -> None:
                         data=resp.content,
                         file_name=f"saro_trace_{audit_id[:8]}.pdf",
                         mime="application/pdf",
-                        key="trace_pdf_dl",
+                        key=f"{tab_key}_pdf_dl",
                     )
                 else:
                     st.info("PDF export is not available for this audit.")
@@ -141,7 +142,7 @@ def _render_exports(token: str, audit_id: str, trace: dict) -> None:
                 st.error(f"PDF export failed: {exc}")
 
 
-def render(token: str) -> None:
+def render(token: str, tab_key: str = "trace_view") -> None:
     st.header("TRACE View")
     st.caption("Step-by-step AI explainability timeline for any audit.")
 
@@ -151,12 +152,13 @@ def render(token: str) -> None:
             "Audit ID",
             placeholder="Enter audit ID…",
             label_visibility="collapsed",
+            key=f"{tab_key}_audit_id",
         )
     with col_mode:
-        technical = st.toggle("Technical mode", value=False)
+        technical = st.toggle("Technical mode", value=False, key=f"{tab_key}_tech_mode")
 
     if not audit_id:
         st.info("Enter an audit ID above to load its TRACE timeline.")
         return
 
-    _render_trace(token, audit_id.strip(), technical)
+    _render_trace(token, audit_id.strip(), technical, tab_key=tab_key)

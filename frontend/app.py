@@ -521,7 +521,12 @@ def _render_app() -> None:
                 # Dynamically load new tab modules
                 mod = _load_tab_module(module_name)
                 if mod and hasattr(mod, "render"):
-                    mod.render(token)
+                    import inspect as _inspect
+                    sig = _inspect.signature(mod.render)
+                    if "tab_key" in sig.parameters:
+                        mod.render(token, tab_key=tab_id)
+                    else:
+                        mod.render(token)
                 else:
                     # Graceful fallback if tab module not yet implemented
                     st.info(f"**{_TAB_REGISTRY[tab_id][0]}** — tab loading…")
