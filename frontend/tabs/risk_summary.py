@@ -10,7 +10,7 @@ import requests
 import streamlit as st
 
 try:
-    import plotly.express as px
+    import plotly.express as px  # noqa: F401
     import plotly.graph_objects as go
     _PLOTLY = True
 except ImportError:
@@ -52,8 +52,8 @@ def _rag_badge(rag: str | None) -> str:
 def _render_kpi_bar(summary: dict) -> None:
     c1, c2, c3, c4 = st.columns(4)
     rag = summary.get("rag_status", "amber")
-    color = _RAG_COLORS.get(rag.lower(), "#6b7280")
-    c1.markdown(f"**Overall RAG**\n")
+    color = _RAG_COLORS.get(rag.lower(), "#6b7280")  # noqa: F841
+    c1.markdown("**Overall RAG**\n")
     c1.markdown(_rag_badge(rag), unsafe_allow_html=True)
     c2.metric("90-Day Trend", summary.get("trend_label", "—"), help="Direction of avg risk score over 90 days")
     c3.metric(
@@ -157,7 +157,7 @@ def _render_vendor_risk(vendors: list[dict]) -> None:
 
     for v in vendors:
         rag = v.get("rag", "amber")
-        color = _RAG_COLORS.get(rag.lower(), "#6b7280")
+        color = _RAG_COLORS.get(rag.lower(), "#6b7280")  # noqa: F841
         st.markdown(
             f'<div style="border-left:4px solid {color};padding:8px 14px;'
             f'margin:6px 0;background:{color}12;border-radius:0 8px 8px 0">'

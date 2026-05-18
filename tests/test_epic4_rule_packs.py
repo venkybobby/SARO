@@ -1,8 +1,6 @@
 """Epic 4: Rule Pack Governance — complete test suite."""
 import pytest
-import yaml
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).parent.parent
 
@@ -108,7 +106,7 @@ class TestDriftAlerting:
 
     def test_drift_handles_missing_latest_version(self):
         # No latest version available — should not crash
-        alert = check_drift("UNKNOWN-FRAMEWORK", "1.0.0", None)
+        check_drift("UNKNOWN-FRAMEWORK", "1.0.0", None)
         # None latest → no comparison possible, should return None or safe result
         # Our implementation: check_drift returns None if latest is None because caller checks first
         # But the function itself: if latest is None, "latest is None and current" — let's check

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from services.rule_service import check_drift, get_pack_by_name, list_rule_packs, validate_semver
+from services.rule_service import check_drift, get_pack_by_name, list_rule_packs
 
 router = APIRouter(prefix="/api/v1/rules", tags=["rule-packs"])
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -23,7 +23,6 @@ from services.persona_service import (
     detect_persona_from_jwt,
     detect_persona_from_saml,
     get_allowed_tabs,
-    get_persona_role,
     get_trace_mode,
     persona_required,
 )
@@ -76,7 +75,6 @@ class TestPersonaModelAndPermissions:
 
     def test_persona_required_decorator_allows_matching_role(self):
         """Calling the inner dependency with a matching persona must return the user."""
-        from fastapi import HTTPException
 
         mock_user = MagicMock()
         mock_user.persona_role = "compliance_lead"

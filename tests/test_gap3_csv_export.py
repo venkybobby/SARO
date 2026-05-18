@@ -3,13 +3,10 @@ from __future__ import annotations
 
 import csv
 import io
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 from services.compliance_matrix_service import (
     filter_matrix_rows,
-    sort_matrix_rows,
     _STATIC_ROWS,
 )
 from routers.compliance_matrix import (

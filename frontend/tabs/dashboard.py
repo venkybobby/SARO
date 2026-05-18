@@ -22,7 +22,6 @@ Screens:
 from __future__ import annotations
 
 import json
-import textwrap
 from typing import Any
 
 import plotly.graph_objects as go
@@ -926,24 +925,24 @@ def _build_remediation_markdown(trace: dict, audit: dict) -> str:
     export_hash = trace.get("export_hash", "")
 
     lines = [
-        f"# SARO Remediation Report",
-        f"",
+        "# SARO Remediation Report",
+        "",
         f"**Audit:** {dataset}  ",
         f"**Audit ID:** `{audit_id}`  ",
         f"**Source Model:** {source}  ",
         f"**Risk Score:** {f'{score:.1f}/100' if score is not None else '—'}  ",
         f"**Export Hash (SHA-256):** `{export_hash}`  ",
-        f"",
-        f"---",
-        f"",
-        f"## Executive Summary",
-        f"",
+        "",
+        "---",
+        "",
+        "## Executive Summary",
+        "",
         f"{trace.get('executive_summary') or '_No summary available._'}",
-        f"",
-        f"---",
-        f"",
-        f"## Remediation Actions",
-        f"",
+        "",
+        "---",
+        "",
+        "## Remediation Actions",
+        "",
     ]
 
     action_num = 1
@@ -952,12 +951,12 @@ def _build_remediation_markdown(trace: dict, audit: dict) -> str:
         for check in failed_checks:
             hint = check.get("remediation_hint") or "Review and address this finding."
             lines.append(f"### Action {action_num}: {check.get('name', 'Finding')}")
-            lines.append(f"")
+            lines.append("")
             lines.append(f"- **Gate:** {step.get('gate', '')} (Gate {step.get('step', '')})")
             lines.append(f"- **Severity:** {check.get('result', '').upper()}")
             lines.append(f"- **Finding:** {check.get('reason', '—')}")
             lines.append(f"- **Fix:** {hint}")
-            lines.append(f"")
+            lines.append("")
             action_num += 1
 
     lines.extend([

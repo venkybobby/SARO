@@ -1,10 +1,8 @@
 """GAP-4: API rate limiter unit tests (TC-4.1 – TC-4.8)."""
 from __future__ import annotations
 
-import time
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from middleware.rate_limiter import (
     check_rate_limit,
@@ -115,14 +113,12 @@ class TestFailOpen:
 
     def test_redis_exception_increments_prometheus_counter(self):
         """TC-4.4 — Prometheus counter incremented on Redis failure."""
-        from middleware import rate_limiter
 
         fake_redis = MagicMock()
         fake_pipe = MagicMock()
         fake_pipe.execute.side_effect = ConnectionError("down")
         fake_redis.pipeline.return_value = fake_pipe
 
-        initial = rate_limiter._PROMETHEUS_COUNTER
         with patch("middleware.rate_limiter._redis", return_value=fake_redis):
             with patch("middleware.rate_limiter._inc_failure") as mock_inc:
                 check_rate_limit("t1")
@@ -142,8 +138,6 @@ class TestTenantIsolation:
             tenant = parts[1] if len(parts) > 1 else "unknown"
             call_counts[tenant] = call_counts.get(tenant, 0) + 1
             return call_counts[tenant]
-
-        results_by_tenant: dict[str, list] = {"t_a": [], "t_b": []}
 
         fake_pipe_a = MagicMock()
         fake_pipe_a.execute.side_effect = lambda: [101, True]  # t_a always over limit

@@ -243,7 +243,7 @@ def get_github_status(
     db: Annotated[Session, Depends(get_db)],
 ) -> GitHubIntegrationOut:
     """Return the current GitHub integration configuration for this tenant."""
-    integ = _get_integration_or_404(current_user.tenant_id, db)
+    integ = _get_integration_or_404(current_user.tenant_id, db)  # noqa: F841
     return GitHubIntegrationOut.model_validate(integ)
 
 
@@ -262,7 +262,7 @@ def disconnect_github(
     Clears the token hash and marks the integration inactive.
     Existing scan results are retained for audit trail purposes.
     """
-    integ = _get_integration_or_404(current_user.tenant_id, db)
+    integ = _get_integration_or_404(current_user.tenant_id, db)  # noqa: F841
     integ.is_active = False
     integ.access_token_hash = None
 
@@ -300,7 +300,7 @@ def scan_repos_for_audit(
         raise HTTPException(status_code=400, detail=f"Audit is {audit.status} — scan requires completed audit.")
 
     # Get GitHub integration (validates access is configured)
-    integ = _get_integration_or_404(current_user.tenant_id, db)
+    integ = _get_integration_or_404(current_user.tenant_id, db)  # noqa: F841
 
     # We need the plaintext token to call GitHub API — but we only store the hash!
     # This means the client must have recently configured the integration.
@@ -350,7 +350,7 @@ def scan_repos_with_token(
     if audit.status != "completed":
         raise HTTPException(status_code=400, detail=f"Audit is {audit.status}")
 
-    integ = _get_integration_or_404(current_user.tenant_id, db)
+    integ = _get_integration_or_404(current_user.tenant_id, db)  # noqa: F841
 
     # Verify provided PAT matches the configured integration
     if integ.access_token_hash and _hash_token(pat) != integ.access_token_hash:

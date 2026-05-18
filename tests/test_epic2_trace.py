@@ -1,11 +1,9 @@
 """Epic 2: TRACE View & Evidence Export — complete test suite."""
-import pytest
 import json
 import hmac
 import hashlib
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).parent.parent
 

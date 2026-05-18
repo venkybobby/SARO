@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
-import pytest
 
 from services.notification_service import (
     generate_threshold_notification,
@@ -22,7 +20,6 @@ def _make_db(existing_notif=None, count_val=0):
     query_mock = MagicMock()
     filter_mock = MagicMock()
     first_mock = MagicMock(return_value=existing_notif)
-    count_mock = MagicMock(return_value=count_val)
 
     query_mock.filter.return_value = filter_mock
     filter_mock.filter.return_value = filter_mock
@@ -43,7 +40,7 @@ class TestThresholdNotification:
     def test_inserts_notification_when_score_below_threshold(self):
         """TC-2.1 — exactly 1 DB insert; type=threshold_breach."""
         db = _make_db(existing_notif=None)
-        result = generate_threshold_notification(
+        generate_threshold_notification(
             db, tenant_id=uuid.uuid4(), score=65, threshold=75, regulation="NIST RMF"
         )
         db.add.assert_called_once()
@@ -148,7 +145,7 @@ class TestUnreadCount:
 class TestDriftNotification:
     def test_inserts_drift_notification(self):
         db = _make_db(existing_notif=None)
-        result = generate_drift_notification(
+        generate_drift_notification(
             db,
             tenant_id=uuid.uuid4(),
             framework="EU AI Act",

@@ -1,7 +1,6 @@
 """GAP-1: Compliance matrix sort and filter unit + integration tests."""
 from __future__ import annotations
 
-import pytest
 
 from services.compliance_matrix_service import (
     RISK_ORDINAL,

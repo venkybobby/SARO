@@ -3,7 +3,6 @@ Framework Drift Alerting Tab — detects new framework versions and affected rul
 """
 from __future__ import annotations
 
-from typing import Any
 
 import requests
 import streamlit as st

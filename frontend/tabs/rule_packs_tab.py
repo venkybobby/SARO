@@ -4,7 +4,6 @@ Falls back to demo data when the API is unavailable.
 """
 from __future__ import annotations
 
-from typing import Any
 
 import requests
 import streamlit as st

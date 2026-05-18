@@ -1,6 +1,5 @@
 """Risk aggregation service for board-level dashboard."""
 from datetime import datetime, timedelta
-from typing import Optional
 
 
 def calculate_rag_status(risk_score: float) -> str:

@@ -1,6 +1,11 @@
+# saro-data-framework is a separate package with its own pyproject.toml/ruff config.
+extend-exclude = ["saro-data-framework"]
+
 [lint]
-# E402 fires on every import in main.py because of the sys.path.insert guard
-# block that must run before sibling modules can be imported (Railway / monorepo
-# compatibility). The pattern is intentional — suppress only in that file.
+# E402 fires when a sys.path.insert guard sits before application imports.
+# This pattern is required in main.py and test files for Railway/monorepo
+# import compatibility — suppress only in those files.
+
 [lint.per-file-ignores]
 "main.py" = ["E402"]
+"tests/test_epic*.py" = ["E402"]

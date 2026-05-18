@@ -4,9 +4,7 @@ Enforces tenant-configurable retention periods on audit data and processes
 GDPR right-to-erasure requests with deletion certificates.
 """
 from datetime import datetime, timedelta
-from typing import Optional
 import hashlib
-import json
 
 
 def calculate_retention_cutoff(retention_days: int) -> datetime:

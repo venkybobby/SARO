@@ -3,12 +3,10 @@
 Covers AUD-001 (hash chain), AUD-002 (verify-chain API), AUD-003 (RFC 3161).
 Tests are pure-Python where possible so they run without a live DB.
 """
-import pytest
 import hashlib
 import json
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).parent.parent
 

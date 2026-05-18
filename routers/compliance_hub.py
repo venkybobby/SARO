@@ -5,7 +5,6 @@ GET /api/v1/compliance/hub — aggregated compliance status for the authenticate
 """
 from __future__ import annotations
 
-import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends

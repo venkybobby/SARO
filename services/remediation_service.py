@@ -1,5 +1,4 @@
 """Remediation steps service — structured actionable fix plans with effort estimates."""
-from typing import Optional
 
 
 VALID_EFFORT_RANGES = ["1-2 hours", "half-day", "1 day", "2-3 days", "1 week", "2+ weeks"]
@@ -37,7 +36,7 @@ def generate_remediation_steps(finding: dict) -> list[dict]:
         List of remediation step dicts with all required fields
     """
     rule_id = finding.get("rule_id", "UNKNOWN")
-    severity = finding.get("severity", "MEDIUM").upper()
+    severity = finding.get("severity", "MEDIUM").upper()  # noqa: F841
     description = finding.get("description", "")
 
     # Base steps by rule category

@@ -1,7 +1,4 @@
 """Epic 6: Security Hardening test suite."""
-import os
-import subprocess
-import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -27,11 +24,10 @@ class TestSecretsScanning:
                 matches = re.findall(pat, content)
                 if matches:
                     violations.append(f"{py_file}: {matches}")
-        assert not violations, f"Hardcoded secrets found:\n" + '\n'.join(violations)
+        assert not violations, "Hardcoded secrets found:\n" + '\n'.join(violations)
 
     def test_all_secrets_loaded_from_env_vars(self):
         """Verify critical config is read from environment, not hardcoded."""
-        import re
         main_content = (ROOT / 'main.py').read_text(encoding='utf-8', errors='ignore')
         auth_content = (ROOT / 'auth.py').read_text(encoding='utf-8', errors='ignore')
         db_content = (ROOT / 'database.py').read_text(encoding='utf-8', errors='ignore')
