@@ -40,12 +40,12 @@ def _notif_to_dict(n: Notification) -> dict[str, Any]:
 
 @router.get("", summary="List notifications for the authenticated tenant")
 def list_notifications(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     unread_only: bool = Query(default=False, description="Filter to unread notifications only"),
     severity: str | None = Query(default=None, description="Filter by severity: critical|high|medium|low"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
 ) -> dict[str, Any]:
     q = db.query(Notification).filter(Notification.tenant_id == current_user.tenant_id)
 
@@ -74,8 +74,8 @@ def list_notifications(
 
 @router.get("/unread-count", summary="Fast unread notification count (≤50ms)")
 def unread_count(
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, int]:
     return {"unread_count": get_unread_count(db, current_user.tenant_id)}
 
@@ -83,8 +83,8 @@ def unread_count(
 @router.patch("/{notification_id}/read", summary="Mark a notification as read")
 def mark_read(
     notification_id: UUID,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
     notif = (
         db.query(Notification)
@@ -107,8 +107,8 @@ def mark_read(
 
 @router.post("/read-all", summary="Mark all unread notifications as read")
 def mark_all_read(
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, int]:
     now = datetime.now(timezone.utc)
     affected = (

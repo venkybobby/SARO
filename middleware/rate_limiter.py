@@ -13,7 +13,7 @@ import logging
 import math
 import os
 import time
-from typing import Callable
+from typing import Any, Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -67,7 +67,7 @@ def _get_redis():
 _redis_client = None
 
 
-def _redis() -> object | None:
+def _redis() -> Any:
     global _redis_client
     if _redis_client is None:
         _redis_client = _get_redis()
@@ -142,8 +142,9 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Extract tenant_id from JWT state (set by auth dependency) or fallback to IP
+        client_host = request.client.host if request.client else None
         tenant_id: str = str(
-            getattr(request.state, "tenant_id", None) or request.client.host or "unknown"
+            getattr(request.state, "tenant_id", None) or client_host or "unknown"
         )
 
         result = check_rate_limit(tenant_id, self._limit)

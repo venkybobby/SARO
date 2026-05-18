@@ -93,12 +93,12 @@ def _validate_sort_params(sort_by: str | None, sort_dir: str) -> None:
 
 @router.get("", summary="List compliance matrix rows with optional sort and filter")
 def list_matrix(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     sort_by: str | None = Query(default=None, description="risk_level | regulation_name | last_updated"),
     sort_dir: str = Query(default="asc", description="asc | desc"),
     filter_regulation: str | None = Query(default=None, alias="filter_regulation"),
     filter_risk_level: str | None = Query(default=None, alias="filter_risk_level"),
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
 ) -> dict[str, Any]:
     _validate_sort_params(sort_by, sort_dir)
     rows = _resolve_rows(db, sort_by, sort_dir, filter_regulation, filter_risk_level)
@@ -107,12 +107,12 @@ def list_matrix(
 
 @router.get("/export", summary="Export compliance matrix as CSV")
 def export_matrix_csv(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     sort_by: str | None = Query(default=None),
     sort_dir: str = Query(default="asc"),
     filter_regulation: str | None = Query(default=None, alias="filter_regulation"),
     filter_risk_level: str | None = Query(default=None, alias="filter_risk_level"),
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
 ) -> StreamingResponse:
     _validate_sort_params(sort_by, sort_dir)
     rows = _resolve_rows(db, sort_by, sort_dir, filter_regulation, filter_risk_level)
