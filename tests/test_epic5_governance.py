@@ -1,5 +1,4 @@
 """Epic 5: Data Governance & Compliance Docs — complete test suite."""
-import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
 

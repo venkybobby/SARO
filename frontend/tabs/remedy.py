@@ -291,7 +291,7 @@ def render(token: str) -> None:
             _gate_key = gate_name.replace(" ", "_").replace(":", "")[:30]
             result = trace["result"]
             icon = result_icons.get(result, "•")
-            color = result_colors.get(result, "#6b7280")
+            color = result_colors.get(result, "#6b7280")  # noqa: F841
             is_rem = trace["is_remediated"]
             effort = _effort_label(result)
             severity = _severity_label(result)

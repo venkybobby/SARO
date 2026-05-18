@@ -3,7 +3,6 @@ import json
 import hmac
 import hashlib
 from datetime import datetime
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -113,8 +112,8 @@ def export_trace_pdf(
     try:
         from reportlab.lib.pagesizes import letter
         from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle  # noqa: F401
+        from reportlab.lib import colors  # noqa: F401
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=letter)

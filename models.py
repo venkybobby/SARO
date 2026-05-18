@@ -498,3 +498,24 @@ class PersonaPermission(Base):
     denied_actions: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
     trace_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="executive")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Notifications (migration 006)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # values: threshold_breach | drift_alert | framework_update | system
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # values: critical | high | medium | low
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    metadata_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

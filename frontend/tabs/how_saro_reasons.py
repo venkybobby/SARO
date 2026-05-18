@@ -4,7 +4,6 @@ Reads from docs/how-saro-reasons.md if available, otherwise renders hardcoded co
 """
 from __future__ import annotations
 
-import os
 import pathlib
 
 import streamlit as st

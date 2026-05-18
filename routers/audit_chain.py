@@ -1,12 +1,11 @@
 """Audit chain verification and RFC 3161 timestamping endpoints."""
 import time
-from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-from services.hash_chain_service import verify_chain, compute_event_hash
+from services.hash_chain_service import verify_chain
 from models import AuditTrace
 
 router = APIRouter(prefix="/api/v1/audit", tags=["audit-chain"])

@@ -5,8 +5,6 @@ persona mapping from IdP attributes. Uses a simplified assertion model
 suitable for testing with mock IdPs.
 """
 from datetime import datetime, timezone
-from typing import Optional
-import base64
 import xml.etree.ElementTree as ET
 
 

@@ -1,12 +1,12 @@
 """Remediation and coverage gap API endpoints."""
-from datetime import datetime, timedelta
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
 from auth import get_current_user
-from services.remediation_service import generate_remediation_steps, validate_remediation_step
+from services.remediation_service import generate_remediation_steps
 from services.coverage_service import build_coverage_report, DEFAULT_OVERDUE_DAYS
 
 router = APIRouter(prefix="/api/v1", tags=["remediation"])

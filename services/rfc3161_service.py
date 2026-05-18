@@ -5,7 +5,6 @@ the TSA is unavailable, attaching a warning rather than failing the export.
 """
 import hashlib
 import base64
-import struct
 from datetime import datetime
 from typing import Optional
 import httpx
@@ -73,7 +72,7 @@ def verify_timestamp(export_data: dict, original_data: dict) -> bool:
     # Full ASN.1 parsing would require pyasn1 or similar
     import json
     serialized = json.dumps(original_data, sort_keys=True).encode()
-    data_hash = hashlib.sha256(serialized).hexdigest()
+    data_hash = hashlib.sha256(serialized).hexdigest()  # noqa: F841
     # Check that token is non-empty base64
     try:
         token_bytes = base64.b64decode(token_b64)

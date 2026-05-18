@@ -5,7 +5,6 @@ Green = audited ≤30 days, Amber = 31-60 days, Red = >60 days or never audited.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 import requests
 import streamlit as st
