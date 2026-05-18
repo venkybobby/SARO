@@ -33,7 +33,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import Base, create_all_tables, ensure_app_schema, engine, health_check
+from database import create_all_tables, ensure_app_schema, engine, health_check
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
 from routers.clients import audit_events_router, router as clients_router

@@ -1,0 +1,6 @@
+[lint]
+# E402 fires on every import in main.py because of the sys.path.insert guard
+# block that must run before sibling modules can be imported (Railway / monorepo
+# compatibility). The pattern is intentional — suppress only in that file.
+[lint.per-file-ignores]
+"main.py" = ["E402"]
