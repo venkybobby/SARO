@@ -5,7 +5,6 @@ Called as a post-scan hook from routers/scan.py after each completed scan.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
