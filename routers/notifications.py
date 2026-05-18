@@ -1,0 +1,123 @@
+"""Notification REST endpoints.
+
+GET  /api/v1/notifications                paginated list, filter by read/severity
+GET  /api/v1/notifications/unread-count   fast unread count (≤50 ms SLA)
+PATCH /api/v1/notifications/{id}/read     mark single notification read
+POST  /api/v1/notifications/read-all      mark all unread as read
+"""
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import Annotated, Any
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from auth import get_current_user
+from database import get_db
+from models import Notification, User
+from services.notification_service import get_unread_count
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
+
+
+def _notif_to_dict(n: Notification) -> dict[str, Any]:
+    return {
+        "id": str(n.id),
+        "type": n.type,
+        "title": n.title,
+        "body": n.body,
+        "severity": n.severity,
+        "read_at": n.read_at.isoformat() if n.read_at else None,
+        "created_at": n.created_at.isoformat() if n.created_at else None,
+        "metadata": n.metadata_json,
+    }
+
+
+@router.get("", summary="List notifications for the authenticated tenant")
+def list_notifications(
+    unread_only: bool = Query(default=False, description="Filter to unread notifications only"),
+    severity: str | None = Query(default=None, description="Filter by severity: critical|high|medium|low"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> dict[str, Any]:
+    q = db.query(Notification).filter(Notification.tenant_id == current_user.tenant_id)
+
+    if unread_only:
+        q = q.filter(Notification.read_at.is_(None))
+
+    if severity:
+        q = q.filter(Notification.severity == severity)
+
+    total = q.count()
+    unread = get_unread_count(db, current_user.tenant_id)
+
+    items = (
+        q.order_by(Notification.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "items": [_notif_to_dict(n) for n in items],
+        "unread_count": unread,
+        "total": total,
+    }
+
+
+@router.get("/unread-count", summary="Fast unread notification count (≤50ms)")
+def unread_count(
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> dict[str, int]:
+    return {"unread_count": get_unread_count(db, current_user.tenant_id)}
+
+
+@router.patch("/{notification_id}/read", summary="Mark a notification as read")
+def mark_read(
+    notification_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> dict[str, Any]:
+    notif = (
+        db.query(Notification)
+        .filter(
+            Notification.id == notification_id,
+            Notification.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    if notif.read_at is None:
+        notif.read_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(notif)
+
+    return _notif_to_dict(notif)
+
+
+@router.post("/read-all", summary="Mark all unread notifications as read")
+def mark_all_read(
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> dict[str, int]:
+    now = datetime.now(timezone.utc)
+    affected = (
+        db.query(Notification)
+        .filter(
+            Notification.tenant_id == current_user.tenant_id,
+            Notification.read_at.is_(None),
+        )
+        .update({"read_at": now}, synchronize_session=False)
+    )
+    db.commit()
+    return {"marked_read": affected}
