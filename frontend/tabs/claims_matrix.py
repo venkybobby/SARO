@@ -14,7 +14,7 @@ import streamlit as st
 
 _DOCS_ROOT = Path(__file__).parent.parent.parent / "docs"
 
-_FRAMEWORKS = [
+_FRAMEWORKS: list[dict[str, Any]] = [
     {
         "id": "nist_rmf",
         "label": "NIST AI Risk Management Framework (RMF 1.0)",
