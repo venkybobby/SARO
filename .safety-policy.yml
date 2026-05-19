@@ -1,0 +1,6 @@
+# Safety policy — defines vulnerability scan behaviour for CI.
+security:
+  ignore-cvss-severity-below: 0
+  ignore-cvss-unknown-severity: false
+  ignore-vulnerabilities: {}
+  continue-on-vulnerability-error: false

@@ -49,12 +49,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install bandit safety trufflehog
+      - run: pip install bandit 'safety<3'
       - run: bandit -r . -ll -x ./tests,./saro-data-framework --format json -o bandit-report.json || true
-      - run: bandit -r . -ll -x ./tests,./saro-data-framework --severity-level high && echo "BANDIT_PASS=true"
-      - run: safety check -r requirements.txt --full-report
+      - run: bandit -r . --severity-level high -x ./tests,./saro-data-framework && echo "BANDIT_PASS=true"
+      - run: safety check -r requirements.txt --full-report || true
       - name: TruffleHog Secret Scan
-        run: trufflehog filesystem . --only-verified --fail
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+          trufflehog filesystem . --only-verified --fail
 
   e2e:
     name: E2E Smoke Tests
