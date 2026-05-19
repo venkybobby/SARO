@@ -38,7 +38,7 @@ jobs:
       - run: pip install -r requirements.txt pytest pytest-cov pytest-asyncio
       - run: pytest tests/ -m "unit" --tb=short -q
       - run: pytest tests/ -m "integration" --tb=short -q
-      - run: pytest --cov=. --cov-report=xml
+      - run: pytest tests/ --cov=. --cov-report=xml
 
   security:
     name: Security Scan
