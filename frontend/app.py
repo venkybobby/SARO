@@ -394,6 +394,117 @@ def _render_persona_badge(persona: str, email: str) -> None:
     )
 
 
+def _render_notification_bell(token: str) -> None:
+    """Render a notification bell with unread badge and slide-over panel."""
+    import time
+
+    cache_key = "_notif_count_cache"
+    ts_key = "_notif_count_ts"
+    now = time.monotonic()
+
+    # Poll every 60 seconds
+    if now - st.session_state.get(ts_key, 0) >= 60 or cache_key not in st.session_state:
+        try:
+            resp = requests.get(
+                f"{_API_BASE}/api/v1/notifications/unread-count",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                st.session_state[cache_key] = resp.json().get("unread_count", 0)
+            else:
+                st.session_state[cache_key] = 0
+        except Exception:
+            st.session_state[cache_key] = 0
+        st.session_state[ts_key] = now
+
+    unread: int = st.session_state.get(cache_key, 0)
+    badge_html = (
+        f' <span style="background:#E24B4A;color:#fff;font-size:0.65rem;'
+        f'font-weight:700;padding:1px 5px;border-radius:8px;vertical-align:top">'
+        f'{"99+" if unread > 99 else unread}</span>'
+        if unread > 0 else ""
+    )
+
+    with st.expander(f"🔔 Notifications{badge_html}", expanded=False):
+        _render_notification_panel(token)
+
+
+def _render_notification_panel(token: str) -> None:
+    """Render the notification list inside the sidebar expander."""
+    try:
+        resp = requests.get(
+            f"{_API_BASE}/api/v1/notifications",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"limit": 20},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            st.caption("Could not load notifications.")
+            return
+        data = resp.json()
+    except Exception as exc:
+        st.caption(f"Error: {exc}")
+        return
+
+    items = data.get("items", [])
+    unread_count = data.get("unread_count", 0)
+
+    mark_all_col, _ = st.columns([2, 1])
+    with mark_all_col:
+        if unread_count > 0 and st.button("✓ Mark all read", key="notif_mark_all"):
+            try:
+                requests.post(
+                    f"{_API_BASE}/api/v1/notifications/read-all",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10,
+                )
+                st.session_state["_notif_count_cache"] = 0
+                st.rerun()
+            except Exception:
+                pass
+
+    if not items:
+        st.caption("No notifications.")
+        return
+
+    _SEV_COLORS = {"critical": "#E24B4A", "high": "#BA7517", "medium": "#378ADD", "low": "#6b7280"}
+    for notif in items:
+        sev = notif.get("severity", "medium")
+        color = _SEV_COLORS.get(sev, "#6b7280")
+        read = notif.get("read_at") is not None
+        opacity = "0.5" if read else "1.0"
+        st.markdown(
+            f'<div style="opacity:{opacity};display:flex;gap:8px;padding:6px 0;'
+            f'border-bottom:0.5px solid #1e293b;align-items:flex-start">'
+            f'<div style="width:8px;height:8px;border-radius:50%;background:{color};'
+            f'margin-top:5px;flex-shrink:0"></div>'
+            f'<div style="flex:1">'
+            f'<div style="font-size:0.78rem;font-weight:500;color:#e2e8f0">'
+            f'{notif.get("title","")}</div>'
+            f'<div style="font-size:0.7rem;color:#64748b">'
+            f'{notif.get("type","").replace("_"," ").title()} · {sev.title()}'
+            f'</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        if not read:
+            if st.button(
+                "Mark read",
+                key=f"notif_read_{notif['id']}",
+                use_container_width=True,
+            ):
+                try:
+                    requests.patch(
+                        f"{_API_BASE}/api/v1/notifications/{notif['id']}/read",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=10,
+                    )
+                    st.session_state["_notif_count_cache"] = max(0, unread_count - 1)
+                    st.rerun()
+                except Exception:
+                    pass
+
+
 def _load_tab_module(module_name: str):
     """Dynamically import a tab module."""
     import importlib
@@ -426,6 +537,7 @@ def _render_app() -> None:
         st.divider()
 
         _render_persona_badge(persona, user.get("email", ""))
+        _render_notification_bell(token)
 
         st.divider()
 
@@ -504,9 +616,19 @@ def _render_app() -> None:
 
             module_name = _TAB_REGISTRY[tab_id][1]
 
-            # Route to built-in modules first
-            if module_name == "dashboard":
-                dashboard_tab.render(token)
+            # Route to built-in modules first.
+            # IMPORTANT: tab_id checks must come BEFORE module_name checks when
+            # multiple tab IDs share the same module (e.g. "dashboard" and
+            # "admin_settings" both map to module "dashboard").  If the
+            # module_name check fires first, render() is called twice in the
+            # same Streamlit pass → StreamlitDuplicateElementId on every
+            # keyless widget inside that module.
+            if tab_id == "admin_settings":
+                _render_admin_settings(token)
+            elif module_name == "dashboard":
+                # Pass tab_key so widgets are namespaced and never collide even
+                # if a future persona exposes two dashboard-module tabs at once.
+                dashboard_tab.render(token, tab_key=tab_id)
             elif module_name == "upload":
                 upload_tab.render(token)
             elif module_name == "remedy" or tab_id == "remediation":
@@ -515,13 +637,16 @@ def _render_app() -> None:
                 onboarding_tab.render(token)
             elif module_name == "reports":
                 reports_tab.render(token)
-            elif tab_id == "admin_settings":
-                _render_admin_settings(token)
             else:
                 # Dynamically load new tab modules
                 mod = _load_tab_module(module_name)
                 if mod and hasattr(mod, "render"):
-                    mod.render(token)
+                    import inspect as _inspect
+                    sig = _inspect.signature(mod.render)
+                    if "tab_key" in sig.parameters:
+                        mod.render(token, tab_key=tab_id)
+                    else:
+                        mod.render(token)
                 else:
                     # Graceful fallback if tab module not yet implemented
                     st.info(f"**{_TAB_REGISTRY[tab_id][0]}** — tab loading…")

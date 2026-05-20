@@ -1,11 +1,9 @@
 """Epic 2: TRACE View & Evidence Export — complete test suite."""
-import pytest
 import json
 import hmac
 import hashlib
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).parent.parent
 
@@ -86,21 +84,20 @@ class TestEvidenceExport:
 
     def test_json_hmac_signature_verifies(self):
         """HMAC produced by the export function should be verifiable."""
-        secret = "test-secret"
+        signing_key = "test-signing-key"
         data = {"audit_id": 1, "test": "data"}
         canonical = json.dumps(data, sort_keys=True)
-        sig = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()
-        # Verify
-        expected = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(signing_key.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        expected = hmac.new(signing_key.encode(), canonical.encode(), hashlib.sha256).hexdigest()
         assert sig == expected
 
     def test_tampered_json_fails_signature_check(self):
-        secret = "test-secret"
+        signing_key = "test-signing-key"
         data = {"audit_id": 1}
         canonical = json.dumps(data, sort_keys=True)
-        sig = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(signing_key.encode(), canonical.encode(), hashlib.sha256).hexdigest()
         tampered = json.dumps({"audit_id": 2}, sort_keys=True)
-        tampered_sig = hmac.new(secret.encode(), tampered.encode(), hashlib.sha256).hexdigest()
+        tampered_sig = hmac.new(signing_key.encode(), tampered.encode(), hashlib.sha256).hexdigest()
         assert sig != tampered_sig
 
     def test_export_includes_audit_metadata(self):

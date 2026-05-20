@@ -33,7 +33,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import Base, create_all_tables, ensure_app_schema, engine, health_check
+from database import create_all_tables, ensure_app_schema, engine, health_check
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
 from routers.clients import audit_events_router, router as clients_router
@@ -53,6 +53,9 @@ from routers.sso import router as sso_router
 from routers.remediation import router as remediation_router
 from routers.compliance_hub import router as compliance_hub_router
 from routers.risk_config import router as risk_config_router
+from routers.compliance_matrix import router as compliance_matrix_router
+from routers.notifications import router as notifications_router
+from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -150,6 +153,8 @@ else:
         allow_headers=["*"],
     )
 
+app.add_middleware(RateLimiterMiddleware)
+
 
 # ── Request timing middleware ─────────────────────────────────────────────────
 
@@ -197,6 +202,8 @@ app.include_router(sso_router)
 app.include_router(remediation_router)
 app.include_router(compliance_hub_router)
 app.include_router(risk_config_router)
+app.include_router(compliance_matrix_router)
+app.include_router(notifications_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

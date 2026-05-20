@@ -17,7 +17,6 @@ from services.risk_service import (
     aggregate_vendor_risk,
     build_risk_summary,
     calculate_rag_status,
-    compute_90_day_trend,
 )
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk-dashboard"])

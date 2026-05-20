@@ -1543,7 +1543,7 @@ class SARoEngine:
         p_hat = fixed / n
         z = stats.norm.ppf((1 + CI_LEVEL) / 2)
         denominator = 1 + z**2 / n
-        centre = (p_hat + z**2 / (2 * n)) / denominator
+        centre = (p_hat + z**2 / (2 * n)) / denominator  # noqa: F841
         margin = (z * np.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2))) / denominator
         confidence = float(np.clip(1.0 - 2 * margin, 0.0, 1.0))
 

@@ -1,7 +1,7 @@
 """Governance API: data retention policies, GDPR erasure, deletion certificates."""
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -9,8 +9,6 @@ from database import get_db
 from auth import get_current_user
 from services.retention_service import (
     calculate_retention_cutoff,
-    create_tombstone_record,
-    generate_deletion_certificate,
 )
 
 router = APIRouter(prefix="/api/v1/governance", tags=["governance"])

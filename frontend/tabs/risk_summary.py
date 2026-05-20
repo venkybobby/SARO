@@ -10,7 +10,7 @@ import requests
 import streamlit as st
 
 try:
-    import plotly.express as px
+    import plotly.express as px  # noqa: F401
     import plotly.graph_objects as go
     _PLOTLY = True
 except ImportError:
@@ -52,8 +52,8 @@ def _rag_badge(rag: str | None) -> str:
 def _render_kpi_bar(summary: dict) -> None:
     c1, c2, c3, c4 = st.columns(4)
     rag = summary.get("rag_status", "amber")
-    color = _RAG_COLORS.get(rag.lower(), "#6b7280")
-    c1.markdown(f"**Overall RAG**\n")
+    color = _RAG_COLORS.get(rag.lower(), "#6b7280")  # noqa: F841
+    c1.markdown("**Overall RAG**\n")
     c1.markdown(_rag_badge(rag), unsafe_allow_html=True)
     c2.metric("90-Day Trend", summary.get("trend_label", "—"), help="Direction of avg risk score over 90 days")
     c3.metric(
@@ -157,7 +157,7 @@ def _render_vendor_risk(vendors: list[dict]) -> None:
 
     for v in vendors:
         rag = v.get("rag", "amber")
-        color = _RAG_COLORS.get(rag.lower(), "#6b7280")
+        color = _RAG_COLORS.get(rag.lower(), "#6b7280")  # noqa: F841
         st.markdown(
             f'<div style="border-left:4px solid {color};padding:8px 14px;'
             f'margin:6px 0;background:{color}12;border-radius:0 8px 8px 0">'
@@ -171,7 +171,7 @@ def _render_vendor_risk(vendors: list[dict]) -> None:
         )
 
 
-def render(token: str) -> None:
+def render(token: str, tab_key: str = "risk_summary") -> None:
     st.header("Risk Officer Dashboard")
     st.caption("Board-level risk view — RAG status, trends, findings, and vendor exposure.")
 
@@ -196,7 +196,7 @@ def render(token: str) -> None:
     st.divider()
 
     # Board PDF export
-    if st.button("Export Board PDF", type="primary"):
+    if st.button("Export Board PDF", type="primary", key=f"{tab_key}_export_btn"):
         try:
             resp = _api(token, "get", "/api/v1/risk/board-export")
             if resp.status_code == 200:
@@ -205,7 +205,7 @@ def render(token: str) -> None:
                     data=resp.content,
                     file_name="saro_board_report.pdf",
                     mime="application/pdf",
-                    key="board_pdf_dl",
+                    key=f"{tab_key}_pdf_dl",
                 )
             else:
                 st.error(f"Export failed ({resp.status_code}): {resp.text[:200]}")

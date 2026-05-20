@@ -32,7 +32,7 @@ _DOCS = [
 ]
 
 
-def _render_doc(doc: dict) -> None:
+def _render_doc(doc: dict, tab_key: str = "dpa_governance") -> None:
     path = _DOCS_ROOT / doc["file"]
     with st.expander(doc["label"], expanded=False):
         st.caption(doc["description"])
@@ -44,13 +44,13 @@ def _render_doc(doc: dict) -> None:
                 data=path.read_bytes(),
                 file_name=doc["download_name"],
                 mime="text/markdown",
-                key=f"dl_{doc['file']}",
+                key=f"{tab_key}_dl_{doc['file']}",
             )
         else:
             st.warning(f"Document not found: `docs/{doc['file']}`")
 
 
-def render(token: str) -> None:  # noqa: ARG001
+def render(token: str, tab_key: str = "dpa_governance") -> None:  # noqa: ARG001
     st.header("📄 DPA & Governance Documents")
     st.caption(
         "Data Processing Agreement template, sub-processor inventory, and incident response plan. "
@@ -64,7 +64,7 @@ def render(token: str) -> None:  # noqa: ARG001
     )
 
     for doc in _DOCS:
-        _render_doc(doc)
+        _render_doc(doc, tab_key=tab_key)
 
     st.divider()
     st.subheader("Retention Policy Summary")

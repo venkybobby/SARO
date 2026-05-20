@@ -1,5 +1,4 @@
 """Epic 8: Remediation & Workflow — complete test suite (REM-001 steps, REM-002 coverage)."""
-import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -12,7 +11,6 @@ from services.remediation_service import (
     generate_remediation_steps,
 )
 from services.coverage_service import (
-    calculate_coverage_status,
     build_coverage_report,
 )
 

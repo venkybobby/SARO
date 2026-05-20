@@ -5,7 +5,6 @@ Green = audited ≤30 days, Amber = 31-60 days, Red = >60 days or never audited.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 import requests
 import streamlit as st
@@ -28,10 +27,37 @@ def _api(token: str, path: str) -> requests.Response:
 
 
 def _safe_get(token: str, path: str) -> list | None:
+    """
+    Fetch a list-returning endpoint and unwrap common API envelope patterns.
+
+    The backend returns wrapped responses like::
+
+        {"systems": [...], "total": N, "overdue_count": N, ...}
+
+    Iterating a raw dict yields string keys, causing ``AttributeError: 'str'
+    object has no attribute 'get'``.  This function always extracts and
+    returns the inner list — never a bare dict.
+    """
     try:
         resp = _api(token, path)
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+
+        # Unwrap standard list-envelope patterns used across SARO API routes.
+        # Add new keys here if future endpoints introduce different wrappers.
+        if isinstance(data, dict):
+            for key in ("systems", "items", "results", "data", "records"):
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+            # Dict with no recognised list key — surface a clear error rather
+            # than silently returning a non-iterable and crashing downstream.
+            st.error(
+                f"Unexpected response shape from {path}: "
+                f"got dict with keys {list(data.keys())}, expected a list."
+            )
+            return None
+
+        return data if isinstance(data, list) else None
     except Exception as exc:
         st.error(f"API error ({path}): {exc}")
         return None
@@ -129,6 +155,16 @@ def render(token: str) -> None:
         systems = _safe_get(token, "/api/v1/coverage")
 
     if systems is None:
+        return
+
+    # Defensive type guard: _safe_get should always return a list, but if the
+    # API ever changes its response shape this gives a clear error instead of
+    # an AttributeError deep inside the list comprehension below.
+    if not isinstance(systems, list):
+        st.error(
+            "Coverage API returned an unexpected data type. "
+            "Expected a list of AI systems — check API connectivity."
+        )
         return
 
     if not systems:

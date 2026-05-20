@@ -1,5 +1,4 @@
 """Epic 3: Board-Level Risk Dashboard — complete test suite."""
-import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from services.risk_service import (
     calculate_rag_status,
     compute_90_day_trend,
     aggregate_vendor_risk,
-    calculate_remediation_pct,
     build_risk_summary,
 )
 
