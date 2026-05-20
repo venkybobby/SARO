@@ -38,6 +38,8 @@ Among the top-K similar incidents, compute:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -71,11 +73,16 @@ from schemas import (
     GateResultOut,
     MITCoverageOut,
     RemediationOut,
+    RiskConfigIn,
     SampleIn,
     SimilarIncidentOut,
 )
 
 logger = logging.getLogger(__name__)
+
+# SARO-006: engine version — must match CLAUDE.md header
+SARO_ENGINE_VERSION: str = "8.0.0"
+COMPLIANCE_MATRIX_VERSION: str = "v8.0.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
@@ -180,77 +187,36 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
 }
 
 # Compliance rule triggers: which domain detections activate which frameworks
+# SARO-004: includes nist_subcategory_id for traceability in AuditTrace detail_json
 _COMPLIANCE_TRIGGERS: dict[str, list[dict[str, str]]] = {
-    "Discrimination & Toxicity": [
-        {
-            "framework": "EU AI Act",
-            "rule_id": "ART_10",
-            "title": "Data and Data Governance",
-            "triggered_by": "bias/discrimination detection",
-        },
-        {
-            "framework": "NIST AI RMF",
-            "rule_id": "MAP 2.3",
-            "title": "Scientific Findings on Fairness",
-            "triggered_by": "fairness metric violation",
-        },
-        {
-            "framework": "AIGP",
-            "rule_id": "AIGP-ETHICAL-1",
-            "title": "Fairness and Non-Discrimination",
-            "triggered_by": "discriminatory content detected",
-        },
-        {
-            "framework": "ISO 42001",
-            "rule_id": "ISO-A.9.3",
-            "title": "Fairness in AI Systems",
-            "triggered_by": "bias detection",
-        },
-    ],
-    "Privacy & Security": [
-        {
-            "framework": "EU AI Act",
-            "rule_id": "ART_10_3",
-            "title": "Data Governance — Special Categories",
-            "triggered_by": "PII/sensitive data detected",
-        },
-        {
-            "framework": "NIST AI RMF",
-            "rule_id": "GOVERN 4.2",
-            "title": "Privacy Risk Management",
-            "triggered_by": "PII detected in samples",
-        },
-        {
-            "framework": "AIGP",
-            "rule_id": "AIGP-PRIV-1",
-            "title": "AI and Data Privacy",
-            "triggered_by": "sensitive data exposure",
-        },
-        {
-            "framework": "ISO 42001",
-            "rule_id": "ISO-A.7",
-            "title": "Data Management",
-            "triggered_by": "personal data in AI input",
-        },
-    ],
     "Misinformation": [
         {
             "framework": "EU AI Act",
             "rule_id": "ART_50",
             "title": "Transparency Obligations — Deep Fakes",
             "triggered_by": "misinformation/hallucination signals",
+            "nist_subcategory_id": None,
         },
         {
             "framework": "NIST AI RMF",
             "rule_id": "MEASURE 2.5",
             "title": "Robustness and Reliability Testing",
             "triggered_by": "hallucination indicators",
+            "nist_subcategory_id": "MEASURE 2.5",
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MEASURE 2.6",
+            "title": "Test, Evaluate, Validate, Verify (TEVV)",
+            "triggered_by": "accuracy/reliability signals",
+            "nist_subcategory_id": "MEASURE 2.6",
         },
         {
             "framework": "AIGP",
             "rule_id": "AIGP-TRANS-1",
             "title": "Transparency and Explainability",
             "triggered_by": "misleading content signals",
+            "nist_subcategory_id": None,
         },
     ],
     "Malicious Use": [
@@ -259,18 +225,28 @@ _COMPLIANCE_TRIGGERS: dict[str, list[dict[str, str]]] = {
             "rule_id": "ART_5_1_B",
             "title": "Prohibited — Exploiting Vulnerabilities",
             "triggered_by": "malicious use indicators",
+            "nist_subcategory_id": None,
         },
         {
             "framework": "NIST AI RMF",
             "rule_id": "GOVERN 1.6",
             "title": "Third-Party Risk and Dual-Use",
             "triggered_by": "potential misuse pattern",
+            "nist_subcategory_id": "GOVERN 1.6",
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MAP 1.1",
+            "title": "Organizational Risk Policies",
+            "triggered_by": "dual-use risk pattern",
+            "nist_subcategory_id": "MAP 1.1",
         },
         {
             "framework": "ISO 42001",
             "rule_id": "ISO-A.10",
             "title": "Responsible Use of AI",
             "triggered_by": "malicious use signals",
+            "nist_subcategory_id": None,
         },
     ],
     "AI System Safety": [
@@ -279,18 +255,141 @@ _COMPLIANCE_TRIGGERS: dict[str, list[dict[str, str]]] = {
             "rule_id": "ART_9",
             "title": "Risk Management System",
             "triggered_by": "safety failure indicators",
+            "nist_subcategory_id": None,
         },
         {
             "framework": "NIST AI RMF",
             "rule_id": "MANAGE 4.1",
             "title": "Residual Risk Treatment",
             "triggered_by": "safety risk detected",
+            "nist_subcategory_id": "MANAGE 4.1",
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MANAGE 1.3",
+            "title": "Risk Tolerance and Appetite",
+            "triggered_by": "safety risk pattern",
+            "nist_subcategory_id": "MANAGE 1.3",
         },
         {
             "framework": "ISO 42001",
             "rule_id": "ISO-A.6",
             "title": "AI System Lifecycle Safety",
             "triggered_by": "system safety signals",
+            "nist_subcategory_id": None,
+        },
+    ],
+    "Human-Computer Interaction": [
+        {
+            "framework": "EU AI Act",
+            "rule_id": "ART_13",
+            "title": "Transparency — High-Risk Systems",
+            "triggered_by": "deceptive design / dark pattern signals",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MAP 1.5",
+            "title": "Organizational Risk Tolerance",
+            "triggered_by": "HCI risk signals",
+            "nist_subcategory_id": "MAP 1.5",
+        },
+        {
+            "framework": "AIGP",
+            "rule_id": "AIGP-TRANS-1",
+            "title": "Transparency and Explainability",
+            "triggered_by": "coercive / deceptive interaction signals",
+            "nist_subcategory_id": None,
+        },
+    ],
+    "Socioeconomic & Environmental": [
+        {
+            "framework": "EU AI Act",
+            "rule_id": "ART_9",
+            "title": "Risk Management System",
+            "triggered_by": "socioeconomic impact indicators",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MAP 1.6",
+            "title": "Practices and Processes in Place to Address Negative Impacts",
+            "triggered_by": "socioeconomic / environmental signals",
+            "nist_subcategory_id": "MAP 1.6",
+        },
+    ],
+    "Discrimination & Toxicity": [
+        {
+            "framework": "EU AI Act",
+            "rule_id": "ART_10",
+            "title": "Data and Data Governance",
+            "triggered_by": "bias/discrimination detection",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MAP 2.3",
+            "title": "Scientific Findings on Fairness",
+            "triggered_by": "fairness metric violation",
+            "nist_subcategory_id": "MAP 2.3",
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MEASURE 2.1",
+            "title": "Evaluation Methods for Bias",
+            "triggered_by": "discrimination signal detected",
+            "nist_subcategory_id": "MEASURE 2.1",
+        },
+        {
+            "framework": "AIGP",
+            "rule_id": "AIGP-ETHICAL-1",
+            "title": "Fairness and Non-Discrimination",
+            "triggered_by": "discriminatory content detected",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "ISO 42001",
+            "rule_id": "ISO-A.9.3",
+            "title": "Fairness in AI Systems",
+            "triggered_by": "bias detection",
+            "nist_subcategory_id": None,
+        },
+    ],
+    "Privacy & Security": [
+        {
+            "framework": "EU AI Act",
+            "rule_id": "ART_10_3",
+            "title": "Data Governance — Special Categories",
+            "triggered_by": "PII/sensitive data detected",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "GOVERN 4.2",
+            "title": "Privacy Risk Management",
+            "triggered_by": "PII detected in samples",
+            "nist_subcategory_id": "GOVERN 4.2",
+        },
+        {
+            "framework": "NIST AI RMF",
+            "rule_id": "MAP 2.1",
+            "title": "Scientific Methods for Risk Assessment",
+            "triggered_by": "sensitive data exposure",
+            "nist_subcategory_id": "MAP 2.1",
+        },
+        {
+            "framework": "AIGP",
+            "rule_id": "AIGP-PRIV-1",
+            "title": "AI and Data Privacy",
+            "triggered_by": "sensitive data exposure",
+            "nist_subcategory_id": None,
+        },
+        {
+            "framework": "ISO 42001",
+            "rule_id": "ISO-A.7",
+            "title": "Data Management",
+            "triggered_by": "personal data in AI input",
+            "nist_subcategory_id": None,
         },
     ],
 }
@@ -392,12 +491,13 @@ class _SampleFlag:
 _GATE_REMEDIATION_HINTS: dict[int, str] = {
     1: (
         "Pre-process input data: remove blank entries, filter out very short texts (<3 tokens), "
-        "and ensure at least 50 samples are provided per EU AI Act Art. 10 / NIST MAP 2.3."
+        "and ensure at least 50 samples are provided (internal SARO methodology — "
+        "statistical validity requirement for reliable fairness and risk metrics)."
     ),
     2: (
         "Address fairness issues: (1) Add demographic group labels to all samples, "
-        "(2) Balance representation across groups, (3) Target statistical parity difference < 0.10 "
-        "per EU AI Act Art. 10 and NIST MAP 2.3 guidelines."
+        "(2) Balance representation across groups, (3) Target statistical parity difference < 0.10. "
+        "Reference: EU AI Act Art. 10 (data governance obligations), NIST MAP 2.3 (risk identification)."
     ),
     3: (
         "Risk signals detected across MIT domains. Review flagged samples, "
@@ -460,10 +560,13 @@ class SARoEngine:
         logger.info("Initialising SARoEngine — loading reference tables")
         self._load_reference_data(db)
         self._build_incident_index()
+        # SARO-006: compute and cache rule pack hash at init time
+        self._rule_pack_hash: str = self._compute_rule_pack_hash()
         logger.info(
-            "SARoEngine ready: %d incidents, %d MIT risks loaded",
+            "SARoEngine ready: %d incidents, %d MIT risks loaded, rule_pack_hash=%s",
             len(self._incidents),
             len(self._mit_risks),
+            self._rule_pack_hash[:8],
         )
 
     # ── Reference data loading ────────────────────────────────────────────────
@@ -490,6 +593,7 @@ class SARoEngine:
             self._mit_risks = []
 
         try:
+            incident_rows = db.query(AIIncident).all()
             self._incidents: list[dict] = [
                 {
                     "incident_id": r.incident_id or str(r.id),
@@ -501,13 +605,20 @@ class SARoEngine:
                     "date": r.date,
                     "url": r.url,
                     "is_fixed": r.is_fixed,
+                    "created_at": r.created_at,
                 }
-                for r in db.query(AIIncident).all()
+                for r in incident_rows
             ]
+            # SARO-007: corpus version = most recent created_at across all incidents
+            corpus_dates = [r.created_at for r in incident_rows if r.created_at]
+            self._incident_corpus_version: str | None = (
+                max(corpus_dates).isoformat() if corpus_dates else None
+            )
         except Exception as exc:
             logger.warning("ai_incidents table not accessible — using empty list: %s", exc)
             db.rollback()
             self._incidents = []
+            self._incident_corpus_version = None
 
         try:
             self._eu_rules: list[dict] = [
@@ -588,6 +699,36 @@ class SARoEngine:
         """Return the trace records accumulated during the last run_audit() call."""
         return getattr(self, "_traces", [])
 
+    def get_sample_findings(self) -> list[dict]:
+        """Return the per-sample Gate 3 findings accumulated during the last run_audit()."""
+        return getattr(self, "_sample_findings", [])
+
+    def get_rule_pack_hash(self) -> str:
+        """Return the SHA-256 of the current _RISK_SIGNALS + _COMPLIANCE_TRIGGERS dicts."""
+        return self._rule_pack_hash
+
+    # SARO-006: deterministic SHA-256 of the active risk signal config
+    @staticmethod
+    def _compute_rule_pack_hash() -> str:
+        payload = {
+            "risk_signals": {
+                domain: {
+                    "keywords": sorted(sigs["keywords"]),
+                    "weight": sigs["weight"],
+                }
+                for domain, sigs in _RISK_SIGNALS.items()
+            },
+            "compliance_triggers": {
+                domain: [
+                    {"framework": t["framework"], "rule_id": t["rule_id"]}
+                    for t in triggers
+                ]
+                for domain, triggers in _COMPLIANCE_TRIGGERS.items()
+            },
+        }
+        canonical = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+        return hashlib.sha256(canonical.encode()).hexdigest()
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def run_audit(self, batch: BatchIn, audit_id: uuid.UUID) -> AuditReportOut:
@@ -597,11 +738,15 @@ class SARoEngine:
         Gate 1 is the only hard-blocking gate: if <50 samples, we return
         immediately with status="failed".
         """
-        # Reset per-run trace accumulator
+        # Reset per-run accumulators
         self._traces: list[dict] = []
+        self._sample_findings: list[dict] = []
 
         created_at = datetime.now(tz=timezone.utc)
         gates: list[_GateResult] = []
+
+        # SARO-003: resolve risk config — per-scan override takes precedence over tenant default
+        risk_config: RiskConfigIn | None = getattr(batch.config, "risk_config", None)
 
         # ── Gate 1: Data Quality ──────────────────────────────────────────────
         gate1 = self._gate1_data_quality(batch)
@@ -617,7 +762,7 @@ class SARoEngine:
         self._record_gate_trace(gate2)
 
         # ── Gate 3: Risk Classification ───────────────────────────────────────
-        flags, gate3 = self._gate3_risk_classification(batch)
+        flags, gate3 = self._gate3_risk_classification(batch, risk_config=risk_config)
         gates.append(gate3)
         self._record_gate3_domain_traces(flags, gate3)
 
@@ -675,6 +820,13 @@ class SARoEngine:
             remediations=remediations,
             confidence_score=round(confidence, 4),
             created_at=created_at,
+            # SARO-003
+            risk_config_applied=risk_config is not None,
+            # SARO-006
+            engine_version=SARO_ENGINE_VERSION,
+            rule_pack_hash=self._rule_pack_hash,
+            # SARO-007
+            incident_corpus_version=self._incident_corpus_version,
         )
 
     def run_output_audit(
@@ -817,7 +969,11 @@ class SARoEngine:
                 score=0.0,
                 details={
                     "reason": f"Only {n} samples supplied; minimum is {MIN_SAMPLES}.",
-                    "reference": "EU AI Act Art. 10 / NIST MAP 2.3",
+                    "reference": (
+                        "Internal SARO methodology — statistical validity requires a minimum "
+                        "sample size for reliable fairness and risk metrics "
+                        "(central limit theorem convergence, minimum power for parity tests)."
+                    ),
                     "sample_count": n,
                     "required": MIN_SAMPLES,
                 },
@@ -875,7 +1031,7 @@ class SARoEngine:
         if not groups:
             return _GateResult(
                 gate_id=2,
-                name="Fairness (EU AI Act Art. 10 / NIST MAP 2.3)",
+                name="Fairness Analysis",
                 status="warn",
                 score=0.5,
                 details={
@@ -896,7 +1052,7 @@ class SARoEngine:
         if len(group_label_map) < 2:
             return _GateResult(
                 gate_id=2,
-                name="Fairness (EU AI Act Art. 10 / NIST MAP 2.3)",
+                name="Fairness Analysis",
                 status="warn",
                 score=0.6,
                 details={
@@ -940,12 +1096,34 @@ class SARoEngine:
 
     # ── Gate 3: Risk Classification ───────────────────────────────────────────
 
+    # PII patterns used for redacting matched_text_fragment in sample_findings (SARO-001)
+    _PII_REDACT_PATTERNS: list[tuple[re.Pattern, str]] = [
+        (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "***-**-****"),             # SSN
+        (re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"), "****-****-****-****"),  # CC
+        (re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"), "[email]"),
+        (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[phone]"),
+        (re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"), "[passport]"),
+    ]
+
+    @classmethod
+    def _redact_pii(cls, text: str) -> str:
+        """Redact PII patterns from a short text snippet."""
+        for pat, replacement in cls._PII_REDACT_PATTERNS:
+            text = pat.sub(replacement, text)
+        return text
+
     def _gate3_risk_classification(
-        self, batch: BatchIn
+        self,
+        batch: BatchIn,
+        risk_config: "RiskConfigIn | None" = None,
     ) -> tuple[list[_SampleFlag], _GateResult]:
         """
         Classify each sample against the 7 MIT risk domains using keyword and
         regex pattern matching.  Returns per-sample flags and a gate result.
+
+        SARO-003: accepts risk_config to apply tenant weight overrides and
+        keyword suppressions without mutating the global _RISK_SIGNALS.
+        SARO-001: accumulates sample findings into self._sample_findings.
         """
         flags: list[_SampleFlag] = []
         domain_counts: dict[str, int] = {d: 0 for d in MIT_DOMAINS}
@@ -956,8 +1134,15 @@ class SARoEngine:
                 matched = False
                 matched_signal = ""
 
+                # SARO-003: apply keyword suppressions from risk config
+                suppressed_kws: set[str] = set()
+                if risk_config and risk_config.keyword_suppressions:
+                    suppressed_kws = set(risk_config.keyword_suppressions.get(domain, []))
+
                 # Keyword matching
                 for kw in signals["keywords"]:
+                    if kw in suppressed_kws:
+                        continue
                     if re.search(kw, text_lower):
                         matched = True
                         matched_signal = f"keyword:{kw}"
@@ -972,15 +1157,32 @@ class SARoEngine:
                             break
 
                 if matched:
+                    # SARO-003: apply per-scan weight override
+                    weight = signals["weight"]
+                    if risk_config and domain in risk_config.domain_weights:
+                        override = risk_config.domain_weights[domain]
+                        weight = max(0.0, min(1.0, override))
+
                     flags.append(
                         _SampleFlag(
                             sample_id=sample.sample_id,
                             domain=domain,
                             signal=matched_signal,
-                            weight=signals["weight"],
+                            weight=weight,
                         )
                     )
                     domain_counts[domain] += 1
+
+                    # SARO-001: accumulate sample finding for persistence
+                    fragment = sample.text[:200]
+                    fragment = self._redact_pii(fragment)
+                    self._sample_findings.append({
+                        "sample_id": sample.sample_id,
+                        "domain": domain,
+                        "matched_signal": matched_signal,
+                        "matched_text_fragment": fragment,
+                        "weight": weight,
+                    })
 
         n = len(batch.samples)
         total_flagged = len({f.sample_id for f in flags})
@@ -1036,15 +1238,16 @@ class SARoEngine:
                 # Try to enrich with obligation text from the loaded DB data
                 obligations = self._lookup_obligations(t["framework"], t["rule_id"])
 
-                applied.append(
-                    AppliedRuleOut(
-                        framework=t["framework"],
-                        rule_id=t["rule_id"],
-                        title=t["title"],
-                        triggered_by=t["triggered_by"],
-                        obligations=obligations,
-                    )
+                rule = AppliedRuleOut(
+                    framework=t["framework"],
+                    rule_id=t["rule_id"],
+                    title=t["title"],
+                    triggered_by=t["triggered_by"],
+                    obligations=obligations,
                 )
+                # SARO-004: attach nist_subcategory_id as a dynamic attribute for trace recording
+                rule._nist_subcategory_id = t.get("nist_subcategory_id")  # type: ignore[attr-defined]
+                applied.append(rule)
 
         frameworks_covered = {r.framework for r in applied}
         score = len(frameworks_covered) / 4 if frameworks_covered else 1.0  # 4 target frameworks
@@ -1152,6 +1355,17 @@ class SARoEngine:
     def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
         """Record one trace per compliance rule that was triggered in Gate 4."""
         for rule in applied_rules:
+            # SARO-004: include nist_subcategory_id from trigger definition for traceability
+            nist_sub = getattr(rule, "_nist_subcategory_id", None)
+            detail: dict[str, Any] = {
+                "framework": rule.framework,
+                "rule_id": rule.rule_id,
+                "title": rule.title,
+                "triggered_by": rule.triggered_by,
+                "obligations": rule.obligations,
+            }
+            if nist_sub:
+                detail["nist_subcategory_id"] = nist_sub
             self._traces.append({
                 "gate_id": 4,
                 "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
@@ -1159,13 +1373,7 @@ class SARoEngine:
                 "check_name": f"{rule.framework} — {rule.rule_id}: {rule.title}",
                 "result": "triggered",
                 "reason": f"Rule triggered by: {rule.triggered_by}",
-                "detail_json": {
-                    "framework": rule.framework,
-                    "rule_id": rule.rule_id,
-                    "title": rule.title,
-                    "triggered_by": rule.triggered_by,
-                    "obligations": rule.obligations,
-                },
+                "detail_json": detail,
                 "remediation_hint": rule.obligations or "Review compliance obligations and implement required controls.",
             })
 
@@ -1265,12 +1473,17 @@ class SARoEngine:
 
     # ── Incident Similarity Matching ─────────────────────────────────────────
 
+    # SARO-007: minimum similarity threshold for meaningful matches
+    SIMILARITY_THRESHOLD: float = float(os.environ.get("INCIDENT_SIMILARITY_THRESHOLD", "0.15"))
+
     def _find_similar_incidents(
         self, batch_text: str, top_k: int = INCIDENT_TOP_K
     ) -> list[SimilarIncidentOut]:
         """
         Return the top-K incidents most similar to the batch text,
         ranked by TF-IDF cosine similarity.
+
+        SARO-007: results below SIMILARITY_THRESHOLD are returned with low_confidence=True.
         """
         if self._tfidf_vectorizer is None or self._incident_matrix is None:
             return []
@@ -1296,6 +1509,8 @@ class SARoEngine:
                     url=inc.get("url"),
                     similarity_score=round(sim, 4),
                     is_fixed=inc.get("is_fixed", False),
+                    low_confidence=sim < self.SIMILARITY_THRESHOLD,
+                    minimum_similarity_threshold=self.SIMILARITY_THRESHOLD,
                 )
             )
         return results

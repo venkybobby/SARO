@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import Audit, AuditTrace, User
-from schemas import AuditTraceOut, RemediateTraceIn
+from models import Audit, AuditTrace, SampleFinding, User
+from schemas import AuditTraceOut, RemediateTraceIn, SampleFindingOut
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/traces", tags=["traces"])
@@ -148,6 +148,38 @@ def get_trace_summary(
         "pending_remediation": total_failed - total_remediated,
         "by_gate": by_gate,
     }
+
+
+@router.get(
+    "/{audit_id}/samples",
+    response_model=list[SampleFindingOut],
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="Per-sample Gate 3 findings for an audit (SARO-001)",
+)
+def get_sample_findings(
+    audit_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    domain: str | None = Query(default=None, description="Filter by MIT domain"),
+) -> list[SampleFindingOut]:
+    """
+    Return the per-sample Gate 3 risk signal matches for the audit.
+
+    Enables governance leads to drill from a domain-level AuditTrace flag down to
+    the specific sample IDs and (redacted) text fragments that triggered it.
+    Results are scoped to the caller's tenant.
+    """
+    _get_audit_or_404(audit_id, current_user.tenant_id, db)
+
+    q = (
+        db.query(SampleFinding)
+        .filter(SampleFinding.audit_id == audit_id)
+        .order_by(SampleFinding.domain, SampleFinding.created_at)
+    )
+    if domain:
+        q = q.filter(SampleFinding.domain == domain)
+
+    return [SampleFindingOut.model_validate(f) for f in q.all()]
 
 
 @router.post(
