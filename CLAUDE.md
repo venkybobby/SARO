@@ -87,6 +87,7 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 
 ## References
 
+- **GitHub repo:** https://github.com/venkybobby/SARO (remote name: `saro`) — always push/PR here
 - Compliance boundaries: @docs/COMPLIANCE_CLAIMS_MATRIX.md
 - API prefix: `/api/v1/`
 - Port: `$PORT` (Railway injects)
