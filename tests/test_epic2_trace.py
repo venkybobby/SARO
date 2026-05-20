@@ -138,3 +138,62 @@ class TestHowSAROReasonsDoc:
         with patch("services.rfc3161_service.request_timestamp", return_value=None):
             result = attach_timestamp_to_export({"type": "transparency_doc"})
         assert "rfc3161_warning" in result or "rfc3161_timestamp" in result
+
+
+# ── Regression: build_trace_timeline integer gate_id crash ────────────────────
+
+class TestBuildTraceTimeline:
+    """Guard against regressions in trace_service.build_trace_timeline."""
+
+    def _make_trace(self, gate_id, gate_name="", result="pass", reason="ok"):
+        return {"gate_id": gate_id, "gate_name": gate_name,
+                "result": result, "reason": reason, "confidence": 0.9}
+
+    def test_integer_gate_ids_do_not_crash(self):
+        """gate_id is stored as int in the DB — must not call .lower() on it."""
+        from services.trace_service import build_trace_timeline
+        traces = [self._make_trace(i, f"Gate {i}") for i in range(1, 5)]
+        result = build_trace_timeline(traces)
+        assert "steps" in result
+        assert len(result["steps"]) == 6
+
+    def test_integer_gate_ids_map_to_correct_steps(self):
+        from services.trace_service import build_trace_timeline
+        traces = [
+            self._make_trace(1, "Data Quality (Gate 1)"),
+            self._make_trace(2, "Fairness Analysis"),
+            self._make_trace(3, "Risk Classification (MIT Taxonomy)"),
+            self._make_trace(4, "Compliance Mapping (NIST AI RMF)"),
+        ]
+        result = build_trace_timeline(traces)
+        step_names = {s["step"]: s["status"] for s in result["steps"]}
+        assert step_names["Ingest"] != "pending"
+        assert step_names["Classify"] != "pending"
+        assert step_names["Match"] != "pending"
+        assert step_names["Score"] != "pending"
+
+    def test_string_integer_gate_ids_handled(self):
+        from services.trace_service import build_trace_timeline
+        traces = [self._make_trace("1"), self._make_trace("4")]
+        result = build_trace_timeline(traces)
+        assert len(result["steps"]) == 6
+
+    def test_none_gate_id_falls_back_to_gate_name(self):
+        from services.trace_service import build_trace_timeline
+        traces = [self._make_trace(None, "fairness analysis")]
+        result = build_trace_timeline(traces)
+        classify = next(s for s in result["steps"] if s["step"] == "Classify")
+        assert classify["status"] != "pending"
+
+    def test_empty_traces_returns_all_pending(self):
+        from services.trace_service import build_trace_timeline
+        result = build_trace_timeline([])
+        assert all(s["status"] == "pending" for s in result["steps"])
+
+    def test_executive_mode_removes_technical_fields(self):
+        from services.trace_service import build_trace_timeline
+        traces = [self._make_trace(1)]
+        result = build_trace_timeline(traces, executive_mode=True)
+        for step in result["steps"]:
+            assert "rules_fired" not in step
+            assert "detail" not in step
