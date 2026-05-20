@@ -141,6 +141,8 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "audit_id",
         "mit_coverage_score", "fixed_delta", "overall_risk_score",
         "confidence_score", "report_json", "created_at",
+        # SARO-006 provenance fields
+        "engine_version", "rule_pack_hash", "compliance_matrix_version",
     },
     "audit_traces": {
         "id", "audit_id", "gate_id", "gate_name",
@@ -197,6 +199,21 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "audit_id", "repo_name", "file_path",
         "line_number", "snippet", "correlation_note",
         "finding_domain", "scan_hash", "created_at",
+    },
+    # SARO-001: per-sample Gate 3 findings
+    "sample_findings": {
+        "id", "audit_id", "sample_id", "domain",
+        "matched_signal", "matched_text_fragment", "weight", "created_at",
+    },
+    # SARO-003: tenant risk config overrides
+    "tenant_risk_configs": {
+        "id", "tenant_id", "domain_weights", "keyword_suppressions",
+        "max_weight_ceiling", "created_at", "updated_at",
+    },
+    # SARO-005: ISO 42001 generated documents
+    "iso42001_documents": {
+        "id", "audit_id", "generated_by_user_id",
+        "format", "content", "content_hash", "version", "created_at",
     },
 }
 
@@ -261,11 +278,14 @@ def ensure_app_schema() -> None:
     #   audit_traces    → audits, users
     #   audits          → tenants, users
     _DROP_ORDER = [
+        "sample_findings",       # → audits (SARO-001)
+        "iso42001_documents",    # → audits (SARO-005)
         "github_scan_results",   # → audits
         "enhanced_traces",       # → audits
         "audit_metadata",        # → audits
         "audit_events",          # → tenants, users
         "client_configs",        # → tenants
+        "tenant_risk_configs",   # → tenants (SARO-003)
         "github_integrations",   # → tenants
         "scan_reports",          # → audits
         "audit_traces",          # → audits, users

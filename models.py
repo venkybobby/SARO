@@ -138,6 +138,10 @@ class ScanReport(Base):
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Full structured report stored as JSON
     report_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # SARO-006: engine provenance fields for audit-of-the-auditor
+    engine_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    rule_pack_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    compliance_matrix_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -253,6 +257,8 @@ class NISTControl(Base):
     subcategory_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_actions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SARO-004: framework version for traceability
+    version: Mapped[str | None] = mapped_column(String(50), nullable=True, default="AI RMF 1.0")
     last_updated: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -501,6 +507,95 @@ class PersonaPermission(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SARO-001: Sample-level audit evidence (per-sample Gate 3 findings)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class SampleFinding(Base):
+    """
+    Persists per-sample Gate 3 risk signal matches.
+
+    Enables governance leads to drill from an AuditTrace domain flag down to
+    the exact samples that triggered it.  PII-containing matched_text_fragment
+    fields are redacted at write time — raw SSNs/cards are never stored here.
+    """
+    __tablename__ = "sample_findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    sample_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    domain: Mapped[str] = mapped_column(String(255), nullable=False)
+    # The keyword or pattern identifier that matched (e.g. "keyword:ssn")
+    matched_signal: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Short redacted snippet from the sample text (max 200 chars, PII masked)
+    matched_text_fragment: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    weight: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    audit: Mapped["Audit"] = relationship()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-003: Per-tenant risk signal configuration overrides
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TenantRiskConfig(Base):
+    """
+    Tenant-level overrides for Gate 3 risk domain weights and keyword suppressions.
+
+    super_admin sets the tenant ceiling; operator can override per-scan within
+    those bounds.  Applied at audit-start; never mutates the global _RISK_SIGNALS.
+    """
+    __tablename__ = "tenant_risk_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # domain → weight float (0.0–1.0); JSON: {"Privacy & Security": 0.95, ...}
+    domain_weights: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # domain → list of keywords to suppress; JSON: {"AI System Safety": ["fail"]}
+    keyword_suppressions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # Maximum weight ceiling an operator may set; enforced at scan time
+    max_weight_ceiling: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-005: ISO 42001 Annex A generated documents (immutable versioned records)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Iso42001Document(Base):
+    """
+    Immutable versioned record of a generated ISO 42001 Annex A document.
+
+    Each generation creates a new row; old rows are never edited through the API.
+    content_hash ensures the document content has not been altered post-generation.
+    """
+    __tablename__ = "iso42001_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    generated_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # "markdown" | "pdf" (PDF generated on-demand from markdown)
+    format: Mapped[str] = mapped_column(String(20), nullable=False, default="markdown")
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # SHA-256 of content at generation time for immutability verification
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Version counter within this audit (1, 2, 3 …)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    audit: Mapped["Audit"] = relationship()
 # Notifications (migration 006)
 # ─────────────────────────────────────────────────────────────────────────────
 

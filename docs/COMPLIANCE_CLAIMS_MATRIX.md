@@ -74,4 +74,30 @@
 
 ---
 
-*Last updated: 2026-05-07 | Owner: Venky (Lead) | Review: Jordan Lee (Backend)*
+---
+
+## Sampling Methodology Basis (SARO-002)
+
+The 50-sample minimum enforced by SARO's Gate 1 is an **internal statistical heuristic**, not a regulatory requirement from EU AI Act Art. 10 or NIST MAP 2.3.
+
+### Rationale
+
+| Principle | Explanation |
+|---|---|
+| Central Limit Theorem convergence | With n < 50, sample means may not approximate the population mean reliably for fairness metric computation. |
+| Statistical parity power | A two-group parity test needs approximately 50 samples per group for 80% power to detect a gap of 0.20 at α = 0.05 (Fisher's exact test). |
+| TF-IDF similarity stability | TF-IDF vector representations become unstable with very small corpora; n ≥ 50 ensures meaningful incident matching query vectors. |
+
+### Framework Boundary Clarification
+
+| Claim | Correct |
+|---|---|
+| "EU AI Act Art. 10 requires 50 samples" | **False** — Art. 10 governs training data governance for high-risk systems; it sets no batch audit sample threshold. |
+| "NIST MAP 2.3 requires 50 samples" | **False** — MAP 2.3 recommends scientific rigor in risk assessment; it sets no quantitative sample threshold. |
+| "SARO requires 50 samples for statistical validity" | **Correct** — this is an internal methodology requirement, not a regulatory mandate. |
+
+All Gate 1 error messages, schema docstrings, and remediation hints reference "internal SARO methodology" for the 50-sample requirement. EU AI Act Art. 10 and NIST MAP 2.3 citations are preserved only where the framework obligations are accurately described (Gate 2 fairness, Gate 4 compliance mapping).
+
+---
+
+*Last updated: 2026-05-19 | Owner: Venky (Lead) | Review: Jordan Lee (Backend)*

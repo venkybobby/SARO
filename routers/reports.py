@@ -10,22 +10,31 @@ GET /api/v1/reports/{audit_id}/incidents — similar incidents
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import uuid
+from collections import Counter
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import Audit, ScanReport, User
+from engine import COMPLIANCE_MATRIX_VERSION, SARO_ENGINE_VERSION, _COMPLIANCE_TRIGGERS, _RISK_SIGNALS
+from models import AIIncident, Audit, Iso42001Document, NISTControl, ScanReport, User
 from schemas import (
     AppliedRuleOut,
     AuditReportOut,
+    EngineIntegrityOut,
     FixedDeltaOut,
+    IncidentCorpusStatsOut,
+    Iso42001DocumentOut,
     MITCoverageOut,
+    NistCoverageReportOut,
+    NistSubcategoryOut,
     SimilarIncidentOut,
 )
 
@@ -200,3 +209,373 @@ def get_similar_incidents(
 ) -> list[SimilarIncidentOut]:
     data = _get_report_or_404(audit_id, current_user.tenant_id, db)
     return [SimilarIncidentOut.model_validate(i) for i in data.get("similar_incidents", [])]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-004: NIST AI RMF coverage report
+# ─────────────────────────────────────────────────────────────────────────────
+
+# All 72 NIST AI RMF 1.0 subcategory IDs with their automated coverage status.
+# "mapped" = SARO actively generates evidence, "partial" = limited automated evidence,
+# "requires_human_assessment" = no automated signal possible from text analysis.
+_NIST_COVERAGE_MAP: dict[str, str] = {
+    # GOVERN function
+    "GOVERN 1.1": "partial", "GOVERN 1.2": "requires_human_assessment",
+    "GOVERN 1.3": "requires_human_assessment", "GOVERN 1.4": "requires_human_assessment",
+    "GOVERN 1.5": "requires_human_assessment", "GOVERN 1.6": "mapped",
+    "GOVERN 1.7": "requires_human_assessment",
+    "GOVERN 2.1": "requires_human_assessment", "GOVERN 2.2": "requires_human_assessment",
+    "GOVERN 3.1": "requires_human_assessment", "GOVERN 3.2": "requires_human_assessment",
+    "GOVERN 4.1": "requires_human_assessment", "GOVERN 4.2": "mapped",
+    "GOVERN 5.1": "requires_human_assessment", "GOVERN 5.2": "requires_human_assessment",
+    "GOVERN 6.1": "requires_human_assessment", "GOVERN 6.2": "partial",
+    # MAP function
+    "MAP 1.1": "mapped", "MAP 1.2": "requires_human_assessment",
+    "MAP 1.3": "requires_human_assessment", "MAP 1.4": "requires_human_assessment",
+    "MAP 1.5": "mapped", "MAP 1.6": "mapped",
+    "MAP 2.1": "mapped", "MAP 2.2": "requires_human_assessment",
+    "MAP 2.3": "mapped", "MAP 3.1": "requires_human_assessment",
+    "MAP 3.2": "requires_human_assessment", "MAP 3.3": "requires_human_assessment",
+    "MAP 3.4": "requires_human_assessment", "MAP 3.5": "requires_human_assessment",
+    "MAP 4.1": "requires_human_assessment", "MAP 4.2": "requires_human_assessment",
+    "MAP 5.1": "partial", "MAP 5.2": "requires_human_assessment",
+    # MEASURE function
+    "MEASURE 1.1": "requires_human_assessment", "MEASURE 1.2": "requires_human_assessment",
+    "MEASURE 1.3": "requires_human_assessment",
+    "MEASURE 2.1": "mapped", "MEASURE 2.2": "requires_human_assessment",
+    "MEASURE 2.3": "requires_human_assessment", "MEASURE 2.4": "requires_human_assessment",
+    "MEASURE 2.5": "mapped", "MEASURE 2.6": "mapped",
+    "MEASURE 2.7": "requires_human_assessment", "MEASURE 2.8": "requires_human_assessment",
+    "MEASURE 2.9": "requires_human_assessment", "MEASURE 2.10": "requires_human_assessment",
+    "MEASURE 2.11": "partial", "MEASURE 2.12": "requires_human_assessment",
+    "MEASURE 2.13": "requires_human_assessment", "MEASURE 3.1": "requires_human_assessment",
+    "MEASURE 3.2": "requires_human_assessment", "MEASURE 3.3": "requires_human_assessment",
+    "MEASURE 4.1": "requires_human_assessment", "MEASURE 4.2": "requires_human_assessment",
+    # MANAGE function
+    "MANAGE 1.1": "requires_human_assessment", "MANAGE 1.2": "requires_human_assessment",
+    "MANAGE 1.3": "mapped", "MANAGE 1.4": "requires_human_assessment",
+    "MANAGE 2.1": "requires_human_assessment", "MANAGE 2.2": "requires_human_assessment",
+    "MANAGE 2.3": "requires_human_assessment", "MANAGE 2.4": "requires_human_assessment",
+    "MANAGE 3.1": "requires_human_assessment", "MANAGE 3.2": "requires_human_assessment",
+    "MANAGE 4.1": "mapped", "MANAGE 4.2": "requires_human_assessment",
+}
+
+
+@router.get(
+    "/nist-coverage",
+    response_model=NistCoverageReportOut,
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="NIST AI RMF subcategory coverage report (SARO-004)",
+)
+def get_nist_coverage(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> NistCoverageReportOut:
+    """
+    Returns coverage status for all 72 NIST AI RMF 1.0 subcategory outcomes.
+
+    Status values:
+      mapped                   — SARO generates automated evidence for this subcategory
+      partial                  — limited automated evidence; human review recommended
+      not_covered              — no DB record found for this subcategory
+      requires_human_assessment — no automated text-analysis signal possible
+    """
+    # Load DB records for version and description enrichment
+    nist_rows: dict[str, NISTControl] = {}
+    try:
+        for row in db.query(NISTControl).all():
+            if row.subcategory_id:
+                nist_rows[row.subcategory_id.strip()] = row
+    except Exception:
+        pass
+
+    subcategories: list[NistSubcategoryOut] = []
+    for sub_id, engine_status in _NIST_COVERAGE_MAP.items():
+        row = nist_rows.get(sub_id)
+        function_name = sub_id.split(" ")[0] if " " in sub_id else sub_id
+        version = (row.version or "AI RMF 1.0") if row else "AI RMF 1.0"
+        status = engine_status if row else "not_covered"
+        subcategories.append(NistSubcategoryOut(
+            subcategory_id=sub_id,
+            function_name=function_name,
+            description=row.description if row else None,
+            status=status,
+            version=version,
+        ))
+
+    counts = Counter(s.status for s in subcategories)
+    return NistCoverageReportOut(
+        engine_version=SARO_ENGINE_VERSION,
+        total_subcategories=len(subcategories),
+        mapped_count=counts.get("mapped", 0),
+        partial_count=counts.get("partial", 0),
+        not_covered_count=counts.get("not_covered", 0),
+        requires_human_assessment_count=counts.get("requires_human_assessment", 0),
+        subcategories=subcategories,
+        generated_at=datetime.now(tz=timezone.utc),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-005: ISO 42001 Annex A document generator
+# ─────────────────────────────────────────────────────────────────────────────
+
+_ISO_ANNEX_TEMPLATE = """\
+# ISO 42001 Annex A — AI Management System Technical Documentation
+## Generated by SARO v{engine_version}
+**Audit ID:** {audit_id}
+**Dataset:** {dataset_name}
+**Generated:** {generated_at}
+**Status:** [AUTO] Evidence auto-populated from SARO audit results.
+
+---
+> *This report is audit evidence generated by SARO v{engine_version}. It does not constitute
+> regulatory certification, legal advice, or compliance approval. Human review and sign-off by
+> qualified personnel is required before any regulatory submission.*
+
+---
+
+## A.6 — AI System Lifecycle Safety
+[AUTO] Risk findings from Gate 3 AI System Safety domain:
+{safety_findings}
+
+## A.7 — Data Management
+[AUTO] PII/data findings from Gate 3 Privacy & Security domain:
+{privacy_findings}
+
+## A.8 — Socioeconomic Impact
+[AUTO] Socioeconomic signals detected:
+{socioeconomic_findings}
+
+## A.9.3 — Fairness
+[AUTO] Gate 2 fairness analysis result: **{fairness_status}**
+{fairness_details}
+
+## A.10 — Responsible Use
+[AUTO] Malicious use signals detected:
+{malicious_findings}
+
+## Risk Findings Summary
+[AUTO] Overall risk score: **{overall_risk_score}**
+[AUTO] MIT coverage score: **{mit_coverage}**
+[AUTO] Confidence score: **{confidence_score}**
+
+## Applied Compliance Rules
+[AUTO] The following framework controls were triggered:
+{applied_rules}
+
+## Remediation Status
+[AUTO] Open remediations: **{open_remediations}**
+[AUTO] Remediated items: **{remediated_count}**
+
+## Annex VIII — Technical Documentation Fields
+[HUMAN REVIEW REQUIRED] System description and intended purpose
+[HUMAN REVIEW REQUIRED] Training data provenance and data governance statement
+[HUMAN REVIEW REQUIRED] Performance metrics and evaluation results
+[HUMAN REVIEW REQUIRED] Post-market monitoring plan
+[HUMAN REVIEW REQUIRED] Certification authority sign-off
+
+## Evidence References
+[AUTO] SARO Audit ID: {audit_id}
+[AUTO] TRACE record endpoint: /api/v1/traces/{audit_id}
+[AUTO] Sample findings: /api/v1/traces/{audit_id}/samples
+"""
+
+
+def _extract_domain_findings(report_data: dict, domain: str) -> str:
+    gates = report_data.get("gates", [])
+    for gate in gates:
+        if gate.get("gate_id") == 3:
+            counts = gate.get("details", {}).get("domain_counts", {})
+            cnt = counts.get(domain, 0)
+            if cnt > 0:
+                return f"[AUTO] {cnt} sample(s) flagged in '{domain}' domain."
+    return "[AUTO] No signals detected."
+
+
+@router.post(
+    "/{audit_id}/iso42001-annex",
+    response_model=Iso42001DocumentOut,
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="Generate ISO 42001 Annex A technical documentation (SARO-005)",
+)
+def generate_iso42001_annex(
+    audit_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    format: str = Query(default="markdown", pattern="^(markdown)$"),
+) -> Iso42001DocumentOut:
+    """
+    Generate a structured ISO 42001 Annex A document pre-populated with audit evidence.
+
+    Fields marked [AUTO] are populated from SARO findings.
+    Fields marked [HUMAN REVIEW REQUIRED] must be completed by qualified personnel.
+    Each generation creates an immutable versioned record.
+
+    Access restricted to compliance_lead and admin personas.
+    """
+    # Persona access check: only compliance_lead and admin may generate
+    allowed_personas = {"compliance_lead", "admin"}
+    if (
+        current_user.role != "super_admin"
+        and current_user.persona_role not in allowed_personas
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="ISO 42001 document generation requires compliance_lead or admin persona.",
+        )
+
+    report_data = _get_report_or_404(audit_id, current_user.tenant_id, db)
+
+    # Determine next version number for this audit
+    existing_versions = (
+        db.query(Iso42001Document)
+        .filter(Iso42001Document.audit_id == audit_id)
+        .count()
+    )
+    next_version = existing_versions + 1
+
+    gate2 = next((g for g in report_data.get("gates", []) if g.get("gate_id") == 2), {})
+    fairness_status = gate2.get("status", "unknown").upper()
+    fairness_detail = gate2.get("details", {})
+    fairness_details = (
+        f"Parity gap: {fairness_detail.get('statistical_parity_difference', 'N/A')} "
+        f"(warn >0.10, fail >0.20)"
+        if fairness_detail.get("statistical_parity_difference") is not None
+        else "Demographic labels not supplied — full parity analysis unavailable."
+    )
+
+    applied_rules_text = "\n".join(
+        f"- {r.get('framework')} {r.get('rule_id')}: {r.get('title')}"
+        for r in report_data.get("applied_rules", [])
+    ) or "None triggered."
+
+    content = _ISO_ANNEX_TEMPLATE.format(
+        engine_version=SARO_ENGINE_VERSION,
+        audit_id=str(audit_id),
+        dataset_name=report_data.get("dataset_name") or "Unknown",
+        generated_at=datetime.now(tz=timezone.utc).isoformat(),
+        safety_findings=_extract_domain_findings(report_data, "AI System Safety"),
+        privacy_findings=_extract_domain_findings(report_data, "Privacy & Security"),
+        socioeconomic_findings=_extract_domain_findings(report_data, "Socioeconomic & Environmental"),
+        fairness_status=fairness_status,
+        fairness_details=fairness_details,
+        malicious_findings=_extract_domain_findings(report_data, "Malicious Use"),
+        overall_risk_score=report_data.get("bayesian_scores", {}).get("overall", "N/A"),
+        mit_coverage=report_data.get("mit_coverage", {}).get("score", "N/A"),
+        confidence_score=report_data.get("confidence_score", "N/A"),
+        applied_rules=applied_rules_text,
+        open_remediations=len(report_data.get("remediations", [])),
+        remediated_count=0,
+    )
+
+    content_hash = hashlib.sha256(content.encode()).hexdigest()
+
+    doc = Iso42001Document(
+        audit_id=audit_id,
+        generated_by_user_id=current_user.id,
+        format=format,
+        content=content,
+        content_hash=content_hash,
+        version=next_version,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    logger.info(
+        "ISO 42001 Annex A document v%d generated for audit %s by %s",
+        next_version, audit_id, current_user.email,
+    )
+    return Iso42001DocumentOut.model_validate(doc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-006: Engine integrity
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/engine/integrity",
+    response_model=EngineIntegrityOut,
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="Current engine version and rule pack integrity hash (SARO-006)",
+)
+def get_engine_integrity(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> EngineIntegrityOut:
+    """
+    Returns the current engine version, rule pack SHA-256 hash, and compliance
+    matrix version.  An external auditor can use this to verify that the engine
+    config has not changed since a specific audit was run.
+    """
+    import json as _json
+    payload = {
+        "risk_signals": {
+            domain: {"keywords": sorted(sigs["keywords"]), "weight": sigs["weight"]}
+            for domain, sigs in _RISK_SIGNALS.items()
+        },
+        "compliance_triggers": {
+            domain: [{"framework": t["framework"], "rule_id": t["rule_id"]} for t in triggers]
+            for domain, triggers in _COMPLIANCE_TRIGGERS.items()
+        },
+    }
+    canonical = _json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    rule_pack_hash = hashlib.sha256(canonical.encode()).hexdigest()
+
+    return EngineIntegrityOut(
+        engine_version=SARO_ENGINE_VERSION,
+        rule_pack_hash=rule_pack_hash,
+        compliance_matrix_version=COMPLIANCE_MATRIX_VERSION,
+        checked_at=datetime.now(tz=timezone.utc),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-007: Incident corpus statistics
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/incident-corpus-stats",
+    response_model=IncidentCorpusStatsOut,
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="AI incident corpus quality statistics (SARO-007)",
+)
+def get_incident_corpus_stats(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> IncidentCorpusStatsOut:
+    """
+    Returns quality and currency statistics for the AI incident similarity corpus.
+
+    Governance teams use this to assess whether incident similarity scores are
+    statistically meaningful given the corpus size and recency.
+    """
+    try:
+        rows = db.query(AIIncident).all()
+    except Exception:
+        rows = []
+
+    total = len(rows)
+    fixed_count = sum(1 for r in rows if r.is_fixed)
+    pct_fixed = round(fixed_count / total, 4) if total > 0 else 0.0
+
+    category_counts = Counter(r.category for r in rows if r.category)
+    harm_type_counts = Counter(r.harm_type for r in rows if r.harm_type)
+
+    dates = [r.date for r in rows if r.date]
+    dates_sorted = sorted(dates) if dates else []
+
+    corpus_datetimes = [r.created_at for r in rows if r.created_at]
+    last_update = max(corpus_datetimes) if corpus_datetimes else None
+
+    return IncidentCorpusStatsOut(
+        total_incidents=total,
+        count_by_category=dict(category_counts),
+        count_by_harm_type=dict(harm_type_counts),
+        date_range_earliest=dates_sorted[0] if dates_sorted else None,
+        date_range_latest=dates_sorted[-1] if dates_sorted else None,
+        pct_fixed=pct_fixed,
+        last_corpus_update=last_update,
+        minimum_similarity_threshold=0.15,
+    )

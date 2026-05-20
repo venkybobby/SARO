@@ -52,6 +52,7 @@ from routers.rule_packs import router as rule_packs_router
 from routers.sso import router as sso_router
 from routers.remediation import router as remediation_router
 from routers.compliance_hub import router as compliance_hub_router
+from routers.risk_config import router as risk_config_router
 from routers.compliance_matrix import router as compliance_matrix_router
 from routers.notifications import router as notifications_router
 from middleware.rate_limiter import RateLimiterMiddleware
@@ -200,6 +201,7 @@ app.include_router(rule_packs_router)
 app.include_router(sso_router)
 app.include_router(remediation_router)
 app.include_router(compliance_hub_router)
+app.include_router(risk_config_router)
 app.include_router(compliance_matrix_router)
 app.include_router(notifications_router)
 

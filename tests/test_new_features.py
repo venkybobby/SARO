@@ -126,6 +126,8 @@ class TestEngineTracing:
                 e._gov_rules = []
                 e._tfidf_vectorizer = None
                 e._incident_matrix = None
+                e._rule_pack_hash = eng_module.SARoEngine._compute_rule_pack_hash()
+                e._incident_corpus_version = "test-corpus-v0"
                 return e
 
     def _make_batch(self, n: int = 60, include_risk_text: bool = False):
