@@ -401,6 +401,11 @@ class AuditTraceOut(BaseModel):
     reason: str | None
     detail_json: dict[str, Any] | None
     remediation_hint: str | None
+    # SARO-DC-001: representative trigger signal (Gate 3: matched signal name,
+    # Gate 2: parity metric string, Gate 4: triggered rule_id; never raw PII)
+    signal_text: str | None = None
+    # SARO-DC-002: top 10 sample_ids by weight for Gate 3 domain findings
+    top_sample_ids: list[str] | None = None
     is_remediated: bool
     remediated_at: datetime | None
     created_at: datetime
@@ -700,6 +705,14 @@ class SampleFindingOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedSampleFindingOut(BaseModel):
+    """SARO-DC-002: paginated SampleFinding results for a single AuditTrace record."""
+    results: list[SampleFindingOut]
+    page: int
+    page_size: int
+    total: int | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

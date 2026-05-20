@@ -195,6 +195,10 @@ class AuditTrace(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     remediation_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SARO-DC-001: representative trigger signal for this finding (never raw PII)
+    signal_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # SARO-DC-002: top 10 sample_ids by weight for Gate 3 domain findings
+    top_sample_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Remedy workflow fields
     is_remediated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     remediated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
