@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import AuditTrace, User
+from models import User
 from services.compliance_matrix_service import (
     VALID_SORT_COLUMNS,
     VALID_SORT_DIRS,
@@ -26,7 +26,6 @@ from services.compliance_matrix_service import (
     get_matrix_rows,
     sort_matrix_rows,
 )
-from services.hash_chain_service import compute_event_hash
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +130,10 @@ def export_matrix_csv(
             },
         )
 
-    # Log export action to audit chain
-    try:
-        _log_export_event(db, current_user, filter_regulation, filter_risk_level)
-    except Exception as exc:
-        logger.warning("Failed to log export audit event: %s", exc)
+    logger.info(
+        "compliance_matrix_export actor=%s filter_regulation=%s filter_risk_level=%s rows=%d",
+        current_user.email, filter_regulation, filter_risk_level, len(rows),
+    )
 
     today = date.today().isoformat()
     filename = f"saro-compliance-matrix-{today}.csv"
@@ -162,50 +160,3 @@ def export_matrix_csv(
     )
 
 
-def _log_export_event(
-    db: Session,
-    user: User,
-    filter_regulation: str | None,
-    filter_risk_level: str | None,
-) -> None:
-    """Append a MATRIX_EXPORT_CSV event to the tenant's audit trace chain."""
-    import uuid as _uuid
-
-    last = (
-        db.query(AuditTrace)
-        .filter(AuditTrace.audit_id.isnot(None))
-        .order_by(AuditTrace.created_at.desc())
-        .first()
-    )
-    prev_hash = last.event_hash if last and hasattr(last, "event_hash") else None
-
-    event_data: dict[str, Any] = {
-        "id": str(_uuid.uuid4()),
-        "audit_id": "matrix_export",
-        "gate_id": 0,
-        "result": "MATRIX_EXPORT_CSV",
-        "reason": (
-            f"actor={user.email} "
-            f"filter_regulation={filter_regulation} "
-            f"filter_risk_level={filter_risk_level}"
-        ),
-        "created_at": str(__import__("datetime").datetime.utcnow().isoformat()),
-    }
-    event_hash = compute_event_hash(event_data, prev_hash)
-
-    trace = AuditTrace(
-        id=_uuid.UUID(event_data["id"]),
-        audit_id=None,
-        gate_id=0,
-        gate_name="matrix_export",
-        check_type="MATRIX_EXPORT_CSV",
-        check_name="CSV Export",
-        result="info",
-        reason=event_data["reason"],
-    )
-    if hasattr(trace, "event_hash"):
-        trace.event_hash = event_hash
-    if hasattr(trace, "prev_hash"):
-        trace.prev_hash = prev_hash
-    db.add(trace)
-    db.commit()

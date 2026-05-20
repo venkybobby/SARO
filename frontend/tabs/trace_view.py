@@ -142,23 +142,55 @@ def _render_exports(token: str, audit_id: str, trace: dict, tab_key: str = "trac
                 st.error(f"PDF export failed: {exc}")
 
 
+def _load_recent_audits(token: str) -> list[dict]:
+    """Fetch the 50 most recent audits for the dropdown."""
+    try:
+        resp = _api(token, "get", "/api/v1/audits?limit=50")
+        resp.raise_for_status()
+        data = resp.json()
+        # API may return a list or {"items": [...]}
+        return data if isinstance(data, list) else data.get("items", [])
+    except Exception:
+        return []
+
+
 def render(token: str, tab_key: str = "trace_view") -> None:
     st.header("TRACE View")
     st.caption("Step-by-step AI explainability timeline for any audit.")
 
     col_id, col_mode = st.columns([3, 1])
+
     with col_id:
-        audit_id = st.text_input(
-            "Audit ID",
-            placeholder="Enter audit ID…",
-            label_visibility="collapsed",
-            key=f"{tab_key}_audit_id",
-        )
+        audits = _load_recent_audits(token)
+        if audits:
+            # Build label → UUID mapping
+            options_map: dict[str, str] = {}
+            for a in audits:
+                aid = str(a.get("id", ""))
+                label = f"{a.get('dataset_name') or 'Unnamed'} — {aid[:8]}… ({a.get('status', '?')})"
+                options_map[label] = aid
+
+            selected_label = st.selectbox(
+                "Select audit",
+                options=["— choose an audit —"] + list(options_map.keys()),
+                label_visibility="collapsed",
+                key=f"{tab_key}_audit_select",
+            )
+            audit_id = options_map.get(selected_label, "")
+        else:
+            # Fallback: manual UUID entry if audit list unavailable
+            audit_id = st.text_input(
+                "Audit ID (UUID)",
+                placeholder="e.g. 3f2a1b4c-…",
+                label_visibility="collapsed",
+                key=f"{tab_key}_audit_id",
+            ).strip()
+
     with col_mode:
         technical = st.toggle("Technical mode", value=False, key=f"{tab_key}_tech_mode")
 
     if not audit_id:
-        st.info("Enter an audit ID above to load its TRACE timeline.")
+        st.info("Select an audit above to load its TRACE timeline.")
         return
 
-    _render_trace(token, audit_id.strip(), technical, tab_key=tab_key)
+    _render_trace(token, audit_id, technical, tab_key=tab_key)
