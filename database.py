@@ -148,6 +148,7 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "audit_id", "gate_id", "gate_name",
         "check_type", "check_name", "result", "reason",
         "detail_json", "remediation_hint",
+        "signal_text", "top_sample_ids",
         "is_remediated", "remediated_at", "remediated_by_id",
         "created_at",
     },
@@ -227,6 +228,11 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
     # SARO-004: version column added to reference table — ALTER only, never drop.
     "nist_ai_rmf_controls": {
         "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",
+    },
+    # SARO-DC-001/DC-002: additive columns on audit_traces — ALTER only.
+    "audit_traces": {
+        "signal_text": "VARCHAR(500)",
+        "top_sample_ids": "JSONB",
     },
 }
 

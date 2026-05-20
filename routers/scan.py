@@ -52,6 +52,8 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
                 reason=t.get("reason"),
                 detail_json=t.get("detail_json"),
                 remediation_hint=t.get("remediation_hint"),
+                signal_text=t.get("signal_text"),
+                top_sample_ids=t.get("top_sample_ids"),
             ))
         # SARO-001: persist per-sample Gate 3 findings
         for f in findings:

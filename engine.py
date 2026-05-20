@@ -1305,6 +1305,14 @@ class SARoEngine:
         if gate.status in ("fail", "warn"):
             remediation = _GATE_REMEDIATION_HINTS.get(gate.gate_id, "Review gate details and address flagged issues.")
 
+        # SARO-DC-001: Gate 2 parity metric as signal_text
+        signal_text: str | None = None
+        if gate.gate_id == 2 and "statistical_parity_difference" in details:
+            gap = details["statistical_parity_difference"]
+            groups = details.get("groups_analysed", [])
+            if len(groups) >= 2:
+                signal_text = f"stat_parity_diff={gap:.4f} ({groups[0]} vs {groups[1]})"[:500]
+
         self._traces.append({
             "gate_id": gate.gate_id,
             "gate_name": gate.name,
@@ -1314,6 +1322,8 @@ class SARoEngine:
             "reason": reason,
             "detail_json": details,
             "remediation_hint": remediation,
+            "signal_text": signal_text,
+            "top_sample_ids": None,
         })
 
     def _record_gate3_domain_traces(self, flags: list, gate: object) -> None:
@@ -1321,7 +1331,7 @@ class SARoEngine:
         Record one trace per MIT domain — 'flagged' when signals were detected,
         'pass' when the domain was clean.
         """
-        from collections import defaultdict
+        from collections import Counter, defaultdict
         domain_flags: dict[str, list[dict]] = defaultdict(list)
         for f in flags:
             domain_flags[f.domain].append({"sample_id": f.sample_id, "signal": f.signal, "weight": f.weight})
@@ -1336,10 +1346,18 @@ class SARoEngine:
                     + (" …" if len(df) > 3 else "")
                 )
                 remediation = _DOMAIN_REMEDIATION_HINTS.get(domain)
+                # SARO-DC-001: modal signal (most frequent) — never raw PII matched text
+                signal_counts = Counter(d["signal"] for d in df)
+                signal_text: str | None = signal_counts.most_common(1)[0][0][:500] if signal_counts else None
+                # SARO-DC-002: top 10 sample_ids by weight descending
+                sorted_by_weight = sorted(df, key=lambda d: d["weight"], reverse=True)
+                top_sample_ids: list[str] | None = [d["sample_id"] for d in sorted_by_weight[:10]]
             else:
                 result = "pass"
                 reason = f"No risk signals detected for domain '{domain}'."
                 remediation = None
+                signal_text = None
+                top_sample_ids = None
 
             self._traces.append({
                 "gate_id": 3,
@@ -1350,6 +1368,8 @@ class SARoEngine:
                 "reason": reason,
                 "detail_json": {"flagged_signals": df[:20]} if df else {},
                 "remediation_hint": remediation,
+                "signal_text": signal_text,
+                "top_sample_ids": top_sample_ids,
             })
 
     def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
@@ -1375,6 +1395,9 @@ class SARoEngine:
                 "reason": f"Rule triggered by: {rule.triggered_by}",
                 "detail_json": detail,
                 "remediation_hint": rule.obligations or "Review compliance obligations and implement required controls.",
+                # SARO-DC-001: triggered rule_id as the representative signal
+                "signal_text": str(rule.rule_id)[:500] if rule.rule_id else None,
+                "top_sample_ids": None,
             })
 
         # If no rules were triggered, record a single pass trace
@@ -1388,6 +1411,8 @@ class SARoEngine:
                 "reason": "No compliance rules triggered — no risk domains detected.",
                 "detail_json": {},
                 "remediation_hint": None,
+                "signal_text": None,
+                "top_sample_ids": None,
             })
 
     # ── Bayesian Risk Scoring ─────────────────────────────────────────────────

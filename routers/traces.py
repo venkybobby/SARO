@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_role
 from database import get_db
 from models import Audit, AuditTrace, SampleFinding, User
-from schemas import AuditTraceOut, RemediateTraceIn, SampleFindingOut
+from schemas import AuditTraceOut, PaginatedSampleFindingOut, RemediateTraceIn, SampleFindingOut
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/traces", tags=["traces"])
@@ -180,6 +180,58 @@ def get_sample_findings(
         q = q.filter(SampleFinding.domain == domain)
 
     return [SampleFindingOut.model_validate(f) for f in q.all()]
+
+
+@router.get(
+    "/{trace_id}/sample-findings",
+    response_model=PaginatedSampleFindingOut,
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="SARO-DC-002: Navigate from an AuditTrace record to its supporting SampleFindings",
+)
+def get_sample_findings_for_trace(
+    trace_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(default=50, ge=1, le=200, description="Results per page"),
+) -> PaginatedSampleFindingOut:
+    """
+    Return the SampleFinding records associated with a specific AuditTrace.
+
+    The join is AuditTrace.audit_id + AuditTrace.check_name (domain) →
+    SampleFinding.audit_id + SampleFinding.domain.  Tenant isolation is
+    enforced by verifying the parent audit belongs to the caller's tenant.
+
+    Returns HTTP 200 with results=[] for non-Gate-3 traces (Gate 1/2/4
+    have no SampleFinding rows). Returns HTTP 404 if the trace does not
+    exist or belongs to a different tenant.
+    """
+    trace = db.get(AuditTrace, trace_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    # Tenant isolation via parent audit
+    audit = db.query(Audit).filter(
+        Audit.id == trace.audit_id,
+        Audit.tenant_id == current_user.tenant_id,
+    ).first()
+    if not audit:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    base_q = db.query(SampleFinding).filter(
+        SampleFinding.audit_id == trace.audit_id,
+        SampleFinding.domain == trace.check_name,
+    ).order_by(SampleFinding.weight.desc(), SampleFinding.created_at)
+
+    total = base_q.count()
+    findings = base_q.offset((page - 1) * page_size).limit(page_size).all()
+
+    return PaginatedSampleFindingOut(
+        results=[SampleFindingOut.model_validate(f) for f in findings],
+        page=page,
+        page_size=page_size,
+        total=total if page == 1 else None,
+    )
 
 
 @router.post(
