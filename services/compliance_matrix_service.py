@@ -99,35 +99,44 @@ def get_matrix_rows(db: Session) -> list[dict[str, Any]]:
     """Return all compliance matrix rows aggregated from DB + static sources."""
     rows: list[dict[str, Any]] = []
 
-    # EU AI Act rows
-    for rule in db.query(EUAIActRule).all():
-        rows.append({
-            "id": rule.rule_id if hasattr(rule, "rule_id") else f"EUAI-{rule.id}",
-            "regulation_name": "EU AI Act",
-            "article_section": getattr(rule, "article", "—"),
-            "requirement_summary": getattr(rule, "title", ""),
-            "risk_level": _SEVERITY_TO_RISK.get(getattr(rule, "severity", 0), "Medium"),
-            "status": "In Progress",
-            "coverage_pct": None,
-            "last_updated": "2026-02-01",
-            "assigned_owner": None,
-            "notes": getattr(rule, "category", None),
-        })
+    try:
+        # EU AI Act rows — actual columns: article_number, title, risk_level (string)
+        for rule in db.query(EUAIActRule).all():
+            last_upd = rule.last_updated
+            last_upd_str = last_upd.date().isoformat() if last_upd is not None else None
+            risk = rule.risk_level if rule.risk_level in RISK_ORDINAL else "Medium"
+            rows.append({
+                "id": f"EUAI-{rule.id}",
+                "regulation_name": "EU AI Act",
+                "article_section": rule.article_number or "—",
+                "requirement_summary": rule.title or "",
+                "risk_level": risk,
+                "status": "In Progress",
+                "coverage_pct": None,
+                "last_updated": last_upd_str,
+                "assigned_owner": None,
+                "notes": None,
+            })
 
-    # NIST RMF rows
-    for ctrl in db.query(NISTControl).all():
-        rows.append({
-            "id": getattr(ctrl, "control_id", f"NIST-{ctrl.id}"),
-            "regulation_name": "NIST AI RMF",
-            "article_section": getattr(ctrl, "function_area", getattr(ctrl, "control_id", "—")),
-            "requirement_summary": getattr(ctrl, "title", ""),
-            "risk_level": "Medium",
-            "status": "Compliant",
-            "coverage_pct": None,
-            "last_updated": "2026-01-15",
-            "assigned_owner": None,
-            "notes": None,
-        })
+        # NIST RMF rows — actual columns: subcategory_id, function_name, description
+        for ctrl in db.query(NISTControl).all():
+            last_upd = ctrl.last_updated
+            last_upd_str = last_upd.date().isoformat() if last_upd is not None else None
+            rows.append({
+                "id": ctrl.subcategory_id or f"NIST-{ctrl.id}",
+                "regulation_name": "NIST AI RMF",
+                "article_section": ctrl.function_name or "—",
+                "requirement_summary": ctrl.description or "",
+                "risk_level": "Medium",
+                "status": "Compliant",
+                "coverage_pct": None,
+                "last_updated": last_upd_str,
+                "assigned_owner": None,
+                "notes": None,
+            })
+    except Exception:
+        # DB schema mismatch or missing table — serve static-only rows
+        pass
 
     rows.extend(_STATIC_ROWS)
     return rows

@@ -224,6 +224,10 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "persona_role": "VARCHAR(50)",
     },
     "tenants": {},
+    # SARO-004: version column added to reference table — ALTER only, never drop.
+    "nist_ai_rmf_controls": {
+        "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",
+    },
 }
 
 
