@@ -24,7 +24,7 @@ from auth import (
     require_role,
 )
 from database import get_db
-from models import Tenant, User
+from models import PersonaPermission, Tenant, User
 from schemas import (
     BootstrapIn,
     LoginIn,
@@ -143,9 +143,22 @@ def register_user(
 
 
 @router.get("/me", response_model=UserOut)
-def me(current: Annotated[User, Depends(get_current_user)]) -> UserOut:
-    """Return the currently authenticated user."""
-    return UserOut.model_validate(current)
+def me(
+    current: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UserOut:
+    """Return the authenticated user with persona_role and tab permissions (CF-06)."""
+    out = UserOut.model_validate(current)
+    if current.persona_role:
+        perm = (
+            db.query(PersonaPermission)
+            .filter(PersonaPermission.persona_role == current.persona_role)
+            .first()
+        )
+        if perm:
+            out.allowed_tabs = perm.allowed_tabs or []
+            out.allowed_actions = perm.allowed_actions or []
+    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -60,6 +60,11 @@ from models import (
     MITRisk,
     NISTControl,
 )
+from rule_packs.loader import (
+    RulePack,
+    build_domain_trigger_map,
+    load_all_packs,
+)
 from schemas import (
     AppliedRuleOut,
     AuditConfigIn,
@@ -460,10 +465,13 @@ class SARoEngine:
         logger.info("Initialising SARoEngine — loading reference tables")
         self._load_reference_data(db)
         self._build_incident_index()
+        self._rule_packs: list[RulePack] = load_all_packs()
+        self._compliance_triggers = build_domain_trigger_map(self._rule_packs)
         logger.info(
-            "SARoEngine ready: %d incidents, %d MIT risks loaded",
+            "SARoEngine ready: %d incidents, %d MIT risks, %d rule packs loaded",
             len(self._incidents),
             len(self._mit_risks),
+            len(self._rule_packs),
         )
 
     # ── Reference data loading ────────────────────────────────────────────────
@@ -1005,6 +1013,7 @@ class SARoEngine:
                 "flagged_samples": total_flagged,
                 "flag_rate": round(flag_rate, 4),
                 "domain_counts": domain_counts,
+                "domain_flag_counts": domain_counts,
                 "total_flags": len(flags),
             },
         )
@@ -1024,17 +1033,24 @@ class SARoEngine:
         triggered_domains = {f.domain for f in flags}
         applied: list[AppliedRuleOut] = []
         seen_rule_ids: set[str] = set()
+        # rule_pack_by_key: rule lookup key → rule_pack metadata (for trace detail_json)
+        self._applied_rule_packs: dict[str, dict] = {}
+
+        # Use versioned rule packs if loaded; fall back to legacy hardcoded triggers
+        compliance_map = self._compliance_triggers if self._compliance_triggers else _COMPLIANCE_TRIGGERS
 
         for domain in triggered_domains:
-            triggers = _COMPLIANCE_TRIGGERS.get(domain, [])
+            triggers = compliance_map.get(domain, [])
             for t in triggers:
                 key = f"{t['framework']}::{t['rule_id']}"
                 if key in seen_rule_ids:
                     continue
                 seen_rule_ids.add(key)
 
-                # Try to enrich with obligation text from the loaded DB data
-                obligations = self._lookup_obligations(t["framework"], t["rule_id"])
+                # Obligation from rule pack YAML takes precedence over DB lookup
+                obligations = t.get("obligation") or self._lookup_obligations(t["framework"], t["rule_id"])
+                if "rule_pack" in t:
+                    self._applied_rule_packs[key] = t["rule_pack"]
 
                 applied.append(
                     AppliedRuleOut(
@@ -1152,6 +1168,17 @@ class SARoEngine:
     def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
         """Record one trace per compliance rule that was triggered in Gate 4."""
         for rule in applied_rules:
+            key = f"{rule.framework}::{rule.rule_id}"
+            rule_pack_meta = getattr(self, "_applied_rule_packs", {}).get(key)
+            detail: dict = {
+                "framework": rule.framework,
+                "rule_id": rule.rule_id,
+                "title": rule.title,
+                "triggered_by": rule.triggered_by,
+                "obligations": rule.obligations,
+            }
+            if rule_pack_meta:
+                detail["rule_pack"] = rule_pack_meta
             self._traces.append({
                 "gate_id": 4,
                 "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
@@ -1159,13 +1186,7 @@ class SARoEngine:
                 "check_name": f"{rule.framework} — {rule.rule_id}: {rule.title}",
                 "result": "triggered",
                 "reason": f"Rule triggered by: {rule.triggered_by}",
-                "detail_json": {
-                    "framework": rule.framework,
-                    "rule_id": rule.rule_id,
-                    "title": rule.title,
-                    "triggered_by": rule.triggered_by,
-                    "obligations": rule.obligations,
-                },
+                "detail_json": detail,
                 "remediation_hint": rule.obligations or "Review compliance obligations and implement required controls.",
             })
 

@@ -1,0 +1,57 @@
+name: nist-ai-rmf
+version: 1.0.0
+rules:
+  - rule_id: MAP-2.3
+    title: Scientific Findings on Fairness
+    domain_trigger: "Discrimination & Toxicity"
+    obligation: >
+      Scientific findings related to fairness, bias, and discrimination are applied
+      to the AI system's design, development, and deployment; demographic
+      representation in training data is documented and assessed.
+    fixtures:
+      positive_text: "hate speech and racial slur detected — stereotyping and gender bias present in model output"
+      negative_text: "the model achieved 94 percent accuracy on the benchmark dataset"
+
+  - rule_id: GOVERN-4.2
+    title: Privacy Risk Management
+    domain_trigger: "Privacy & Security"
+    obligation: >
+      Privacy risks to individuals from AI system design, training data, and
+      outputs are identified, assessed, and managed as part of the organisation's
+      risk management processes.
+    fixtures:
+      positive_text: "credit card 4111111111111111 and SSN 987-65-4321 exposed in AI response to customer query"
+      negative_text: "the user completed the onboarding tutorial and submitted their first project"
+
+  - rule_id: MEASURE-2.5
+    title: Robustness and Reliability Testing
+    domain_trigger: Misinformation
+    obligation: >
+      AI system robustness and reliability metrics are evaluated and documented,
+      including performance on adversarial inputs and edge cases that may produce
+      hallucinated or factually incorrect outputs.
+    fixtures:
+      positive_text: "the model fabricated clinical data and provided false vaccine safety information — hallucination confirmed"
+      negative_text: "the API returned a 200 status code and the data was saved to the database"
+
+  - rule_id: GOVERN-1.6
+    title: Third-Party Risk and Dual-Use
+    domain_trigger: Malicious Use
+    obligation: >
+      Third-party relationships, including those involving dual-use AI capabilities,
+      are subject to documented risk assessments and contractual obligations to
+      minimise potential for misuse.
+    fixtures:
+      positive_text: "phishing kit and SQL injection payload detected — botnet command-and-control instructions present"
+      negative_text: "the integration test passed successfully and the CI pipeline is green"
+
+  - rule_id: MANAGE-4.1
+    title: Residual Risk Treatment
+    domain_trigger: "AI System Safety"
+    obligation: >
+      Residual risks from AI systems are documented, monitored, and subject to
+      ongoing risk treatment plans including fail-safe mechanisms and human
+      oversight protocols.
+    fixtures:
+      positive_text: "autonomous drone crashed causing fatal injuries — unsafe self-driving system failure with no override"
+      negative_text: "the deployment completed in 4 minutes and all health checks passed"

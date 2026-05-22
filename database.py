@@ -176,11 +176,20 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
     "enhanced_traces": {
         "id", "audit_id", "confidence", "model_version",
         "executive_summary", "chain_of_thought",
+        # CF-01: plain-English executive steps
+        "executive_steps",
         "client_input_summary", "client_output_summary",
         "raw_prompt", "raw_response",
         # v2.1 additions — verbatim text + signed export
         "prompt_text", "raw_output_text", "export_hash",
         "created_at",
+    },
+    "users": {
+        "id", "tenant_id", "email", "hashed_password",
+        "role",
+        # CF-06: persona RBAC
+        "persona_role",
+        "is_active", "created_at",
     },
     "audit_metadata": {
         "id", "audit_id",
@@ -286,3 +295,51 @@ def health_check() -> bool:
     except Exception:
         logger.exception("Database health check failed")
         return False
+
+
+# ── Persona Permission Seeding (CF-06) ────────────────────────────────────────
+
+_PERSONA_SEEDS = [
+    {
+        "persona_role": "compliance_lead",
+        "allowed_tabs": ["dashboard", "audit", "trace", "remediate", "aims", "governance"],
+        "allowed_actions": ["create_aims_document", "link_audit", "export_pdf", "view_trace"],
+    },
+    {
+        "persona_role": "risk_officer",
+        "allowed_tabs": ["dashboard", "trace", "notifications"],
+        "allowed_actions": ["view_trace", "view_dashboard"],
+    },
+    {
+        "persona_role": "ai_auditor",
+        "allowed_tabs": ["dashboard", "audit", "trace", "rule_packs", "remediate"],
+        "allowed_actions": ["view_trace", "view_rule_packs", "remediate_trace"],
+    },
+]
+
+
+def seed_persona_permissions() -> None:
+    """
+    Idempotently insert PersonaPermission rows for the three standard personas.
+    Skips rows that already exist (upsert by persona_role uniqueness).
+    """
+    from models import PersonaPermission  # local import — avoids circular at module load
+
+    factory = _get_session_factory()
+    db: Session = factory()
+    try:
+        for seed in _PERSONA_SEEDS:
+            existing = (
+                db.query(PersonaPermission)
+                .filter(PersonaPermission.persona_role == seed["persona_role"])
+                .first()
+            )
+            if not existing:
+                db.add(PersonaPermission(**seed))
+        db.commit()
+        logger.info("PersonaPermission rows seeded")
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to seed PersonaPermission rows")
+    finally:
+        db.close()

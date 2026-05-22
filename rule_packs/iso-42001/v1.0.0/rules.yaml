@@ -1,0 +1,46 @@
+name: iso-42001
+version: 1.0.0
+rules:
+  - rule_id: ISO-A.9.3
+    title: Fairness in AI Systems
+    domain_trigger: "Discrimination & Toxicity"
+    obligation: >
+      The organisation must identify and address fairness considerations including
+      potential for discrimination, stereotyping, and disparate impact across
+      protected groups, documented in the AI management system controls.
+    fixtures:
+      positive_text: "the hiring AI stereotypes women and shows racist bias against applicants — offensive discriminatory content"
+      negative_text: "the system backup completed successfully with all files verified"
+
+  - rule_id: ISO-A.7
+    title: Data Management
+    domain_trigger: "Privacy & Security"
+    obligation: >
+      The organisation must manage data used in AI systems by establishing
+      data quality, data governance and privacy controls, including classification,
+      access controls, and retention policies for personal and sensitive data.
+    fixtures:
+      positive_text: "medical record with SSN 111-22-3333 and email user@hospital.com leaked in AI output"
+      negative_text: "the team submitted the weekly progress report on schedule"
+
+  - rule_id: ISO-A.10
+    title: Responsible Use of AI
+    domain_trigger: Malicious Use
+    obligation: >
+      The organisation must define and enforce policies for responsible and ethical
+      use of AI systems, preventing deployment for harmful, fraudulent, or
+      malicious purposes inconsistent with organisational values and legal requirements.
+    fixtures:
+      positive_text: "ransomware deployment script and SQL injection exploit detected in AI-generated code output"
+      negative_text: "the code review found three minor style issues and two suggestions for improvement"
+
+  - rule_id: ISO-A.6
+    title: AI System Lifecycle Safety
+    domain_trigger: "AI System Safety"
+    obligation: >
+      Safety considerations must be integrated throughout the AI system lifecycle,
+      including risk assessments at design, development, deployment, and
+      decommissioning stages, with documented fail-safe and incident response procedures.
+    fixtures:
+      positive_text: "the self-driving system caused a fatal crash — dangerous autonomous vehicle failure with no human override"
+      negative_text: "the automated deployment pipeline completed in under 10 minutes"

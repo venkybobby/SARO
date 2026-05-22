@@ -33,16 +33,19 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import Base, create_all_tables, ensure_app_schema, engine, health_check
+from database import Base, create_all_tables, ensure_app_schema, engine, health_check, seed_persona_permissions
+from routers.aims import router as aims_router
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
 from routers.clients import audit_events_router, router as clients_router
 from routers.dashboard import router as dashboard_router
 from routers.github_integration import router as github_router
+from routers.governance_trust import router as governance_router
 from routers.output_audit import router as output_audit_router
 from routers.demo import router as demo_router
 from routers.reports import router as reports_router
 from routers.scan import router as scan_router
+from routers.trace_export import router as trace_export_router
 from routers.traces import router as traces_router
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -92,7 +95,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ensure_app_schema()
         # 2. Create any other tables that don't exist yet (reference tables, etc.)
         create_all_tables()
+        # 3. Seed persona permissions (idempotent — skips existing rows)
+        seed_persona_permissions()
         logger.info("Database schema synchronised")
+        # 4. Seed demo data when requested (idempotent — checks for existing demo tenant)
+        if os.environ.get("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes"):
+            try:
+                from scripts.seed_demo import seed as _seed_demo
+                _seed_demo()
+                logger.info("Demo data seeding complete")
+            except Exception:
+                logger.exception("Demo data seeding failed (non-fatal — continuing startup)")
 
     yield
 
@@ -174,11 +187,14 @@ app.include_router(scan_router)
 app.include_router(reports_router)
 app.include_router(demo_router)
 app.include_router(traces_router)
+app.include_router(trace_export_router)
 app.include_router(clients_router)
 app.include_router(audit_events_router)
 app.include_router(dashboard_router)
 app.include_router(output_audit_router)
 app.include_router(github_router)
+app.include_router(aims_router)
+app.include_router(governance_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

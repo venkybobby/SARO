@@ -20,8 +20,10 @@ from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
-from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import onboarding as onboarding_tab
+from frontend.tabs import aims as aims_tab
+from frontend.tabs import governance as governance_tab
+from frontend.tabs import rule_packs as rule_packs_tab
 from frontend import styles
 
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
@@ -348,6 +350,16 @@ def _render_app() -> None:
         role_label = {"super_admin": "Super Admin", "operator": "Operator"}.get(
             user.get("role", ""), user.get("role", "").title()
         )
+        persona_label = {
+            "compliance_lead": "Compliance Lead",
+            "risk_officer": "Risk Officer",
+            "ai_auditor": "AI Auditor",
+        }.get(user.get("persona_role", ""), "")
+        persona_badge = (
+            f'<span style="background:#14532d;color:#86efac;padding:1px 8px;border-radius:4px;'
+            f'font-size:0.72rem;font-weight:600;margin-left:4px">{persona_label}</span>'
+            if persona_label else ""
+        )
         st.markdown(
             f'<div style="margin-bottom:12px">'
             f'<div style="font-size:0.75rem;color:#475569;text-transform:uppercase;'
@@ -356,6 +368,7 @@ def _render_app() -> None:
             f'<div style="margin-top:3px">'
             f'<span style="background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:4px;'
             f'font-size:0.72rem;font-weight:600">{role_label}</span>'
+            f'{persona_badge}'
             f'</div>'
             f'</div>',
             unsafe_allow_html=True,
@@ -395,43 +408,41 @@ def _render_app() -> None:
             unsafe_allow_html=True,
         )
 
-    # Main tabs
-    if user.get("role") == "super_admin":
-        (
-            tab_dashboard,
-            tab_upload,
-            tab_reports,
-            tab_remedy,
-            tab_onboarding,
-            tab_demo_requests,
-        ) = st.tabs([
-            "🏠 Dashboard",
-            "📤 Upload & Scan",
-            "📊 Reports",
-            "🔧 Remedy",
-            "🏢 Client Onboarding",
-            "📋 Demo Requests",
-        ])
-        with tab_onboarding:
-            onboarding_tab.render(token)
-        with tab_demo_requests:
-            _render_demo_requests(token)
+    # Build tab list from persona allowed_tabs (CF-06 RBAC gating)
+    # super_admin always gets all tabs; operator personas use their allowed_tabs set
+    role = user.get("role", "")
+    allowed_tabs: list[str] = user.get("allowed_tabs") or []
+
+    # Tab registry: id → (label, render_fn)
+    _TAB_REGISTRY = {
+        "dashboard":  ("🏠 Dashboard",       lambda t: dashboard_tab.render(t)),
+        "audit":      ("📤 Upload & Scan",    lambda t: upload_tab.render(t)),
+        "trace":      ("📊 Reports",          lambda t: reports_tab.render(t)),
+        "remediate":  ("🔧 Remedy",           lambda t: remedy_tab.render(t)),
+        "aims":       ("📋 AIMS",             lambda t: aims_tab.render(t)),
+        "governance": ("🏛️ Governance",       lambda t: governance_tab.render(t)),
+        "rule_packs": ("📦 Rule Packs",       lambda t: rule_packs_tab.render(t)),
+        "onboarding": ("🏢 Client Onboarding", lambda t: onboarding_tab.render(t)),
+        "demo_requests": ("📋 Demo Requests", lambda t: _render_demo_requests(t)),
+    }
+
+    if role == "super_admin":
+        tab_ids = ["dashboard", "audit", "trace", "remediate",
+                   "aims", "governance", "rule_packs", "onboarding", "demo_requests"]
+    elif allowed_tabs:
+        # Preserve display order defined in registry
+        tab_ids = [tid for tid in _TAB_REGISTRY if tid in allowed_tabs]
+        if not tab_ids:
+            tab_ids = ["dashboard"]
     else:
-        tab_dashboard, tab_upload, tab_reports, tab_remedy = st.tabs(
-            ["🏠 Dashboard", "📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
-        )
+        # Fallback for operator without persona assignment
+        tab_ids = ["dashboard", "audit", "trace", "remediate"]
 
-    with tab_dashboard:
-        dashboard_tab.render(token)
-
-    with tab_upload:
-        upload_tab.render(token)
-
-    with tab_reports:
-        reports_tab.render(token)
-
-    with tab_remedy:
-        remedy_tab.render(token)
+    labels = [_TAB_REGISTRY[tid][0] for tid in tab_ids]
+    tabs = st.tabs(labels)
+    for tab_widget, tid in zip(tabs, tab_ids):
+        with tab_widget:
+            _TAB_REGISTRY[tid][1](token)
 
 
 def _render_demo_requests(token: str) -> None:

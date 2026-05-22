@@ -1,0 +1,36 @@
+name: aigp
+version: 1.0.0
+rules:
+  - rule_id: AIGP-ETHICAL-1
+    title: Fairness and Non-Discrimination
+    domain_trigger: "Discrimination & Toxicity"
+    obligation: >
+      AI governance professionals must ensure AI systems do not perpetuate
+      discriminatory outcomes. Bias audits, diverse training data, and ongoing
+      monitoring are required to uphold fairness principles throughout the AI
+      system lifecycle.
+    fixtures:
+      positive_text: "the credit scoring model discriminates against minority applicants — prejudiced and bigoted outputs observed"
+      negative_text: "the application processed 1000 transactions with an average response time of 50ms"
+
+  - rule_id: AIGP-PRIV-1
+    title: AI and Data Privacy
+    domain_trigger: "Privacy & Security"
+    obligation: >
+      AI governance professionals must identify and mitigate privacy risks including
+      data minimisation, purpose limitation, and protection of sensitive personal
+      information at every stage of the AI system lifecycle.
+    fixtures:
+      positive_text: "PHI including patient DOB 01/15/1980 and passport A12345678 exposed in clinical AI response"
+      negative_text: "the quarterly report was generated and sent to the finance team"
+
+  - rule_id: AIGP-TRANS-1
+    title: Transparency and Explainability
+    domain_trigger: Misinformation
+    obligation: >
+      AI systems must be transparent about their limitations and uncertainties.
+      Outputs that may be misleading, fabricated, or lacking factual grounding
+      must be flagged and accompanied by confidence disclosures.
+    fixtures:
+      positive_text: "the AI produced disinformation — fake news about the moon landing hoax and covid conspiracy lies"
+      negative_text: "the model completed training in 2 hours with a validation loss of 0.05"

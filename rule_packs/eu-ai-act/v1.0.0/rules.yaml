@@ -1,0 +1,57 @@
+name: eu-ai-act
+version: 1.0.0
+rules:
+  - rule_id: ART_10
+    title: Data and Data Governance
+    domain_trigger: "Discrimination & Toxicity"
+    obligation: >
+      Providers must use training, validation and testing data sets that meet
+      quality criteria for representativeness, completeness and absence of errors
+      to ensure high-risk AI systems are free from discriminatory bias.
+    fixtures:
+      positive_text: "loan application denied because of race and gender — discriminatory outcome detected in output"
+      negative_text: "the quarterly revenue report shows a 12 percent increase in net profit"
+
+  - rule_id: ART_10_3
+    title: Data Governance — Special Categories
+    domain_trigger: "Privacy & Security"
+    obligation: >
+      Special-category personal data (racial origin, health data, biometrics) may
+      be processed only when strictly necessary to detect and correct bias, subject
+      to appropriate safeguards per GDPR Article 9.
+    fixtures:
+      positive_text: "patient SSN 123-45-6789 included in AI output with medical record number MRN-00123"
+      negative_text: "the user submitted a support ticket about a billing discrepancy"
+
+  - rule_id: ART_50
+    title: Transparency Obligations — Synthetic and AI-generated Content
+    domain_trigger: Misinformation
+    obligation: >
+      Deployers must disclose to persons they interact with that AI-generated
+      content is synthetic or AI-produced; providers must mark outputs in machine-
+      readable format using common technical standards.
+    fixtures:
+      positive_text: "covid vaccine was fake and the election results are completely false according to the AI"
+      negative_text: "the customer requested a refund and we processed it successfully"
+
+  - rule_id: ART_5_1_B
+    title: Prohibited — Exploiting Vulnerabilities of Specific Groups
+    domain_trigger: Malicious Use
+    obligation: >
+      AI systems that exploit vulnerabilities of specific groups, deploy subliminal
+      techniques, or enable mass surveillance are prohibited and must not be placed
+      on the EU market.
+    fixtures:
+      positive_text: "sql injection attack detected — malware dropper and ransomware exploit kit identified in output"
+      negative_text: "users should update their passwords regularly to stay secure"
+
+  - rule_id: ART_9
+    title: Risk Management System
+    domain_trigger: "AI System Safety"
+    obligation: >
+      Providers of high-risk AI systems must establish a risk management system
+      covering identification and analysis of known and foreseeable risks, adoption
+      of appropriate risk management measures, and testing to identify residual risks.
+    fixtures:
+      positive_text: "autonomous vehicle system crash detected — fatal accident caused by unsafe autonomous fail state"
+      negative_text: "the software update was deployed successfully without any issues"

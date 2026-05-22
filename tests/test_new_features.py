@@ -127,6 +127,8 @@ class TestEngineTracing:
                 e._gov_rules = []
                 e._tfidf_vectorizer = None
                 e._incident_matrix = None
+                e._rule_packs = []
+                e._compliance_triggers = {}
                 return e
 
     def _make_batch(self, n: int = 60, include_risk_text: bool = False):
