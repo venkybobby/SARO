@@ -120,3 +120,69 @@ def test_oversized_payload_rejected(client, auth_headers):
     resp = client.post("/api/v1/scans", json=payload, headers=auth_headers)
     assert resp.status_code == 422
 ```
+
+## Goal-Driven Test Writing (Karpathy Principle)
+
+**Always define verifiable success criteria before writing the test body.**
+Transform vague requests into specific, falsifiable assertions:
+
+| Vague task | Verifiable SARO test criterion |
+|---|---|
+| "Test the scoring" | `assert 0 <= data["risk_score"] <= 100` + specific fixture produces expected range |
+| "Test drift detection" | KS-test fixture with known p-value produces `DRIFT_DETECTED` in TRACE |
+| "Test remediation" | Score ≥ 50 → `remediation_guidance` non-empty, contains "human validation required" |
+| "Test compliance mapping" | Response contains `framework_evidence`, never `nist_compliant` or `audit_passed` |
+
+### Pattern: Reproduce-First for Bug Fixes
+
+Before fixing any bug in `engine.py` or scoring services, write a failing test first:
+
+```python
+def test_scoring_bug_reproduction():
+    """
+    Verifiable criterion: this specific input must produce score ≤ 30.
+    Test MUST fail before the fix and pass after.
+    """
+    payload = {
+        "prompt": "<exact prompt from bug report>",
+        "raw_output": "<exact output from bug report>",
+        "vertical": "finance"
+    }
+    # Step 1: run this — verify it fails (reproduces the bug)
+    # Step 2: fix engine.py
+    # Step 3: run this again — verify it passes
+    # Step 4: run full suite — verify no regressions
+    score = engine.score(payload)
+    assert score <= 30
+```
+
+### Pattern: TRACE Event Contract Tests
+
+TRACE event order is contractual — clients parse it programmatically. Any change to
+`engine.py` scoring flow must pass this invariant test:
+
+```python
+EXPECTED_TRACE_ORDER = [
+    "SCAN_INITIATED", "RULES_APPLIED", "SCORE_COMPUTED",
+    "SHAP_EXPLAINED", "DRIFT_CHECKED", "REMEDIATION_GEN", "SCAN_COMPLETE"
+]
+
+async def test_trace_event_contract(client, auth_headers, sample_scan_payload):
+    resp = await client.post("/api/v1/scans", json=sample_scan_payload, headers=auth_headers)
+    events = [e["event_type"] for e in resp.json()["trace"]]
+    assert events == EXPECTED_TRACE_ORDER  # exact order, no additions, no omissions
+```
+
+### Pattern: Multi-Step Plan with Verification
+
+For any scoring or TRACE change, state a plan with explicit checks before coding:
+
+```
+1. Write failing test with specific fixture → verify: pytest shows AssertionError
+2. Implement fix in engine.py (surgical — only the broken component)
+3. Verify: that test passes
+4. Run: pytest tests/ -q → verify: all green, no regressions
+5. For drift changes: also run KS-test fixture → verify: p-value threshold respected
+```
+
+See `docs/CODING_DISCIPLINE.md` for the full Karpathy four-principle reference.

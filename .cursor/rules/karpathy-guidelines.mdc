@@ -1,0 +1,93 @@
+---
+description: SARO coding behavioral guidelines (Karpathy-adapted). Enforces caution over speed, minimal scope, surgical edits, and verifiable success criteria.
+alwaysApply: true
+---
+
+# SARO Coding Behavioral Guidelines
+
+Adapted from Karpathy's four LLM coding principles. These apply to ALL work in this repo — backend, frontend, scoring engine, tests, and infra alike.
+
+---
+
+## 1. Think Before Coding
+
+Before implementing anything in SARO:
+
+- **State assumptions explicitly.** If multiple interpretations exist, list them — don't pick silently.
+- **Surface tradeoffs.** Especially for scoring logic (engine.py), drift thresholds (KS-test), and compliance language (see docs/COMPLIANCE_CLAIMS_MATRIX.md).
+- **Stop when unclear.** Name the confusion and ask. A wrong assumption in `engine.py` produces wrong risk scores silently.
+- **For compliance copy:** Always consult COMPLIANCE_CLAIMS_MATRIX.md before writing any language about NIST, EU AI Act, ISO 42001, or AIGP. When in doubt, ask.
+
+SARO examples where hidden assumptions are dangerous:
+- "Add a compliance check" — does that mean UI copy, API field, or scoring rule? These have very different implications.
+- "Update the risk score" — which formula component? DIR, SHAP weight, or KS-test threshold?
+
+---
+
+## 2. Simplicity First
+
+Minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked.
+- No abstractions for single-use code (especially in `routers/` and `services/`).
+- No "future-proofing" configurability that wasn't requested.
+- No error handling for scenarios that cannot happen given FastAPI/SQLAlchemy guarantees.
+
+Ask: *"Would a senior engineer say this is overcomplicated?"* If yes, simplify.
+
+SARO-specific: The scoring engine already has DIR formula, SHAP, KS-test, and rule packs. Do not add scoring sub-systems unless explicitly scoped in a story.
+
+---
+
+## 3. Surgical Changes
+
+Touch only what you must. Clean up only your own mess.
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things outside the reported issue.
+- Match existing style — async/await patterns, Pydantic v2 validators, SQLAlchemy session patterns.
+- If you notice unrelated dead code or a bug, **mention it — don't fix it silently.**
+
+When your changes create orphans:
+- Remove imports/variables/functions that **your changes** made unused.
+- Do NOT remove pre-existing dead code unless explicitly asked.
+
+Test: every changed line traces directly to the user's request.
+
+---
+
+## 4. Goal-Driven Execution
+
+Define verifiable success criteria. Loop until verified.
+
+Transform vague tasks into testable goals:
+
+| Vague | Verifiable |
+|---|---|
+| "Fix the scoring bug" | "Write a test with this prompt+output fixture — score must be in range X. Make it pass." |
+| "Add drift detection" | "KS-test p-value test passes: p < 0.05 triggers DRIFT_DETECTED event in TRACE timeline." |
+| "Improve the UI" | "`data-testid='risk-score'` visible within 10s on Playwright golden path." |
+
+For multi-step tasks, state a plan with explicit verification:
+
+```
+1. [Step] → verify: [exact check]
+2. [Step] → verify: [exact check]
+3. Verify no regression: existing pytest suite still green
+```
+
+---
+
+## SARO Non-Negotiables (immutable — no PR may weaken these)
+
+1. Accepts only `prompt` + `raw_output` — never calls external AI models.
+2. Returns only risk score (0–100 int), TRACE timeline, remediation guidance.
+3. Never writes to client systems.
+4. Never certifies compliance (evidence support only).
+5. Human-in-the-loop always.
+6. Read-only integration posture across all connectors.
+
+---
+
+*Source: Karpathy guidelines (https://github.com/multica-ai/andrej-karpathy-skills), adapted for SARO v8.0.0*
+*See also: CLAUDE.md, docs/COMPLIANCE_CLAIMS_MATRIX.md, .claude/skills/*
