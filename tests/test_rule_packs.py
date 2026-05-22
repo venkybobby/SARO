@@ -163,7 +163,6 @@ def test_all_negative_fixtures_do_not_trigger_rules():
 
 def test_audit_trace_includes_rule_pack_version():
     """Gate 4 traces must include rule_pack version metadata in detail_json."""
-    from unittest.mock import MagicMock
 
     from engine import SARoEngine
     from schemas import AuditConfigIn, BatchIn, SampleIn

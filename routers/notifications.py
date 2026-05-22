@@ -1,18 +1,22 @@
-"""Notification REST endpoints.
+"""Notification REST endpoints (SPEC-F5).
 
 GET  /api/v1/notifications                paginated list, filter by read/severity
 GET  /api/v1/notifications/unread-count   fast unread count (≤50 ms SLA)
+GET  /api/v1/notifications/stream         SSE real-time stream (SPEC-F5 FR-03)
 PATCH /api/v1/notifications/{id}/read     mark single notification read
 POST  /api/v1/notifications/read-all      mark all unread as read
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -121,3 +125,48 @@ def mark_all_read(
     )
     db.commit()
     return {"marked_read": affected}
+
+
+# ── SPEC-F5: SSE real-time stream ─────────────────────────────────────────────
+
+
+@router.get("/stream", summary="SSE real-time notification stream (SPEC-F5 FR-03)")
+async def notification_stream(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StreamingResponse:
+    """
+    Server-Sent Events stream for real-time in-app bell-icon notifications.
+    Heartbeat ping every 30s keeps Railway proxy connection alive.
+    """
+    from services.notification_service import (
+        register_sse_connection,
+        unregister_sse_connection,
+    )
+
+    tenant_id = str(current_user.tenant_id)
+    q = register_sse_connection(tenant_id)
+
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            unregister_sse_connection(tenant_id, q)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )

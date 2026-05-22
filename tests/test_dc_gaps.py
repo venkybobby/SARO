@@ -12,8 +12,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
-from collections import Counter
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -439,7 +438,6 @@ class TestSampleFindingsNavigationEndpoint:
     def test_returns_empty_results_for_non_gate3_trace(self):
         """Gate 1/2/4 traces return HTTP 200 with results=[] (no SampleFindings)."""
         from routers.traces import get_sample_findings_for_trace
-        import datetime
 
         trace_id = uuid.uuid4()
         audit_id = uuid.uuid4()

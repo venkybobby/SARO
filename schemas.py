@@ -45,7 +45,6 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     # CF-06: Persona RBAC fields (populated by /auth/me from PersonaPermission join)
-    persona_role: str | None = None
     allowed_tabs: list[str] = []
     allowed_actions: list[str] = []
 
@@ -258,6 +257,10 @@ class BayesianDomainScore(BaseModel):
     ci_upper: float
     sample_count: int
     flagged_count: int
+    # SPEC-E4: calibrated prior fields
+    prior_alpha: float = 0.5
+    prior_beta: float = 0.5
+    calibrated_from_n_incidents: int = 0
 
 
 class BayesianScoresOut(BaseModel):

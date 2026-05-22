@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import sys
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -68,7 +67,6 @@ def _run_audit_and_persist(
     dataset_name: str,
 ) -> None:
     """Run audit engine on demo samples and persist traces + report."""
-    from engine import SARoEngine
     from models import AuditTrace, ScanReport
     from schemas import BatchIn, SampleIn
 
@@ -112,7 +110,7 @@ def _run_audit_and_persist(
 def seed() -> None:
     from auth import hash_password
     from database import create_all_tables, get_db, seed_persona_permissions
-    from models import Audit, PersonaPermission, Tenant, User
+    from models import Audit, Tenant, User
 
     create_all_tables()
     seed_persona_permissions()
