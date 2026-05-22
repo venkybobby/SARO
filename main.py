@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 import time
+from datetime import datetime
 
 # Ensure the repo root is on sys.path so that sibling modules (database,
 # models, auth, engine, schemas) and the routers sub-package are importable
@@ -59,6 +60,7 @@ from routers.compliance_hub import router as compliance_hub_router
 from routers.risk_config import router as risk_config_router
 from routers.compliance_matrix import router as compliance_matrix_router
 from routers.notifications import router as notifications_router
+from routers.engine_status import router as engine_status_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -111,6 +113,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # 3. Seed persona permissions (idempotent — skips existing rows)
         seed_persona_permissions()
         logger.info("Database schema synchronised")
+        # SPEC-E3: Initialise SARoEngine singleton with TF-IDF index
+        try:
+            from database import get_db
+            from engine import SARoEngine
+            db = next(get_db())
+            try:
+                app.state.engine = SARoEngine(db)
+                app.state.engine_index_count = len(app.state.engine._incidents)
+                app.state.engine_index_built_at = datetime.utcnow().isoformat()
+                logger.info(
+                    "SARoEngine singleton ready — %d incidents indexed",
+                    app.state.engine_index_count,
+                )
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.warning("SARoEngine singleton init failed (degraded mode): %s", exc)
+            app.state.engine = None
+            app.state.engine_index_count = 0
+            app.state.engine_index_built_at = None
         # 4. Seed demo data when requested (idempotent — checks for existing demo tenant)
         if os.environ.get("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes"):
             try:
@@ -221,6 +243,7 @@ app.include_router(compliance_hub_router)
 app.include_router(risk_config_router)
 app.include_router(compliance_matrix_router)
 app.include_router(notifications_router)
+app.include_router(engine_status_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

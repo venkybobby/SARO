@@ -1,0 +1,70 @@
+version: "3.9"
+
+networks:
+  saro-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: saro
+      POSTGRES_PASSWORD: saro_local_dev
+      POSTGRES_DB: saro
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - saro-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saro -d saro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://saro:saro_local_dev@db:5432/saro
+      JWT_SECRET_KEY: local-dev-secret-change-in-prod
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+      ENVIRONMENT: development
+      SEED_DEMO_DATA: "true"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - saro-network
+    volumes:
+      - .:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      VITE_API_URL: http://api:8000
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - saro-network
+    volumes:
+      - ./frontend/src:/app/src

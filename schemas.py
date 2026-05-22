@@ -258,6 +258,10 @@ class BayesianDomainScore(BaseModel):
     ci_upper: float
     sample_count: int
     flagged_count: int
+    # SPEC-E4: calibrated prior fields
+    prior_alpha: float = 0.5
+    prior_beta: float = 0.5
+    calibrated_from_n_incidents: int = 0
 
 
 class BayesianScoresOut(BaseModel):

@@ -81,11 +81,71 @@ def get_eu_ai_act_position(
 
 @router.get(
     "/meta",
-    response_model=GovernanceMetaOut,
     dependencies=[Depends(require_role("super_admin", "operator"))],
-    summary="CF-05: Governance document metadata for UI rendering",
+    summary="CF-05 / SPEC-G4: Governance document metadata including SOC 2 status",
 )
 def get_governance_meta(
     _current: Annotated[User, Depends(get_current_user)],
-) -> GovernanceMetaOut:
-    return GovernanceMetaOut(nist=_NIST_META, eu_ai_act=_EU_META)
+) -> dict:
+    """Return governance document metadata including SOC 2 readiness status (SPEC-G4)."""
+    return {
+        "nist": _NIST_META.model_dump(),
+        "eu_ai_act": _EU_META.model_dump(),
+        "soc2": {
+            "status": "Readiness assessment in progress",
+            "target_date": "2027-Q4",
+            "roadmap_url": "/api/v1/governance/docs/soc2-roadmap",
+            "current_readiness_pct": 65,
+            "note": "SOC 2 Type II certification in progress. See roadmap for full timeline.",
+        },
+    }
+
+
+# ── SPEC-G3 / SPEC-G4: DPA and SOC 2 roadmap endpoints ───────────────────────
+
+_DPA_MD = _DOCS_DIR / "legal" / "saro-dpa-template-v1.0.md"
+_SOC2_MD = _DOCS_DIR / "soc2-readiness-roadmap-v1.0.md"
+
+
+@router.get(
+    "/docs/dpa-template",
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="SPEC-G3: Download GDPR Article 28 DPA template",
+)
+def get_dpa_template(
+    _current: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Serve the DPA template markdown (SPEC-G3 FR-07)."""
+    if not _DPA_MD.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="DPA template not yet available. Contact your SARO administrator.",
+        )
+    content = _DPA_MD.read_bytes()
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": 'attachment; filename="saro-dpa-template-v1.0.md"'},
+    )
+
+
+@router.get(
+    "/docs/soc2-roadmap",
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="SPEC-G4: Download SOC 2 readiness roadmap",
+)
+def get_soc2_roadmap(
+    _current: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Serve the SOC 2 readiness roadmap markdown (SPEC-G4 FR-07)."""
+    if not _SOC2_MD.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="SOC 2 roadmap not yet available. Contact your SARO administrator.",
+        )
+    content = _SOC2_MD.read_bytes()
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": 'attachment; filename="saro-soc2-readiness-roadmap-v1.0.md"'},
+    )

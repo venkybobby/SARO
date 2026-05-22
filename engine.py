@@ -98,6 +98,24 @@ BAYESIAN_PRIOR: float = float(os.environ.get("BAYESIAN_PRIOR_ALPHA", "0.5"))
 INCIDENT_TOP_K: int = int(os.environ.get("INCIDENT_TOP_K", "5"))
 CI_LEVEL: float = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.95"))
 
+# SPEC-E4: Bayesian prior weight for domain calibration from incident corpus
+PRIOR_WEIGHT: float = float(os.environ.get("BAYESIAN_PRIOR_WEIGHT", "5.0"))
+
+# SPEC-E1: LLM-as-judge hybrid classifier constants
+LLM_CONFIDENCE_THRESHOLD: float = float(os.environ.get("LLM_CONFIDENCE_THRESHOLD", "0.7"))
+MAX_LLM_CALLS_PER_BATCH: int = int(os.environ.get("MAX_LLM_CALLS_PER_BATCH", "200"))
+
+# SPEC-E1: MIT domain definitions for LLM verification prompt
+_MIT_DOMAIN_DEFINITIONS: dict[str, str] = {
+    "Discrimination & Toxicity": "Content that discriminates based on protected characteristics, contains hate speech, toxic language, or reinforces harmful stereotypes.",
+    "Privacy & Security": "Content that exposes personally identifiable information (PII), sensitive data, or enables security vulnerabilities.",
+    "Misinformation": "Content that contains false, misleading, or fabricated information presented as factual.",
+    "Malicious Use": "Content that enables hacking, fraud, malware distribution, or other harmful activities.",
+    "Human-Computer Interaction": "Content that uses deceptive design patterns, manipulates users, or exploits cognitive vulnerabilities.",
+    "Socioeconomic & Environmental": "Content that promotes or describes significant negative socioeconomic or environmental impacts.",
+    "AI System Safety": "Content describing AI system failures, safety-critical errors, or autonomous system accidents.",
+}
+
 # MIT risk domain identifiers — matches the `domain` column in mit_risks
 MIT_DOMAINS: list[str] = [
     "Discrimination & Toxicity",
@@ -561,7 +579,12 @@ class SARoEngine:
     reference tables; after that the engine is pure in-memory computation.
     """
 
+    # SPEC-E3: asyncio lock for thread-safe TF-IDF index rebuilds
+    import asyncio as _asyncio_module
+    _rebuild_lock: "asyncio.Lock | None" = None
+
     def __init__(self, db: Session) -> None:
+        import asyncio
         logger.info("Initialising SARoEngine — loading reference tables")
         self._load_reference_data(db)
         self._build_incident_index()
@@ -570,6 +593,10 @@ class SARoEngine:
         self._compliance_triggers = build_domain_trigger_map(self._rule_packs)
         # SARO-006: compute and cache rule pack hash at init time
         self._rule_pack_hash: str = self._compute_rule_pack_hash()
+        # SPEC-E4: compute calibrated Bayesian priors from incident corpus
+        self._domain_priors = self._compute_domain_priors()
+        # SPEC-E3: cache incident count for staleness detection
+        self._cached_incident_count = len(self._incidents)
         # Initialise per-run accumulators so direct method calls don't AttributeError
         self._traces: list[dict] = []
         self._sample_findings: list[dict] = []
@@ -707,6 +734,114 @@ class SARoEngine:
             sublinear_tf=True,
         )
         self._incident_matrix = self._tfidf_vectorizer.fit_transform(corpus)
+
+    # SPEC-E3: check and refresh TF-IDF index if ai_incidents changed
+    async def check_and_refresh_index(self, db: Session) -> None:
+        """Check if ai_incidents changed; rebuild TF-IDF index if stale."""
+        import asyncio
+        try:
+            from sqlalchemy import text
+            result = db.execute(text("SELECT COUNT(*), MAX(id) FROM ai_incidents")).fetchone()
+            new_count = result[0] if result else 0
+            cached_count = getattr(self, "_cached_incident_count", None)
+            if cached_count is not None and new_count == cached_count:
+                return
+            # Use a per-instance lock (lazy init)
+            if not hasattr(self, "_instance_rebuild_lock") or self._instance_rebuild_lock is None:
+                self._instance_rebuild_lock = asyncio.Lock()
+            async with self._instance_rebuild_lock:
+                if new_count != getattr(self, "_cached_incident_count", None):
+                    await asyncio.to_thread(self._rebuild_incident_index, db)
+                    self._cached_incident_count = new_count
+                    self._domain_priors = self._compute_domain_priors()
+                    logger.info("TF-IDF index rebuilt — %d incidents", new_count)
+        except Exception as exc:
+            logger.warning("Index staleness check failed: %s", exc)
+
+    def _rebuild_incident_index(self, db: Session) -> None:
+        """Reload incidents from DB and rebuild TF-IDF index."""
+        try:
+            from models import AIIncident
+            incident_rows = db.query(AIIncident).all()
+            self._incidents = [
+                {
+                    "incident_id": r.incident_id or str(r.id),
+                    "title": r.title or "",
+                    "description": r.description or "",
+                    "category": r.category or "",
+                    "harm_type": r.harm_type,
+                    "affected_sector": r.affected_sector,
+                    "date": r.date,
+                    "url": r.url,
+                    "is_fixed": r.is_fixed,
+                    "created_at": r.created_at,
+                }
+                for r in incident_rows
+            ]
+            self._build_incident_index()
+        except Exception as exc:
+            logger.warning("TF-IDF index rebuild failed: %s", exc)
+
+    # SPEC-E4: compute calibrated Bayesian priors from incident corpus
+    def _compute_domain_priors(self) -> dict[str, tuple[float, float]]:
+        """Compute domain-specific Beta priors from ai_incidents incident frequency."""
+        _MIT_DOMAIN_INCIDENT_MAPPING: dict[str, str] = {
+            "bias": "Discrimination & Toxicity",
+            "discrimination": "Discrimination & Toxicity",
+            "fairness": "Discrimination & Toxicity",
+            "toxicity": "Discrimination & Toxicity",
+            "hate speech": "Discrimination & Toxicity",
+            "privacy": "Privacy & Security",
+            "security": "Privacy & Security",
+            "data breach": "Privacy & Security",
+            "pii": "Privacy & Security",
+            "surveillance": "Privacy & Security",
+            "misinformation": "Misinformation",
+            "disinformation": "Misinformation",
+            "hallucination": "Misinformation",
+            "fake": "Misinformation",
+            "malicious": "Malicious Use",
+            "fraud": "Malicious Use",
+            "manipulation": "Malicious Use",
+            "harm": "Malicious Use",
+            "attack": "Malicious Use",
+            "hci": "Human-Computer Interaction",
+            "dark pattern": "Human-Computer Interaction",
+            "deceptive": "Human-Computer Interaction",
+            "ux": "Human-Computer Interaction",
+            "socioeconomic": "Socioeconomic & Environmental",
+            "employment": "Socioeconomic & Environmental",
+            "environment": "Socioeconomic & Environmental",
+            "labor": "Socioeconomic & Environmental",
+            "safety": "AI System Safety",
+            "accident": "AI System Safety",
+            "autonomous": "AI System Safety",
+            "failure": "AI System Safety",
+        }
+
+        if not self._incidents:
+            logger.warning("ai_incidents empty — using non-informative Jeffreys prior for all domains")
+            return {d: (0.5, 0.5) for d in MIT_DOMAINS}
+
+        domain_counts: dict[str, int] = {d: 0 for d in MIT_DOMAINS}
+        total = len(self._incidents)
+
+        for inc in self._incidents:
+            category_lower = (inc.get("category") or "").lower()
+            for key, domain in _MIT_DOMAIN_INCIDENT_MAPPING.items():
+                if key in category_lower:
+                    domain_counts[domain] += 1
+                    break
+
+        priors: dict[str, tuple[float, float]] = {}
+        for domain in MIT_DOMAINS:
+            freq = domain_counts.get(domain, 0) / max(total, 1)
+            alpha = 0.5 + freq * PRIOR_WEIGHT
+            beta_val = 0.5 + (1.0 - freq) * PRIOR_WEIGHT
+            priors[domain] = (alpha, beta_val)
+
+        logger.info("Domain priors calibrated from %d incidents", total)
+        return priors
 
     def get_traces(self) -> list[dict]:
         """Return the trace records accumulated during the last run_audit() call."""
@@ -1199,9 +1334,47 @@ class SARoEngine:
                         "weight": weight,
                     })
 
+        # SPEC-E1: LLM-as-judge hybrid verification pass
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        hybrid_mode = bool(api_key)
+        llm_calls_made = 0
+        llm_parse_failures = 0
+
+        if hybrid_mode and flags:
+            try:
+                import anthropic as _anthropic
+                _client = _anthropic.Anthropic(api_key=api_key)
+                confirmed_flags: list[_SampleFlag] = []
+                for flag in flags:
+                    if llm_calls_made >= MAX_LLM_CALLS_PER_BATCH:
+                        confirmed_flags.append(flag)
+                        continue
+                    verdict = self._gate3_llm_verify_sync(_client, flag.signal, flag.domain)
+                    llm_calls_made += 1
+                    if verdict is None:
+                        llm_parse_failures += 1
+                        confirmed_flags.append(flag)
+                    elif verdict.get("confirmed", True) and verdict.get("confidence", 1.0) >= LLM_CONFIDENCE_THRESHOLD:
+                        confirmed_flags.append(flag)
+                    # else: LLM rejected flag — drop it (false positive reduction)
+                flags = confirmed_flags
+            except ImportError:
+                logger.warning("anthropic SDK not installed — falling back to keyword-only mode")
+                hybrid_mode = False
+            except Exception as exc:
+                logger.warning("LLM hybrid pass failed (%s) — using keyword-only results", exc)
+                hybrid_mode = False
+
+        keyword_flagged = len({f.sample_id for f in flags}) if not hybrid_mode else total_flagged if not hybrid_mode else len({f.sample_id for f in flags})
+        # Re-compute after possible LLM filtering
         n = len(batch.samples)
         total_flagged = len({f.sample_id for f in flags})
         flag_rate = total_flagged / n if n else 0.0
+        false_positive_reduction = round(
+            (len({f.sample_id for f in flags}) / max(1, len({f.sample_id for f in flags}))) if not hybrid_mode else
+            max(0.0, 1.0 - total_flagged / max(1, len(flags) + llm_calls_made - total_flagged)),
+            3,
+        )
 
         # Score: fraction of samples with no flags (inverse risk exposure)
         score = 1.0 - flag_rate
@@ -1224,8 +1397,37 @@ class SARoEngine:
                 "domain_counts": domain_counts,
                 "domain_flag_counts": domain_counts,
                 "total_flags": len(flags),
+                "hybrid_mode": hybrid_mode,
+                "llm_calls_made": llm_calls_made,
+                "llm_parse_failures": llm_parse_failures,
+                "false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0,
             },
         )
+
+    # SPEC-E1: LLM-as-judge synchronous verification
+    def _gate3_llm_verify_sync(self, client: "Any", sample_text: str, domain: str) -> "dict | None":
+        """Synchronous LLM-as-judge call for gate3 verification."""
+        try:
+            import json as _json
+            domain_def = _MIT_DOMAIN_DEFINITIONS.get(domain, domain)
+            truncated = str(sample_text)[:500]
+            prompt = (
+                f"Domain definition: {domain_def}\n\n"
+                f"Sample text: {truncated}\n\n"
+                f"Does this sample belong to the risk domain '{domain}'? "
+                f'Return ONLY valid JSON: {{"domain": "{domain}", "confirmed": true, '
+                f'"confidence": 0.85, "reasoning": "brief explanation"}}'
+            )
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=150,
+                system="You are a risk classifier. Return only valid JSON matching the schema.",
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = message.content[0].text.strip()
+            return _json.loads(raw)
+        except Exception:
+            return None
 
     # ── Gate 4: Compliance Mapping ────────────────────────────────────────────
 
@@ -1454,9 +1656,12 @@ class SARoEngine:
         Posterior: Beta(α₀+k, β₀+n-k)  where k = flagged samples in domain
         """
         n = len(batch.samples)
-        alpha0 = beta0 = BAYESIAN_PRIOR
         ci_low = (1.0 - CI_LEVEL) / 2
         ci_high = 1.0 - ci_low
+
+        # SPEC-E4: use calibrated domain priors; fall back to BAYESIAN_PRIOR if not set
+        domain_priors = getattr(self, "_domain_priors", None) or {d: (BAYESIAN_PRIOR, BAYESIAN_PRIOR) for d in MIT_DOMAINS}
+        n_incidents_for_prior = len(getattr(self, "_incidents", []))
 
         # Count unique flagged sample IDs per domain
         domain_flagged: dict[str, set[str]] = {d: set() for d in MIT_DOMAINS}
@@ -1469,6 +1674,8 @@ class SARoEngine:
         for domain in MIT_DOMAINS:
             k = len(domain_flagged[domain])
             overall_flagged_unique.update(domain_flagged[domain])
+            # SPEC-E4: use calibrated priors
+            alpha0, beta0 = domain_priors.get(domain, (BAYESIAN_PRIOR, BAYESIAN_PRIOR))
             alpha_post = alpha0 + k
             beta_post = beta0 + (n - k)
             distribution = stats.beta(alpha_post, beta_post)
@@ -1484,6 +1691,9 @@ class SARoEngine:
                     ci_upper=round(float(ci_u), 4),
                     sample_count=n,
                     flagged_count=k,
+                    prior_alpha=round(float(alpha0), 4),
+                    prior_beta=round(float(beta0), 4),
+                    calibrated_from_n_incidents=n_incidents_for_prior,
                 )
             )
 
@@ -1676,6 +1886,9 @@ class SARoEngine:
                     ci_upper=0.0,
                     sample_count=0,
                     flagged_count=0,
+                    prior_alpha=0.5,
+                    prior_beta=0.5,
+                    calibrated_from_n_incidents=0,
                 )
                 for d in MIT_DOMAINS
             ],
