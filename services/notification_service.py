@@ -53,19 +53,18 @@ def dispatch_notification(db: Session, notification: Notification) -> None:
     try:
         # SSE push (fire-and-forget in running event loop if available)
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(
-                    push_sse_event(
-                        str(notification.tenant_id),
-                        {
-                            "id": str(notification.id),
-                            "type": notification.type,
-                            "title": notification.title,
-                            "severity": notification.severity,
-                        },
-                    )
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                push_sse_event(
+                    str(notification.tenant_id),
+                    {
+                        "id": str(notification.id),
+                        "type": notification.type,
+                        "title": notification.title,
+                        "severity": notification.severity,
+                    },
                 )
+            )
         except RuntimeError:
             pass  # No running event loop — SSE push skipped
 

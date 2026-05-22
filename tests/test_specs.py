@@ -205,11 +205,10 @@ class TestSSO:
         import inspect
         assert inspect.iscoroutinefunction(saml_acs)
 
-    def test_unsigned_assertion_raises_400(self):
+    async def test_unsigned_assertion_raises_400(self):
         """SPEC-F2 TR-03: unsigned assertion must return 400."""
         from routers.sso import saml_acs
         import base64
-        import asyncio
         from fastapi import HTTPException
 
         minimal_xml = (
@@ -231,12 +230,12 @@ class TestSSO:
         mock_db.query.return_value.filter.return_value.first.side_effect = [mock_tenant, mock_config]
 
         with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(saml_acs(
+            await saml_acs(
                 tenant_slug="test",
                 SAMLResponse=encoded,
                 RelayState=None,
                 db=mock_db,
-            ))
+            )
         assert exc_info.value.status_code == 400
 
 
