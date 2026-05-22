@@ -147,6 +147,7 @@ def render(token: str) -> None:
         "Input method",
         ["Upload JSON file", "Paste JSON"],
         horizontal=True,
+        key="upload_input_method",
     )
 
     raw_text: str | None = None
@@ -156,6 +157,7 @@ def render(token: str) -> None:
             "Upload SARO batch JSON",
             type=["json"],
             help="Expected format: {samples: [{sample_id?, text, group?, label?, metadata?}, ...]}",
+            key="upload_file_uploader",
         )
         if uploaded:
             raw_text = uploaded.read().decode("utf-8")
@@ -164,6 +166,7 @@ def render(token: str) -> None:
             "Paste batch JSON",
             height=250,
             placeholder='{"dataset_name": "my_dataset", "samples": [{"text": "..."}, ...]}',
+            key="upload_paste_json",
         )
 
     if not raw_text:
@@ -275,12 +278,14 @@ def render(token: str) -> None:
     # ── Configuration override ────────────────────────────────────────────────
     with st.expander("Audit configuration (optional)"):
         incident_top_k = st.slider(
-            "Similar incidents to retrieve (top-K)", min_value=1, max_value=20, value=5
+            "Similar incidents to retrieve (top-K)", min_value=1, max_value=20, value=5,
+            key="upload_top_k",
         )
         frameworks = st.multiselect(
             "Compliance frameworks",
             options=["EU AI Act", "NIST AI RMF", "AIGP", "ISO 42001"],
             default=["EU AI Act", "NIST AI RMF", "AIGP", "ISO 42001"],
+            key="upload_frameworks",
         )
         # config is attached to the batch — field name is the same for both formats
         batch["config"] = {  # type: ignore[index]
@@ -290,7 +295,7 @@ def render(token: str) -> None:
         }
 
     # ── Submit ────────────────────────────────────────────────────────────────
-    if st.button("Run Audit", type="primary", use_container_width=True):
+    if st.button("Run Audit", type="primary", use_container_width=True, key="upload_run_audit"):
         with st.spinner("Running 4-gate SARO audit…"):
             try:
                 report = _post_scan(batch, token, fmt)

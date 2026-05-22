@@ -21,9 +21,6 @@ from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
 from frontend.tabs import onboarding as onboarding_tab
-from frontend.tabs import aims as aims_tab
-from frontend.tabs import governance as governance_tab
-from frontend.tabs import rule_packs as rule_packs_tab
 from frontend import styles
 
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
@@ -48,12 +45,17 @@ _TAB_REGISTRY: dict[str, tuple[str, str]] = {
     "onboarding":      ("🏢 Onboarding",          "onboarding"),
     "upload":          ("📤 Upload & Scan",       "upload"),
     "admin_settings":  ("⚙️ Admin Settings",      "dashboard"),
+    # CF-04: AIMS document lifecycle
+    "aims":            ("📋 AIMS",               "aims"),
+    # CF-05: Governance trust documents
+    "governance":      ("🏛️ Governance Trust",   "governance"),
 }
 
 _PERSONA_TABS: dict[str, list[str]] = {
     "compliance_lead": [
         "dashboard", "compliance_hub", "trace_view", "evidence_export",
         "claims_matrix", "how_saro_reasons", "dpa_governance",
+        "aims", "governance",  # CF-04 / CF-05
         "onboarding", "upload",
     ],
     "risk_officer": [
@@ -67,14 +69,16 @@ _PERSONA_TABS: dict[str, list[str]] = {
         "dashboard", "compliance_hub", "trace_view", "evidence_export",
         "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
         "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-        "drift_alerts", "onboarding", "upload", "admin_settings",
+        "drift_alerts", "aims", "governance",  # CF-04 / CF-05
+        "onboarding", "upload", "admin_settings",
     ],
     # Fallback for legacy roles
     "super_admin": [
         "dashboard", "compliance_hub", "trace_view", "evidence_export",
         "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
         "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-        "drift_alerts", "onboarding", "upload", "admin_settings",
+        "drift_alerts", "aims", "governance",  # CF-04 / CF-05
+        "onboarding", "upload", "admin_settings",
     ],
     "operator": ["dashboard", "upload", "trace_view", "remediation"],
 }
@@ -613,41 +617,6 @@ def _render_app() -> None:
             unsafe_allow_html=True,
         )
 
-    # Build tab list from persona allowed_tabs (CF-06 RBAC gating)
-    # super_admin always gets all tabs; operator personas use their allowed_tabs set
-    role = user.get("role", "")
-    allowed_tabs: list[str] = user.get("allowed_tabs") or []
-
-    # Tab registry: id → (label, render_fn)
-    _TAB_REGISTRY = {
-        "dashboard":  ("🏠 Dashboard",       lambda t: dashboard_tab.render(t)),
-        "audit":      ("📤 Upload & Scan",    lambda t: upload_tab.render(t)),
-        "trace":      ("📊 Reports",          lambda t: reports_tab.render(t)),
-        "remediate":  ("🔧 Remedy",           lambda t: remedy_tab.render(t)),
-        "aims":       ("📋 AIMS",             lambda t: aims_tab.render(t)),
-        "governance": ("🏛️ Governance",       lambda t: governance_tab.render(t)),
-        "rule_packs": ("📦 Rule Packs",       lambda t: rule_packs_tab.render(t)),
-        "onboarding": ("🏢 Client Onboarding", lambda t: onboarding_tab.render(t)),
-        "demo_requests": ("📋 Demo Requests", lambda t: _render_demo_requests(t)),
-    }
-
-    if role == "super_admin":
-        tab_ids = ["dashboard", "audit", "trace", "remediate",
-                   "aims", "governance", "rule_packs", "onboarding", "demo_requests"]
-    elif allowed_tabs:
-        # Preserve display order defined in registry
-        tab_ids = [tid for tid in _TAB_REGISTRY if tid in allowed_tabs]
-        if not tab_ids:
-            tab_ids = ["dashboard"]
-    else:
-        # Fallback for operator without persona assignment
-        tab_ids = ["dashboard", "audit", "trace", "remediate"]
-
-    labels = [_TAB_REGISTRY[tid][0] for tid in tab_ids]
-    tabs = st.tabs(labels)
-    for tab_widget, tid in zip(tabs, tab_ids):
-        with tab_widget:
-            _TAB_REGISTRY[tid][1](token)
     # ── Build persona-filtered tab list ───────────────────────────────────────
     allowed_tab_ids = _PERSONA_TABS.get(persona, _PERSONA_TABS["operator"])
     # Deduplicate while preserving order

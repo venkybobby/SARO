@@ -70,7 +70,7 @@ def render(token: str) -> None:
         f"({a['sample_count']} samples)": a
         for a in completed
     }
-    selected_label = st.selectbox("Select audit to inspect", list(audit_options.keys()))
+    selected_label = st.selectbox("Select audit to inspect", list(audit_options.keys()), key="reports_audit_select")
     if not selected_label:
         return
 

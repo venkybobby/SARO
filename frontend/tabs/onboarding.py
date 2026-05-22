@@ -230,10 +230,10 @@ def render(token: str) -> None:
         st.divider()
         scim_token_section, test_sso_section, new_client_section = st.columns(3)
         with test_sso_section:
-            if st.button("Test SSO Connection", type="secondary"):
+            if st.button("Test SSO Connection", type="secondary", key="onboard_test_sso"):
                 _test_sso_connection(token, result["tenant_id"])
         with new_client_section:
-            if st.button("Onboard Another Client", type="primary"):
+            if st.button("Onboard Another Client", type="primary", key="onboard_another"):
                 st.session_state.pop("onboarding_success", None)
                 st.session_state.pop("onboarding_idp_template", None)
                 st.rerun()
@@ -254,22 +254,23 @@ def render(token: str) -> None:
             "Company Name *",
             placeholder="Acme Financial Group",
             help="Legal registered company name. Must be globally unique within SARO.",
+            key="onboard_company_name",
         )
     with col2:
-        industry = st.selectbox("Industry", ["— Select —"] + _INDUSTRIES)
+        industry = st.selectbox("Industry", ["— Select —"] + _INDUSTRIES, key="onboard_industry")
         if industry == "— Select —":
             industry = None
 
     col3, col4, col5 = st.columns(3)
     with col3:
-        size = st.selectbox("Company Size", ["— Select —"] + _SIZES)
+        size = st.selectbox("Company Size", ["— Select —"] + _SIZES, key="onboard_size")
         if size == "— Select —":
             size = None
     with col4:
-        primary_contact_name = st.text_input("Primary Contact Name", placeholder="Jane Smith")
+        primary_contact_name = st.text_input("Primary Contact Name", placeholder="Jane Smith", key="onboard_primary_name")
     with col5:
         primary_contact_email = st.text_input(
-            "Primary Contact Email", placeholder="jane.smith@acme.com"
+            "Primary Contact Email", placeholder="jane.smith@acme.com", key="onboard_primary_email",
         )
 
     st.divider()
@@ -305,21 +306,25 @@ def render(token: str) -> None:
                 "Entity ID / Client ID",
                 value=selected_tmpl.get("entity_id_hint", ""),
                 placeholder="https://your-idp.example.com/metadata",
+                key="onboard_entity_id",
             )
             sso_url = st.text_input(
                 "Single Sign-On URL",
                 value=selected_tmpl.get("sso_url_hint", ""),
                 placeholder="https://your-idp.example.com/sso",
+                key="onboard_sso_url",
             )
             metadata_url = st.text_input(
                 "Metadata URL (optional — auto-configures fields)",
                 value=selected_tmpl.get("metadata_url_hint", ""),
                 placeholder="https://your-idp.example.com/metadata.xml",
+                key="onboard_metadata_url",
             )
         with col_b:
             tenant_domain = st.text_input(
                 "Tenant Domain (Azure AD / Google)",
                 placeholder="yourcompany.onmicrosoft.com",
+                key="onboard_tenant_domain",
             )
             requires_cert = selected_tmpl.get("requires_certificate", "true") == "true"
             certificate = st.text_area(
@@ -333,12 +338,14 @@ def render(token: str) -> None:
                 if requires_cert
                 else "Not required for OIDC flows",
                 disabled=not requires_cert,
+                key="onboard_certificate",
             )
             client_secret = st.text_input(
                 "Client Secret (OIDC only)",
                 type="password",
                 placeholder="oidc-client-secret",
                 disabled=requires_cert,
+                key="onboard_client_secret",
             )
 
         if selected_tmpl:
@@ -391,6 +398,7 @@ def render(token: str) -> None:
         "Initial user enrollment",
         ["Inline (manual)", "CSV upload"],
         horizontal=True,
+        key="onboard_enrollment_method",
     )
 
     initial_users: list[dict[str, str]] = []
@@ -420,7 +428,7 @@ def render(token: str) -> None:
 
         col_add, _ = st.columns([1, 5])
         with col_add:
-            if st.button("+ Add User"):
+            if st.button("+ Add User", key="onboard_add_user"):
                 updated_rows.append({"email": "", "role": "operator"})
 
         st.session_state["onboarding_user_rows"] = updated_rows
@@ -494,6 +502,7 @@ def render(token: str) -> None:
             type="primary",
             use_container_width=True,
             help="Creates the client, generates SCIM token (if enabled), and logs the event.",
+            key="onboard_submit",
         )
 
     if submitted:

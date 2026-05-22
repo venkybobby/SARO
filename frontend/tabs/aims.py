@@ -12,10 +12,10 @@ def render(token: str) -> None:
 
     with st.expander("Create new AIMS document", expanded=False):
         with st.form("aims_create_form"):
-            title = st.text_input("Document title *", placeholder="Data Processing Policy v1")
-            version = st.text_input("Version *", placeholder="1.0.0")
-            owner_email = st.text_input("Owner email *", placeholder="compliance@acme.com")
-            eff_date = st.date_input("Effective date (optional)", value=None)
+            title = st.text_input("Document title *", placeholder="Data Processing Policy v1", key="aims_title")
+            version = st.text_input("Version *", placeholder="1.0.0", key="aims_version")
+            owner_email = st.text_input("Owner email *", placeholder="compliance@acme.com", key="aims_owner_email")
+            eff_date = st.date_input("Effective date (optional)", value=None, key="aims_eff_date")
             submitted = st.form_submit_button("Create Document", type="primary")
 
         if submitted:
