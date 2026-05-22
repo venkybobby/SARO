@@ -37,7 +37,8 @@ logger = logging.getLogger("seed_demo")
 
 DEMO_TENANT_SLUG = "saro-demo"
 DEMO_USER_EMAIL = "demo@saro-demo.internal"
-DEMO_USER_PASSWORD = "SaroDemo2026!"  # never used in production
+_DEMO_PW_DEFAULT = "SaroDemo2026!"
+DEMO_USER_PASSWORD = os.environ.get("DEMO_USER_PASSWORD", _DEMO_PW_DEFAULT)
 DEMO_DATA_DIR = ROOT / "demo_data"
 
 _PERSONA_SEEDS = [

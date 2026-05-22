@@ -40,6 +40,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
     role: str
+    persona_role: str | None = None
     tenant_id: uuid.UUID
     is_active: bool
     created_at: datetime
@@ -113,13 +114,15 @@ class AuditConfigIn(BaseModel):
     frameworks: list[str] = Field(
         default=["EU AI Act", "NIST AI RMF", "AIGP", "ISO 42001"]
     )
+    # SARO-003: optional per-scan risk signal overrides
+    risk_config: "RiskConfigIn | None" = None
 
 
 class BatchIn(BaseModel):
     """
     Full batch submitted to /api/v1/scan.
 
-    Minimum 50 samples enforced per EU AI Act Art. 10 and NIST MAP 2.3.
+    Minimum 50 samples enforced for statistical validity of fairness and risk metrics.
     """
 
     batch_id: str | None = Field(default=None)
@@ -133,8 +136,8 @@ class BatchIn(BaseModel):
         if len(v) < 50:
             raise ValueError(
                 f"Batch contains only {len(v)} samples. "
-                "A minimum of 50 samples is required for fairness metrics "
-                "(EU AI Act Art. 10, NIST MAP 2.3)."
+                "A minimum of 50 samples is required for reliable fairness and risk metrics "
+                "(internal SARO methodology — statistical validity requirement)."
             )
         return v
 
@@ -217,8 +220,8 @@ class SARoDataBatchIn(BaseModel):
     def enforce_minimum_samples(cls, v: list[SARoDataSampleIn]) -> list[SARoDataSampleIn]:
         if len(v) < 50:
             raise ValueError(
-                f"❌ Minimum 50 samples required for valid fairness metrics "
-                f"(EU AI Act Art. 10 / NIST MAP 2.3). Got: {len(v)}."
+                f"❌ Minimum 50 samples required for reliable fairness and risk metrics "
+                f"(internal SARO methodology — statistical validity requirement). Got: {len(v)}."
             )
         return v
 
@@ -280,6 +283,9 @@ class SimilarIncidentOut(BaseModel):
     url: str | None
     similarity_score: float
     is_fixed: bool
+    # SARO-007: low-confidence flag when similarity score is below threshold
+    low_confidence: bool = False
+    minimum_similarity_threshold: float = 0.15
 
 
 class FixedDeltaOut(BaseModel):
@@ -327,6 +333,14 @@ class AuditReportOut(BaseModel):
     remediations: list[RemediationOut]
     confidence_score: float
     created_at: datetime
+    # SARO-003: indicates whether tenant risk config overrides were applied
+    risk_config_applied: bool = False
+    # SARO-006: engine provenance for audit-of-the-auditor
+    engine_version: str | None = None
+    rule_pack_hash: str | None = None
+    rule_change_warning: bool = False
+    # SARO-007: timestamp of last corpus update for change detection
+    incident_corpus_version: str | None = None
 
 
 class AuditListItemOut(BaseModel):
@@ -393,6 +407,11 @@ class AuditTraceOut(BaseModel):
     reason: str | None
     detail_json: dict[str, Any] | None
     remediation_hint: str | None
+    # SARO-DC-001: representative trigger signal (Gate 3: matched signal name,
+    # Gate 2: parity metric string, Gate 4: triggered rule_id; never raw PII)
+    signal_text: str | None = None
+    # SARO-DC-002: top 10 sample_ids by weight for Gate 3 domain findings
+    top_sample_ids: list[str] | None = None
     is_remediated: bool
     remediated_at: datetime | None
     created_at: datetime
@@ -728,6 +747,20 @@ class AIMSDocumentOut(BaseModel):
     linked_audit_ids: list[str]
     created_at: datetime
     updated_at: datetime | None
+# SARO-001: Sample-level audit findings
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class SampleFindingOut(BaseModel):
+    """One Gate 3 risk signal match persisted at the per-sample level."""
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    sample_id: str
+    domain: str
+    matched_signal: str
+    matched_text_fragment: str | None
+    weight: float
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -771,3 +804,121 @@ class PersonaPermissionOut(BaseModel):
     allowed_actions: list[str]
 
     model_config = {"from_attributes": True}
+class PaginatedSampleFindingOut(BaseModel):
+    """SARO-DC-002: paginated SampleFinding results for a single AuditTrace record."""
+    results: list[SampleFindingOut]
+    page: int
+    page_size: int
+    total: int | None = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-003: Tenant risk configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class RiskConfigIn(BaseModel):
+    """Per-scan or per-tenant overrides for Gate 3 risk signal weights and keyword suppressions."""
+    domain_weights: dict[str, float] = Field(
+        default_factory=dict,
+        description="Override domain weights (0.0–1.0). E.g. {'Privacy & Security': 0.95}",
+    )
+    keyword_suppressions: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Keywords to suppress per domain. E.g. {'AI System Safety': ['fail']}",
+    )
+
+    @field_validator("domain_weights")
+    @classmethod
+    def validate_weights(cls, v: dict[str, float]) -> dict[str, float]:
+        for domain, w in v.items():
+            if not (0.0 <= w <= 1.0):
+                raise ValueError(f"Weight for '{domain}' must be between 0.0 and 1.0, got {w}")
+        return v
+
+
+class TenantRiskConfigOut(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    domain_weights: dict[str, float]
+    keyword_suppressions: dict[str, list[str]]
+    max_weight_ceiling: float
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-004: NIST AI RMF coverage report
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class NistSubcategoryOut(BaseModel):
+    """One NIST AI RMF subcategory entry in the coverage report."""
+    subcategory_id: str
+    function_name: str
+    description: str | None
+    # "mapped" | "partial" | "not_covered" | "requires_human_assessment"
+    status: str
+    version: str = "AI RMF 1.0"
+
+
+class NistCoverageReportOut(BaseModel):
+    """Full NIST AI RMF coverage report across all 72 subcategory outcomes."""
+    engine_version: str
+    total_subcategories: int
+    mapped_count: int
+    partial_count: int
+    not_covered_count: int
+    requires_human_assessment_count: int
+    subcategories: list[NistSubcategoryOut]
+    generated_at: datetime
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-005: ISO 42001 Annex A generated document
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Iso42001DocumentOut(BaseModel):
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    generated_by_user_id: uuid.UUID | None
+    format: str
+    content: str
+    content_hash: str
+    version: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-006: Engine integrity
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EngineIntegrityOut(BaseModel):
+    """Current engine version and rule pack integrity state."""
+    engine_version: str
+    rule_pack_hash: str
+    compliance_matrix_version: str
+    checked_at: datetime
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO-007: Incident corpus statistics
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class IncidentCorpusStatsOut(BaseModel):
+    """Quality and currency statistics for the AI incident similarity corpus."""
+    total_incidents: int
+    count_by_category: dict[str, int]
+    count_by_harm_type: dict[str, int]
+    date_range_earliest: str | None
+    date_range_latest: str | None
+    pct_fixed: float
+    last_corpus_update: datetime | None
+    minimum_similarity_threshold: float = 0.15

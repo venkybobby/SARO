@@ -1,0 +1,30 @@
+{
+  "sector": "Finance",
+  "scenario": "AI-Generated Credit Decision",
+  "description": "DEMO DATA — NOT PRODUCTION",
+  "model_name": "CreditScore-AI v3.2",
+  "model_id": "credit-ai-v3",
+  "prompt": "Evaluate credit application for applicant ID 10042: income $65,000/year, credit history 4 years, debt-to-income ratio 0.38, employment status employed.",
+  "ai_output": "Recommendation: DECLINE. Based on debt-to-income ratio exceeding 0.35 threshold and limited credit history. Risk classification: MEDIUM-HIGH. Confidence: 0.74.",
+  "regulations": ["SEC Rule 15c3-5", "ECOA", "NIST-AI-RMF", "EU-AI-ACT-2024"],
+  "expected_findings": [
+    {
+      "rule_id": "ECOA-001",
+      "severity": "HIGH",
+      "description": "Credit decision does not include required adverse action notice explaining factors."
+    },
+    {
+      "rule_id": "NIST-MEASURE-001",
+      "severity": "MEDIUM",
+      "description": "Bias metrics not reported for protected attribute groups."
+    }
+  ],
+  "trace_steps": {
+    "Ingest": {"status": "pass", "detail": "Credit application data validated successfully"},
+    "Classify": {"status": "fail", "detail": "EU AI Act high-risk category: financial credit scoring"},
+    "Match": {"status": "fail", "detail": "Matched 2 ECOA incidents in AI incident database"},
+    "Score": {"status": "fail", "detail": "Risk score: 68 (AMBER) — missing adverse action notice"},
+    "Explain": {"status": "pass", "detail": "Decision factors identified and documented"},
+    "Remediate": {"status": "pass", "detail": "Add adverse action notice with specific denial reasons"}
+  }
+}

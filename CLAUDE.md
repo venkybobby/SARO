@@ -1,5 +1,16 @@
 # SARO — Smart AI Risk Orchestrator v8.0.0
 
+## ⚠️ CRITICAL — Repository & PR Target (read before every commit/PR)
+
+| What | Value |
+|---|---|
+| **Canonical GitHub repo** | **https://github.com/venkybobby/SARO** |
+| **Git remote name** | `saro` (maps to the URL above) |
+| **All PRs must target** | `venkybobby/SARO` — **never** `venkybobby/saro-platform` |
+| **Push command** | `git push saro <branch>:main` |
+
+> `venkybobby/saro-platform` is a **mirror/legacy remote** — do NOT create PRs there.
+
 ## Architecture
 
 ```
@@ -87,6 +98,7 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 
 ## References
 
+- **GitHub repo:** https://github.com/venkybobby/SARO (remote name: `saro`) — always push/PR here
 - Compliance boundaries: @docs/COMPLIANCE_CLAIMS_MATRIX.md
 - API prefix: `/api/v1/`
 - Port: `$PORT` (Railway injects)

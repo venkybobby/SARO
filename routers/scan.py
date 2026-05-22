@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_role
 from database import get_db
 from engine import SARoEngine
-from models import Audit, AuditTrace, ScanReport, User
+from models import Audit, AuditTrace, SampleFinding, ScanReport, User
 from schemas import (
     AuditListItemOut,
     AuditReportOut,
@@ -33,11 +33,12 @@ router = APIRouter(prefix="/api/v1", tags=["scan"])
 
 def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> None:
     """
-    Persist all trace records accumulated by the engine during run_audit().
-    This is non-critical: failures are logged but never propagate to the caller.
+    Persist trace records and sample findings accumulated by the engine.
+    Non-critical: failures are logged but never propagate to the caller.
     """
     traces = engine.get_traces()
-    if not traces:
+    findings = engine.get_sample_findings()
+    if not traces and not findings:
         return
     try:
         for t in traces:
@@ -51,9 +52,24 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
                 reason=t.get("reason"),
                 detail_json=t.get("detail_json"),
                 remediation_hint=t.get("remediation_hint"),
+                signal_text=t.get("signal_text"),
+                top_sample_ids=t.get("top_sample_ids"),
+            ))
+        # SARO-001: persist per-sample Gate 3 findings
+        for f in findings:
+            db.add(SampleFinding(
+                audit_id=audit_id,
+                sample_id=f["sample_id"],
+                domain=f["domain"],
+                matched_signal=f["matched_signal"],
+                matched_text_fragment=f.get("matched_text_fragment"),
+                weight=f["weight"],
             ))
         db.commit()
-        logger.info("Persisted %d trace records for audit %s", len(traces), audit_id)
+        logger.info(
+            "Persisted %d trace records and %d sample findings for audit %s",
+            len(traces), len(findings), audit_id,
+        )
     except Exception as trace_exc:
         logger.warning("Could not persist traces for audit %s: %s", audit_id, trace_exc)
         db.rollback()
@@ -111,6 +127,10 @@ def scan_batch(
             overall_risk_score=report.bayesian_scores.overall,
             confidence_score=report.confidence_score,
             report_json=report.model_dump(mode="json"),
+            # SARO-006: engine provenance
+            engine_version=report.engine_version,
+            rule_pack_hash=report.rule_pack_hash,
+            compliance_matrix_version="v8.0.0",
         )
         db.add(scan_report)
 

@@ -21,10 +21,8 @@ the invisible error message, NOT a fundamental flaw in the auth scheme.
 """
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 import requests as req_lib
 
 
@@ -61,7 +59,6 @@ def _import_login_fn(api_base: str = "https://saro-api.koyeb.app"):
     Import frontend.app with st and SARO_API_URL faked so tests run
     without a real Streamlit server or backend.
     """
-    import importlib
     import sys
     import os
 

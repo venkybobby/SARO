@@ -141,11 +141,14 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "audit_id",
         "mit_coverage_score", "fixed_delta", "overall_risk_score",
         "confidence_score", "report_json", "created_at",
+        # SARO-006 provenance fields
+        "engine_version", "rule_pack_hash", "compliance_matrix_version",
     },
     "audit_traces": {
         "id", "audit_id", "gate_id", "gate_name",
         "check_type", "check_name", "result", "reason",
         "detail_json", "remediation_hint",
+        "signal_text", "top_sample_ids",
         "is_remediated", "remediated_at", "remediated_by_id",
         "created_at",
     },
@@ -207,12 +210,45 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "line_number", "snippet", "correlation_note",
         "finding_domain", "scan_hash", "created_at",
     },
+    # SARO-001: per-sample Gate 3 findings
+    "sample_findings": {
+        "id", "audit_id", "sample_id", "domain",
+        "matched_signal", "matched_text_fragment", "weight", "created_at",
+    },
+    # SARO-003: tenant risk config overrides
+    "tenant_risk_configs": {
+        "id", "tenant_id", "domain_weights", "keyword_suppressions",
+        "max_weight_ceiling", "created_at", "updated_at",
+    },
+    # SARO-005: ISO 42001 generated documents
+    "iso42001_documents": {
+        "id", "audit_id", "generated_by_user_id",
+        "format", "content", "content_hash", "version", "created_at",
+    },
+}
+
+# Tables that must NEVER be dropped to fix drift — use ALTER TABLE ADD COLUMN
+# instead.  Maps table_name → {col_name: DDL_type_string}.
+_SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
+    "users": {
+        "persona_role": "VARCHAR(50)",
+    },
+    "tenants": {},
+    # SARO-004: version column added to reference table — ALTER only, never drop.
+    "nist_ai_rmf_controls": {
+        "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",
+    },
+    # SARO-DC-001/DC-002: additive columns on audit_traces — ALTER only.
+    "audit_traces": {
+        "signal_text": "VARCHAR(500)",
+        "top_sample_ids": "JSONB",
+    },
 }
 
 
 def ensure_app_schema() -> None:
     """
-    Self-healing schema check for the audits and scan_reports tables.
+    Self-healing schema check for all app tables.
 
     Algorithm (runs on every startup, completes in < 100 ms when healthy):
       1. For each app table, compare the live DB column names against the
@@ -222,7 +258,9 @@ def ensure_app_schema() -> None:
          to audits) inside a single transaction.
       3. Call create_all_tables() to recreate the freshly dropped tables
          with the exact schema defined by the current ORM models.
-      4. If every column is present, this function is a no-op.
+      4. For tables in _SAFE_ALTER_COLS (e.g. users, tenants) that must
+         NEVER be dropped, use ALTER TABLE ADD COLUMN IF NOT EXISTS instead.
+      5. If every column is present, this function is a no-op.
 
     This replaces the old _COLUMN_MIGRATIONS static list that required a
     manual code update every time a column was added to an ORM model.
@@ -259,11 +297,14 @@ def ensure_app_schema() -> None:
     #   audit_traces    → audits, users
     #   audits          → tenants, users
     _DROP_ORDER = [
+        "sample_findings",       # → audits (SARO-001)
+        "iso42001_documents",    # → audits (SARO-005)
         "github_scan_results",   # → audits
         "enhanced_traces",       # → audits
         "audit_metadata",        # → audits
         "audit_events",          # → tenants, users
         "client_configs",        # → tenants
+        "tenant_risk_configs",   # → tenants (SARO-003)
         "github_integrations",   # → tenants
         "scan_reports",          # → audits
         "audit_traces",          # → audits, users
@@ -282,6 +323,26 @@ def ensure_app_schema() -> None:
         "App tables recreated with current schema (drifted tables: %s)",
         sorted(drifted),
     )
+
+    # Step 4 — safe ALTER TABLE ADD COLUMN for precious tables (users, tenants)
+    #           that must never be dropped because they hold live data.
+    for table_name, col_defs in _SAFE_ALTER_COLS.items():
+        if not col_defs or not inspector.has_table(table_name):
+            continue
+        actual_cols = {c["name"] for c in inspector.get_columns(table_name)}
+        with eng.begin() as conn:
+            for col_name, col_type in col_defs.items():
+                if col_name not in actual_cols:
+                    logger.warning(
+                        "Adding missing column %r to %r via ALTER TABLE",
+                        col_name, table_name,
+                    )
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE "{table_name}" '
+                            f'ADD COLUMN IF NOT EXISTS "{col_name}" {col_type}'
+                        )
+                    )
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

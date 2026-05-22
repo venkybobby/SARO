@@ -13,8 +13,7 @@ import sys
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -129,6 +128,8 @@ class TestEngineTracing:
                 e._incident_matrix = None
                 e._rule_packs = []
                 e._compliance_triggers = {}
+                e._rule_pack_hash = eng_module.SARoEngine._compute_rule_pack_hash()
+                e._incident_corpus_version = "test-corpus-v0"
                 return e
 
     def _make_batch(self, n: int = 60, include_risk_text: bool = False):
