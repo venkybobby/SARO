@@ -1,7 +1,6 @@
 """GET /api/v1/engine/status — engine health and index metadata (SPEC-E3)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 

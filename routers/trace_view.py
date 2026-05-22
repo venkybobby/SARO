@@ -54,7 +54,7 @@ def get_trace(
 ):
     """Get the 6-step TRACE timeline for an audit."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    audit = _get_audit_or_404(db, audit_uuid)
+    _get_audit_or_404(db, audit_uuid)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     trace_dicts = [
@@ -124,7 +124,7 @@ def export_trace_pdf(
 ):
     """Generate a PDF evidence pack for an audit."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    audit = _get_audit_or_404(db, audit_uuid)
+    _get_audit_or_404(db, audit_uuid)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     report = db.query(ScanReport).filter(ScanReport.audit_id == audit_uuid).first()

@@ -581,10 +581,9 @@ class SARoEngine:
 
     # SPEC-E3: asyncio lock for thread-safe TF-IDF index rebuilds
     import asyncio as _asyncio_module
-    _rebuild_lock: "asyncio.Lock | None" = None
+    _rebuild_lock: "_asyncio_module.Lock | None" = None
 
     def __init__(self, db: Session) -> None:
-        import asyncio
         logger.info("Initialising SARoEngine — loading reference tables")
         self._load_reference_data(db)
         self._build_incident_index()
@@ -1365,7 +1364,6 @@ class SARoEngine:
                 logger.warning("LLM hybrid pass failed (%s) — using keyword-only results", exc)
                 hybrid_mode = False
 
-        keyword_flagged = len({f.sample_id for f in flags}) if not hybrid_mode else total_flagged if not hybrid_mode else len({f.sample_id for f in flags})
         # Re-compute after possible LLM filtering
         n = len(batch.samples)
         total_flagged = len({f.sample_id for f in flags})

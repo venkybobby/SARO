@@ -7,11 +7,10 @@ schema/validation tests use Pydantic directly.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import sys
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -573,7 +572,6 @@ class TestSARO007IncidentCorpus:
         """AuditReportOut includes incident_corpus_version field."""
         from schemas import AuditReportOut
         # AuditReportOut should have incident_corpus_version as optional
-        import inspect
         fields = AuditReportOut.model_fields
         assert "incident_corpus_version" in fields
 

@@ -253,7 +253,7 @@ def verify_trace(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> TraceVerifyOut:
-    audit = _get_audit_or_404(audit_id, current_user.tenant_id, db)
+    _get_audit_or_404(audit_id, current_user.tenant_id, db)
     enhanced = db.query(EnhancedTrace).filter(EnhancedTrace.audit_id == audit_id).first()
 
     if not enhanced or not enhanced.export_hash:

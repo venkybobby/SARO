@@ -18,12 +18,12 @@ from datetime import datetime, timezone
 from typing import Optional
 from xml.etree import ElementTree
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, get_current_user
+from auth import create_access_token
 from database import get_db
 from models import AuditEvent, ClientConfig, Tenant, User
 

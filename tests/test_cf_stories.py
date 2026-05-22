@@ -8,9 +8,8 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -196,7 +195,6 @@ def test_sign_report_deterministic():
 def test_pdf_renders_bytes():
     from routers.trace_export import _render_pdf
     from schemas import ExecutiveStep
-    from models import Audit
 
     audit = MagicMock()
     audit.id = uuid.uuid4()

@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -46,7 +46,7 @@ class TestBayesianPriorCalibration:
             assert result[domain] == (0.5, 0.5), f"Expected Jeffreys for {domain}"
 
     def test_calibrated_priors_reflect_frequency(self):
-        from engine import SARoEngine, MIT_DOMAINS
+        from engine import SARoEngine
         eng = MagicMock(spec=SARoEngine)
         # Privacy-heavy incident set
         eng._incidents = [{"category": "privacy"} for _ in range(80)] + \
@@ -152,7 +152,6 @@ class TestEngineSingleton:
         assert inspect.iscoroutinefunction(SARoEngine.check_and_refresh_index)
 
     def test_engine_has_cached_incident_count_after_init_mock(self):
-        from engine import SARoEngine
         # _compute_domain_priors is called in __init__; test that constants are exported
         from engine import PRIOR_WEIGHT
         assert PRIOR_WEIGHT >= 0
@@ -209,7 +208,8 @@ class TestSSO:
     def test_unsigned_assertion_raises_400(self):
         """SPEC-F2 TR-03: unsigned assertion must return 400."""
         from routers.sso import saml_acs
-        import base64, asyncio
+        import base64
+        import asyncio
         from fastapi import HTTPException
 
         minimal_xml = (
@@ -307,7 +307,6 @@ class TestNotifications:
         assert inspect.iscoroutinefunction(notification_stream)
 
     def test_sse_connection_registry(self):
-        import asyncio
         from services.notification_service import (
             register_sse_connection,
             unregister_sse_connection,

@@ -5,7 +5,6 @@ Uses fpdf2 (pure Python — no external system dependencies).
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from fpdf import FPDF, XPos, YPos

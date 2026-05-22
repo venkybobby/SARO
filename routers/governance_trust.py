@@ -8,7 +8,6 @@ GET /api/v1/governance/meta                         — document metadata for UI
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -18,7 +17,7 @@ from fastapi.responses import Response
 
 from auth import get_current_user, require_role
 from models import User
-from schemas import GovernanceDocMeta, GovernanceMetaOut
+from schemas import GovernanceDocMeta
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/governance", tags=["governance-trust"])
