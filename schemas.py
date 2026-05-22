@@ -45,7 +45,6 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     # CF-06: Persona RBAC fields (populated by /auth/me from PersonaPermission join)
-    persona_role: str | None = None
     allowed_tabs: list[str] = []
     allowed_actions: list[str] = []
 

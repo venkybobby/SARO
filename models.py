@@ -68,9 +68,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     # Roles: "super_admin" | "operator"
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="operator")
-    # Persona: "compliance_lead" | "risk_officer" | "ai_auditor" | None
-    persona_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # Personas: "compliance_lead" | "risk_officer" | "ai_auditor" | "admin"
+    # Persona: "compliance_lead" | "risk_officer" | "ai_auditor" | "admin" | None
     persona_role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
