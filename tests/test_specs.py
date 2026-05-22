@@ -492,7 +492,7 @@ class TestDPATemplate:
 
     def test_dpa_has_required_sections(self):
         dpa_path = Path(_REPO_ROOT) / "docs" / "legal" / "saro-dpa-template-v1.0.md"
-        content = dpa_path.read_text()
+        content = dpa_path.read_text(encoding="utf-8")
         required_sections = [
             "SCHEDULE 1",
             "SCHEDULE 2",
@@ -506,7 +506,7 @@ class TestDPATemplate:
 
     def test_dpa_lists_anthropic_as_sub_processor(self):
         dpa_path = Path(_REPO_ROOT) / "docs" / "legal" / "saro-dpa-template-v1.0.md"
-        content = dpa_path.read_text()
+        content = dpa_path.read_text(encoding="utf-8")
         assert "Anthropic" in content, "DPA must list Anthropic as a sub-processor"
         assert "no training" in content.lower() or "does not train" in content.lower(), \
             "DPA must clarify Anthropic does not train on customer data"
