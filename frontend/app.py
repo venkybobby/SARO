@@ -809,8 +809,52 @@ def _render_admin_settings(token: str) -> None:
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 
+def _token_is_valid(token: str | None) -> bool:
+    """
+    Client-side JWT expiry check — decodes the payload section (no signature
+    verification needed here; the backend verifies on every request).
+
+    Returns False when the token is missing, malformed, or past its 'exp' claim.
+    """
+    if not token:
+        return False
+    try:
+        import base64
+        import json
+        import time
+
+        # JWT structure: header.payload.signature
+        parts = token.split(".")
+        if len(parts) != 3:
+            return False
+        # base64url → bytes (pad to multiple of 4)
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded))
+        exp = payload.get("exp", 0)
+        # Give a 60-second grace window so we force re-login slightly before
+        # the server would reject the token, avoiding mid-request 401s.
+        return time.time() < (exp - 60)
+    except Exception:
+        return False
+
+
 def main() -> None:
-    if st.session_state["token"] is None:
+    token = st.session_state.get("token")
+
+    if not _token_is_valid(token):
+        # Token absent, malformed, or expired — clear session and show login.
+        if token is not None:
+            # Token was present but is now invalid; show a contextual warning.
+            st.session_state["token"] = None
+            st.session_state["user"] = None
+            st.session_state["_session_expired"] = True
+
+        if st.session_state.get("_session_expired", False):
+            st.session_state["_session_expired"] = False
+            st.warning(
+                "⏱ **Your session has expired.** Please sign in again to continue.",
+                icon="🔒",
+            )
         _render_login()
     else:
         _render_app()

@@ -306,11 +306,22 @@ def render(token: str) -> None:
                 )
                 _render_inline_report(report)
             except requests.HTTPError as exc:
-                try:
-                    detail = exc.response.json().get("detail", str(exc))
-                except Exception:
-                    detail = str(exc)
-                st.error(f"API error: {detail}")
+                if exc.response is not None and exc.response.status_code == 401:
+                    # Token expired mid-session — clear state and force re-login.
+                    st.session_state["token"] = None
+                    st.session_state["user"] = None
+                    st.session_state["_session_expired"] = True
+                    st.error(
+                        "⏱ **Session expired.** Your login token has expired — "
+                        "please sign in again to continue."
+                    )
+                    st.rerun()
+                else:
+                    try:
+                        detail = exc.response.json().get("detail", str(exc))
+                    except Exception:
+                        detail = str(exc)
+                    st.error(f"API error: {detail}")
             except requests.ConnectionError:
                 st.error(
                     f"Cannot connect to SARO API at `{_API_BASE}`. "

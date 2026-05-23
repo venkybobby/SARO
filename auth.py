@@ -44,7 +44,7 @@ def _algorithm() -> str:
 
 
 def _expire_minutes() -> int:
-    return int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+    return int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 
 # ── Password hashing (Argon2id) ───────────────────────────────────────────────
