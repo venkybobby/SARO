@@ -64,7 +64,7 @@ def _render_step(step_def: dict, step_data: dict | None, technical: bool) -> Non
         status = step_data.get("status", "done")
         confidence = step_data.get("confidence")
         detail = step_data.get("detail", "")
-        rules = step_data.get("rules", [])
+        rules = step_data.get("rules_fired", [])
     else:
         status = "pending"
         confidence = None

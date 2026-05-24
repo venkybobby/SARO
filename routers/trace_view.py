@@ -64,6 +64,7 @@ def get_trace(
             "gate_id": t.gate_id,
             "gate_name": t.gate_name,
             "check_type": t.check_type,
+            "check_name": t.check_name,
             "result": t.result,
             "reason": t.reason,
             "remediation_hint": t.remediation_hint,

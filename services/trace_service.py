@@ -64,6 +64,7 @@ def build_trace_timeline(audit_traces: list[dict], executive_mode: bool = False)
     """Build a 6-step TRACE timeline from raw audit trace records."""
     steps = {name: {
         "step": name,
+        "key": name.lower(),
         "status": "pending",
         "processing_time_ms": 0,
         "rules_fired": [],

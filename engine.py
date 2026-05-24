@@ -937,6 +937,10 @@ class SARoEngine:
         triggered_domains = {f.domain for f in flags}
         remediations = self._build_remediations(triggered_domains)
 
+        # ── Explain + Remediate trace steps ───────────────────────────────────
+        self._record_explain_trace(bayesian, mit_coverage, similar_incidents)
+        self._record_remediate_trace(remediations)
+
         # ── Overall confidence score ──────────────────────────────────────────
         confidence = self._compute_confidence(batch, gate1, gate2)
 
@@ -1070,6 +1074,10 @@ class SARoEngine:
         fixed_delta = self._compute_fixed_delta(similar_incidents)
         triggered_domains = {f.domain for f in flags}
         remediations = self._build_remediations(triggered_domains)
+
+        # Explain + Remediate trace steps
+        self._record_explain_trace(bayesian, mit_coverage, similar_incidents)
+        self._record_remediate_trace(remediations)
 
         # Confidence capped at 0.80 — single-output has less statistical power
         confidence = min(0.80, self._compute_confidence(batch, gate1, gate2))
@@ -1594,6 +1602,75 @@ class SARoEngine:
                 "signal_text": signal_text,
                 "top_sample_ids": top_sample_ids,
             })
+
+    def _record_explain_trace(
+        self,
+        bayesian: "BayesianScoresOut",
+        mit_coverage: "MITCoverageOut",
+        similar_incidents: list,
+    ) -> None:
+        """Record Explain step trace — summarises Bayesian scores + incident matching."""
+        top_domains = sorted(
+            ((s.domain, s.risk_probability) for s in bayesian.by_domain),
+            key=lambda x: x[1],
+            reverse=True,
+        )[:3]
+        top_str = ", ".join(f"{d} ({p:.1%})" for d, p in top_domains if p > 0)
+        reason = (
+            f"Overall risk probability: {bayesian.overall:.1%}. "
+            + (f"Top risk domains: {top_str}. " if top_str else "No risk domains triggered. ")
+            + f"MIT coverage score: {mit_coverage.score:.1%}. "
+            f"Similar historical incidents matched: {len(similar_incidents)}."
+        )
+        self._traces.append({
+            "gate_id": None,
+            "gate_name": "Explain",
+            "check_type": "explain",
+            "check_name": "Bayesian Risk Explanation",
+            "result": "done",
+            "reason": reason,
+            "detail_json": {
+                "overall_risk": bayesian.overall,
+                "top_domains": dict(top_domains),
+                "mit_coverage": mit_coverage.score,
+                "similar_incidents_count": len(similar_incidents),
+            },
+            "remediation_hint": None,
+            "signal_text": None,
+            "top_sample_ids": None,
+        })
+
+    def _record_remediate_trace(self, remediations: list) -> None:
+        """Record Remediate step trace — summarises generated remediation guidance."""
+        if remediations:
+            critical = [r.domain for r in remediations if r.priority == "critical"]
+            high = [r.domain for r in remediations if r.priority == "high"]
+            result = "warn" if critical else "done"
+            reason = (
+                f"{len(remediations)} remediation action(s) generated."
+                + (f" Critical priority: {', '.join(critical)}." if critical else "")
+                + (f" High priority: {', '.join(high)}." if high else "")
+            )
+        else:
+            result = "pass"
+            reason = "No remediation actions required — no risk domains triggered."
+
+        self._traces.append({
+            "gate_id": None,
+            "gate_name": "Remediate",
+            "check_type": "remediate",
+            "check_name": "Remediation Guidance",
+            "result": result,
+            "reason": reason,
+            "detail_json": {
+                "remediation_count": len(remediations),
+                "domains": [r.domain for r in remediations],
+                "priorities": [r.priority for r in remediations],
+            },
+            "remediation_hint": None,
+            "signal_text": None,
+            "top_sample_ids": None,
+        })
 
     def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
         """Record one trace per compliance rule that was triggered in Gate 4."""

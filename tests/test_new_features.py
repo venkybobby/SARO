@@ -151,9 +151,9 @@ class TestEngineTracing:
         e.run_audit(batch, uuid.uuid4())
         traces = e.get_traces()
         assert len(traces) > 0
-        # Should have gate-level traces for all 4 gates
+        # All 4 gates must be present; None gate_id is used by Explain/Remediate steps
         gate_ids = {t["gate_id"] for t in traces}
-        assert gate_ids == {1, 2, 3, 4}
+        assert {1, 2, 3, 4}.issubset(gate_ids)
 
     def test_gate3_produces_domain_traces(self):
         e = self._make_engine_no_db()
