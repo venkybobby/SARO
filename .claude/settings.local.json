@@ -23,7 +23,24 @@
       "Bash(python -m pytest tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short)",
       "Bash(python -m pytest tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short -q)",
       "Bash(python -m pytest tests/test_epic1_audit.py tests/test_epic2_trace.py tests/test_epic3_risk.py tests/test_epic4_rule_packs.py tests/test_epic5_governance.py tests/test_epic6_security.py tests/test_epic7_onboarding.py tests/test_epic8_remediation.py -v --tb=short)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(python -c \"import engine\")",
+      "Bash(python -m pytest tests/ -q --tb=short)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\shris\\\\.claude\\\\projects\\\\C--Users-shris-SARO\\\\memory\" && echo \"created\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(dir /b C:\\\\Users\\\\shris\\\\SARO\\\\.cursor)",
+      "Bash(dir /b C:\\\\Users\\\\shris\\\\SARO\\\\docs)",
+      "Bash(git -C C:/Users/shris/SARO status)",
+      "Bash(git -C C:/Users/shris/SARO log --oneline -5)",
+      "Bash(git -C C:/Users/shris/SARO remote -v)",
+      "Bash(git -C C:/Users/shris/SARO stash)",
+      "Bash(git -C C:/Users/shris/SARO pull --rebase origin main)",
+      "Bash(git -C C:/Users/shris/SARO stash pop)",
+      "Bash(python -m pytest tests/test_specs.py::TestDPATemplate -q --tb=short --no-header)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(python -m pytest tests/ -q --tb=line --no-header)"
     ]
   }
 }

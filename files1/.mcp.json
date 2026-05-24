@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "url",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "note": "Primary repo: github.com/venkybobby/saro-platform. All code delivery integrated into this repo only — never create standalone repos or separate folders."
+    },
+    "neon-postgres": {
+      "type": "url",
+      "url": "https://mcp.neon.tech/sse",
+      "note": "Production DB: Neon PostgreSQL. Used for compliance audit logs, drift records, user sessions."
+    },
+    "slack": {
+      "type": "url",
+      "url": "https://mcp.slack.com/",
+      "note": "Team comms. Members: Alex Rivera (ML Lead), Jordan Lee (Backend Lead), Sam Patel (QA), Taylor Kim (QA)."
+    }
+  }
+}

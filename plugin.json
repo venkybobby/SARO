@@ -1,0 +1,40 @@
+{
+  "name": "saro-platform",
+  "version": "1.0.0",
+  "description": "Claude specialist plugin for SARO (Smart AI Risk Orchestrator) — enterprise AI regulatory compliance platform. Full 5-layer AI Operating System: Memory, Knowledge, Guardrails, Delegation, Distribution.",
+  "author": "Venky Bobbyraj (venkybobby)",
+  "repository": "github.com/venkybobby/saro-platform",
+  "layers": {
+    "01_memory": "CLAUDE.md + skills/codebase-standards.md (always active)",
+    "02_knowledge": "skills/ — 6 domain skill files, auto-loaded on relevance",
+    "03_guardrails": ".claude/hooks/ — pre-edit, pre-commit, post-edit enforcement",
+    "04_delegation": ".claude/subagents/ — DriftAgent, ComplianceAgent, ReportAgent",
+    "05_distribution": "plugin structure — installable via Claude Code or Cowork"
+  },
+  "skills": [
+    "skills/codebase-standards.md",
+    "skills/compliance-context.md",
+    "skills/team-context.md",
+    "skills/deployment-context.md",
+    "skills/architecture-context.md",
+    "skills/qa-framework.md"
+  ],
+  "commands": [
+    "commands/write-epic-prd.md",
+    "commands/compliance-check.md",
+    "commands/phase-gate-review.md",
+    "commands/trace-review.md",
+    "commands/write-test.md",
+    "commands/incident-response.md"
+  ],
+  "hooks": [
+    ".claude/hooks/pre-edit-standards-check.sh",
+    ".claude/hooks/pre-commit-compliance-gate.sh",
+    ".claude/hooks/post-edit-version-check.sh"
+  ],
+  "subagents": [
+    ".claude/subagents/drift-agent.md",
+    ".claude/subagents/compliance-agent.md",
+    ".claude/subagents/report-agent.md"
+  ]
+}

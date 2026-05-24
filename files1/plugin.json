@@ -1,0 +1,23 @@
+{
+  "name": "saro-platform",
+  "version": "1.0.0",
+  "description": "Claude specialist plugin for SARO (Smart AI Risk Orchestrator) — enterprise AI regulatory compliance platform. Encodes codebase standards, team context, compliance scope locks, and deployment constraints.",
+  "author": "Venky Bobbyraj (venkybobby)",
+  "repository": "github.com/venkybobby/saro-platform",
+  "skills": [
+    "skills/codebase-standards.md",
+    "skills/compliance-context.md",
+    "skills/team-context.md",
+    "skills/deployment-context.md",
+    "skills/architecture-context.md",
+    "skills/qa-framework.md"
+  ],
+  "commands": [
+    "commands/write-epic-prd.md",
+    "commands/compliance-check.md",
+    "commands/phase-gate-review.md",
+    "commands/trace-review.md",
+    "commands/write-test.md",
+    "commands/incident-response.md"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Write(src/**)",
+      "Write(tests/**)",
+      "Write(docs/**)",
+      "Write(tools/**)",
+      "Bash(pytest*)",
+      "Bash(pip install*)",
+      "Bash(python*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ],
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git force*)",
+      "Bash(rm -rf*)",
+      "Bash(DROP TABLE*)",
+      "Bash(DELETE FROM*)",
+      "Write(.env*)",
+      "Write(*secret*)",
+      "Write(*credentials*)"
+    ]
+  },
+  "hooks": {
+    "pre-edit": ".claude/hooks/pre-edit-standards-check.sh",
+    "pre-commit": ".claude/hooks/pre-commit-compliance-gate.sh",
+    "post-edit": ".claude/hooks/post-edit-version-check.sh"
+  },
+  "context": {
+    "always_load": [
+      "CLAUDE.md",
+      "saro-platform/skills/codebase-standards.md",
+      "saro-platform/skills/compliance-context.md"
+    ]
+  },
+  "notes": {
+    "version": "8.0.0",
+    "repo": "github.com/venkybobby/saro-platform",
+    "deploy": "Koyeb",
+    "db": "Neon PostgreSQL"
+  }
+}
