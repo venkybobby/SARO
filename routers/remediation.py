@@ -393,6 +393,161 @@ def jira_oauth_callback(
     return {"status": "jira_connected", "scope": tokens.get("scope")}
 
 
+# ── S-204: Tenant-wide remediation list and bulk remediate ────────────────────
+
+
+@router.get("/remediation")
+def list_open_traces(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    result_filter: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    """
+    List all open (unremediated) fail/warn traces across all audits for this tenant.
+
+    Optional query params:
+      - result_filter: filter by result value (e.g. 'fail', 'warn')
+      - page / page_size: pagination
+    """
+    from sqlalchemy import and_
+
+    _OPEN_RESULTS = ["fail", "warn", "flagged", "triggered"]
+
+    # Subquery: audit IDs belonging to this tenant
+    tenant_audit_ids = (
+        db.query(Audit.id)
+        .filter(Audit.tenant_id == current_user.tenant_id)
+        .subquery()
+    )
+
+    query = db.query(AuditTrace).filter(
+        and_(
+            AuditTrace.audit_id.in_(tenant_audit_ids),
+            AuditTrace.result.in_(_OPEN_RESULTS),
+            AuditTrace.is_remediated.is_(False),
+        )
+    )
+
+    if result_filter:
+        query = query.filter(AuditTrace.result == result_filter)
+
+    total = query.count()
+    traces = (
+        query.order_by(AuditTrace.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    def _serialize(t: AuditTrace) -> dict:
+        domain = (t.check_name or "").split(":")[0].strip() or t.check_type
+        effort = _DOMAIN_TO_EFFORT.get(domain, "Medium")
+        return {
+            "id": str(t.id),
+            "audit_id": str(t.audit_id),
+            "check_name": t.check_name,
+            "gate_name": t.gate_name,
+            "result": t.result,
+            "reason": t.reason,
+            "remediation_hint": t.remediation_hint,
+            "effort_estimate": effort,
+            "domain": domain,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        }
+
+    return {
+        "traces": [_serialize(t) for t in traces],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total + page_size - 1) // page_size if page_size > 0 else 1,
+    }
+
+
+class BulkRemediateIn(BaseModel):
+    trace_ids: list[uuid.UUID]
+    remediation_note: str
+
+
+@router.post("/remediation/bulk-remediate")
+def bulk_remediate_traces(
+    payload: BulkRemediateIn,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """
+    Bulk-mark a list of AuditTrace IDs as remediated for the calling tenant.
+
+    All trace IDs must belong to audits owned by the caller's tenant.
+    Returns per-ID success/failure in the 'results' list.
+    """
+    if not payload.trace_ids:
+        raise HTTPException(status_code=422, detail="trace_ids must not be empty")
+    if not payload.remediation_note or not payload.remediation_note.strip():
+        raise HTTPException(status_code=422, detail="remediation_note is required")
+
+    note = payload.remediation_note.strip()
+    now = datetime.now(timezone.utc)
+
+    results: list[dict] = []
+    succeeded = 0
+    failed_ids: list[str] = []
+
+    for trace_id in payload.trace_ids:
+        trace = db.query(AuditTrace).filter(AuditTrace.id == trace_id).first()
+        if not trace:
+            results.append({"id": str(trace_id), "status": "not_found"})
+            failed_ids.append(str(trace_id))
+            continue
+
+        # Verify ownership via audit → tenant
+        audit = db.query(Audit).filter(
+            Audit.id == trace.audit_id,
+            Audit.tenant_id == current_user.tenant_id,
+        ).first()
+        if not audit:
+            results.append({"id": str(trace_id), "status": "forbidden"})
+            failed_ids.append(str(trace_id))
+            continue
+
+        trace.is_remediated = True
+        trace.remediated_at = now
+        trace.remediated_by_id = current_user.id
+        detail = trace.detail_json or {}
+        detail["remediation_note"] = note
+        trace.detail_json = detail
+        results.append({"id": str(trace_id), "status": "remediated"})
+        succeeded += 1
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database commit failed: {exc}") from exc
+
+    # Write a single AuditEvent for the bulk action
+    if succeeded > 0:
+        ev = AuditEvent(
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            event_type="bulk_traces_remediated",
+            event_data={
+                "count": succeeded,
+                "trace_ids": [r["id"] for r in results if r["status"] == "remediated"],
+            },
+        )
+        db.add(ev)
+        db.commit()
+
+    return {
+        "succeeded": succeeded,
+        "failed": len(failed_ids),
+        "results": results,
+    }
+
+
 # ── Legacy endpoints (kept for backwards compat) ──────────────────────────────
 
 

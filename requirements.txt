@@ -28,3 +28,6 @@ cryptography>=42.0.0
 weasyprint>=62.0
 # boto3 is optional — only needed when AWS_S3_BUCKET env var is set (large-text S3 offload)
 # boto3>=1.34.0
+# S-002: HuggingFace dataset sampling
+datasets>=2.18.0
+huggingface-hub>=0.22.0

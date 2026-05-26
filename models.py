@@ -10,6 +10,7 @@ New tables added here:
 """
 from __future__ import annotations
 
+import enum as py_enum
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -17,6 +18,7 @@ from typing import Optional
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
     Integer,
@@ -101,6 +103,9 @@ class Audit(Base):
     sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
     # status: "pending" | "running" | "completed" | "failed"
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    # S-101: verbatim text for single-output ingestion path
+    prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -653,3 +658,48 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     metadata_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S-001: HuggingFace Sample Queue
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class HFSampleStatus(py_enum.Enum):
+    pending = "pending"
+    processing = "processing"
+    processed = "processed"
+    failed = "failed"
+
+
+class HFSampleQueue(Base):
+    """
+    Queue of individual samples pulled from HuggingFace datasets.
+
+    The hf_sampler script inserts rows here; the hf_processor router picks up
+    'pending' rows and runs them through the SARO engine, updating status to
+    'processed' or 'failed'.
+    """
+    __tablename__ = "hf_sample_queue"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    vertical: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_dataset: Mapped[str] = mapped_column(String(200), nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_output_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_model: Mapped[str] = mapped_column(String(100), nullable=False, default="unknown")
+    # status: "pending" | "processing" | "processed" | "failed"
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    audit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="SET NULL"), nullable=True
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

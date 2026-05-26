@@ -1,0 +1,65 @@
+name: SARO HF Daily Sampler
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 6am UTC daily = 1am CT (Georgetown TX)
+  workflow_dispatch:       # allow manual trigger from GitHub UI
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sample Finance
+        env:
+          DATABASE_URL:        ${{ secrets.DATABASE_URL }}
+          SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
+        run: |
+          python scripts/hf_sampler.py \
+            --vertical finance \
+            --count 50 \
+            --database-url "$DATABASE_URL" \
+            --tenant-id "$SARO_DEMO_TENANT_ID"
+
+      - name: Sample Healthcare
+        env:
+          DATABASE_URL:        ${{ secrets.DATABASE_URL }}
+          SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
+        run: |
+          python scripts/hf_sampler.py \
+            --vertical healthcare \
+            --count 50 \
+            --database-url "$DATABASE_URL" \
+            --tenant-id "$SARO_DEMO_TENANT_ID"
+
+      - name: Sample Technology
+        env:
+          DATABASE_URL:        ${{ secrets.DATABASE_URL }}
+          SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
+        run: |
+          python scripts/hf_sampler.py \
+            --vertical technology \
+            --count 50 \
+            --database-url "$DATABASE_URL" \
+            --tenant-id "$SARO_DEMO_TENANT_ID"
+
+      - name: Trigger processor
+        env:
+          SARO_URL:            https://saro-platform.fly.dev
+          SARO_BEARER:         ${{ secrets.SARO_PROCESSOR_TOKEN }}
+          SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
+        run: |
+          curl -X POST \
+            "$SARO_URL/api/v1/hf-processor/run?tenant_id=$SARO_DEMO_TENANT_ID" \
+            -H "Authorization: Bearer $SARO_BEARER" \
+            -w "\nHTTP %{http_code}\n"
