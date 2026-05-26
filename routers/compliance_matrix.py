@@ -90,6 +90,82 @@ def _validate_sort_params(sort_by: str | None, sort_dir: str) -> None:
         )
 
 
+@router.get("/coverage", summary="Per-framework compliance coverage summary")
+def get_coverage_summary(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    """
+    Returns per-framework compliance coverage percentages computed from
+    the compliance matrix rows for the authenticated tenant.
+
+    Each framework entry includes:
+      - framework: framework name
+      - total_rules: total rules in the matrix for this framework
+      - covered: rules with status 'covered' or 'partial'
+      - coverage_pct: percentage covered (0–100)
+      - last_updated: most recent last_updated date for this framework
+    """
+    rows = get_matrix_rows(db)
+
+    # Group by regulation_name
+    by_framework: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        fw = row.get("regulation_name") or "Unknown"
+        if fw not in by_framework:
+            by_framework[fw] = {
+                "framework": fw,
+                "total_rules": 0,
+                "covered": 0,
+                "partial": 0,
+                "not_covered": 0,
+                "last_updated": None,
+            }
+        entry = by_framework[fw]
+        entry["total_rules"] += 1
+
+        row_status = (row.get("status") or "").lower()
+        if row_status in ("covered", "compliant", "pass", "met"):
+            entry["covered"] += 1
+        elif row_status in ("partial", "partial_coverage", "in_progress", "warn"):
+            entry["partial"] += 1
+        else:
+            entry["not_covered"] += 1
+
+        lu = row.get("last_updated")
+        if lu and (entry["last_updated"] is None or str(lu) > str(entry["last_updated"])):
+            entry["last_updated"] = lu
+
+    coverage_items = []
+    for fw_entry in by_framework.values():
+        total = fw_entry["total_rules"]
+        covered = fw_entry["covered"] + fw_entry["partial"] * 0.5
+        pct = round((covered / total * 100) if total else 0.0, 1)
+        coverage_items.append({
+            "framework": fw_entry["framework"],
+            "total_rules": total,
+            "covered": fw_entry["covered"],
+            "partial": fw_entry["partial"],
+            "not_covered": fw_entry["not_covered"],
+            "coverage_pct": pct,
+            "last_updated": str(fw_entry["last_updated"]) if fw_entry["last_updated"] else None,
+        })
+
+    # Sort by coverage_pct descending
+    coverage_items.sort(key=lambda x: x["coverage_pct"], reverse=True)
+
+    overall_total = sum(c["total_rules"] for c in coverage_items)
+    overall_covered = sum(c["covered"] + c["partial"] * 0.5 for c in coverage_items)
+    overall_pct = round((overall_covered / overall_total * 100) if overall_total else 0.0, 1)
+
+    return {
+        "frameworks": coverage_items,
+        "overall_coverage_pct": overall_pct,
+        "framework_count": len(coverage_items),
+        "total_rules": overall_total,
+    }
+
+
 @router.get("", summary="List compliance matrix rows with optional sort and filter")
 def list_matrix(
     current_user: Annotated[User, Depends(get_current_user)],

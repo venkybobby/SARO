@@ -45,7 +45,7 @@ def _get_engine():
         pool_recycle=300,
         connect_args={
             "connect_timeout": 10,
-            "sslmode": "require",
+            "sslmode": os.environ.get("DB_SSLMODE", "require"),
             "options": "-c statement_timeout=30000",
         },
     )
@@ -156,6 +156,8 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "tenant_id", "user_id",
         "batch_id", "dataset_name", "sample_count",
         "status", "created_at", "completed_at",
+        # S-101: verbatim text fields for single-output ingestion
+        "prompt_text", "raw_output_text",
     },
     "demo_requests": {
         "id", "first_name", "last_name", "email",
@@ -199,6 +201,13 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "source_model", "ingestion_method",
         "prompt_s3_key", "output_s3_key",
         "created_at",
+    },
+    # S-001: HuggingFace sample queue
+    "hf_sample_queue": {
+        "id", "tenant_id", "vertical", "source_dataset",
+        "prompt_text", "raw_output_text", "source_model",
+        "status", "audit_id", "error_message", "retry_count",
+        "sampled_at", "processed_at", "updated_at",
     },
     "github_integrations": {
         "id", "tenant_id", "allowed_repos",

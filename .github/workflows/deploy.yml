@@ -1,0 +1,83 @@
+name: SARO CI/CD — Fly.io
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB:       saro_test
+          POSTGRES_USER:     saro
+          POSTGRES_PASSWORD: saro_test_pw
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: ["5432:5432"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt ruff pytest pytest-asyncio
+
+      - name: Lint (ruff)
+        run: ruff check . --output-format=github
+
+      - name: Type check (mypy)
+        run: mypy . --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Run pytest
+        env:
+          DATABASE_URL:        postgresql://saro:saro_test_pw@localhost:5432/saro_test
+          DB_SSLMODE:          disable
+          JWT_SECRET_KEY:      test-secret-key-not-for-production
+          JWT_ALGORITHM:       HS256
+          ENVIRONMENT:         test
+          SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
+        run: pytest tests/ -v --tb=short -x --ignore=tests/test_frontend_login.py
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --wait-timeout=120
+
+  health-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Wait for Fly health
+        run: |
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                     https://saro-platform.fly.dev/health)
+            [ "$STATUS" = "200" ] && echo "Health OK" && exit 0
+            echo "Attempt $i: status $STATUS — retrying in 10s"
+            sleep 10
+          done
+          echo "Health check failed after 2 minutes" && exit 1

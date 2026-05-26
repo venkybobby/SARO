@@ -60,6 +60,8 @@ from routers.risk_config import router as risk_config_router
 from routers.compliance_matrix import router as compliance_matrix_router
 from routers.notifications import router as notifications_router
 from routers.engine_status import router as engine_status_router
+from routers.hf_processor import router as hf_processor_router
+from routers.ingest import router as ingest_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -243,6 +245,8 @@ app.include_router(risk_config_router)
 app.include_router(compliance_matrix_router)
 app.include_router(notifications_router)
 app.include_router(engine_status_router)
+app.include_router(hf_processor_router)
+app.include_router(ingest_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

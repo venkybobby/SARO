@@ -1,0 +1,6 @@
+BEGIN;
+ALTER TABLE audits
+    ADD COLUMN IF NOT EXISTS prompt_text     TEXT,
+    ADD COLUMN IF NOT EXISTS raw_output_text TEXT;
+COMMIT;
+-- ROLLBACK: ALTER TABLE audits DROP COLUMN IF EXISTS prompt_text; ALTER TABLE audits DROP COLUMN IF EXISTS raw_output_text;

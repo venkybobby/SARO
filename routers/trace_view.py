@@ -52,9 +52,9 @@ def get_trace(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Get the 6-step TRACE timeline for an audit."""
+    """Get the 6-step TRACE timeline for an audit, with model_version and chain_of_thought."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    _get_audit_or_404(db, audit_uuid)
+    audit = _get_audit_or_404(db, audit_uuid)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     trace_dicts = [
@@ -73,7 +73,76 @@ def get_trace(
         }
         for t in traces
     ]
-    return build_trace_timeline(trace_dicts, executive_mode=executive_mode)
+    timeline = build_trace_timeline(trace_dicts, executive_mode=executive_mode)
+
+    # S-202: attach model_version and chain_of_thought from EnhancedTrace if available
+    from models import EnhancedTrace as _EnhancedTrace
+    enhanced = db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+    model_version = "saro-engine-1.0"
+    chain_of_thought: list = []
+    if enhanced:
+        model_version = enhanced.model_version or model_version
+        cot = enhanced.chain_of_thought or {}
+        chain_of_thought = cot.get("steps", []) if isinstance(cot, dict) else []
+
+    if isinstance(timeline, dict):
+        timeline["model_version"] = model_version
+        timeline["chain_of_thought"] = chain_of_thought
+        timeline["audit_status"] = audit.status
+    return timeline
+
+
+@router.get("/{audit_id}/trace/export")
+def export_trace_extended(
+    audit_id: str = Path(..., description="Audit UUID"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Export a full signed TRACE evidence pack with model_version and chain_of_thought."""
+    audit_uuid = _parse_audit_uuid(audit_id)
+    audit = _get_audit_or_404(db, audit_uuid)
+
+    from models import EnhancedTrace as _EnhancedTrace, ScanReport as _ScanReport
+
+    traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
+    report = db.query(_ScanReport).filter(_ScanReport.audit_id == audit_uuid).first()
+    enhanced = db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+
+    timeline = build_trace_timeline([
+        {"id": str(t.id), "audit_id": str(t.audit_id), "gate_id": t.gate_id,
+         "gate_name": t.gate_name, "result": t.result, "reason": t.reason,
+         "confidence": 0.85}
+        for t in traces
+    ])
+
+    model_version = "saro-engine-1.0"
+    chain_of_thought: list = []
+    if enhanced:
+        model_version = enhanced.model_version or model_version
+        cot = enhanced.chain_of_thought or {}
+        chain_of_thought = cot.get("steps", []) if isinstance(cot, dict) else []
+
+    export = {
+        "export_version": "2.0",
+        "audit_id": str(audit_uuid),
+        "exported_at": datetime.utcnow().isoformat(),
+        "model_version": model_version,
+        "chain_of_thought": chain_of_thought,
+        "audit_metadata": {
+            "status": audit.status,
+            "created_at": str(audit.created_at),
+        },
+        "trace_timeline": timeline,
+        "risk_score": report.overall_risk_score if report else None,
+        "confidence": report.confidence_score if report else None,
+        "export_hash": enhanced.export_hash if enhanced else None,
+    }
+
+    canonical = json.dumps(export, sort_keys=True)
+    sig = hmac.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+    export["_signature"] = sig
+    export = attach_timestamp_to_export(export)
+    return export
 
 
 @router.get("/{audit_id}/export/json")
