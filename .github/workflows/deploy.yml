@@ -44,6 +44,7 @@ jobs:
       - name: Run pytest
         env:
           DATABASE_URL:        postgresql://saro:saro_test_pw@localhost:5432/saro_test
+          DB_SSLMODE:          disable
           JWT_SECRET_KEY:      test-secret-key-not-for-production
           JWT_ALGORITHM:       HS256
           ENVIRONMENT:         test

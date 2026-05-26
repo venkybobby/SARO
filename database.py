@@ -45,7 +45,7 @@ def _get_engine():
         pool_recycle=300,
         connect_args={
             "connect_timeout": 10,
-            "sslmode": "require",
+            "sslmode": os.environ.get("DB_SSLMODE", "require"),
             "options": "-c statement_timeout=30000",
         },
     )
