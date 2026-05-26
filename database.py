@@ -252,6 +252,12 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "signal_text": "VARCHAR(500)",
         "top_sample_ids": "JSONB",
     },
+    # audits holds live data and has many FK dependents — never drop, ALTER only.
+    # S-101: prompt_text / raw_output_text added for single-output ingestion.
+    "audits": {
+        "prompt_text": "TEXT",
+        "raw_output_text": "TEXT",
+    },
 }
 
 
@@ -322,7 +328,9 @@ def ensure_app_schema() -> None:
     ]
     with eng.begin() as conn:
         for table_name in _DROP_ORDER:
-            if table_name in drifted and inspector.has_table(table_name):
+            if (table_name in drifted
+                    and inspector.has_table(table_name)
+                    and table_name not in _SAFE_ALTER_COLS):
                 conn.execute(text(f'DROP TABLE "{table_name}"'))
                 logger.info("Dropped drifted table: %s", table_name)
 
