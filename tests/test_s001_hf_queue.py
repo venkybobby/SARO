@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 import sys
 
-import pytest
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -24,18 +23,16 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret")
 
 class TestHFSampleQueueModel:
     def test_import(self):
-        from models import HFSampleQueue, HFSampleStatus
+        from models import HFSampleQueue
         assert HFSampleQueue.__tablename__ == "hf_sample_queue"
 
     def test_status_enum_values(self):
-        import enum as py_enum
         from models import HFSampleStatus
         assert set(m.value for m in HFSampleStatus) == {
             "pending", "processing", "processed", "failed"
         }
 
     def test_required_columns_present(self):
-        from sqlalchemy import inspect as sa_inspect
         from models import HFSampleQueue
         mapper = HFSampleQueue.__mapper__
         col_names = {c.key for c in mapper.columns}

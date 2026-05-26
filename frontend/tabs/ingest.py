@@ -7,7 +7,6 @@ POST /api/v1/ingest, polling status, and displaying results.
 from __future__ import annotations
 
 import time
-from typing import Any
 
 import requests
 import streamlit as st

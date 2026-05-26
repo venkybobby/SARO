@@ -76,7 +76,7 @@ def get_trace(
     timeline = build_trace_timeline(trace_dicts, executive_mode=executive_mode)
 
     # S-202: attach model_version and chain_of_thought from EnhancedTrace if available
-    from models import EnhancedTrace as _EnhancedTrace, ScanReport as _ScanReport
+    from models import EnhancedTrace as _EnhancedTrace
     enhanced = db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
     model_version = "saro-engine-1.0"
     chain_of_thought: list = []

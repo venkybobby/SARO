@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import sys
 
-import pytest
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -22,7 +21,6 @@ class TestIngestSchemas:
 
     def test_ingest_request_valid_source_models(self):
         from routers.ingest import IngestRequest
-        import pydantic
         fields = IngestRequest.model_fields
         assert "source_model" in fields
         assert "prompt" in fields

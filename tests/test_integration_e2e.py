@@ -21,7 +21,7 @@ if _REPO_ROOT not in sys.path:
 @pytest.mark.integration
 def test_e2e_imports_available():
     """Verify all models and routers required for E2E flow are importable."""
-    from models import HFSampleQueue, HFSampleStatus, Audit
+    from models import HFSampleStatus
     from routers.hf_processor import router as hf_router
     from routers.ingest import router as ingest_router
     from routers.trace_view import router as trace_router
@@ -40,7 +40,7 @@ def test_e2e_queue_to_processor_flow():
     if os.environ.get("ENVIRONMENT") != "integration":
         pytest.skip("Requires ENVIRONMENT=integration")
 
-    from models import HFSampleQueue, HFSampleStatus
+    from models import HFSampleStatus
     # Integration test body — would use a live DB session
     # Placeholder: verify the queue model can be imported and status enum works
     assert HFSampleStatus("pending") == HFSampleStatus.pending

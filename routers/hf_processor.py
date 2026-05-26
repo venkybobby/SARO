@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role

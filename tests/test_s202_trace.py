@@ -42,7 +42,8 @@ class TestTraceViewRouter:
 
 class TestTraceExportHash:
     def test_export_hash_pattern(self):
-        import hashlib, json
+        import hashlib
+        import json
         payload = {"audit_id": "test", "chain": [{"step": 1}]}
         computed = hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode()
