@@ -173,7 +173,7 @@ def scan_batch(
 @router.get(
     "/audits",
     response_model=list[AuditListItemOut],
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
     summary="List audits for the current tenant",
 )
 def list_audits(
