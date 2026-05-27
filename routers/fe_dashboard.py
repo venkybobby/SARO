@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import Audit, AuditTrace, ScanReport
+from models import Audit, AuditMetadata, AuditTrace, ScanReport
 
 router = APIRouter(prefix="/api/v1", tags=["fe-dashboard"])
 
@@ -63,11 +63,11 @@ def get_compliance_matrix(
     ]
 
     if not audit_ids:
-        frameworks = [
+        empty_frameworks: list[dict[str, Any]] = [
             {"name": fw, "rules_triggered": 0, "rules_total": 0, "coverage_pct": 0.0}
             for fw in _ALL_FRAMEWORKS
         ]
-        return {"frameworks": frameworks, "computed_at": datetime.utcnow().isoformat()}
+        return {"frameworks": empty_frameworks, "computed_at": datetime.utcnow().isoformat()}
 
     traces = (
         db.query(AuditTrace)
@@ -81,20 +81,20 @@ def get_compliance_matrix(
 
     for t in traces:
         gate = t.gate_name or ""
-        for gate_substr, frameworks in _GATE_FRAMEWORK_MAP.items():
+        for gate_substr, gate_frameworks in _GATE_FRAMEWORK_MAP.items():
             if gate_substr.lower() in gate.lower():
-                for fw in frameworks:
-                    fw_total[fw] += 1
+                for fw_name in gate_frameworks:
+                    fw_total[fw_name] += 1
                     if t.result not in ("fail", "flagged", "triggered"):
-                        fw_passed[fw] += 1
+                        fw_passed[fw_name] += 1
 
-    result = []
-    for fw in _ALL_FRAMEWORKS:
-        total = fw_total[fw]
-        passed = fw_passed[fw]
+    result: list[dict[str, Any]] = []
+    for fw_name in _ALL_FRAMEWORKS:
+        total: int = fw_total[fw_name]
+        passed: int = fw_passed[fw_name]
         pct = round(passed / total * 100, 1) if total else 0.0
         result.append({
-            "name": fw,
+            "name": fw_name,
             "rules_triggered": total - passed,
             "rules_total": max(total, 1),
             "coverage_pct": pct,
@@ -116,8 +116,10 @@ def get_risk_dashboard(
     tid = current_user.tenant_id
 
     rows = (
-        db.query(Audit.source_model, ScanReport.risk_score)
+        db.query(AuditMetadata.source_model, ScanReport.overall_risk_score)
+        .select_from(Audit)
         .join(ScanReport, ScanReport.audit_id == Audit.id, isouter=True)
+        .join(AuditMetadata, AuditMetadata.audit_id == Audit.id, isouter=True)
         .filter(Audit.tenant_id == tid, Audit.status == "completed")
         .all()
     )
@@ -125,11 +127,11 @@ def get_risk_dashboard(
     # Group by source_model
     vendor_scores: dict[str, list[float]] = {}
     for source_model, score in rows:
-        key = source_model or "unknown"
+        key = str(source_model) if source_model else "unknown"
         if score is not None:
             vendor_scores.setdefault(key, []).append(float(score))
 
-    vendors = [
+    vendors: list[dict[str, Any]] = [
         {
             "source_model": model,
             "avg_risk_score": round(sum(scores) / len(scores), 4),
@@ -137,7 +139,7 @@ def get_risk_dashboard(
         for model, scores in sorted(vendor_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))
     ]
 
-    all_scores = [v["avg_risk_score"] for v in vendors]
+    all_scores: list[float] = [float(v["avg_risk_score"]) for v in vendors]
     summary: dict[str, Any] = {
         "avg_risk_score": round(sum(all_scores) / len(all_scores), 4) if all_scores else None,
         "max_risk_score": max(all_scores) if all_scores else None,
