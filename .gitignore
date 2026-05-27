@@ -49,3 +49,7 @@ logs/
 
 # Railway / Docker
 .railway/
+
+# Node (scripts tooling)
+node_modules/
+scripts/node_modules/
