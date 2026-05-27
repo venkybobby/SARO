@@ -62,6 +62,7 @@ from routers.notifications import router as notifications_router
 from routers.engine_status import router as engine_status_router
 from routers.hf_processor import router as hf_processor_router
 from routers.ingest import router as ingest_router
+from routers.fe_dashboard import router as fe_dashboard_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -247,6 +248,7 @@ app.include_router(notifications_router)
 app.include_router(engine_status_router)
 app.include_router(hf_processor_router)
 app.include_router(ingest_router)
+app.include_router(fe_dashboard_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

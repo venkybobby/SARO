@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import DemoRequest
+from models import DemoRequest, User
 from schemas import DemoRequestIn, DemoRequestOut, DemoRequestStatusUpdateIn
 
 logger = logging.getLogger(__name__)
@@ -121,3 +121,62 @@ def update_demo_request(
     db.refresh(record)
     logger.info("Demo request %s updated to status=%s", rid, payload.status)
     return DemoRequestOut.model_validate(record)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S-205: Read-only demo JWT + write guard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/token",
+    summary="Issue a 4-hour read-only demo JWT (public endpoint — no auth required)",
+    description=(
+        "Returns a short-lived JWT pre-authenticated as the demo tenant. "
+        "The JWT carries read_only=True — all write endpoints reject it with 403. "
+        "Requires SARO_DEMO_TENANT_ID to be set (run scripts/seed_demo_tenant.py first)."
+    ),
+)
+def get_demo_token() -> dict:
+    import os
+    from datetime import timedelta
+
+    demo_tenant_id = os.getenv("SARO_DEMO_TENANT_ID")
+    if not demo_tenant_id:
+        raise HTTPException(
+            status_code=503,
+            detail="Demo tenant not configured — run scripts/seed_demo_tenant.py first",
+        )
+
+    from auth import _secret_key, _algorithm
+    from jose import jwt as _jwt
+
+    payload = {
+        "sub":       demo_tenant_id,
+        "tenant_id": demo_tenant_id,
+        "role":      "demo_viewer",
+        "read_only": True,
+        "exp":       datetime.now(tz=timezone.utc) + timedelta(hours=4),
+        "iat":       datetime.now(tz=timezone.utc),
+    }
+    token = _jwt.encode(payload, _secret_key(), algorithm=_algorithm())
+    logger.info("demo_token_issued")
+    return {
+        "access_token":     token,
+        "token_type":       "bearer",
+        "expires_in_hours": 4,
+        "read_only":        True,
+    }
+
+
+def require_write_access(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """
+    Dependency: block demo (read_only) users from mutating data.
+    Add to any write endpoint that must be protected from the demo token.
+    """
+    if getattr(current_user, "read_only", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only demo access — write operations not permitted",
+        )
+    return current_user

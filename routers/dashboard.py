@@ -185,7 +185,7 @@ def _build_output_summary(report: ScanReport) -> dict[str, Any]:
 @router.get(
     "/kpis",
     response_model=DashboardKPIOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
     summary="KPI summary bar for the enterprise audit dashboard",
 )
 def get_dashboard_kpis(
@@ -272,7 +272,7 @@ def get_dashboard_kpis(
 @router.get(
     "/audits",
     response_model=list[AuditDashboardItemOut],
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
     summary="Enhanced audit list with risk colour, exception counts, remediation status",
 )
 def list_dashboard_audits(
