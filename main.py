@@ -98,15 +98,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     logger.info("SARO starting up — environment=%s", os.environ.get("ENVIRONMENT", "development"))
 
-    if not health_check():
+    _db_health = health_check()
+    if not _db_health["ok"]:
         # Log a warning but do NOT crash — the process must bind its port so
         # Railway's health check can pass.  Individual requests will fail with
         # 503 only if the DB is still unreachable when they arrive, which is
         # a much better failure mode than never starting at all.
-        logger.warning(
-            "Database unreachable at startup. Check DATABASE_URL secret in Railway. "
-            "API will return 503 on DB-dependent endpoints until the DB is reachable."
-        )
+        _db_err = _db_health.get("error", "unknown")
+        _db_detail = _db_health.get("detail", "")
+        if _db_err == "auth_failure":
+            logger.error(
+                "Database authentication failed at startup (error_class=auth_failure). "
+                "The DATABASE_URL secret likely uses a bare 'postgres' username against "
+                "a Supabase pooler host.  Update Railway → Variables → DATABASE_URL to "
+                "use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                "detail=%s", _db_detail,
+            )
+        else:
+            logger.warning(
+                "Database unreachable at startup (error_class=%s). "
+                "Check DATABASE_URL secret in Railway. "
+                "API will return 503 on DB-dependent endpoints until the DB is reachable. "
+                "detail=%s", _db_err, _db_detail,
+            )
     else:
         # 1. Self-heal audits/scan_reports if their columns are out of date
         #    (drops + recreates them when any column is missing).
@@ -349,6 +363,7 @@ def health() -> JSONResponse:
     Fields:
       status                "ok" | "degraded" | "schema_mismatch"
       database              "ok" | "unreachable"
+      db_error              null | "auth_failure" | "network_unreachable" | "ssl_error" | "unknown"
       schema_version        highest applied migration version in schema_migrations
       schema_ok             true when schema_version == highest file on disk
       highest_migration     highest *.sql filename stem found under migrations/
@@ -359,7 +374,9 @@ def health() -> JSONResponse:
     from models import User
     from sqlalchemy import text as _t
 
-    db_ok = health_check()
+    _db_result = health_check()
+    db_ok: bool = _db_result["ok"]
+    db_error: str | None = _db_result.get("error")
     bootstrap_needed: bool | None = None
     schema_version: str | None = None
     schema_ok: bool | None = None
@@ -401,6 +418,7 @@ def health() -> JSONResponse:
         content={
             "status": status,
             "database": "ok" if db_ok else "unreachable",
+            "db_error": db_error,
             "schema_version": schema_version,
             "schema_ok": schema_ok,
             "highest_migration": highest_on_disk,
