@@ -217,8 +217,8 @@ class AuditTrace(Base):
     # Rows written before migration 009 carry event_hash=LEGACY_SENTINEL.
     # Column is nullable in DB (migration 003); _persist_traces() always supplies a value.
     # No ORM-level default — callers must set event_hash explicitly so omissions fail loudly.
-    event_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    prev_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
+    prev_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
 
     audit: Mapped["Audit"] = relationship(back_populates="traces")
 

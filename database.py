@@ -151,6 +151,8 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "signal_text", "top_sample_ids",
         "is_remediated", "remediated_at", "remediated_by_id",
         "created_at",
+        # AUD-001: SHA-256 hash chain columns (migration 003 / 009)
+        "event_hash", "prev_hash",
     },
     "audits": {
         "id", "tenant_id", "user_id",
@@ -248,9 +250,12 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",
     },
     # SARO-DC-001/DC-002: additive columns on audit_traces — ALTER only.
+    # AUD-001: event_hash/prev_hash are additive — never drop, ALTER only.
     "audit_traces": {
         "signal_text": "VARCHAR(500)",
         "top_sample_ids": "JSONB",
+        "event_hash": "VARCHAR(64)",
+        "prev_hash": "VARCHAR(64)",
     },
     # audits holds live data and has many FK dependents — never drop, ALTER only.
     # S-101: prompt_text / raw_output_text added for single-output ingestion.

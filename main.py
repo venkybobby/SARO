@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import sys
 import time
 from datetime import datetime
@@ -112,7 +113,46 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ensure_app_schema()
         # 2. Create any other tables that don't exist yet (reference tables, etc.)
         create_all_tables()
-        # 3. Seed persona permissions (idempotent — skips existing rows)
+        # 3. Apply hash-chain SQL migration (idempotent — uses ADD COLUMN IF NOT EXISTS).
+        #    Fixes: psycopg2.errors.UndefinedColumn: column audit_traces.event_hash
+        #    does not exist when migration 003 was never applied to the Railway DB.
+        try:
+            from sqlalchemy import text as _text
+            _sql_path = pathlib.Path(__file__).parent / "migrations" / "003_add_hash_chain_columns.sql"
+            _sql = _sql_path.read_text(encoding="utf-8")
+            with engine.connect() as _conn:
+                # Execute each statement individually so psycopg2 doesn't
+                # choke on multi-statement strings.
+                for _stmt in _sql.split(";"):
+                    _stmt = _stmt.strip()
+                    if _stmt:
+                        _conn.execute(_text(_stmt))
+                _conn.commit()
+            logger.info("Migration 003 (hash chain columns) applied successfully")
+        except Exception as _exc:
+            logger.error("Migration 003 failed — hash-chain columns may be absent: %s", _exc)
+        # 3b. Python backfill migration 009 (idempotent — backfills NULL event_hash rows).
+        try:
+            from migrations.hash_chain_columns_009 import upgrade as _m009_upgrade  # type: ignore
+            _m009_upgrade()
+            logger.info("Migration 009 (hash chain backfill) applied successfully")
+        except ImportError:
+            # Module name fallback: try the actual filename
+            try:
+                import importlib.util as _ilu
+                _spec = _ilu.spec_from_file_location(
+                    "migration_009",
+                    pathlib.Path(__file__).parent / "migrations" / "009_hash_chain_columns.py",
+                )
+                _mod = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+                _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+                _mod.upgrade()
+                logger.info("Migration 009 (hash chain backfill) applied successfully via importlib")
+            except Exception as _exc:
+                logger.warning("Migration 009 backfill skipped (non-fatal): %s", _exc)
+        except Exception as _exc:
+            logger.warning("Migration 009 backfill skipped (non-fatal): %s", _exc)
+        # 4. Seed persona permissions (idempotent — skips existing rows)
         seed_persona_permissions()
         logger.info("Database schema synchronised")
         # SPEC-E3: Initialise SARoEngine singleton with TF-IDF index
@@ -135,7 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             app.state.engine = None
             app.state.engine_index_count = 0
             app.state.engine_index_built_at = None
-        # 4. Seed demo data when requested (idempotent — checks for existing demo tenant)
+        # 5. Seed demo data when requested (idempotent — checks for existing demo tenant)
         if os.environ.get("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes"):
             try:
                 from scripts.seed_demo import seed as _seed_demo
