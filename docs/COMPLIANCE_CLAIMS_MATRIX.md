@@ -14,6 +14,7 @@
 | ISO 42001 | Links scan records to document lifecycle stages | Issue ISO 42001 certificates | "Audit evidence for ISO 42001 document lifecycle review" |
 | AIGP | Supports human reviewer workflows | Auto-certify under AIGP | "Evidence package for AIGP-certified human reviewer" |
 | Audit trail | Generates immutable TRACE timelines | Guarantee audit admissibility | "TRACE record for human auditor review" |
+| Hash chain integrity | Computes SHA-256 hash-chained audit traces; exposes chain verification endpoint (`GET /api/v1/audit/verify-chain`) | Guarantee tamper-proof storage or certify chain of custody | "TRACE chain integrity verifiable via SHA-256 hash chain — evidence for human auditor review" |
 | Remediation | Provides guidance text | Guarantee remediation effectiveness | "Recommended remediation — human validation required" |
 | Certification | Provides evidence packages | Issue, sign, or endorse certificates | "Supporting evidence — certification requires human authority" |
 
@@ -100,4 +101,4 @@ All Gate 1 error messages, schema docstrings, and remediation hints reference "i
 
 ---
 
-*Last updated: 2026-05-19 | Owner: Venky (Lead) | Review: Jordan Lee (Backend)*
+*Last updated: 2026-05-29 | Owner: Venky (Lead) | Review: Jordan Lee (Backend)*
