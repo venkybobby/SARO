@@ -174,13 +174,13 @@ def _iter_sql_statements(sql: str):
         buf.append(line)
         if not in_dollar and line.rstrip().endswith(";"):
             stmt = "\n".join(buf).strip()
-            if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
+            if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
                 yield stmt
             buf = []
     # Yield any trailing content (e.g. a statement without a trailing newline)
     if buf:
         stmt = "\n".join(buf).strip()
-        if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
+        if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
             yield stmt
 
 
