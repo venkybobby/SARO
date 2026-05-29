@@ -157,13 +157,13 @@ def _iter_sql_statements(sql: str):
         buf.append(line)
         if not in_dollar and line.rstrip().endswith(";"):
             stmt = "\n".join(buf).strip()
-            if stmt and not stmt.startswith("--"):
+            if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
                 yield stmt
             buf = []
     # Yield any trailing content (e.g. a statement without a trailing newline)
     if buf:
         stmt = "\n".join(buf).strip()
-        if stmt and not stmt.startswith("--"):
+        if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
             yield stmt
 
 
@@ -205,6 +205,15 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
         checksum = hashlib.sha256(sql.encode()).hexdigest()
 
         with eng.begin() as conn:
+            lock_acquired = conn.execute(
+                text("SELECT pg_try_advisory_xact_lock(hashtext(:v))"),
+                {"v": version},
+            ).scalar()
+
+            if not lock_acquired:
+                logger.debug("Migration lock not acquired (another worker running it), skipping: %s", version)
+                continue
+
             already = conn.execute(
                 text("SELECT COUNT(*) FROM schema_migrations WHERE version = :v"),
                 {"v": version},
@@ -215,8 +224,17 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
                 continue
 
             logger.info("Applying migration: %s", version)
+            stmt_count = 0
             for stmt in _iter_sql_statements(sql):
                 conn.execute(text(stmt))
+                stmt_count += 1
+
+            if stmt_count == 0:
+                logger.error(
+                    "Migration %s yielded 0 executable statements — SQL file may be "
+                    "empty or all-comments. DB objects from this migration are absent.",
+                    version,
+                )
 
             conn.execute(
                 text(
@@ -226,7 +244,7 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
                 {"v": version, "c": checksum, "by": applied_by},
             )
             applied.append(version)
-            logger.info("Migration applied successfully: %s", version)
+            logger.info("Migration applied successfully: %s (%d statements)", version, stmt_count)
 
     return applied
 
@@ -492,6 +510,49 @@ def ensure_app_schema() -> None:
                             f'ADD COLUMN IF NOT EXISTS "{col_name}" {col_type}'
                         )
                     )
+
+
+# ── Post-migration object verification ───────────────────────────────────────
+
+_EXPECTED_FUNCTIONS = ["prevent_migration_modification"]
+_EXPECTED_TRIGGERS = [("schema_migrations", "trg_lock_schema_migrations")]
+
+
+def verify_migration_objects() -> None:
+    """Assert that DB objects created by migrations actually exist.
+
+    Raises RuntimeError if any expected function or trigger is absent, which
+    forces a hard startup failure rather than serving traffic on a broken schema.
+    """
+    eng = _get_engine()
+    with eng.connect() as conn:
+        for fn_name in _EXPECTED_FUNCTIONS:
+            count = conn.execute(
+                text("SELECT COUNT(*) FROM pg_proc WHERE proname = :n"),
+                {"n": fn_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: function '{fn_name}' is absent. "
+                    "Migration SQL may have been silently dropped. "
+                    "Run the CREATE FUNCTION statement manually in Supabase SQL console "
+                    "or DELETE the '000_schema_migrations_tracking' row from schema_migrations "
+                    "to force a replay."
+                )
+        for table_name, trig_name in _EXPECTED_TRIGGERS:
+            count = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM pg_trigger t "
+                    "JOIN pg_class c ON c.oid = t.tgrelid "
+                    "WHERE c.relname = :tbl AND t.tgname = :trg"
+                ),
+                {"tbl": table_name, "trg": trig_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: trigger '{trig_name}' on '{table_name}' is absent."
+                )
+    logger.info("verify_migration_objects: all expected DB objects present")
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
