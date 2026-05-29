@@ -12,8 +12,10 @@ raises a KeyError/RuntimeError when DATABASE_URL is not yet in the environment
 from __future__ import annotations
 
 import functools
+import hashlib
 import logging
 import os
+import pathlib
 
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -105,6 +107,106 @@ def get_db():
 
 
 # ── Schema helpers ────────────────────────────────────────────────────────────
+
+_MIGRATIONS_DIR = pathlib.Path(__file__).parent / "migrations"
+
+
+def _iter_sql_statements(sql: str):
+    """Yield individual SQL statements from a script, respecting $$ dollar-quote blocks.
+
+    Standard SQL splitters that naively split on ";" break plpgsql CREATE FUNCTION
+    bodies which contain ";" inside $$ ... $$ delimiters.  This function toggles a
+    ``in_dollar`` flag each time a line contains an odd number of "$$" tokens so that
+    semicolons inside function bodies are not treated as statement terminators.
+
+    Example — the following is yielded as ONE statement:
+        CREATE OR REPLACE FUNCTION foo() RETURNS TRIGGER AS $$
+        BEGIN
+          RAISE EXCEPTION 'boom';   -- semicolon here is NOT a terminator
+        END;
+        $$ LANGUAGE plpgsql;        -- THIS semicolon ends the statement
+    """
+    in_dollar = False
+    buf: list[str] = []
+    for line in sql.splitlines():
+        if line.count("$$") % 2 == 1:
+            in_dollar = not in_dollar
+        buf.append(line)
+        if not in_dollar and line.rstrip().endswith(";"):
+            stmt = "\n".join(buf).strip()
+            if stmt and not stmt.startswith("--"):
+                yield stmt
+            buf = []
+    # Yield any trailing content (e.g. a statement without a trailing newline)
+    if buf:
+        stmt = "\n".join(buf).strip()
+        if stmt and not stmt.startswith("--"):
+            yield stmt
+
+
+def apply_pending_migrations(applied_by: str = "system") -> list[str]:
+    """Apply every *.sql file under migrations/ not yet recorded in schema_migrations.
+
+    Algorithm (idempotent, safe for concurrent Gunicorn workers):
+      1. Bootstrap: ensure schema_migrations table exists (CREATE TABLE IF NOT EXISTS).
+      2. Sort all *.sql files alphabetically — 000 runs first so the tracking
+         table is created before any subsequent migration tries to record itself.
+      3. For each file: check if already applied (by version = stem).
+         If not: execute each statement via _iter_sql_statements(), then INSERT
+         the version + SHA-256 checksum into schema_migrations.  Both happen in
+         the same transaction so a partial migration is never recorded as applied.
+      4. Return the list of newly applied version strings.
+
+    Failures raise immediately — the caller (lifespan) should let the exception
+    propagate so Railway restarts rather than serving traffic on a bad schema.
+    """
+    eng = _get_engine()
+
+    # Bootstrap: create tracking table before reading it (handles first-ever run)
+    with eng.begin() as conn:
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS schema_migrations ("
+            "version VARCHAR(255) PRIMARY KEY,"
+            "applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+            "checksum VARCHAR(64) NOT NULL,"
+            "applied_by VARCHAR(255) NOT NULL DEFAULT 'system'"
+            ")"
+        ))
+
+    migration_files = sorted(_MIGRATIONS_DIR.glob("*.sql"))
+    applied: list[str] = []
+
+    for path in migration_files:
+        version = path.stem
+        sql = path.read_text(encoding="utf-8")
+        checksum = hashlib.sha256(sql.encode()).hexdigest()
+
+        with eng.begin() as conn:
+            already = conn.execute(
+                text("SELECT COUNT(*) FROM schema_migrations WHERE version = :v"),
+                {"v": version},
+            ).scalar()
+
+            if already:
+                logger.debug("Migration already applied, skipping: %s", version)
+                continue
+
+            logger.info("Applying migration: %s", version)
+            for stmt in _iter_sql_statements(sql):
+                conn.execute(text(stmt))
+
+            conn.execute(
+                text(
+                    "INSERT INTO schema_migrations(version, checksum, applied_by) "
+                    "VALUES (:v, :c, :by)"
+                ),
+                {"v": version, "c": checksum, "by": applied_by},
+            )
+            applied.append(version)
+            logger.info("Migration applied successfully: %s", version)
+
+    return applied
+
 
 def create_all_tables() -> None:
     """
@@ -263,6 +365,8 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "prompt_text": "TEXT",
         "raw_output_text": "TEXT",
     },
+    # Infrastructure table — never drop regardless of column drift.
+    "schema_migrations": {},
 }
 
 
