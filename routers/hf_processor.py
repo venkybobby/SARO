@@ -189,7 +189,7 @@ def _run_batch(tenant_id: uuid.UUID, batch_size: int, db: Session) -> dict[str, 
     dependencies=[Depends(require_role("super_admin", "operator"))],
     summary="Process pending HuggingFace sample queue rows",
 )
-def trigger_hf_processing(
+async def trigger_hf_processing(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     background_tasks: BackgroundTasks,
@@ -244,7 +244,7 @@ def trigger_hf_processing(
     dependencies=[Depends(require_role("super_admin", "operator"))],
     summary="Get HuggingFace sample queue status counts",
 )
-def get_queue_status(
+async def get_queue_status(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:

@@ -20,6 +20,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # DATABASE_URL is read from the environment by hf_sampler.py — do not pass as CLI arg.
+      # Use --samples (not --count). technology vertical is not in _VERTICAL_DATASETS; use general.
       - name: Sample Finance
         env:
           DATABASE_URL:        ${{ secrets.DATABASE_URL }}
@@ -27,8 +29,7 @@ jobs:
         run: |
           python scripts/hf_sampler.py \
             --vertical finance \
-            --count 50 \
-            --database-url "$DATABASE_URL" \
+            --samples 50 \
             --tenant-id "$SARO_DEMO_TENANT_ID"
 
       - name: Sample Healthcare
@@ -38,19 +39,17 @@ jobs:
         run: |
           python scripts/hf_sampler.py \
             --vertical healthcare \
-            --count 50 \
-            --database-url "$DATABASE_URL" \
+            --samples 50 \
             --tenant-id "$SARO_DEMO_TENANT_ID"
 
-      - name: Sample Technology
+      - name: Sample General
         env:
           DATABASE_URL:        ${{ secrets.DATABASE_URL }}
           SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
         run: |
           python scripts/hf_sampler.py \
-            --vertical technology \
-            --count 50 \
-            --database-url "$DATABASE_URL" \
+            --vertical general \
+            --samples 50 \
             --tenant-id "$SARO_DEMO_TENANT_ID"
 
       - name: Trigger processor
@@ -60,6 +59,6 @@ jobs:
           SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
         run: |
           curl -X POST \
-            "$SARO_URL/api/v1/hf-processor/run?tenant_id=$SARO_DEMO_TENANT_ID" \
+            "$SARO_URL/api/v1/hf/process?tenant_id=$SARO_DEMO_TENANT_ID" \
             -H "Authorization: Bearer $SARO_BEARER" \
             -w "\nHTTP %{http_code}\n"

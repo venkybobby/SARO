@@ -94,7 +94,7 @@ Every audit produces a TRACE record that captures:
 - The exact risk score calculation inputs
 - The Bayesian posterior parameters
 
-This record is tamper-evident (SHA-256 hash chain) and can be exported as a signed evidence pack (HMAC-SHA256 + RFC 3161 timestamp).
+This record is cryptographically signed (HMAC-SHA256) and can be exported as a signed evidence pack with RFC 3161 timestamps.
 
 ---
 

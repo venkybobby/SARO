@@ -1,8 +1,12 @@
 # SARO Compliance Claims Matrix
 
-**Version:** 1.0 | **Last Updated:** May 2026 | **Status:** Requires SME Review Before External Use
+**Version:** 1.0 | **Last Updated:** May 2026 | **Status:** INTERNAL USE ONLY
 
-This matrix clarifies what SARO claims to support for each compliance framework versus what it does not replace. Compliance Leads should share this with legal counsel before representing SARO's capabilities to regulators.
+> **External distribution notice:** The full validated framework mapping is available **under NDA on request**. Do not share this document with prospects, customers, or regulators without a signed NDA in place and prior review by legal counsel. In external conversations, use only this approved one-liner:
+>
+> *"SARO provides audit evidence supporting NIST AI RMF, EU AI Act, ISO 42001, and AIGP documentation workflows. The full validated capability mapping is available under NDA on request."*
+
+This matrix clarifies what SARO claims to support for each compliance framework versus what it does not replace. Compliance Leads must share this with legal counsel before representing SARO's capabilities to regulators.
 
 ---
 
@@ -68,7 +72,7 @@ SARO is an **AI risk assessment and audit tool**. It is not a certification body
 2. **Classifies** outputs against 4 gates: data quality, fairness, MIT risk, compliance
 3. **Scores** risk using Bayesian posterior estimation
 4. **Explains** findings in natural language with rule citations
-5. **Records** a tamper-evident audit trail for every analysis
+5. **Records** a cryptographically signed audit trail for every analysis
 6. **Exports** regulator-ready evidence packs (PDF + signed JSON)
 
 ## What SARO Never Does

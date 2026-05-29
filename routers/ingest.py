@@ -18,7 +18,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role
+from auth import get_current_user, require_role, require_write_access
 from database import get_db
 from engine import SARoEngine
 from models import Audit, AuditMetadata, AuditTrace, ScanReport, Tenant, User
@@ -181,7 +181,7 @@ def _run_audit_background(
     "/ingest",
     response_model=IngestResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(require_role("super_admin", "operator")), Depends(require_write_access)],
     summary="Ingest a single AI output for asynchronous SARO audit",
     description=(
         "Submit any single AI-generated output for asynchronous risk, ethics, and "
@@ -191,7 +191,7 @@ def _run_audit_background(
         "`GET /api/v1/audits/{audit_id}` for completion."
     ),
 )
-def ingest_output(
+async def ingest_output(
     payload: IngestRequest,
     background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -265,12 +265,17 @@ def ingest_output(
 
 
 @router.get(
-    "/audits/{audit_id}",
+    "/ingest/{audit_id}",
     response_model=AuditStatusResponse,
     dependencies=[Depends(require_role("super_admin", "operator"))],
-    summary="Poll audit status and results",
+    summary="Poll ingest audit status and results",
+    description=(
+        "Poll the status of an audit submitted via POST /api/v1/ingest. "
+        "Returns immediately with current status. When status is 'completed', "
+        "risk_score, mit_coverage_pct, confidence_score, and exceptions_count are populated."
+    ),
 )
-def get_audit_status(
+async def get_audit_status(
     audit_id: uuid.UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -322,7 +327,7 @@ def get_audit_status(
     summary="Get SDK integration code snippet",
     description="Returns a copy-paste Python code snippet for integrating SARO into your application.",
 )
-def get_sdk_snippet(
+async def get_sdk_snippet(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """
@@ -365,7 +370,7 @@ def get_sdk_snippet(
             import time
             for _ in range(60):  # max 60 polls (~60 seconds)
                 r = requests.get(
-                    f"{{SARO_API_URL}}/api/v1/audits/{{audit_id}}",
+                    f"{{SARO_API_URL}}/api/v1/ingest/{{audit_id}}",
                     headers={{"Authorization": f"Bearer {{SARO_BEARER}}"}},
                 )
                 r.raise_for_status()
