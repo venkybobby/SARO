@@ -29,7 +29,6 @@ from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
-from services.hash_chain_service import LEGACY_SENTINEL as _LEGACY_SENTINEL
 
 
 # ─────────────────────────────────────────────────────────────────────────────
