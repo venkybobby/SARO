@@ -43,19 +43,36 @@ def _database_url() -> str:
     # We parse the netloc instead of the full URL so we don't accidentally
     # match "postgres" in a database name or query string.
     if _re.search(r"pooler\.supabase\.com", url):
-        # Extract the username portion: everything between "://" and "@"
+        # Extract the username portion: everything between "://" and ":"/"@"
         _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
         if _netloc_match:
             _username = _netloc_match.group(1)
-            if _username == "postgres":
-                logger.warning(
-                    "DATABASE_URL uses bare username 'postgres' against a Supabase pooler "
-                    "host (*.pooler.supabase.com).  Supabase requires the project-scoped "
-                    "username 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
-                    "Connection will fail with 'password authentication failed' until the "
-                    "Railway DATABASE_URL secret is updated.  "
-                    "See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler"
-                )
+            if "." not in _username:
+                # Supabase pooler routing requires "postgres.<project-ref>".
+                # Auto-fix using SUPABASE_PROJECT_REF when available so the
+                # connection works even if DATABASE_URL only has a bare username.
+                _project_ref = os.environ.get("SUPABASE_PROJECT_REF", "")
+                if _project_ref:
+                    _fixed_username = f"{_username}.{_project_ref}"
+                    url = url.replace(
+                        f"://{_username}:", f"://{_fixed_username}:", 1
+                    )
+                    logger.info(
+                        "DATABASE_URL username auto-corrected from '%s' to '%s' "
+                        "using SUPABASE_PROJECT_REF env var.",
+                        _username, _fixed_username,
+                    )
+                else:
+                    logger.error(
+                        "DATABASE_URL uses username '%s' against a Supabase pooler host "
+                        "(*.pooler.supabase.com) without a project-ref suffix. "
+                        "Supabase requires 'postgres.<project-ref>' "
+                        "(e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                        "Fix: set SUPABASE_PROJECT_REF in Railway → Variables, or update "
+                        "DATABASE_URL to include the project-ref in the username. "
+                        "Connection will fail with 'Tenant or user not found' until resolved.",
+                        _username,
+                    )
     return url
 
 
@@ -585,7 +602,11 @@ def health_check() -> dict:
         exc_str = str(exc)
         detail = exc_str[:200]
 
-        if _re.search(r"password authentication failed|authentication failed", exc_str, _re.IGNORECASE):
+        if _re.search(
+            r"password authentication failed|authentication failed|"
+            r"Tenant or user not found|no pg_hba\.conf entry",
+            exc_str, _re.IGNORECASE,
+        ):
             error_class = "auth_failure"
         elif _re.search(
             r"could not connect to server|connection refused|"
