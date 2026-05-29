@@ -134,20 +134,9 @@ def _run_audit_background(
         )
         db.add(scan_report)
 
-        # Persist traces
-        traces = engine_obj.get_traces()
-        for t in (traces or []):
-            db.add(AuditTrace(
-                audit_id=audit_id,
-                gate_id=t["gate_id"],
-                gate_name=t["gate_name"],
-                check_type=t["check_type"],
-                check_name=t["check_name"],
-                result=t["result"],
-                reason=t.get("reason"),
-                detail_json=t.get("detail_json"),
-                remediation_hint=t.get("remediation_hint"),
-            ))
+        # Persist traces with SHA-256 hash chaining (AUD-001)
+        from routers.scan import _persist_traces
+        _persist_traces(engine_obj, audit_id, db)
 
         audit.status = report.status
         audit.completed_at = datetime.now(tz=timezone.utc)
