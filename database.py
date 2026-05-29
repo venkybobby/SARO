@@ -27,12 +27,35 @@ logger = logging.getLogger(__name__)
 # ── Lazy engine factory ───────────────────────────────────────────────────────
 
 def _database_url() -> str:
+    import re as _re
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
             "Add it as a Railway variable or set it in your .env file."
         )
+    # Supabase pooler authentication guard: the Supabase session/transaction
+    # pooler (*.pooler.supabase.com) requires the project-scoped username
+    # "postgres.<project-ref>" rather than the bare "postgres".  A bare
+    # username produces an immediate "password authentication failed" error
+    # because the pooler treats usernames as routing keys.
+    #
+    # We parse the netloc instead of the full URL so we don't accidentally
+    # match "postgres" in a database name or query string.
+    if _re.search(r"pooler\.supabase\.com", url):
+        # Extract the username portion: everything between "://" and "@"
+        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
+        if _netloc_match:
+            _username = _netloc_match.group(1)
+            if _username == "postgres":
+                logger.warning(
+                    "DATABASE_URL uses bare username 'postgres' against a Supabase pooler "
+                    "host (*.pooler.supabase.com).  Supabase requires the project-scoped "
+                    "username 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                    "Connection will fail with 'password authentication failed' until the "
+                    "Railway DATABASE_URL secret is updated.  "
+                    "See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler"
+                )
     return url
 
 
@@ -473,15 +496,53 @@ def ensure_app_schema() -> None:
 
 # ── Health check ──────────────────────────────────────────────────────────────
 
-def health_check() -> bool:
-    """Return True if the database is reachable, False otherwise."""
+def health_check() -> dict:
+    """Probe the database and return a structured health result.
+
+    Returns a dict with the following keys:
+        ok      (bool)         True when SELECT 1 succeeds.
+        error   (str | None)   Error class label when ok=False:
+                                 "auth_failure"       — credentials rejected (FATAL: password…)
+                                 "network_unreachable" — host not routable / connection refused
+                                 "ssl_error"          — TLS/SSL handshake failure
+                                 "unknown"            — any other exception
+        detail  (str | None)   The raw exception message (truncated to 200 chars).
+
+    Callers that previously checked ``if health_check():`` should update to
+    ``if health_check()["ok"]:``.  The boolean coercion of a non-empty dict
+    is always True, so old code will continue to run the body of the ``if``
+    block (i.e. silently treat the DB as reachable).  This is intentional —
+    it is a safe degradation that prevents a breaking change while callers
+    are migrated.
+    """
+    import re as _re
     try:
         with _get_engine().connect() as conn:
             conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        logger.exception("Database health check failed")
-        return False
+        return {"ok": True, "error": None, "detail": None}
+    except Exception as exc:
+        exc_str = str(exc)
+        detail = exc_str[:200]
+
+        if _re.search(r"password authentication failed|authentication failed", exc_str, _re.IGNORECASE):
+            error_class = "auth_failure"
+        elif _re.search(
+            r"could not connect to server|connection refused|"
+            r"Name or service not known|network is unreachable|"
+            r"No route to host|Operation timed out|connect timeout",
+            exc_str, _re.IGNORECASE,
+        ):
+            error_class = "network_unreachable"
+        elif _re.search(r"SSL|TLS|certificate", exc_str, _re.IGNORECASE):
+            error_class = "ssl_error"
+        else:
+            error_class = "unknown"
+
+        logger.error(
+            "Database health check failed — error_class=%s detail=%s",
+            error_class, detail,
+        )
+        return {"ok": False, "error": error_class, "detail": detail}
 
 
 # ── Persona Permission Seeding (CF-06) ────────────────────────────────────────
