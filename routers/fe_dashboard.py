@@ -12,9 +12,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_role
 from database import get_db
-from models import Audit, AuditTrace, ScanReport
+from models import Audit, AuditMetadata, AuditTrace, ScanReport
 
 router = APIRouter(prefix="/api/v1", tags=["fe-dashboard"])
 
@@ -36,14 +36,19 @@ def _window_cutoff(window: str) -> datetime:
     return datetime.now(tz=timezone.utc) - timedelta(days=days)
 
 
-@router.get("/compliance-matrix/coverage", summary="Framework coverage heatmap (frontend alias)")
-@router.get("/compliance_matrix", summary="Framework coverage for RegCoverage heatmap")
-def get_compliance_matrix(
+@router.get(
+    "/compliance_matrix",
+    summary="Framework coverage for RegCoverage heatmap",
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
+)
+async def get_compliance_matrix(
     window: str = Query(default="7d", description="7d | 30d | 90d"),
-    tenant_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> dict[str, Any]:
+    # NOTE: the /compliance-matrix/coverage (hyphen) alias was removed to resolve
+    # a route collision with compliance_matrix.py. The React frontend fetches
+    # /api/v1/compliance_matrix (underscore) — saro.js has been updated accordingly.
     """
     Aggregate AuditTrace records into per-framework coverage percentages.
     Returns { frameworks: [{name, rules_triggered, rules_total, coverage_pct}], computed_at }.
@@ -67,7 +72,7 @@ def get_compliance_matrix(
             {"name": fw, "rules_triggered": 0, "rules_total": 0, "coverage_pct": 0.0}
             for fw in _ALL_FRAMEWORKS
         ]
-        return {"frameworks": frameworks, "computed_at": datetime.utcnow().isoformat()}
+        return {"frameworks": frameworks, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
 
     traces = (
         db.query(AuditTrace)
@@ -100,12 +105,15 @@ def get_compliance_matrix(
             "coverage_pct": pct,
         })
 
-    return {"frameworks": result, "computed_at": datetime.utcnow().isoformat()}
+    return {"frameworks": result, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
 
 
-@router.get("/risk_dashboard", summary="Vendor risk scores for EngineScores panel")
-def get_risk_dashboard(
-    tenant_id: str | None = Query(default=None),
+@router.get(
+    "/risk_dashboard",
+    summary="Vendor risk scores for EngineScores panel",
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
+)
+async def get_risk_dashboard(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -116,8 +124,10 @@ def get_risk_dashboard(
     tid = current_user.tenant_id
 
     rows = (
-        db.query(Audit.source_model, ScanReport.risk_score)
+        db.query(AuditMetadata.source_model, ScanReport.overall_risk_score)
+        .select_from(Audit)
         .join(ScanReport, ScanReport.audit_id == Audit.id, isouter=True)
+        .join(AuditMetadata, AuditMetadata.audit_id == Audit.id, isouter=True)
         .filter(Audit.tenant_id == tid, Audit.status == "completed")
         .all()
     )

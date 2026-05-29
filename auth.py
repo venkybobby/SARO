@@ -162,7 +162,32 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
+    # Attach read_only claim from the JWT so require_write_access can inspect it.
+    # User is a SQLAlchemy mapped class; the dynamic attribute is intentional.
+    user.read_only = payload.get("read_only", False)  # type: ignore[attr-defined]
     return user
+
+
+async def require_write_access(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """
+    Dependency: reject requests carrying a read-only demo JWT.
+
+    The demo token (issued by GET /api/v1/demo/token) sets read_only=True.
+    Attach this dependency to any endpoint that mutates data so that demo
+    users cannot write even when their role would otherwise allow it.
+
+    Usage::
+
+        @router.post("/...", dependencies=[Depends(require_write_access)])
+    """
+    if getattr(current_user, "read_only", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only demo access — write operations not permitted",
+        )
+    return current_user
 
 
 def require_role(*roles: str):

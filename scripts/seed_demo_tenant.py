@@ -192,12 +192,11 @@ def ingest_seed_payloads(saro_url: str, token: str, tenant_id: str) -> dict:
                 resp = requests.post(
                     f"{saro_url}/api/v1/ingest",
                     json={
-                        "source_model":     "internal",
-                        "prompt_text":      p["prompt"],
-                        "raw_output_text":  p["output"],
-                        "vertical":         vertical,
-                        "tenant_id":        tenant_id,
-                        "ingestion_method": "api",
+                        "source_model": "internal",
+                        "prompt":       p["prompt"],
+                        "raw_output":   p["output"],
+                        "vertical":     vertical,
+                        "tenant_id":    tenant_id,
                     },
                     headers=headers,
                     timeout=15,
