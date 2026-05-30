@@ -170,6 +170,8 @@ class AuditMetadata(Base):
     source_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # ingestion_method: "api" | "ui_form" | "sdk_webhook" | "batch_scan"
     ingestion_method: Mapped[str] = mapped_column(String(50), nullable=False, default="batch_scan")
+    # GAP-009: business vertical for dashboard filtering
+    vertical: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Optional S3 object keys for large prompt/output storage
     prompt_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     output_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)

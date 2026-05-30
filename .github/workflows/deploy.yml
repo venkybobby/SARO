@@ -39,7 +39,6 @@ jobs:
 
       - name: Type check (mypy)
         run: mypy . --ignore-missing-imports
-        continue-on-error: true
 
       - name: Run pytest
         env:
@@ -110,8 +109,31 @@ jobs:
           psql "sslmode=${DB_SSLMODE}" -c \
             "SELECT version, applied_at, applied_by FROM schema_migrations ORDER BY version;"
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_SARO_API_URL: ""
+        run: npm run build
+
   deploy:
-    needs: [test, migrate]   # both gates required — code never deploys before DB is ready
+    needs: [test, migrate, frontend]   # all three gates required before deploy
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
