@@ -43,6 +43,19 @@ def _database_url() -> str:
     # We parse the netloc instead of the full URL so we don't accidentally
     # match "postgres" in a database name or query string.
     if _re.search(r"pooler\.supabase\.com", url):
+        # Extract the username portion: everything between "://" and "@"
+        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
+        if _netloc_match:
+            _username = _netloc_match.group(1)
+            if _username == "postgres":
+                logger.warning(
+                    "DATABASE_URL uses bare username 'postgres' against a Supabase pooler "
+                    "host (*.pooler.supabase.com).  Supabase requires the project-scoped "
+                    "username 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                    "Connection will fail with 'password authentication failed' until the "
+                    "Railway DATABASE_URL secret is updated.  "
+                    "See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler"
+                )
         # Extract the username portion: everything between "://" and ":"/"@"
         _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
         if _netloc_match:
@@ -602,6 +615,7 @@ def health_check() -> dict:
         exc_str = str(exc)
         detail = exc_str[:200]
 
+        if _re.search(r"password authentication failed|authentication failed", exc_str, _re.IGNORECASE):
         if _re.search(
             r"password authentication failed|authentication failed|"
             r"Tenant or user not found|no pg_hba\.conf entry",
