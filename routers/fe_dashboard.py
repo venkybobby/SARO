@@ -68,11 +68,11 @@ async def get_compliance_matrix(
     ]
 
     if not audit_ids:
-        frameworks = [
+        empty_frameworks = [
             {"name": fw, "rules_triggered": 0, "rules_total": 0, "coverage_pct": 0.0}
             for fw in _ALL_FRAMEWORKS
         ]
-        return {"frameworks": frameworks, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
+        return {"frameworks": empty_frameworks, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
 
     traces = (
         db.query(AuditTrace)
@@ -139,7 +139,7 @@ async def get_risk_dashboard(
         if score is not None:
             vendor_scores.setdefault(key, []).append(float(score))
 
-    vendors = [
+    vendors: list[dict[str, Any]] = [
         {
             "source_model": model,
             "avg_risk_score": round(sum(scores) / len(scores), 4),
@@ -147,7 +147,7 @@ async def get_risk_dashboard(
         for model, scores in sorted(vendor_scores.items(), key=lambda x: -sum(x[1]) / len(x[1]))
     ]
 
-    all_scores = [v["avg_risk_score"] for v in vendors]
+    all_scores: list[float] = [float(v["avg_risk_score"]) for v in vendors]
     summary: dict[str, Any] = {
         "avg_risk_score": round(sum(all_scores) / len(all_scores), 4) if all_scores else None,
         "max_risk_score": max(all_scores) if all_scores else None,
