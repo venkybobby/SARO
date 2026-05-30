@@ -3,8 +3,6 @@
 Covers AUD-001 (hash chain), AUD-002 (verify-chain API), AUD-003 (RFC 3161).
 Tests are pure-Python where possible so they run without a live DB.
 """
-import hashlib
-import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -227,11 +225,8 @@ class TestHashChainWritePath:
         been passed to db.add(), in order.
         """
         from routers.scan import _persist_traces
-        from services.hash_chain_service import compute_event_hash
 
         audit_id = uuid.uuid4()
-        added: list[dict] = []
-
         # Mock engine
         mock_engine = MagicMock()
         mock_engine.get_traces.return_value = trace_dicts
@@ -250,7 +245,6 @@ class TestHashChainWritePath:
         # Capture AuditTrace constructor calls
         captured: list[dict] = []
 
-        original_add = mock_db.add
         def capture_add(obj):
             captured.append(obj)
         mock_db.add.side_effect = capture_add

@@ -35,7 +35,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import apply_pending_migrations, create_all_tables, ensure_app_schema, engine, health_check, seed_persona_permissions
+from database import apply_pending_migrations, create_all_tables, ensure_app_schema, engine, health_check, seed_persona_permissions, verify_migration_objects
 from routers.aims import router as aims_router
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
@@ -112,6 +112,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "The DATABASE_URL secret likely uses a bare 'postgres' username against "
                 "a Supabase pooler host.  Update Railway → Variables → DATABASE_URL to "
                 "use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                "Supabase pooler error 'Tenant or user not found' means the DATABASE_URL "
+                "username is missing the project-ref suffix. "
+                "Fix option 1 (preferred): set SUPABASE_PROJECT_REF=<your-project-ref> in "
+                "Railway → Variables — SARO will auto-correct the username at startup. "
+                "Fix option 2: update DATABASE_URL to use 'postgres.<project-ref>' "
+                "(e.g. postgres.fktfhtygvwqlmoazmhdf) as the username. "
                 "detail=%s", _db_detail,
             )
         else:
@@ -147,7 +153,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "to prevent schema mismatch errors: %s", _exc
             )
             raise
-        # 3b. Python backfill migration 009 (idempotent — backfills NULL event_hash rows).
+        # 3b. Assert that DB objects created by migrations actually exist.
+        #     Raises RuntimeError (→ hard startup fail) if any are absent.
+        verify_migration_objects()
+        # 3c. Python backfill migration 009 (idempotent — backfills NULL event_hash rows).
         #     Not a SQL file so not covered by apply_pending_migrations(); run via importlib.
         try:
             import importlib.util as _ilu
@@ -407,7 +416,13 @@ def health() -> JSONResponse:
             bootstrap_needed = None
 
     if not db_ok:
-        status, http_status = "degraded", 503
+        # auth_failure is a config error — restarting cannot fix it.
+        # Return HTTP 200 so Railway does NOT roll back the deployment or
+        # stop routing traffic; the db_error field tells operators what to fix.
+        # All other DB failures return 503 so Railway/load-balancers can
+        # legitimately restart or route away from a sick instance.
+        http_status = 200 if db_error == "auth_failure" else 503
+        status = "degraded"
     elif schema_ok is False:
         status, http_status = "schema_mismatch", 503
     else:

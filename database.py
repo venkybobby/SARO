@@ -56,6 +56,36 @@ def _database_url() -> str:
                     "Railway DATABASE_URL secret is updated.  "
                     "See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler"
                 )
+        # Extract the username portion: everything between "://" and ":"/"@"
+        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
+        if _netloc_match:
+            _username = _netloc_match.group(1)
+            if "." not in _username:
+                # Supabase pooler routing requires "postgres.<project-ref>".
+                # Auto-fix using SUPABASE_PROJECT_REF when available so the
+                # connection works even if DATABASE_URL only has a bare username.
+                _project_ref = os.environ.get("SUPABASE_PROJECT_REF", "")
+                if _project_ref:
+                    _fixed_username = f"{_username}.{_project_ref}"
+                    url = url.replace(
+                        f"://{_username}:", f"://{_fixed_username}:", 1
+                    )
+                    logger.info(
+                        "DATABASE_URL username auto-corrected from '%s' to '%s' "
+                        "using SUPABASE_PROJECT_REF env var.",
+                        _username, _fixed_username,
+                    )
+                else:
+                    logger.error(
+                        "DATABASE_URL uses username '%s' against a Supabase pooler host "
+                        "(*.pooler.supabase.com) without a project-ref suffix. "
+                        "Supabase requires 'postgres.<project-ref>' "
+                        "(e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                        "Fix: set SUPABASE_PROJECT_REF in Railway → Variables, or update "
+                        "DATABASE_URL to include the project-ref in the username. "
+                        "Connection will fail with 'Tenant or user not found' until resolved.",
+                        _username,
+                    )
     return url
 
 
@@ -157,13 +187,13 @@ def _iter_sql_statements(sql: str):
         buf.append(line)
         if not in_dollar and line.rstrip().endswith(";"):
             stmt = "\n".join(buf).strip()
-            if stmt and not stmt.startswith("--"):
+            if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
                 yield stmt
             buf = []
     # Yield any trailing content (e.g. a statement without a trailing newline)
     if buf:
         stmt = "\n".join(buf).strip()
-        if stmt and not stmt.startswith("--"):
+        if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
             yield stmt
 
 
@@ -205,6 +235,15 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
         checksum = hashlib.sha256(sql.encode()).hexdigest()
 
         with eng.begin() as conn:
+            lock_acquired = conn.execute(
+                text("SELECT pg_try_advisory_xact_lock(hashtext(:v))"),
+                {"v": version},
+            ).scalar()
+
+            if not lock_acquired:
+                logger.debug("Migration lock not acquired (another worker running it), skipping: %s", version)
+                continue
+
             already = conn.execute(
                 text("SELECT COUNT(*) FROM schema_migrations WHERE version = :v"),
                 {"v": version},
@@ -215,8 +254,17 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
                 continue
 
             logger.info("Applying migration: %s", version)
+            stmt_count = 0
             for stmt in _iter_sql_statements(sql):
                 conn.execute(text(stmt))
+                stmt_count += 1
+
+            if stmt_count == 0:
+                logger.error(
+                    "Migration %s yielded 0 executable statements — SQL file may be "
+                    "empty or all-comments. DB objects from this migration are absent.",
+                    version,
+                )
 
             conn.execute(
                 text(
@@ -226,7 +274,7 @@ def apply_pending_migrations(applied_by: str = "system") -> list[str]:
                 {"v": version, "c": checksum, "by": applied_by},
             )
             applied.append(version)
-            logger.info("Migration applied successfully: %s", version)
+            logger.info("Migration applied successfully: %s (%d statements)", version, stmt_count)
 
     return applied
 
@@ -494,6 +542,49 @@ def ensure_app_schema() -> None:
                     )
 
 
+# ── Post-migration object verification ───────────────────────────────────────
+
+_EXPECTED_FUNCTIONS = ["prevent_migration_modification"]
+_EXPECTED_TRIGGERS = [("schema_migrations", "trg_lock_schema_migrations")]
+
+
+def verify_migration_objects() -> None:
+    """Assert that DB objects created by migrations actually exist.
+
+    Raises RuntimeError if any expected function or trigger is absent, which
+    forces a hard startup failure rather than serving traffic on a broken schema.
+    """
+    eng = _get_engine()
+    with eng.connect() as conn:
+        for fn_name in _EXPECTED_FUNCTIONS:
+            count = conn.execute(
+                text("SELECT COUNT(*) FROM pg_proc WHERE proname = :n"),
+                {"n": fn_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: function '{fn_name}' is absent. "
+                    "Migration SQL may have been silently dropped. "
+                    "Run the CREATE FUNCTION statement manually in Supabase SQL console "
+                    "or DELETE the '000_schema_migrations_tracking' row from schema_migrations "
+                    "to force a replay."
+                )
+        for table_name, trig_name in _EXPECTED_TRIGGERS:
+            count = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM pg_trigger t "
+                    "JOIN pg_class c ON c.oid = t.tgrelid "
+                    "WHERE c.relname = :tbl AND t.tgname = :trg"
+                ),
+                {"tbl": table_name, "trg": trig_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: trigger '{trig_name}' on '{table_name}' is absent."
+                )
+    logger.info("verify_migration_objects: all expected DB objects present")
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
 def health_check() -> dict:
@@ -525,6 +616,11 @@ def health_check() -> dict:
         detail = exc_str[:200]
 
         if _re.search(r"password authentication failed|authentication failed", exc_str, _re.IGNORECASE):
+        if _re.search(
+            r"password authentication failed|authentication failed|"
+            r"Tenant or user not found|no pg_hba\.conf entry",
+            exc_str, _re.IGNORECASE,
+        ):
             error_class = "auth_failure"
         elif _re.search(
             r"could not connect to server|connection refused|"

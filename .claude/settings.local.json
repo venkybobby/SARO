@@ -40,7 +40,20 @@
       "Bash(python -m pytest tests/test_specs.py::TestDPATemplate -q --tb=short --no-header)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(python -m pytest tests/ -q --tb=line --no-header)"
+      "Bash(python -m pytest tests/ -q --tb=line --no-header)",
+      "Bash(claude plugin *)",
+      "Bash(python -m pytest tests/ -q --tb=short -x --ignore=tests/test_frontend_login.py)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('database.py'\\).read\\(\\)\\); print\\('database.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('main.py'\\).read\\(\\)\\); print\\('main.py: OK'\\)\")",
+      "Bash(git -C \"C:\\\\Users\\\\shris\\\\SARO\" status --short routers/output_audit.py routers/hf_processor.py routers/ingest.py)",
+      "Bash(git checkout *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git -C \"C:\\\\Users\\\\shris\\\\SARO\" remote -v)",
+      "Bash(git -C \"C:\\\\Users\\\\shris\\\\SARO\" status --short)",
+      "Bash(git -C \"C:\\\\Users\\\\shris\\\\SARO\" log --oneline origin/main..HEAD)",
+      "Bash(git -C \"C:\\\\Users\\\\shris\\\\SARO\" log --oneline -5)",
+      "Bash(gh pr *)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d['url']\\); print\\(d['state']\\); print\\(d['title']\\); print\\(d['mergedAt']\\)\")"
     ]
   }
 }
