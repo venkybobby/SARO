@@ -11,9 +11,6 @@ restartPolicyMaxRetries = 3
 [services.backend.deploy.environmentVariables]
 PYTHONPATH = "/app"
 PYTHONUNBUFFERED = "1"
-# Supabase project ref — used by database.py to auto-correct a bare DATABASE_URL
-# username (postgres → postgres.fktfhtygvwqlmoazmhdf) for the connection pooler.
-# Not a secret: already present in .env.example.
 SUPABASE_PROJECT_REF = "fktfhtygvwqlmoazmhdf"
 
 [services.frontend.build]

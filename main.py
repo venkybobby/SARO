@@ -109,12 +109,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if _db_err == "auth_failure":
             logger.error(
                 "Database authentication failed at startup (error_class=auth_failure). "
-                "Supabase pooler error 'Tenant or user not found' means the DATABASE_URL "
-                "username is missing the project-ref suffix. "
-                "Fix option 1 (preferred): set SUPABASE_PROJECT_REF=<your-project-ref> in "
-                "Railway → Variables — SARO will auto-correct the username at startup. "
-                "Fix option 2: update DATABASE_URL to use 'postgres.<project-ref>' "
-                "(e.g. postgres.fktfhtygvwqlmoazmhdf) as the username. "
+                "Supabase pooler error 'Tenant or user not found' means DATABASE_URL "
+                "username is missing the project-ref suffix — SARO attempted auto-correction "
+                "but the connection still failed. Update DATABASE_URL in Railway → Variables "
+                "to use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
                 "detail=%s", _db_detail,
             )
         else:

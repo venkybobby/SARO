@@ -43,36 +43,24 @@ def _database_url() -> str:
     # We parse the netloc instead of the full URL so we don't accidentally
     # match "postgres" in a database name or query string.
     if _re.search(r"pooler\.supabase\.com", url):
-        # Extract the username portion: everything between "://" and ":"/"@"
         _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
         if _netloc_match:
             _username = _netloc_match.group(1)
             if "." not in _username:
-                # Supabase pooler routing requires "postgres.<project-ref>".
-                # Auto-fix using SUPABASE_PROJECT_REF when available so the
-                # connection works even if DATABASE_URL only has a bare username.
-                _project_ref = os.environ.get("SUPABASE_PROJECT_REF", "")
-                if _project_ref:
-                    _fixed_username = f"{_username}.{_project_ref}"
-                    url = url.replace(
-                        f"://{_username}:", f"://{_fixed_username}:", 1
-                    )
-                    logger.info(
-                        "DATABASE_URL username auto-corrected from '%s' to '%s' "
-                        "using SUPABASE_PROJECT_REF env var.",
-                        _username, _fixed_username,
-                    )
-                else:
-                    logger.error(
-                        "DATABASE_URL uses username '%s' against a Supabase pooler host "
-                        "(*.pooler.supabase.com) without a project-ref suffix. "
-                        "Supabase requires 'postgres.<project-ref>' "
-                        "(e.g. postgres.fktfhtygvwqlmoazmhdf). "
-                        "Fix: set SUPABASE_PROJECT_REF in Railway → Variables, or update "
-                        "DATABASE_URL to include the project-ref in the username. "
-                        "Connection will fail with 'Tenant or user not found' until resolved.",
-                        _username,
-                    )
+                # Supabase pooler routing key is "<username>.<project-ref>".
+                # Prefer the env var; fall back to the known project ref so the
+                # correction is unconditional even when Railway Variables are not
+                # propagated (e.g. static toml env vars are ignored by Railway).
+                _project_ref = (
+                    os.environ.get("SUPABASE_PROJECT_REF")
+                    or "fktfhtygvwqlmoazmhdf"
+                )
+                _fixed_username = f"{_username}.{_project_ref}"
+                url = url.replace(f"://{_username}:", f"://{_fixed_username}:", 1)
+                logger.info(
+                    "DATABASE_URL username auto-corrected: '%s' → '%s'",
+                    _username, _fixed_username,
+                )
     return url
 
 

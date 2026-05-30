@@ -86,20 +86,20 @@ async def get_compliance_matrix(
 
     for t in traces:
         gate = t.gate_name or ""
-        for gate_substr, frameworks in _GATE_FRAMEWORK_MAP.items():
+        for gate_substr, gate_frameworks in _GATE_FRAMEWORK_MAP.items():
             if gate_substr.lower() in gate.lower():
-                for fw in frameworks:
-                    fw_total[fw] += 1
+                for fw_name in gate_frameworks:
+                    fw_total[fw_name] += 1
                     if t.result not in ("fail", "flagged", "triggered"):
-                        fw_passed[fw] += 1
+                        fw_passed[fw_name] += 1
 
-    result = []
-    for fw in _ALL_FRAMEWORKS:
-        total = fw_total[fw]
-        passed = fw_passed[fw]
+    result: list[dict[str, Any]] = []
+    for fw_name in _ALL_FRAMEWORKS:
+        total: int = fw_total[fw_name]
+        passed: int = fw_passed[fw_name]
         pct = round(passed / total * 100, 1) if total else 0.0
         result.append({
-            "name": fw,
+            "name": fw_name,
             "rules_triggered": total - passed,
             "rules_total": max(total, 1),
             "coverage_pct": pct,
@@ -135,7 +135,7 @@ async def get_risk_dashboard(
     # Group by source_model
     vendor_scores: dict[str, list[float]] = {}
     for source_model, score in rows:
-        key = source_model or "unknown"
+        key = str(source_model) if source_model else "unknown"
         if score is not None:
             vendor_scores.setdefault(key, []).append(float(score))
 
