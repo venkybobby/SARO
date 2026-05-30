@@ -615,7 +615,6 @@ def health_check() -> dict:
         exc_str = str(exc)
         detail = exc_str[:200]
 
-        if _re.search(r"password authentication failed|authentication failed", exc_str, _re.IGNORECASE):
         if _re.search(
             r"password authentication failed|authentication failed|"
             r"Tenant or user not found|no pg_hba\.conf entry",
