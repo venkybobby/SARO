@@ -24,7 +24,6 @@ from engine import SARoEngine
 from models import (
     Audit,
     AuditMetadata,
-    AuditTrace,
     HFSampleQueue,
     ScanReport,
     User,
@@ -104,20 +103,9 @@ def _process_single_row(row: HFSampleQueue, db: Session) -> None:
         )
         db.add(scan_report)
 
-        # Persist traces
-        traces = engine_obj.get_traces()
-        for t in (traces or []):
-            db.add(AuditTrace(
-                audit_id=audit_id,
-                gate_id=t["gate_id"],
-                gate_name=t["gate_name"],
-                check_type=t["check_type"],
-                check_name=t["check_name"],
-                result=t["result"],
-                reason=t.get("reason"),
-                detail_json=t.get("detail_json"),
-                remediation_hint=t.get("remediation_hint"),
-            ))
+        # Persist traces with SHA-256 hash chaining (AUD-001)
+        from routers.scan import _persist_traces
+        _persist_traces(engine_obj, audit_id, db)
 
         audit.status = report.status
         audit.completed_at = datetime.now(timezone.utc)
@@ -189,7 +177,7 @@ def _run_batch(tenant_id: uuid.UUID, batch_size: int, db: Session) -> dict[str, 
     dependencies=[Depends(require_role("super_admin", "operator"))],
     summary="Process pending HuggingFace sample queue rows",
 )
-def trigger_hf_processing(
+async def trigger_hf_processing(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     background_tasks: BackgroundTasks,
@@ -244,7 +232,7 @@ def trigger_hf_processing(
     dependencies=[Depends(require_role("super_admin", "operator"))],
     summary="Get HuggingFace sample queue status counts",
 )
-def get_queue_status(
+async def get_queue_status(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:

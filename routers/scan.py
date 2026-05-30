@@ -26,36 +26,90 @@ from schemas import (
     BatchIn,
     SARoDataBatchIn,
 )
+from services.hash_chain_service import LEGACY_SENTINEL, compute_event_hash
+from sqlalchemy import text as _sql_text
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
 
 def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> None:
-    """
-    Persist trace records and sample findings accumulated by the engine.
-    Non-critical: failures are logged but never propagate to the caller.
+    """Persist trace records and sample findings accumulated by the engine.
+
+    AUD-001: each AuditTrace is hash-chained. build_event_payload() from
+    hash_chain_service constructs the canonical dict so the write path and
+    the verify path always hash identical field sets.
+
+    Hash chain writes are CRITICAL — a failure here raises so the caller
+    knows audit evidence was not generated. Sample-finding writes are
+    non-critical and failures are logged without propagating.
+
+    Concurrency: a SELECT FOR UPDATE on the parent Audit row serialises
+    concurrent _persist_traces calls for the same audit_id, preventing
+    chain forks where two batches both claim the same prev_hash.
     """
     traces = engine.get_traces()
     findings = engine.get_sample_findings()
     if not traces and not findings:
         return
+
+    # Lock the parent audit row to serialise concurrent writes for this audit.
+    db.execute(
+        _sql_text("SELECT id FROM audits WHERE id = :aid FOR UPDATE"),
+        {"aid": str(audit_id)},
+    )
+
+    # Seed prev_hash from the last chain-enabled event for this audit.
+    last = (
+        db.query(AuditTrace.event_hash)
+        .filter(
+            AuditTrace.audit_id == audit_id,
+            AuditTrace.event_hash != LEGACY_SENTINEL,
+        )
+        .order_by(AuditTrace.created_at.desc(), AuditTrace.id.desc())
+        .first()
+    )
+    prev_hash: str | None = last[0] if last else None
+
+    for t in traces:
+        event_id = uuid.uuid4()
+        created_at = datetime.now(timezone.utc)
+        event_data = {
+            "id": str(event_id),
+            "audit_id": str(audit_id),
+            "gate_id": str(t["gate_id"]),
+            "gate_name": str(t.get("gate_name") or ""),
+            "check_type": str(t.get("check_type") or ""),
+            "check_name": str(t.get("check_name") or ""),
+            "result": str(t["result"]),
+            "reason": str(t.get("reason") or ""),
+            "signal_text": str(t.get("signal_text") or ""),
+            "remediation_hint": str(t.get("remediation_hint") or ""),
+            "created_at": created_at.isoformat(),
+        }
+        event_hash = compute_event_hash(event_data, prev_hash)
+
+        db.add(AuditTrace(
+            id=event_id,
+            created_at=created_at,
+            audit_id=audit_id,
+            gate_id=t["gate_id"],
+            gate_name=t["gate_name"],
+            check_type=t["check_type"],
+            check_name=t["check_name"],
+            result=t["result"],
+            reason=t.get("reason"),
+            detail_json=t.get("detail_json"),
+            remediation_hint=t.get("remediation_hint"),
+            signal_text=t.get("signal_text"),
+            top_sample_ids=t.get("top_sample_ids"),
+            event_hash=event_hash,
+            prev_hash=prev_hash,
+        ))
+        prev_hash = event_hash
+
+    # Sample findings are non-critical — failures are logged but not propagated.
     try:
-        for t in traces:
-            db.add(AuditTrace(
-                audit_id=audit_id,
-                gate_id=t["gate_id"],
-                gate_name=t["gate_name"],
-                check_type=t["check_type"],
-                check_name=t["check_name"],
-                result=t["result"],
-                reason=t.get("reason"),
-                detail_json=t.get("detail_json"),
-                remediation_hint=t.get("remediation_hint"),
-                signal_text=t.get("signal_text"),
-                top_sample_ids=t.get("top_sample_ids"),
-            ))
-        # SARO-001: persist per-sample Gate 3 findings
         for f in findings:
             db.add(SampleFinding(
                 audit_id=audit_id,
@@ -65,14 +119,18 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
                 matched_text_fragment=f.get("matched_text_fragment"),
                 weight=f["weight"],
             ))
-        db.commit()
-        logger.info(
-            "Persisted %d trace records and %d sample findings for audit %s",
-            len(traces), len(findings), audit_id,
+    except Exception as finding_exc:
+        logger.warning(
+            "Could not persist sample findings for audit %s: %s", audit_id, finding_exc
         )
-    except Exception as trace_exc:
-        logger.warning("Could not persist traces for audit %s: %s", audit_id, trace_exc)
         db.rollback()
+        return
+
+    db.commit()
+    logger.info(
+        "Persisted %d trace records and %d sample findings for audit %s",
+        len(traces), len(findings), audit_id,
+    )
 
 
 @router.post(

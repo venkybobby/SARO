@@ -81,7 +81,7 @@ The Processor implements:
 - Access control via JWT-based authentication with role-based permissions
 - Row-Level Security (RLS) for tenant data isolation
 - Regular automated security scanning (bandit, safety, TruffleHog)
-- Tamper-evident hash-chained audit logs
+- Cryptographically signed audit logs (HMAC-SHA256)
 
 ---
 

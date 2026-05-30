@@ -46,7 +46,7 @@ def _get_audit_or_404(db: Session, audit_uuid: uuid.UUID) -> Audit:
 
 
 @router.get("/{audit_id}/trace")
-def get_trace(
+async def get_trace(
     audit_id: str = Path(..., description="Audit UUID"),
     executive_mode: bool = False,
     db: Session = Depends(get_db),
@@ -93,7 +93,7 @@ def get_trace(
 
 
 @router.get("/{audit_id}/trace/export")
-def export_trace_extended(
+async def export_trace_extended(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -146,7 +146,7 @@ def export_trace_extended(
 
 
 @router.get("/{audit_id}/export/json")
-def export_trace_json(
+async def export_trace_json(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -187,7 +187,7 @@ def export_trace_json(
 
 
 @router.get("/{audit_id}/export/pdf")
-def export_trace_pdf(
+async def export_trace_pdf(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),

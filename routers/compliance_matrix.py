@@ -91,7 +91,7 @@ def _validate_sort_params(sort_by: str | None, sort_dir: str) -> None:
 
 
 @router.get("/coverage", summary="Per-framework compliance coverage summary")
-def get_coverage_summary(
+async def get_coverage_summary(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
@@ -167,7 +167,7 @@ def get_coverage_summary(
 
 
 @router.get("", summary="List compliance matrix rows with optional sort and filter")
-def list_matrix(
+async def list_matrix(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     sort_by: str | None = Query(default=None, description="risk_level | regulation_name | last_updated"),
@@ -181,7 +181,7 @@ def list_matrix(
 
 
 @router.get("/export", summary="Export compliance matrix as CSV")
-def export_matrix_csv(
+async def export_matrix_csv(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     sort_by: str | None = Query(default=None),

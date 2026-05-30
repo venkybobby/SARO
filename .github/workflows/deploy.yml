@@ -51,8 +51,67 @@ jobs:
           SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
         run: pytest tests/ -v --tb=short -x --ignore=tests/test_frontend_login.py
 
-  deploy:
+  migrate:
+    # Apply pending SQL migrations BEFORE the new app revision goes live.
+    # Pattern: migrate-first → deploy-second guarantees additive DDL (ADD COLUMN)
+    # is present in the DB before any code that references the new columns starts
+    # serving traffic.  For destructive DDL (DROP/RENAME) a separate backward-
+    # compatible alias strategy is required.
     needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGHOST:     ${{ secrets.SUPABASE_DB_HOST }}
+      PGPORT:     "5432"
+      PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
+      PGUSER:     ${{ secrets.SUPABASE_DB_USER }}
+      DB_SSLMODE: "require"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Bootstrap schema_migrations tracking table
+        run: |
+          psql "sslmode=${DB_SSLMODE}" -c "
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+              version     VARCHAR(255) PRIMARY KEY,
+              applied_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+              checksum    VARCHAR(64)  NOT NULL,
+              applied_by  VARCHAR(255) NOT NULL DEFAULT 'ci'
+            );
+          "
+
+      - name: Apply pending SQL migrations (idempotent)
+        run: |
+          set -euo pipefail
+          for f in $(ls migrations/*.sql | sort); do
+            version=$(basename "$f" .sql)
+            already=$(psql "sslmode=${DB_SSLMODE}" -tAc \
+              "SELECT COUNT(*) FROM schema_migrations WHERE version = '${version}'")
+            if [ "$already" = "0" ]; then
+              echo "Applying migration: $version"
+              psql "sslmode=${DB_SSLMODE}" -f "$f"
+              checksum=$(sha256sum "$f" | cut -d' ' -f1)
+              psql "sslmode=${DB_SSLMODE}" -c \
+                "INSERT INTO schema_migrations(version, checksum, applied_by)
+                 VALUES ('${version}', '${checksum}', 'ci/${GITHUB_SHA:0:7}')"
+              echo "Migration applied: $version"
+            else
+              echo "Already applied, skipping: $version"
+            fi
+          done
+
+      - name: Log migration state
+        run: |
+          psql "sslmode=${DB_SSLMODE}" -c \
+            "SELECT version, applied_at, applied_by FROM schema_migrations ORDER BY version;"
+
+  deploy:
+    needs: [test, migrate]   # both gates required — code never deploys before DB is ready
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
@@ -71,13 +130,14 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Wait for Fly health
+      - name: Wait for Fly health (schema_ok must be true)
         run: |
           for i in $(seq 1 12); do
+            BODY=$(curl -s https://saro-platform.fly.dev/health)
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                      https://saro-platform.fly.dev/health)
+            echo "Attempt $i: HTTP $STATUS — $BODY"
             [ "$STATUS" = "200" ] && echo "Health OK" && exit 0
-            echo "Attempt $i: status $STATUS — retrying in 10s"
             sleep 10
           done
           echo "Health check failed after 2 minutes" && exit 1

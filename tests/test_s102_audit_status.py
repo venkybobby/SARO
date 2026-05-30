@@ -1,8 +1,10 @@
 """
-S-102: GET /api/v1/audits/{audit_id} — audit status polling tests.
+S-102: GET /api/v1/ingest/{audit_id} — audit status polling tests.
 
 Tests that:
   1. The route exists in the ingest router.
+     (Renamed from /audits/{audit_id} to /ingest/{audit_id} to resolve the
+     route collision with routers/scan.py's GET /api/v1/audits/{audit_id}.)
   2. AuditStatusResponse has the expected fields.
   3. Background audit task helper has the correct signature.
 """
@@ -26,13 +28,13 @@ class TestAuditStatusRoute:
     def test_route_exists(self):
         from routers.ingest import router
         route_paths = [r.path for r in router.routes]
-        assert any("audits" in p and "audit_id" in p for p in route_paths), \
-            f"No audits/{{audit_id}} route in {route_paths}"
+        assert any("ingest" in p and "audit_id" in p for p in route_paths), \
+            f"No ingest/{{audit_id}} route in {route_paths}"
 
     def test_route_is_get(self):
         from routers.ingest import router
         for r in router.routes:
-            if "audits" in r.path and "audit_id" in r.path:
+            if "ingest" in r.path and "audit_id" in r.path:
                 assert "GET" in r.methods
                 break
 

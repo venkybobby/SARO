@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import DemoRequest, User
+from models import DemoRequest
 from schemas import DemoRequestIn, DemoRequestOut, DemoRequestStatusUpdateIn
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
         "Duplicate emails (status pending/contacted) return the existing record."
     ),
 )
-def demo_signup(
+async def demo_signup(
     payload: DemoRequestIn,
     db: Annotated[Session, Depends(get_db)],
 ) -> DemoRequestOut:
@@ -80,14 +80,19 @@ def demo_signup(
     dependencies=[Depends(require_role("super_admin"))],
     summary="List all demo signup requests (super_admin only)",
 )
-def list_demo_requests(
+async def list_demo_requests(
     db: Annotated[Session, Depends(get_db)],
     _current=Depends(get_current_user),
     status_filter: str | None = Query(default=None, alias="status"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[DemoRequestOut]:
-    """Return all demo requests, optionally filtered by status."""
+    """Return all demo requests, optionally filtered by status.
+
+    Cross-tenant visibility is intentional: DemoRequest records belong to
+    prospective customers who have not yet been provisioned a tenant. A
+    super_admin must be able to see and action all incoming requests globally.
+    """
     q = db.query(DemoRequest).order_by(DemoRequest.created_at.desc())
     if status_filter:
         q = q.filter(DemoRequest.status == status_filter)
@@ -101,7 +106,7 @@ def list_demo_requests(
     dependencies=[Depends(require_role("super_admin"))],
     summary="Update demo request status (super_admin only)",
 )
-def update_demo_request(
+async def update_demo_request(
     request_id: str,
     payload: DemoRequestStatusUpdateIn,
     db: Annotated[Session, Depends(get_db)],
@@ -137,7 +142,7 @@ def update_demo_request(
         "Requires SARO_DEMO_TENANT_ID to be set (run scripts/seed_demo_tenant.py first)."
     ),
 )
-def get_demo_token() -> dict:
+async def get_demo_token() -> dict:
     import os
     from datetime import timedelta
 
@@ -169,14 +174,4 @@ def get_demo_token() -> dict:
     }
 
 
-def require_write_access(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    """
-    Dependency: block demo (read_only) users from mutating data.
-    Add to any write endpoint that must be protected from the demo token.
-    """
-    if getattr(current_user, "read_only", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Read-only demo access — write operations not permitted",
-        )
-    return current_user
+# require_write_access is imported from auth — see auth.py

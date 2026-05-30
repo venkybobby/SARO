@@ -58,22 +58,37 @@ function code(text, opts = {}) {
   );
 }
 
-function codeBlock(text, opts = {}) {
+function codeBlock(text) {
+  // Single-cell table: all code lines live inside one TableCell so Word renders
+  // a clean bordered box with a uniform gray background and teal left accent bar.
+  // Per-line paragraph borders (the previous approach) break across rows and
+  // produce uneven shading gaps — a table cell avoids both problems.
   const lines = text.split("\n");
-  return lines.map((line, i) =>
-    new Paragraph({
-      children: [new TextRun({ text: line || " ", font: "Courier New", size: 17, color: C.dark })],
-      indent: { left: 560 },
-      spacing: { before: 0, after: 0 },
-      border: {
-        top:    i === 0                   ? B(BorderStyle.SINGLE, C.border) : undefined,
-        bottom: i === lines.length - 1    ? B(BorderStyle.SINGLE, C.border) : undefined,
-        left:   B(BorderStyle.THICK,  C.teal),
-        right:  B(BorderStyle.SINGLE, C.border),
-      },
-      shading: { fill: C.codeBg, type: ShadingType.CLEAR },
-    })
-  );
+  return [
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [9360],
+      rows: [new TableRow({
+        children: [new TableCell({
+          borders: {
+            top:    { style: BorderStyle.THICK,  size: 4,  color: C.teal },
+            bottom: { style: BorderStyle.SINGLE, size: 4,  color: C.border },
+            left:   { style: BorderStyle.THICK,  size: 12, color: C.teal },
+            right:  { style: BorderStyle.SINGLE, size: 4,  color: C.border },
+          },
+          shading: { fill: C.codeBg, type: ShadingType.CLEAR },
+          margins: { top: 120, bottom: 120, left: 200, right: 140 },
+          width: { size: 9360, type: WidthType.DXA },
+          children: lines.map(line =>
+            new Paragraph({
+              children: [new TextRun({ text: line || " ", font: "Courier New", size: 18, color: C.dark })],
+              spacing: { before: 0, after: 0 },
+            })
+          ),
+        })],
+      })],
+    }),
+  ];
 }
 
 function h1(text) {

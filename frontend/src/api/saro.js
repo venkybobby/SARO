@@ -27,7 +27,7 @@ export async function fetchRecentAudits(token, tenantId, limit = 20) {
 }
 
 export async function fetchComplianceCoverage(token, tenantId, window = "7d") {
-  const url = `${SARO_API_URL}/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=${window}`;
+  const url = `${SARO_API_URL}/api/v1/compliance_matrix?window=${window}`;
   const r = await fetch(url, { headers: authHeaders(token) });
   if (!r.ok) throw new Error(`Coverage API ${r.status}`);
   return r.json();

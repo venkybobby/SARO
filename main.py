@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import sys
 import time
 from datetime import datetime
@@ -34,7 +35,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import create_all_tables, ensure_app_schema, engine, health_check, seed_persona_permissions
+from database import apply_pending_migrations, create_all_tables, ensure_app_schema, engine, health_check, seed_persona_permissions, verify_migration_objects
 from routers.aims import router as aims_router
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
@@ -97,22 +98,74 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     logger.info("SARO starting up — environment=%s", os.environ.get("ENVIRONMENT", "development"))
 
-    if not health_check():
+    _db_health = health_check()
+    if not _db_health["ok"]:
         # Log a warning but do NOT crash — the process must bind its port so
         # Railway's health check can pass.  Individual requests will fail with
         # 503 only if the DB is still unreachable when they arrive, which is
         # a much better failure mode than never starting at all.
-        logger.warning(
-            "Database unreachable at startup. Check DATABASE_URL secret in Railway. "
-            "API will return 503 on DB-dependent endpoints until the DB is reachable."
-        )
+        _db_err = _db_health.get("error", "unknown")
+        _db_detail = _db_health.get("detail", "")
+        if _db_err == "auth_failure":
+            logger.error(
+                "Database authentication failed at startup (error_class=auth_failure). "
+                "Supabase pooler error 'Tenant or user not found' means DATABASE_URL "
+                "username is missing the project-ref suffix — SARO attempted auto-correction "
+                "but the connection still failed. Update DATABASE_URL in Railway → Variables "
+                "to use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                "detail=%s", _db_detail,
+            )
+        else:
+            logger.warning(
+                "Database unreachable at startup (error_class=%s). "
+                "Check DATABASE_URL secret in Railway. "
+                "API will return 503 on DB-dependent endpoints until the DB is reachable. "
+                "detail=%s", _db_err, _db_detail,
+            )
     else:
         # 1. Self-heal audits/scan_reports if their columns are out of date
         #    (drops + recreates them when any column is missing).
         ensure_app_schema()
         # 2. Create any other tables that don't exist yet (reference tables, etc.)
         create_all_tables()
-        # 3. Seed persona permissions (idempotent — skips existing rows)
+        # 3. Apply all pending SQL migrations (idempotent — tracked in schema_migrations).
+        #    apply_pending_migrations() executes migrations/000, 001, 002, … in order,
+        #    skipping any already recorded in schema_migrations.  This is the primary
+        #    fix for psycopg2.errors.UndefinedColumn when a migration file ships with
+        #    the code but was never applied to the production database.
+        try:
+            _newly_applied = apply_pending_migrations(applied_by="startup")
+            if _newly_applied:
+                logger.info("SQL migrations applied at startup: %s", _newly_applied)
+            else:
+                logger.info("All SQL migrations already applied — schema up to date")
+        except Exception as _exc:
+            # A migration failure means the schema is in an unknown state.
+            # Log the error clearly and re-raise so Railway restarts the container
+            # rather than serving traffic on a mismatched schema.
+            logger.error(
+                "FATAL: SQL migration failed at startup — refusing to serve traffic "
+                "to prevent schema mismatch errors: %s", _exc
+            )
+            raise
+        # 3b. Assert that DB objects created by migrations actually exist.
+        #     Raises RuntimeError (→ hard startup fail) if any are absent.
+        verify_migration_objects()
+        # 3c. Python backfill migration 009 (idempotent — backfills NULL event_hash rows).
+        #     Not a SQL file so not covered by apply_pending_migrations(); run via importlib.
+        try:
+            import importlib.util as _ilu
+            _spec = _ilu.spec_from_file_location(
+                "migration_009",
+                pathlib.Path(__file__).parent / "migrations" / "009_hash_chain_columns.py",
+            )
+            _mod = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+            _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+            _mod.upgrade()
+            logger.info("Migration 009 (hash chain backfill) applied")
+        except Exception as _exc:
+            logger.warning("Migration 009 backfill skipped (non-fatal): %s", _exc)
+        # 4. Seed persona permissions (idempotent — skips existing rows)
         seed_persona_permissions()
         logger.info("Database schema synchronised")
         # SPEC-E3: Initialise SARoEngine singleton with TF-IDF index
@@ -135,7 +188,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             app.state.engine = None
             app.state.engine_index_count = 0
             app.state.engine_index_built_at = None
-        # 4. Seed demo data when requested (idempotent — checks for existing demo tenant)
+        # 5. Seed demo data when requested (idempotent — checks for existing demo tenant)
         if os.environ.get("SEED_DEMO_DATA", "").lower() in ("1", "true", "yes"):
             try:
                 from scripts.seed_demo import seed as _seed_demo
@@ -208,10 +261,57 @@ async def add_timing_header(request: Request, call_next) -> Response:  # noqa: A
 
 # ── Global exception handler ──────────────────────────────────────────────────
 
+import re as _re
+
+# Parses "column audit_traces.event_hash does not exist"
+_UNDEFINED_COL_RE = _re.compile(
+    r'column\s+"?(\w+)"?\."?(\w+)"?\s+does not exist', _re.IGNORECASE
+)
+# Parses 'relation "foo" does not exist'
+_UNDEFINED_TABLE_RE = _re.compile(
+    r'relation\s+"?(\w+)"?\s+does not exist', _re.IGNORECASE
+)
+
+_slog = structlog.get_logger("saro.exceptions")
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    exc_str = str(exc)
+    log_fields: dict = {
+        "method": request.method,
+        "path": request.url.path,
+        "error_class": type(exc).__name__,
+    }
+
+    col_match = _UNDEFINED_COL_RE.search(exc_str)
+    tbl_match = _UNDEFINED_TABLE_RE.search(exc_str)
+
+    if col_match:
+        table_name, col_name = col_match.group(1), col_match.group(2)
+        log_fields.update({
+            "error_type": "missing_column",
+            "table": table_name,
+            "column": col_name,
+            "migration_hint": (
+                f"Column '{col_name}' missing from '{table_name}'. "
+                f"Check migrations/ for an ALTER TABLE ADD COLUMN statement. "
+                f"Apply the migration and restart, or verify apply_pending_migrations() ran."
+            ),
+        })
+    elif tbl_match:
+        log_fields.update({
+            "error_type": "missing_table",
+            "table": tbl_match.group(1),
+            "migration_hint": (
+                f"Table '{tbl_match.group(1)}' does not exist. "
+                f"Check migrations/ for a CREATE TABLE statement and restart."
+            ),
+        })
+    else:
+        log_fields["error_type"] = "unhandled_exception"
+
+    _slog.error("unhandled_request_exception", exc_info=True, **log_fields)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "type": type(exc).__name__},
@@ -255,34 +355,87 @@ app.include_router(fe_dashboard_router)
 
 
 @app.get("/health", tags=["ops"])
-def health() -> dict:
+def health() -> JSONResponse:
     """
     Railway / load-balancer health probe.
 
-    Also returns bootstrap_needed=True when the users table is empty so the
-    frontend can display a first-run setup prompt instead of a plain login form.
-    """
-    from database import get_db  # local import to avoid circular at module level
-    from models import User
+    Returns HTTP 200 when healthy, HTTP 503 when:
+      - The database is unreachable, OR
+      - schema_version is behind the highest migration file on disk
+        (schema mismatch — Railway will restart the container).
 
-    db_ok = health_check()
+    Fields:
+      status                "ok" | "degraded" | "schema_mismatch"
+      database              "ok" | "unreachable"
+      db_error              null | "auth_failure" | "network_unreachable" | "ssl_error" | "unknown"
+      schema_version        highest applied migration version in schema_migrations
+      schema_ok             true when schema_version == highest file on disk
+      highest_migration     highest *.sql filename stem found under migrations/
+      bootstrap_needed      true when users table is empty (first-run prompt)
+      version               app version string
+    """
+    from database import get_db
+    from models import User
+    from sqlalchemy import text as _t
+
+    _db_result = health_check()
+    db_ok: bool = _db_result["ok"]
+    db_error: str | None = _db_result.get("error")
     bootstrap_needed: bool | None = None
+    schema_version: str | None = None
+    schema_ok: bool | None = None
+
+    # Highest migration file on disk (stem of last sorted .sql file)
+    _mdir = pathlib.Path(__file__).parent / "migrations"
+    _disk = sorted(p.stem for p in _mdir.glob("*.sql"))
+    highest_on_disk: str | None = _disk[-1] if _disk else None
+
     if db_ok:
         try:
             db = next(get_db())
             try:
                 bootstrap_needed = db.query(User).count() == 0
+                try:
+                    row = db.execute(
+                        _t("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1")
+                    ).fetchone()
+                    schema_version = row[0] if row else None
+                    schema_ok = schema_version == highest_on_disk
+                except Exception:
+                    # schema_migrations table not yet created (first boot before migrations run)
+                    schema_version = None
+                    schema_ok = False
             finally:
                 db.close()
         except Exception:
-            bootstrap_needed = None  # DB readable but query failed
+            bootstrap_needed = None
 
-    return {
-        "status": "ok" if db_ok else "degraded",
-        "database": "ok" if db_ok else "unreachable",
-        "bootstrap_needed": bootstrap_needed,
-        "version": app.version,
-    }
+    if not db_ok:
+        # auth_failure is a config error — restarting cannot fix it.
+        # Return HTTP 200 so Railway does NOT roll back the deployment or
+        # stop routing traffic; the db_error field tells operators what to fix.
+        # All other DB failures return 503 so Railway/load-balancers can
+        # legitimately restart or route away from a sick instance.
+        http_status = 200 if db_error == "auth_failure" else 503
+        status = "degraded"
+    elif schema_ok is False:
+        status, http_status = "schema_mismatch", 503
+    else:
+        status, http_status = "ok", 200
+
+    return JSONResponse(
+        status_code=http_status,
+        content={
+            "status": status,
+            "database": "ok" if db_ok else "unreachable",
+            "db_error": db_error,
+            "schema_version": schema_version,
+            "schema_ok": schema_ok,
+            "highest_migration": highest_on_disk,
+            "bootstrap_needed": bootstrap_needed,
+            "version": app.version,
+        },
+    )
 
 
 @app.get("/", tags=["ops"])

@@ -255,14 +255,17 @@ class TestRemediation:
         assert callable(get_remediation_progress)
 
     def test_remediation_empty_note_raises_422(self):
+        import asyncio
         from routers.remediation import remediate_trace, RemediateTraceIn
         from fastapi import HTTPException
         payload = RemediateTraceIn(remediation_note="")
         mock_db = MagicMock()
         mock_user = MagicMock()
         mock_user.tenant_id = uuid.uuid4()
+        # remediate_trace is async def — must be driven to completion for the
+        # HTTPException to be raised (calling without await just makes a coroutine).
         with pytest.raises(HTTPException) as exc_info:
-            remediate_trace(uuid.uuid4(), payload, mock_db, mock_user)
+            asyncio.run(remediate_trace(uuid.uuid4(), payload, mock_db, mock_user))
         assert exc_info.value.status_code == 422
 
     def test_jira_service_importable(self):

@@ -69,27 +69,9 @@ def _store_text_field(text: str, s3_prefix: str) -> tuple[str | None, str | None
 
 
 def _persist_output_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> None:
-    """Persist traces from a single-output audit (same as batch path)."""
-    traces = engine.get_traces()
-    if not traces:
-        return
-    try:
-        for t in traces:
-            db.add(AuditTrace(
-                audit_id=audit_id,
-                gate_id=t["gate_id"],
-                gate_name=t["gate_name"],
-                check_type=t["check_type"],
-                check_name=t["check_name"],
-                result=t["result"],
-                reason=t.get("reason"),
-                detail_json=t.get("detail_json"),
-                remediation_hint=t.get("remediation_hint"),
-            ))
-        db.commit()
-    except Exception as exc:
-        logger.warning("Could not persist traces for output audit %s: %s", audit_id, exc)
-        db.rollback()
+    """Persist traces from a single-output audit with SHA-256 hash chaining (AUD-001)."""
+    from routers.scan import _persist_traces
+    _persist_traces(engine, audit_id, db)
 
 
 def _build_enhanced_trace(

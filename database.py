@@ -12,8 +12,10 @@ raises a KeyError/RuntimeError when DATABASE_URL is not yet in the environment
 from __future__ import annotations
 
 import functools
+import hashlib
 import logging
 import os
+import pathlib
 
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -25,12 +27,40 @@ logger = logging.getLogger(__name__)
 # ── Lazy engine factory ───────────────────────────────────────────────────────
 
 def _database_url() -> str:
+    import re as _re
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
             "Add it as a Railway variable or set it in your .env file."
         )
+    # Supabase pooler authentication guard: the Supabase session/transaction
+    # pooler (*.pooler.supabase.com) requires the project-scoped username
+    # "postgres.<project-ref>" rather than the bare "postgres".  A bare
+    # username produces an immediate "password authentication failed" error
+    # because the pooler treats usernames as routing keys.
+    #
+    # We parse the netloc instead of the full URL so we don't accidentally
+    # match "postgres" in a database name or query string.
+    if _re.search(r"pooler\.supabase\.com", url):
+        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
+        if _netloc_match:
+            _username = _netloc_match.group(1)
+            if "." not in _username:
+                # Supabase pooler routing key is "<username>.<project-ref>".
+                # Prefer the env var; fall back to the known project ref so the
+                # correction is unconditional even when Railway Variables are not
+                # propagated (e.g. static toml env vars are ignored by Railway).
+                _project_ref = (
+                    os.environ.get("SUPABASE_PROJECT_REF")
+                    or "fktfhtygvwqlmoazmhdf"
+                )
+                _fixed_username = f"{_username}.{_project_ref}"
+                url = url.replace(f"://{_username}:", f"://{_fixed_username}:", 1)
+                logger.info(
+                    "DATABASE_URL username auto-corrected: '%s' → '%s'",
+                    _username, _fixed_username,
+                )
     return url
 
 
@@ -106,6 +136,124 @@ def get_db():
 
 # ── Schema helpers ────────────────────────────────────────────────────────────
 
+_MIGRATIONS_DIR = pathlib.Path(__file__).parent / "migrations"
+
+
+def _iter_sql_statements(sql: str):
+    """Yield individual SQL statements from a script, respecting $$ dollar-quote blocks.
+
+    Standard SQL splitters that naively split on ";" break plpgsql CREATE FUNCTION
+    bodies which contain ";" inside $$ ... $$ delimiters.  This function toggles a
+    ``in_dollar`` flag each time a line contains an odd number of "$$" tokens so that
+    semicolons inside function bodies are not treated as statement terminators.
+
+    Example — the following is yielded as ONE statement:
+        CREATE OR REPLACE FUNCTION foo() RETURNS TRIGGER AS $$
+        BEGIN
+          RAISE EXCEPTION 'boom';   -- semicolon here is NOT a terminator
+        END;
+        $$ LANGUAGE plpgsql;        -- THIS semicolon ends the statement
+    """
+    in_dollar = False
+    buf: list[str] = []
+    for line in sql.splitlines():
+        if line.count("$$") % 2 == 1:
+            in_dollar = not in_dollar
+        buf.append(line)
+        if not in_dollar and line.rstrip().endswith(";"):
+            stmt = "\n".join(buf).strip()
+            if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
+                yield stmt
+            buf = []
+    # Yield any trailing content (e.g. a statement without a trailing newline)
+    if buf:
+        stmt = "\n".join(buf).strip()
+        if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
+            yield stmt
+
+
+def apply_pending_migrations(applied_by: str = "system") -> list[str]:
+    """Apply every *.sql file under migrations/ not yet recorded in schema_migrations.
+
+    Algorithm (idempotent, safe for concurrent Gunicorn workers):
+      1. Bootstrap: ensure schema_migrations table exists (CREATE TABLE IF NOT EXISTS).
+      2. Sort all *.sql files alphabetically — 000 runs first so the tracking
+         table is created before any subsequent migration tries to record itself.
+      3. For each file: check if already applied (by version = stem).
+         If not: execute each statement via _iter_sql_statements(), then INSERT
+         the version + SHA-256 checksum into schema_migrations.  Both happen in
+         the same transaction so a partial migration is never recorded as applied.
+      4. Return the list of newly applied version strings.
+
+    Failures raise immediately — the caller (lifespan) should let the exception
+    propagate so Railway restarts rather than serving traffic on a bad schema.
+    """
+    eng = _get_engine()
+
+    # Bootstrap: create tracking table before reading it (handles first-ever run)
+    with eng.begin() as conn:
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS schema_migrations ("
+            "version VARCHAR(255) PRIMARY KEY,"
+            "applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+            "checksum VARCHAR(64) NOT NULL,"
+            "applied_by VARCHAR(255) NOT NULL DEFAULT 'system'"
+            ")"
+        ))
+
+    migration_files = sorted(_MIGRATIONS_DIR.glob("*.sql"))
+    applied: list[str] = []
+
+    for path in migration_files:
+        version = path.stem
+        sql = path.read_text(encoding="utf-8")
+        checksum = hashlib.sha256(sql.encode()).hexdigest()
+
+        with eng.begin() as conn:
+            lock_acquired = conn.execute(
+                text("SELECT pg_try_advisory_xact_lock(hashtext(:v))"),
+                {"v": version},
+            ).scalar()
+
+            if not lock_acquired:
+                logger.debug("Migration lock not acquired (another worker running it), skipping: %s", version)
+                continue
+
+            already = conn.execute(
+                text("SELECT COUNT(*) FROM schema_migrations WHERE version = :v"),
+                {"v": version},
+            ).scalar()
+
+            if already:
+                logger.debug("Migration already applied, skipping: %s", version)
+                continue
+
+            logger.info("Applying migration: %s", version)
+            stmt_count = 0
+            for stmt in _iter_sql_statements(sql):
+                conn.execute(text(stmt))
+                stmt_count += 1
+
+            if stmt_count == 0:
+                logger.error(
+                    "Migration %s yielded 0 executable statements — SQL file may be "
+                    "empty or all-comments. DB objects from this migration are absent.",
+                    version,
+                )
+
+            conn.execute(
+                text(
+                    "INSERT INTO schema_migrations(version, checksum, applied_by) "
+                    "VALUES (:v, :c, :by)"
+                ),
+                {"v": version, "c": checksum, "by": applied_by},
+            )
+            applied.append(version)
+            logger.info("Migration applied successfully: %s (%d statements)", version, stmt_count)
+
+    return applied
+
+
 def create_all_tables() -> None:
     """
     Create all ORM-mapped tables that don't yet exist.
@@ -151,6 +299,8 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "signal_text", "top_sample_ids",
         "is_remediated", "remediated_at", "remediated_by_id",
         "created_at",
+        # AUD-001: SHA-256 hash chain columns (migration 003 / 009)
+        "event_hash", "prev_hash",
     },
     "audits": {
         "id", "tenant_id", "user_id",
@@ -248,9 +398,12 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",
     },
     # SARO-DC-001/DC-002: additive columns on audit_traces — ALTER only.
+    # AUD-001: event_hash/prev_hash are additive — never drop, ALTER only.
     "audit_traces": {
         "signal_text": "VARCHAR(500)",
         "top_sample_ids": "JSONB",
+        "event_hash": "VARCHAR(64)",
+        "prev_hash": "VARCHAR(64)",
     },
     # audits holds live data and has many FK dependents — never drop, ALTER only.
     # S-101: prompt_text / raw_output_text added for single-output ingestion.
@@ -258,6 +411,8 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "prompt_text": "TEXT",
         "raw_output_text": "TEXT",
     },
+    # Infrastructure table — never drop regardless of column drift.
+    "schema_migrations": {},
 }
 
 
@@ -362,17 +517,102 @@ def ensure_app_schema() -> None:
                     )
 
 
+# ── Post-migration object verification ───────────────────────────────────────
+
+_EXPECTED_FUNCTIONS = ["prevent_migration_modification"]
+_EXPECTED_TRIGGERS = [("schema_migrations", "trg_lock_schema_migrations")]
+
+
+def verify_migration_objects() -> None:
+    """Assert that DB objects created by migrations actually exist.
+
+    Raises RuntimeError if any expected function or trigger is absent, which
+    forces a hard startup failure rather than serving traffic on a broken schema.
+    """
+    eng = _get_engine()
+    with eng.connect() as conn:
+        for fn_name in _EXPECTED_FUNCTIONS:
+            count = conn.execute(
+                text("SELECT COUNT(*) FROM pg_proc WHERE proname = :n"),
+                {"n": fn_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: function '{fn_name}' is absent. "
+                    "Migration SQL may have been silently dropped. "
+                    "Run the CREATE FUNCTION statement manually in Supabase SQL console "
+                    "or DELETE the '000_schema_migrations_tracking' row from schema_migrations "
+                    "to force a replay."
+                )
+        for table_name, trig_name in _EXPECTED_TRIGGERS:
+            count = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM pg_trigger t "
+                    "JOIN pg_class c ON c.oid = t.tgrelid "
+                    "WHERE c.relname = :tbl AND t.tgname = :trg"
+                ),
+                {"tbl": table_name, "trg": trig_name},
+            ).scalar()
+            if not count:
+                raise RuntimeError(
+                    f"Post-migration check failed: trigger '{trig_name}' on '{table_name}' is absent."
+                )
+    logger.info("verify_migration_objects: all expected DB objects present")
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
-def health_check() -> bool:
-    """Return True if the database is reachable, False otherwise."""
+def health_check() -> dict:
+    """Probe the database and return a structured health result.
+
+    Returns a dict with the following keys:
+        ok      (bool)         True when SELECT 1 succeeds.
+        error   (str | None)   Error class label when ok=False:
+                                 "auth_failure"       — credentials rejected (FATAL: password…)
+                                 "network_unreachable" — host not routable / connection refused
+                                 "ssl_error"          — TLS/SSL handshake failure
+                                 "unknown"            — any other exception
+        detail  (str | None)   The raw exception message (truncated to 200 chars).
+
+    Callers that previously checked ``if health_check():`` should update to
+    ``if health_check()["ok"]:``.  The boolean coercion of a non-empty dict
+    is always True, so old code will continue to run the body of the ``if``
+    block (i.e. silently treat the DB as reachable).  This is intentional —
+    it is a safe degradation that prevents a breaking change while callers
+    are migrated.
+    """
+    import re as _re
     try:
         with _get_engine().connect() as conn:
             conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        logger.exception("Database health check failed")
-        return False
+        return {"ok": True, "error": None, "detail": None}
+    except Exception as exc:
+        exc_str = str(exc)
+        detail = exc_str[:200]
+
+        if _re.search(
+            r"password authentication failed|authentication failed|"
+            r"Tenant or user not found|no pg_hba\.conf entry",
+            exc_str, _re.IGNORECASE,
+        ):
+            error_class = "auth_failure"
+        elif _re.search(
+            r"could not connect to server|connection refused|"
+            r"Name or service not known|network is unreachable|"
+            r"No route to host|Operation timed out|connect timeout",
+            exc_str, _re.IGNORECASE,
+        ):
+            error_class = "network_unreachable"
+        elif _re.search(r"SSL|TLS|certificate", exc_str, _re.IGNORECASE):
+            error_class = "ssl_error"
+        else:
+            error_class = "unknown"
+
+        logger.error(
+            "Database health check failed — error_class=%s detail=%s",
+            error_class, detail,
+        )
+        return {"ok": False, "error": error_class, "detail": detail}
 
 
 # ── Persona Permission Seeding (CF-06) ────────────────────────────────────────

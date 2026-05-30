@@ -210,6 +210,14 @@ class AuditTrace(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # AUD-001: SHA-256 hash chain for tamper-evident audit logs.
+    # event_hash: SHA-256 hex of this event's canonical payload (build_event_payload).
+    # prev_hash: event_hash of the preceding event in this audit's chain (NULL = genesis).
+    # Rows written before migration 009 carry event_hash=LEGACY_SENTINEL.
+    # Column is nullable in DB (migration 003); _persist_traces() always supplies a value.
+    # No ORM-level default — callers must set event_hash explicitly so omissions fail loudly.
+    event_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
+    prev_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
 
     audit: Mapped["Audit"] = relationship(back_populates="traces")
 

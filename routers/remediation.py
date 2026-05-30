@@ -1,12 +1,12 @@
-"""
+﻿"""
 Remediation workflow and Jira Cloud OAuth2 integration endpoints (SPEC-F3).
 
-PATCH /api/v1/remediation/traces/{id}/remediate          — mark trace as remediated
-POST  /api/v1/remediation/traces/{id}/create-jira-issue  — create Jira issue
-GET   /api/v1/remediation/audits/{audit_id}/progress     — remediation progress
-GET   /api/v1/remediation/oauth/jira/start               — initiate Jira OAuth2
-GET   /api/v1/remediation/oauth/jira/callback            — Jira OAuth2 callback
-GET   /api/v1/remediation/audits/{audit_id}/traces        — list fail/warn traces
+PATCH /api/v1/remediation/traces/{id}/remediate          â€” mark trace as remediated
+POST  /api/v1/remediation/traces/{id}/create-jira-issue  â€” create Jira issue
+GET   /api/v1/remediation/audits/{audit_id}/progress     â€” remediation progress
+GET   /api/v1/remediation/oauth/jira/start               â€” initiate Jira OAuth2
+GET   /api/v1/remediation/oauth/jira/callback            â€” Jira OAuth2 callback
+GET   /api/v1/remediation/audits/{audit_id}/traces        â€” list fail/warn traces
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ _JIRA_REDIRECT_URI = os.environ.get(
 )
 
 
-# ── Pydantic models ───────────────────────────────────────────────────────────
+# â”€â”€ Pydantic models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class RemediateTraceIn(BaseModel):
@@ -86,11 +86,11 @@ class AISystem(BaseModel):
     last_audit_date: Optional[str] = None
 
 
-# ── Trace remediation endpoints ───────────────────────────────────────────────
+# â”€â”€ Trace remediation endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @router.patch("/remediation/traces/{trace_id}/remediate")
-def remediate_trace(
+async def remediate_trace(
     trace_id: uuid.UUID,
     payload: RemediateTraceIn,
     db: Annotated[Session, Depends(get_db)],
@@ -125,7 +125,7 @@ def remediate_trace(
     trace.remediated_at = datetime.now(timezone.utc)
     trace.remediated_by_id = current_user.id
 
-    # Add remediation_note — store in detail_json as fallback if column doesn't exist
+    # Add remediation_note â€” store in detail_json as fallback if column doesn't exist
     try:
         trace.remediation_note = payload.remediation_note.strip()  # type: ignore[attr-defined]
     except AttributeError:
@@ -156,7 +156,7 @@ def remediate_trace(
 
 
 @router.post("/remediation/traces/{trace_id}/create-jira-issue")
-def create_jira_issue(
+async def create_jira_issue(
     trace_id: uuid.UUID,
     payload: CreateJiraIssueIn,
     db: Annotated[Session, Depends(get_db)],
@@ -195,7 +195,7 @@ def create_jira_issue(
     except Exception:
         raise HTTPException(
             status_code=400,
-            detail="Jira token decryption failed — please re-authorise",
+            detail="Jira token decryption failed â€” please re-authorise",
         )
 
     domain = (trace.check_name or "").split(":")[0].strip()
@@ -239,7 +239,7 @@ def create_jira_issue(
 
 
 @router.get("/remediation/audits/{audit_id}/progress")
-def get_remediation_progress(
+async def get_remediation_progress(
     audit_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -270,7 +270,7 @@ def get_remediation_progress(
 
 
 @router.get("/remediation/audits/{audit_id}/traces")
-def list_audit_traces(
+async def list_audit_traces(
     audit_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -312,11 +312,11 @@ def list_audit_traces(
     }
 
 
-# ── Jira OAuth2 endpoints ─────────────────────────────────────────────────────
+# â”€â”€ Jira OAuth2 endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @router.get("/remediation/oauth/jira/start")
-def jira_oauth_start(
+async def jira_oauth_start(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """Initiate Jira Cloud OAuth2 (3LO) flow."""
@@ -342,12 +342,12 @@ def jira_oauth_start(
 
 
 @router.get("/remediation/oauth/jira/callback")
-def jira_oauth_callback(
+async def jira_oauth_callback(
     code: str,
     state: Optional[str] = None,
     db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
 ) -> dict:
-    """Handle Jira OAuth2 callback — exchange code for tokens and store encrypted."""
+    """Handle Jira OAuth2 callback â€” exchange code for tokens and store encrypted."""
     import httpx
 
     from services.jira import encrypt_token
@@ -393,11 +393,11 @@ def jira_oauth_callback(
     return {"status": "jira_connected", "scope": tokens.get("scope")}
 
 
-# ── S-204: Tenant-wide remediation list and bulk remediate ────────────────────
+# â”€â”€ S-204: Tenant-wide remediation list and bulk remediate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @router.get("/remediation")
-def list_open_traces(
+async def list_open_traces(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
     result_filter: str | None = None,
@@ -472,7 +472,7 @@ class BulkRemediateIn(BaseModel):
 
 
 @router.post("/remediation/bulk-remediate")
-def bulk_remediate_traces(
+async def bulk_remediate_traces(
     payload: BulkRemediateIn,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -502,7 +502,7 @@ def bulk_remediate_traces(
             failed_ids.append(str(trace_id))
             continue
 
-        # Verify ownership via audit → tenant
+        # Verify ownership via audit â†’ tenant
         audit = db.query(Audit).filter(
             Audit.id == trace.audit_id,
             Audit.tenant_id == current_user.tenant_id,
@@ -548,11 +548,11 @@ def bulk_remediate_traces(
     }
 
 
-# ── Legacy endpoints (kept for backwards compat) ──────────────────────────────
+# â”€â”€ Legacy endpoints (kept for backwards compat) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @router.post("/remediation/steps")
-def get_remediation_steps(
+async def get_remediation_steps(
     finding: Finding,
     current_user=Depends(get_current_user),
 ) -> dict:
@@ -566,7 +566,7 @@ def get_remediation_steps(
 
 
 @router.post("/coverage/systems")
-def register_ai_system(
+async def register_ai_system(
     system: AISystem,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -581,7 +581,7 @@ def register_ai_system(
 
 
 @router.get("/coverage")
-def get_coverage(
+async def get_coverage(
     overdue_days: int = DEFAULT_OVERDUE_DAYS,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
