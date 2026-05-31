@@ -126,7 +126,6 @@ async def get_compliance_matrix(
         pct = round(passed / total * 100, 1) if total else 0.0
         result.append({
             "name": fw_name,
-            "namespace": _FRAMEWORK_NAMESPACE.get(fw_name, fw_name.lower().replace(" ", "_")),
             "rules_triggered": total - passed,
             "rules_total": max(total, 1),
             "coverage_pct": pct,
