@@ -109,10 +109,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if _db_err == "auth_failure":
             logger.error(
                 "Database authentication failed at startup (error_class=auth_failure). "
-                "Supabase pooler error 'Tenant or user not found' means DATABASE_URL "
-                "username is missing the project-ref suffix — SARO attempted auto-correction "
-                "but the connection still failed. Update DATABASE_URL in Railway → Variables "
-                "to use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                "Supabase pooler 'Tenant or user not found' means the DATABASE_URL username "
+                "is wrong or missing the project-ref suffix. "
+                "Required format: postgres://<user>.<project-ref>:<password>@*.pooler.supabase.com:5432/<db>. "
+                "Update DATABASE_URL in Railway → Variables. "
                 "detail=%s", _db_detail,
             )
         else:
@@ -283,6 +283,23 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         "path": request.url.path,
         "error_class": type(exc).__name__,
     }
+
+    # DB connectivity failures must return 503, not 500, so clients and load
+    # balancers can distinguish a config/infra error from an application bug.
+    import re as _re
+    if _re.search(
+        r"Tenant or user not found|password authentication failed|"
+        r"could not connect to server|connection refused|connect timeout",
+        exc_str, _re.IGNORECASE,
+    ):
+        _slog.error("db_connection_error_on_request", exc_info=True, **log_fields)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Database unavailable — check DATABASE_URL in Railway Variables.",
+                "type": "db_connection_error",
+            },
+        )
 
     col_match = _UNDEFINED_COL_RE.search(exc_str)
     tbl_match = _UNDEFINED_TABLE_RE.search(exc_str)

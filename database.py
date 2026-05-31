@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ── Lazy engine factory ───────────────────────────────────────────────────────
 
 def _database_url() -> str:
-    import re as _re
+    from urllib.parse import urlparse, urlunparse
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError(
@@ -37,30 +37,41 @@ def _database_url() -> str:
     # Supabase pooler authentication guard: the Supabase session/transaction
     # pooler (*.pooler.supabase.com) requires the project-scoped username
     # "postgres.<project-ref>" rather than the bare "postgres".  A bare
-    # username produces an immediate "password authentication failed" error
-    # because the pooler treats usernames as routing keys.
-    #
-    # We parse the netloc instead of the full URL so we don't accidentally
-    # match "postgres" in a database name or query string.
-    if _re.search(r"pooler\.supabase\.com", url):
-        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
-        if _netloc_match:
-            _username = _netloc_match.group(1)
-            if "." not in _username:
-                # Supabase pooler routing key is "<username>.<project-ref>".
-                # Prefer the env var; fall back to the known project ref so the
-                # correction is unconditional even when Railway Variables are not
-                # propagated (e.g. static toml env vars are ignored by Railway).
-                _project_ref = (
-                    os.environ.get("SUPABASE_PROJECT_REF")
-                    or "fktfhtygvwqlmoazmhdf"
-                )
-                _fixed_username = f"{_username}.{_project_ref}"
-                url = url.replace(f"://{_username}:", f"://{_fixed_username}:", 1)
-                logger.info(
-                    "DATABASE_URL username auto-corrected: '%s' → '%s'",
-                    _username, _fixed_username,
-                )
+    # username produces "Tenant or user not found" because the pooler uses
+    # the username as a routing key.
+    parsed = urlparse(url)
+    if parsed.hostname and "pooler.supabase.com" in parsed.hostname:
+        _username = parsed.username or ""
+        _project_ref = (
+            os.environ.get("SUPABASE_PROJECT_REF")
+            or "fktfhtygvwqlmoazmhdf"
+        )
+        if "." not in _username:
+            # Username is missing the project-ref suffix — auto-correct it.
+            _fixed_username = f"{_username}.{_project_ref}"
+            _password = parsed.password or ""
+            _new_netloc = f"{_fixed_username}:{_password}@{parsed.hostname}:{parsed.port}"
+            url = urlunparse(parsed._replace(netloc=_new_netloc))
+            logger.warning(
+                "DATABASE_URL username auto-corrected for Supabase pooler: "
+                "'%s' → '%s' (project-ref=%s). "
+                "Set DATABASE_URL correctly in Railway to avoid this warning.",
+                _username, _fixed_username, _project_ref,
+            )
+        elif not _username.endswith(f".{_project_ref}"):
+            # Username already has a dot but the suffix doesn't match our known ref.
+            # Log a warning — the operator may have set a different project ref intentionally,
+            # or the hardcoded ref may be stale.
+            logger.warning(
+                "DATABASE_URL username '%s' does not end with known project-ref '%s'. "
+                "If seeing 'Tenant or user not found', update DATABASE_URL or "
+                "SUPABASE_PROJECT_REF in Railway Variables.",
+                _username, _project_ref,
+            )
+        logger.info(
+            "Supabase pooler connection — host=%s username=%s",
+            parsed.hostname, parsed.username or _username,
+        )
     return url
 
 
@@ -71,8 +82,6 @@ def _get_engine():
         _database_url(),
         poolclass=NullPool,
         echo=False,
-        pool_pre_ping=True,
-        pool_recycle=300,
         connect_args={
             "connect_timeout": 10,
             "sslmode": os.environ.get("DB_SSLMODE", "require"),
