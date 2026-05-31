@@ -5,15 +5,16 @@
 import React, { useEffect, useState } from "react";
 import { fetchComplianceCoverage } from "../api/saro";
 
-export default function RegCoverage({ token, tenantId, window = "7d" }) {
+// GAP-009: accept vertical prop so dashboard vertical switcher filters this panel
+export default function RegCoverage({ token, tenantId, window = "7d", vertical = null }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
     if (!token || !tenantId) return;
-    fetchComplianceCoverage(token, tenantId, window)
+    fetchComplianceCoverage(token, tenantId, window, vertical)
       .then(setData)
       .catch(() => setData(null));
-  }, [token, tenantId, window]);
+  }, [token, tenantId, window, vertical]);
 
   if (!data?.frameworks) return <div style={{ color: "#9ca3af" }}>Loading coverage…</div>;
 

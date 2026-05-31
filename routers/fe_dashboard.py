@@ -28,6 +28,14 @@ _GATE_FRAMEWORK_MAP: dict[str, list[str]] = {
 
 _ALL_FRAMEWORKS = ["NIST AI RMF 1.0", "EU AI Act", "ISO 42001", "AIGP"]
 
+# GAP-006: namespace slugs required by S-203 spec response shape
+_FRAMEWORK_NAMESPACE: dict[str, str] = {
+    "NIST AI RMF 1.0": "nist_ai_rmf",
+    "EU AI Act":        "eu_ai_act",
+    "ISO 42001":        "iso_42001",
+    "AIGP":             "aigp",
+}
+
 _WINDOW_DAYS = {"7d": 7, "30d": 30, "90d": 90}
 
 
@@ -43,6 +51,8 @@ def _window_cutoff(window: str) -> datetime:
 )
 async def get_compliance_matrix(
     window: str = Query(default="7d", description="7d | 30d | 90d"),
+    tenant_id: str | None = Query(default=None),
+    vertical: str | None = Query(default=None, description="Filter by vertical: finance | healthcare | legal | government | …"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -51,28 +61,44 @@ async def get_compliance_matrix(
     # /api/v1/compliance_matrix (underscore) — saro.js has been updated accordingly.
     """
     Aggregate AuditTrace records into per-framework coverage percentages.
-    Returns { frameworks: [{name, rules_triggered, rules_total, coverage_pct}], computed_at }.
+    Returns { frameworks: [{name, namespace, rules_triggered, rules_total, coverage_pct}], window_days, computed_at }.
     """
     tid = current_user.tenant_id
     cutoff = _window_cutoff(window)
 
-    audit_ids = [
-        row[0]
-        for row in db.query(Audit.id)
+    # GAP-009: join AuditMetadata to support optional vertical filter
+    audit_query = (
+        db.query(Audit.id)
+        .outerjoin(AuditMetadata, AuditMetadata.audit_id == Audit.id)
         .filter(
             Audit.tenant_id == tid,
             Audit.status == "completed",
             Audit.created_at >= cutoff,
         )
-        .all()
-    ]
+    )
+    if vertical:
+        audit_query = audit_query.filter(AuditMetadata.vertical == vertical)
+
+    audit_ids = [row[0] for row in audit_query.all()]
+
+    window_days: int = _WINDOW_DAYS.get(window, 7)
 
     if not audit_ids:
-        empty_frameworks = [
-            {"name": fw, "rules_triggered": 0, "rules_total": 0, "coverage_pct": 0.0}
+        empty_frameworks: list[dict[str, Any]] = [
+            {
+                "name": fw,
+                "namespace": _FRAMEWORK_NAMESPACE.get(fw, fw.lower().replace(" ", "_")),
+                "rules_triggered": 0,
+                "rules_total": 0,
+                "coverage_pct": 0.0,
+            }
             for fw in _ALL_FRAMEWORKS
         ]
-        return {"frameworks": empty_frameworks, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
+        return {
+            "frameworks": empty_frameworks,
+            "window_days": window_days,
+            "computed_at": datetime.utcnow().isoformat(),
+        }
 
     traces = (
         db.query(AuditTrace)
@@ -105,7 +131,11 @@ async def get_compliance_matrix(
             "coverage_pct": pct,
         })
 
-    return {"frameworks": result, "computed_at": datetime.now(tz=timezone.utc).isoformat()}
+    return {
+        "frameworks": result,
+        "window_days": window_days,
+        "computed_at": datetime.utcnow().isoformat(),
+    }
 
 
 @router.get(
@@ -114,6 +144,8 @@ async def get_compliance_matrix(
     dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
 )
 async def get_risk_dashboard(
+    tenant_id: str | None = Query(default=None),
+    vertical: str | None = Query(default=None, description="Filter by vertical"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> dict[str, Any]:
@@ -123,14 +155,16 @@ async def get_risk_dashboard(
     """
     tid = current_user.tenant_id
 
-    rows = (
+    risk_query = (
         db.query(AuditMetadata.source_model, ScanReport.overall_risk_score)
         .select_from(Audit)
         .join(ScanReport, ScanReport.audit_id == Audit.id, isouter=True)
         .join(AuditMetadata, AuditMetadata.audit_id == Audit.id, isouter=True)
         .filter(Audit.tenant_id == tid, Audit.status == "completed")
-        .all()
     )
+    if vertical:
+        risk_query = risk_query.filter(AuditMetadata.vertical == vertical)
+    rows = risk_query.all()
 
     # Group by source_model
     vendor_scores: dict[str, list[float]] = {}

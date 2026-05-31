@@ -14,7 +14,8 @@ from textwrap import dedent
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -224,6 +225,7 @@ async def ingest_output(
         audit_id=audit_id,
         source_model=payload.source_model,
         ingestion_method="api",
+        vertical=payload.vertical,   # GAP-009: store vertical for dashboard filter
     )
     db.add(meta)
     db.commit()
@@ -310,90 +312,140 @@ async def get_audit_status(
     )
 
 
-@router.get(
-    "/sdk/snippet",
-    dependencies=[Depends(require_role("super_admin", "operator"))],
-    summary="Get SDK integration code snippet",
-    description="Returns a copy-paste Python code snippet for integrating SARO into your application.",
-)
-async def get_sdk_snippet(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, Any]:
-    """
-    Returns a Python code snippet for calling POST /api/v1/ingest
-    from an application. Includes the caller's tenant_id pre-filled.
-    """
-    base_url = _SARO_API_URL
-    tenant_id = str(current_user.tenant_id)
+def _build_python_snippet(base_url: str, tenant_id: str) -> str:
+    return dedent(f"""\
+        import os, time, requests
 
-    snippet = dedent(f"""\
-        import requests
-
-        import os
         SARO_API_URL = "{base_url}"
-        SARO_BEARER  = os.environ.get("SARO_TOKEN", "")  # export SARO_TOKEN=<jwt>
+        SARO_TOKEN   = os.environ["SARO_TOKEN"]   # JWT from POST /api/v1/auth/token
         TENANT_ID    = "{tenant_id}"
 
-        def audit_ai_output(prompt: str, raw_output: str, source_model: str = "unknown") -> dict:
-            \"\"\"Submit a single AI output to SARO for risk assessment.\"\"\"
-            response = requests.post(
+        def audit_ai_output(prompt, raw_output, source_model="unknown", vertical="general"):
+            resp = requests.post(
                 f"{{SARO_API_URL}}/api/v1/ingest",
-                headers={{
-                    "Authorization": f"Bearer {{SARO_BEARER}}",
-                    "Content-Type": "application/json",
-                }},
+                headers={{"Authorization": f"Bearer {{SARO_TOKEN}}", "Content-Type": "application/json"}},
                 json={{
                     "prompt": prompt,
                     "raw_output": raw_output,
                     "source_model": source_model,
                     "tenant_id": TENANT_ID,
-                    "vertical": "general",
+                    "vertical": vertical,
                 }},
+                timeout=10,
             )
-            response.raise_for_status()
-            return response.json()  # contains audit_id and trace_url
+            resp.raise_for_status()
+            return resp.json()  # {{audit_id, status, trace_url}}
 
-
-        def poll_audit_status(audit_id: str) -> dict:
-            \"\"\"Poll until the audit completes (status == 'completed' or 'failed').\"\"\"
-            import time
-            for _ in range(60):  # max 60 polls (~60 seconds)
+        def poll_audit(audit_id, max_polls=60):
+            for _ in range(max_polls):
                 r = requests.get(
-                    f"{{SARO_API_URL}}/api/v1/ingest/{{audit_id}}",
-                    headers={{"Authorization": f"Bearer {{SARO_BEARER}}"}},
+                    f"{{SARO_API_URL}}/api/v1/audits/{{audit_id}}",
+                    headers={{"Authorization": f"Bearer {{SARO_TOKEN}}"}},
                 )
                 r.raise_for_status()
                 data = r.json()
                 if data["status"] in ("completed", "failed"):
                     return data
                 time.sleep(1)
-            raise TimeoutError("Audit did not complete in time")
+            raise TimeoutError("Audit did not complete")
 
-
-        # Example usage:
-        result = audit_ai_output(
-            prompt="What is the recommended treatment for diabetes?",
-            raw_output="<your-model-output-here>",
-            source_model="claude",
-        )
-        print("Audit started:", result["audit_id"])
-        final = poll_audit_status(result["audit_id"])
+        result = audit_ai_output("What should I invest in?", "<model-output-here>", "claude")
+        print("Started:", result["audit_id"])
+        final = poll_audit(result["audit_id"])
         print("Risk score:", final.get("risk_score"))
-        print("Trace URL:", final["trace_url"])
     """)
 
-    return {
-        "language": "python",
-        "version": "1.0",
-        "description": (
-            "Python snippet for integrating SARO single-output ingestion. "
-            "Replace SARO_TOKEN with your JWT from POST /api/v1/auth/login."
-        ),
-        "snippet": snippet,
-        "tenant_id": tenant_id,
-        "endpoints": {
-            "ingest": f"{base_url}/api/v1/ingest",
-            "status": f"{base_url}/api/v1/audits/{{audit_id}}",
-            "trace": f"{base_url}/api/v1/audit/{{audit_id}}/trace",
-        },
+
+def _build_javascript_snippet(base_url: str, tenant_id: str) -> str:
+    return dedent(f"""\
+        const SARO_API_URL = "{base_url}";
+        const SARO_TOKEN   = process.env.SARO_TOKEN;   // JWT from POST /api/v1/auth/token
+        const TENANT_ID    = "{tenant_id}";
+
+        async function auditAiOutput(prompt, rawOutput, sourceModel = "unknown", vertical = "general") {{
+          const resp = await fetch(`${{SARO_API_URL}}/api/v1/ingest`, {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json", Authorization: `Bearer ${{SARO_TOKEN}}` }},
+            body: JSON.stringify({{ prompt, raw_output: rawOutput, source_model: sourceModel, tenant_id: TENANT_ID, vertical }}),
+          }});
+          if (!resp.ok) throw new Error(await resp.text());
+          return resp.json();  // {{ audit_id, status, trace_url }}
+        }}
+
+        async function pollAudit(auditId, maxPolls = 60) {{
+          for (let i = 0; i < maxPolls; i++) {{
+            const r = await fetch(`${{SARO_API_URL}}/api/v1/audits/${{auditId}}`, {{
+              headers: {{ Authorization: `Bearer ${{SARO_TOKEN}}` }},
+            }});
+            const data = await r.json();
+            if (["completed", "failed"].includes(data.status)) return data;
+            await new Promise(res => setTimeout(res, 1000));
+          }}
+          throw new Error("Audit did not complete");
+        }}
+
+        const started = await auditAiOutput("What should I invest in?", "<model-output-here>", "claude");
+        console.log("Started:", started.audit_id);
+        const final = await pollAudit(started.audit_id);
+        console.log("Risk score:", final.risk_score);
+    """)
+
+
+def _build_curl_snippet(base_url: str, tenant_id: str) -> str:
+    return dedent(f"""\
+        # Set your JWT (from POST /api/v1/auth/token):
+        #   export SARO_TOKEN=<paste-jwt>
+
+        # Submit an AI output for auditing (returns audit_id immediately)
+        curl -s -X POST "{base_url}/api/v1/ingest" \\
+          -H "Authorization: Bearer $SARO_TOKEN" \\
+          -H "Content-Type: application/json" \\
+          -d '{{
+            "prompt": "What should I invest in?",
+            "raw_output": "<model-output-here>",
+            "source_model": "claude",
+            "tenant_id": "{tenant_id}",
+            "vertical": "general"
+          }}' | jq .
+
+        # Poll for completion (replace <audit_id> with the id from above)
+        curl -s "{base_url}/api/v1/audits/<audit_id>" \\
+          -H "Authorization: Bearer $SARO_TOKEN" | jq '{{status, risk_score, trace_url}}'
+    """)
+
+
+@router.get(
+    "/sdk/snippet",
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="Get SDK integration code snippet",
+    description=(
+        "Returns a plain-text copy-paste snippet for integrating SARO. "
+        "Supported languages: `python` (default), `javascript`, `curl`. "
+        "Returns 400 for unsupported languages."
+    ),
+    response_class=PlainTextResponse,
+)
+def get_sdk_snippet(
+    current_user: Annotated[User, Depends(get_current_user)],
+    lang: str = Query(default="python", description="python | javascript | curl"),
+) -> PlainTextResponse:
+    """
+    Return a plain-text copy-paste SDK snippet pre-filled with the caller's
+    tenant_id. Supports python, javascript, and curl.
+    """
+    if lang not in ("python", "javascript", "curl"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported language '{lang}'. Valid values: python, javascript, curl.",
+        )
+
+    base_url = _SARO_API_URL
+    tenant_id = str(current_user.tenant_id)
+
+    builders = {
+        "python":     _build_python_snippet,
+        "javascript": _build_javascript_snippet,
+        "curl":       _build_curl_snippet,
     }
+    snippet = builders[lang](base_url, tenant_id)
+    return PlainTextResponse(snippet)

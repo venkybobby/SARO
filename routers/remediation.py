@@ -30,6 +30,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["remediation"])
 
+# GAP-016: map gate_name → regulation reference for remediation list items
+_GATE_REGULATION_REF: dict[str, str] = {
+    "Data Quality":       "NIST-AI-RMF-MAP-2.3",
+    "Fairness":           "EU-AI-ACT-ART-10",
+    "Risk Classification": "NIST-AI-RMF-MEASURE-2.5",
+    "Compliance Mapping": "ISO-42001-CL-9",
+}
+
 _SEVERITY_TO_EFFORT: dict[str, Literal["Low", "Medium", "High"]] = {
     "CRITICAL": "High",
     "HIGH": "High",
@@ -292,12 +300,23 @@ async def list_audit_traces(
         domain = (t.check_name or "").split(":")[0].strip() or t.check_type
         effort = _DOMAIN_TO_EFFORT.get(domain, "Medium")
         detail = t.detail_json or {}
+        # GAP-016: derive regulation_ref from gate_name; fall back to check_name for
+        # compliance_rule check types which already carry the framework ID
+        reg_ref: str | None = None
+        if t.check_type == "compliance_rule":
+            reg_ref = t.check_name
+        else:
+            for gate_substr, ref in _GATE_REGULATION_REF.items():
+                if gate_substr.lower() in (t.gate_name or "").lower():
+                    reg_ref = ref
+                    break
         return {
             "id": str(t.id),
             "check_name": t.check_name,
             "result": t.result,
             "reason": t.reason,
             "remediation_hint": t.remediation_hint,
+            "regulation_ref": reg_ref,
             "effort_estimate": effort,
             "is_remediated": t.is_remediated,
             "remediated_at": t.remediated_at.isoformat() if t.remediated_at else None,
@@ -444,6 +463,14 @@ async def list_open_traces(
     def _serialize(t: AuditTrace) -> dict:
         domain = (t.check_name or "").split(":")[0].strip() or t.check_type
         effort = _DOMAIN_TO_EFFORT.get(domain, "Medium")
+        reg_ref: str | None = None
+        if t.check_type == "compliance_rule":
+            reg_ref = t.check_name
+        else:
+            for gate_substr, ref in _GATE_REGULATION_REF.items():
+                if gate_substr.lower() in (t.gate_name or "").lower():
+                    reg_ref = ref
+                    break
         return {
             "id": str(t.id),
             "audit_id": str(t.audit_id),
@@ -452,6 +479,7 @@ async def list_open_traces(
             "result": t.result,
             "reason": t.reason,
             "remediation_hint": t.remediation_hint,
+            "regulation_ref": reg_ref,
             "effort_estimate": effort,
             "domain": domain,
             "created_at": t.created_at.isoformat() if t.created_at else None,
