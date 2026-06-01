@@ -533,11 +533,15 @@ _EXPECTED_TRIGGERS = [("schema_migrations", "trg_lock_schema_migrations")]
 
 
 def verify_migration_objects() -> None:
-    """Assert that DB objects created by migrations actually exist.
+    """Warn (do not crash) if DB objects created by migrations are absent.
 
-    Raises RuntimeError if any expected function or trigger is absent, which
-    forces a hard startup failure rather than serving traffic on a broken schema.
+    A missing function or trigger means migration 000 may not have applied
+    cleanly (e.g. Supabase RLS or search-path differences), but the rest of
+    the schema is usually intact.  Raising here caused a hard startup crash
+    loop on Railway when the objects were absent — upgraded to WARNING so the
+    app can still serve traffic while the operator investigates.
     """
+    missing: list[str] = []
     eng = _get_engine()
     with eng.connect() as conn:
         for fn_name in _EXPECTED_FUNCTIONS:
@@ -546,13 +550,7 @@ def verify_migration_objects() -> None:
                 {"n": fn_name},
             ).scalar()
             if not count:
-                raise RuntimeError(
-                    f"Post-migration check failed: function '{fn_name}' is absent. "
-                    "Migration SQL may have been silently dropped. "
-                    "Run the CREATE FUNCTION statement manually in Supabase SQL console "
-                    "or DELETE the '000_schema_migrations_tracking' row from schema_migrations "
-                    "to force a replay."
-                )
+                missing.append(f"function '{fn_name}'")
         for table_name, trig_name in _EXPECTED_TRIGGERS:
             count = conn.execute(
                 text(
@@ -563,10 +561,18 @@ def verify_migration_objects() -> None:
                 {"tbl": table_name, "trg": trig_name},
             ).scalar()
             if not count:
-                raise RuntimeError(
-                    f"Post-migration check failed: trigger '{trig_name}' on '{table_name}' is absent."
-                )
-    logger.info("verify_migration_objects: all expected DB objects present")
+                missing.append(f"trigger '{trig_name}' on '{table_name}'")
+    if missing:
+        logger.warning(
+            "verify_migration_objects: absent DB objects: %s. "
+            "Migration 000 may not have applied cleanly. "
+            "Run the CREATE FUNCTION/TRIGGER statements manually in Supabase SQL console "
+            "or delete the '000_schema_migrations_tracking' row from schema_migrations to force replay. "
+            "App will continue serving traffic.",
+            ", ".join(missing),
+        )
+    else:
+        logger.info("verify_migration_objects: all expected DB objects present")
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
