@@ -135,10 +135,25 @@ def get_db():
 
     The session is closed (and connection returned to the pool) after the
     request completes, whether it succeeded or raised an exception.
+
+    OperationalError (e.g. DB unreachable, bad credentials) is converted to
+    HTTPException(503) here so it is handled cleanly by FastAPI's exception
+    middleware rather than propagating as an unhandled ASGI exception through
+    BaseHTTPMiddleware (which bypasses app-level exception handlers and causes
+    uvicorn to emit a raw 503 with no JSON body).
     """
+    from fastapi import HTTPException
+    from sqlalchemy.exc import OperationalError
+
     db: Session = _get_session_factory()()
     try:
         yield db
+    except OperationalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable — please retry in a moment",
+        ) from exc
     finally:
         db.close()
 
