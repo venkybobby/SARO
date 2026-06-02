@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import SMEEngagement, ValidationGate
+from models import ValidationGate
 
 # The 7 gate item field names (FR-EVF-08)
 GATE_ITEMS = (

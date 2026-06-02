@@ -28,9 +28,8 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import EVFFramework, QCORegistry, QCOPublicationEvent
+from models import EVFFramework
 from services.evf_qco_service import (
-    QCOImmutableError,
     create_qco_draft,
     get_qco,
     get_qco_by_ref,

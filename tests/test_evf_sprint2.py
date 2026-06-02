@@ -33,7 +33,6 @@ import sys
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -55,33 +54,27 @@ PG_UUID.__init__ = _sqlite_uuid_init  # type: ignore[method-assign]
 PG_JSON.__init__ = lambda self, *a, **kw: sa_types.Text.__init__(self)  # type: ignore[method-assign]
 
 from database import Base
-import models  # noqa: registers all ORM models on Base.metadata
 from models import (
-    EVFFramework, SMEEngagementState,
     QCORegistry, QCOPublicationEvent,
 )
 Base.metadata.create_all(engine)
 
 from services.evf_engagement_service import create_engagement
-from services.evf_gate_service import GATE_ITEMS, update_gate, lock_gate, gate_is_locked
+from services.evf_gate_service import update_gate, lock_gate
 from services.evf_qco_service import (
     QCOImmutableError,
     create_qco_draft,
-    get_qco,
     get_qco_by_ref,
     list_qcos,
     publish_qco,
     renew_qco,
     update_qco_draft,
-    generate_reference_number,
     MAX_VALIDITY_DAYS,
 )
 from services.evf_publication_service import (
     record_publication_event,
     list_publication_events,
     verify_publication_chain,
-    compute_publication_hash,
-    get_publication_chain_head,
 )
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
