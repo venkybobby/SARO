@@ -681,6 +681,127 @@ class HFSampleStatus(py_enum.Enum):
     failed = "failed"
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# EVF — External SME Validation Framework (SARO-RISK-001)
+# Sprint 1: FR-EVF-05 (SME Engagement Tracking) + FR-EVF-08 (Validation Gate)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EVFFramework(py_enum.Enum):
+    EU_AI_ACT = "EU_AI_ACT"
+    NIST_AI_RMF = "NIST_AI_RMF"
+    AIGP = "AIGP"
+    ISO_42001 = "ISO_42001"
+
+
+class SMEEngagementState(py_enum.Enum):
+    SHORTLISTED = "SHORTLISTED"
+    COI_CLEARED = "COI_CLEARED"
+    SOW_ISSUED = "SOW_ISSUED"
+    REVIEW_IN_PROGRESS = "REVIEW_IN_PROGRESS"
+    DRAFT_QCO_RECEIVED = "DRAFT_QCO_RECEIVED"
+    QCO_APPROVED = "QCO_APPROVED"
+    PUBLISHED = "PUBLISHED"
+    RENEWAL_TRIGGERED = "RENEWAL_TRIGGERED"
+
+
+class SMEEngagement(Base):
+    """
+    One SME firm engagement per framework per validation cycle.
+
+    State machine: SHORTLISTED → COI_CLEARED → SOW_ISSUED →
+    REVIEW_IN_PROGRESS → DRAFT_QCO_RECEIVED → QCO_APPROVED →
+    PUBLISHED → RENEWAL_TRIGGERED
+    """
+    __tablename__ = "evf_sme_engagements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sme_firm_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sme_key_contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sme_credential: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # EVFFramework enum value stored as string
+    framework: Mapped[str] = mapped_column(String(50), nullable=False)
+    # SMEEngagementState enum value stored as string
+    state: Mapped[str] = mapped_column(String(50), nullable=False, default=SMEEngagementState.SHORTLISTED.value)
+    state_entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    transitions: Mapped[list["SMEEngagementTransition"]] = relationship(
+        back_populates="engagement", cascade="all, delete-orphan", order_by="SMEEngagementTransition.created_at"
+    )
+    gate: Mapped["ValidationGate | None"] = relationship(
+        back_populates="engagement", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class SMEEngagementTransition(Base):
+    """
+    Append-only hash-chained log of every state transition for an engagement.
+    Tamper-evident: each row's event_hash covers prev_hash + transition payload.
+    """
+    __tablename__ = "evf_engagement_transitions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    engagement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"), nullable=False
+    )
+    from_state: Mapped[str] = mapped_column(String(50), nullable=False)
+    to_state: Mapped[str] = mapped_column(String(50), nullable=False)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    engagement: Mapped["SMEEngagement"] = relationship(back_populates="transitions")
+
+
+class ValidationGate(Base):
+    """
+    7-item checklist that must be fully completed before any QCO can be
+    published for this engagement (FR-EVF-08). Locked once all items are true.
+    """
+    __tablename__ = "evf_validation_gates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    engagement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # Gate items — each becomes True when evidence is recorded
+    coi_declared_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    coi_evidence_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sow_executed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sow_evidence_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    evidence_package_delivered: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    evidence_package_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    product_demo_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    product_demo_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    draft_qco_received: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    draft_qco_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    saro_legal_review_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    legal_signoff_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    qco_approved_ref_assigned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    qco_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Locked when all 7 items are True — no further edits permitted
+    locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    engagement: Mapped["SMEEngagement"] = relationship(back_populates="gate")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 class HFSampleQueue(Base):
     """
     Queue of individual samples pulled from HuggingFace datasets.
