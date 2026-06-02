@@ -15,9 +15,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role, require_write_access
+from auth import get_current_user, require_role
 from database import get_db
-from models import DemoRequest, User
+from models import DemoRequest
 from schemas import DemoRequestIn, DemoRequestOut, DemoRequestStatusUpdateIn
 
 logger = logging.getLogger(__name__)

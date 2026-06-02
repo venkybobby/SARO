@@ -5,15 +5,16 @@
 import React, { useEffect, useState } from "react";
 import { fetchRiskDashboard } from "../api/saro";
 
-export default function EngineScores({ token, tenantId }) {
+// GAP-009: accept vertical prop so dashboard vertical switcher filters this panel
+export default function EngineScores({ token, tenantId, vertical = null }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
     if (!token || !tenantId) return;
-    fetchRiskDashboard(token, tenantId)
+    fetchRiskDashboard(token, tenantId, vertical)
       .then(setData)
       .catch(() => setData(null));
-  }, [token, tenantId]);
+  }, [token, tenantId, vertical]);
 
   if (!data) return <div style={{ color: "#9ca3af" }}>Loading engine scores…</div>;
 

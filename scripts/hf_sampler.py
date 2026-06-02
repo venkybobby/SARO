@@ -73,6 +73,13 @@ _VERTICAL_DATASETS: dict[str, dict] = {
         "output_col": "conversation",
         "source_model": "unknown",
     },
+    # GAP-002: "technology" vertical added to match CI workflow
+    "technology": {
+        "dataset": "allenai/WildChat-1M",
+        "prompt_col": "conversation",
+        "output_col": "conversation",
+        "source_model": "unknown",
+    },
 }
 
 _DEFAULT_PROMPT_COLS = ["prompt", "question", "input", "instruction", "text", "query"]
@@ -223,9 +230,17 @@ def main() -> None:
     )
     parser.add_argument(
         "--samples",
+        "--count",           # GAP-002: CI workflow uses --count; accept both
+        dest="samples",
         type=int,
         default=100,
         help="Maximum number of samples to pull (default: 100).",
+    )
+    # GAP-002: CI workflow passes --database-url; script otherwise reads DATABASE_URL env var
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="PostgreSQL connection string. Overrides DATABASE_URL env var when provided.",
     )
     parser.add_argument(
         "--split",
@@ -254,6 +269,10 @@ def main() -> None:
         help="Parse and validate samples without writing to the database.",
     )
     args = parser.parse_args()
+
+    # GAP-002: allow --database-url to override DATABASE_URL env var
+    if args.database_url:
+        os.environ["DATABASE_URL"] = args.database_url
 
     # Resolve dataset defaults from vertical
     vertical_cfg = _VERTICAL_DATASETS.get(args.vertical, {})

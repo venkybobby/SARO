@@ -162,9 +162,10 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
-    # Attach read_only claim from the JWT so require_write_access can inspect it.
-    # User is a SQLAlchemy mapped class; the dynamic attribute is intentional.
-    user.read_only = payload.get("read_only", False)  # type: ignore[attr-defined]
+    # GAP-004: propagate JWT-only claims onto the transient user object so
+    # downstream dependencies (e.g. require_write_access in demo router) can
+    # inspect them without touching the database.
+    user.read_only = bool(payload.get("read_only", False))  # type: ignore[attr-defined]
     return user
 
 

@@ -12,7 +12,8 @@ import MetricsRow    from "../components/MetricsRow";
 import RegCoverage   from "../components/RegCoverage";
 import EngineScores  from "../components/EngineScores";
 
-const VERTICALS = ["finance", "healthcare", "technology", "government"];
+// GAP-009: "technology" removed — not a valid backend vertical enum value
+const VERTICALS = ["finance", "healthcare", "legal", "government"];
 
 export default function Dashboard({ token, tenantId }) {
   const [vertical, setVertical]   = useState("finance");
@@ -88,11 +89,13 @@ export default function Dashboard({ token, tenantId }) {
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: 14, color: "#6b7280", marginBottom: 8 }}>REGULATION COVERAGE</h3>
-          <RegCoverage token={token} tenantId={tenantId} window={window} />
+          {/* GAP-009: pass vertical so switcher actually filters backend data */}
+          <RegCoverage token={token} tenantId={tenantId} window={window} vertical={vertical} />
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: 14, color: "#6b7280", marginBottom: 8 }}>ENGINE SCORES</h3>
-          <EngineScores token={token} tenantId={tenantId} />
+          {/* GAP-009: pass vertical so switcher actually filters backend data */}
+          <EngineScores token={token} tenantId={tenantId} vertical={vertical} />
         </div>
       </div>
     </div>
