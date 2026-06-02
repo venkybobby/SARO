@@ -65,6 +65,7 @@ from routers.hf_processor import router as hf_processor_router
 from routers.ingest import router as ingest_router
 from routers.fe_dashboard import router as fe_dashboard_router
 from routers.evf import router as evf_router
+from routers.evf_sprint2 import router as evf_sprint2_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -373,6 +374,7 @@ app.include_router(hf_processor_router)
 app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)
 app.include_router(evf_router)
+app.include_router(evf_sprint2_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
