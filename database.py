@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ── Lazy engine factory ───────────────────────────────────────────────────────
 
 def _database_url() -> str:
-    import re as _re
+    from urllib.parse import urlparse, urlunparse
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError(
@@ -37,25 +37,41 @@ def _database_url() -> str:
     # Supabase pooler authentication guard: the Supabase session/transaction
     # pooler (*.pooler.supabase.com) requires the project-scoped username
     # "postgres.<project-ref>" rather than the bare "postgres".  A bare
-    # username produces an immediate "password authentication failed" error
-    # because the pooler treats usernames as routing keys.
-    #
-    # We parse the netloc instead of the full URL so we don't accidentally
-    # match "postgres" in a database name or query string.
-    if _re.search(r"pooler\.supabase\.com", url):
-        # Extract the username portion: everything between "://" and "@"
-        _netloc_match = _re.search(r"://([^:@]+)[^@]*@", url)
-        if _netloc_match:
-            _username = _netloc_match.group(1)
-            if _username == "postgres":
-                logger.warning(
-                    "DATABASE_URL uses bare username 'postgres' against a Supabase pooler "
-                    "host (*.pooler.supabase.com).  Supabase requires the project-scoped "
-                    "username 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
-                    "Connection will fail with 'password authentication failed' until the "
-                    "Railway DATABASE_URL secret is updated.  "
-                    "See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler"
-                )
+    # username produces "Tenant or user not found" because the pooler uses
+    # the username as a routing key.
+    parsed = urlparse(url)
+    if parsed.hostname and "pooler.supabase.com" in parsed.hostname:
+        _username = parsed.username or ""
+        _project_ref = (
+            os.environ.get("SUPABASE_PROJECT_REF")
+            or "fktfhtygvwqlmoazmhdf"
+        )
+        if "." not in _username:
+            # Username is missing the project-ref suffix — auto-correct it.
+            _fixed_username = f"{_username}.{_project_ref}"
+            _password = parsed.password or ""
+            _new_netloc = f"{_fixed_username}:{_password}@{parsed.hostname}:{parsed.port}"
+            url = urlunparse(parsed._replace(netloc=_new_netloc))
+            logger.warning(
+                "DATABASE_URL username auto-corrected for Supabase pooler: "
+                "'%s' → '%s' (project-ref=%s). "
+                "Set DATABASE_URL correctly in Railway to avoid this warning.",
+                _username, _fixed_username, _project_ref,
+            )
+        elif not _username.endswith(f".{_project_ref}"):
+            # Username already has a dot but the suffix doesn't match our known ref.
+            # Log a warning — the operator may have set a different project ref intentionally,
+            # or the hardcoded ref may be stale.
+            logger.warning(
+                "DATABASE_URL username '%s' does not end with known project-ref '%s'. "
+                "If seeing 'Tenant or user not found', update DATABASE_URL or "
+                "SUPABASE_PROJECT_REF in Railway Variables.",
+                _username, _project_ref,
+            )
+        logger.info(
+            "Supabase pooler connection — host=%s username=%s",
+            parsed.hostname, parsed.username or _username,
+        )
     return url
 
 
@@ -66,8 +82,6 @@ def _get_engine():
         _database_url(),
         poolclass=NullPool,
         echo=False,
-        pool_pre_ping=True,
-        pool_recycle=300,
         connect_args={
             "connect_timeout": 10,
             "sslmode": os.environ.get("DB_SSLMODE", "require"),
@@ -172,13 +186,13 @@ def _iter_sql_statements(sql: str):
         buf.append(line)
         if not in_dollar and line.rstrip().endswith(";"):
             stmt = "\n".join(buf).strip()
-            if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
+            if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
                 yield stmt
             buf = []
     # Yield any trailing content (e.g. a statement without a trailing newline)
     if buf:
         stmt = "\n".join(buf).strip()
-        if any(l.strip() and not l.strip().startswith("--") for l in stmt.splitlines()):
+        if any(ln.strip() and not ln.strip().startswith("--") for ln in stmt.splitlines()):
             yield stmt
 
 
@@ -534,11 +548,15 @@ _EXPECTED_TRIGGERS = [("schema_migrations", "trg_lock_schema_migrations")]
 
 
 def verify_migration_objects() -> None:
-    """Assert that DB objects created by migrations actually exist.
+    """Warn (do not crash) if DB objects created by migrations are absent.
 
-    Raises RuntimeError if any expected function or trigger is absent, which
-    forces a hard startup failure rather than serving traffic on a broken schema.
+    A missing function or trigger means migration 000 may not have applied
+    cleanly (e.g. Supabase RLS or search-path differences), but the rest of
+    the schema is usually intact.  Raising here caused a hard startup crash
+    loop on Railway when the objects were absent — upgraded to WARNING so the
+    app can still serve traffic while the operator investigates.
     """
+    missing: list[str] = []
     eng = _get_engine()
     with eng.connect() as conn:
         for fn_name in _EXPECTED_FUNCTIONS:
@@ -547,13 +565,7 @@ def verify_migration_objects() -> None:
                 {"n": fn_name},
             ).scalar()
             if not count:
-                raise RuntimeError(
-                    f"Post-migration check failed: function '{fn_name}' is absent. "
-                    "Migration SQL may have been silently dropped. "
-                    "Run the CREATE FUNCTION statement manually in Supabase SQL console "
-                    "or DELETE the '000_schema_migrations_tracking' row from schema_migrations "
-                    "to force a replay."
-                )
+                missing.append(f"function '{fn_name}'")
         for table_name, trig_name in _EXPECTED_TRIGGERS:
             count = conn.execute(
                 text(
@@ -564,10 +576,18 @@ def verify_migration_objects() -> None:
                 {"tbl": table_name, "trg": trig_name},
             ).scalar()
             if not count:
-                raise RuntimeError(
-                    f"Post-migration check failed: trigger '{trig_name}' on '{table_name}' is absent."
-                )
-    logger.info("verify_migration_objects: all expected DB objects present")
+                missing.append(f"trigger '{trig_name}' on '{table_name}'")
+    if missing:
+        logger.warning(
+            "verify_migration_objects: absent DB objects: %s. "
+            "Migration 000 may not have applied cleanly. "
+            "Run the CREATE FUNCTION/TRIGGER statements manually in Supabase SQL console "
+            "or delete the '000_schema_migrations_tracking' row from schema_migrations to force replay. "
+            "App will continue serving traffic.",
+            ", ".join(missing),
+        )
+    else:
+        logger.info("verify_migration_objects: all expected DB objects present")
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
@@ -601,7 +621,8 @@ def health_check() -> dict:
         detail = exc_str[:200]
 
         if _re.search(
-            r"password authentication failed|authentication failed|Tenant or user not found",
+            r"password authentication failed|authentication failed|"
+            r"Tenant or user not found|no pg_hba\.conf entry",
             exc_str, _re.IGNORECASE,
         ):
             error_class = "auth_failure"

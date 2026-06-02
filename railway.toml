@@ -11,6 +11,7 @@ restartPolicyMaxRetries = 3
 [services.backend.deploy.environmentVariables]
 PYTHONPATH = "/app"
 PYTHONUNBUFFERED = "1"
+SUPABASE_PROJECT_REF = "fktfhtygvwqlmoazmhdf"
 
 [services.frontend.build]
 builder = "dockerfile"

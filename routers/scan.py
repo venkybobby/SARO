@@ -26,7 +26,7 @@ from schemas import (
     BatchIn,
     SARoDataBatchIn,
 )
-from services.hash_chain_service import LEGACY_SENTINEL, build_event_payload, compute_event_hash
+from services.hash_chain_service import LEGACY_SENTINEL, compute_event_hash
 from sqlalchemy import text as _sql_text
 
 logger = logging.getLogger(__name__)

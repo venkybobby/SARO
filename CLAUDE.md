@@ -5,9 +5,9 @@
 | What | Value |
 |---|---|
 | **Canonical GitHub repo** | **https://github.com/venkybobby/SARO** |
-| **Git remote name** | `saro` (maps to the URL above) |
+| **Git remote name** | `origin` (maps to the URL above) |
 | **All PRs must target** | `venkybobby/SARO` — **never** `venkybobby/saro-platform` |
-| **Push command** | `git push saro <branch>:main` |
+| **Push command** | `git push origin <branch>` |
 
 > `venkybobby/saro-platform` is a **mirror/legacy remote** — do NOT create PRs there.
 
@@ -98,7 +98,7 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 
 ## References
 
-- **GitHub repo:** https://github.com/venkybobby/SARO (remote name: `saro`) — always push/PR here
+- **GitHub repo:** https://github.com/venkybobby/SARO (remote name: `origin`) — always push/PR here
 - Compliance boundaries: @docs/COMPLIANCE_CLAIMS_MATRIX.md
 - API prefix: `/api/v1/`
 - Port: `$PORT` (Railway injects)
