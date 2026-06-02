@@ -205,6 +205,7 @@ class TestSSO:
         import inspect
         assert inspect.iscoroutinefunction(saml_acs)
 
+    @pytest.mark.asyncio
     async def test_unsigned_assertion_raises_400(self):
         """SPEC-F2 TR-03: unsigned assertion must return 400."""
         from routers.sso import saml_acs

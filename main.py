@@ -109,9 +109,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if _db_err == "auth_failure":
             logger.error(
                 "Database authentication failed at startup (error_class=auth_failure). "
-                "The DATABASE_URL secret likely uses a bare 'postgres' username against "
-                "a Supabase pooler host.  Update Railway → Variables → DATABASE_URL to "
-                "use 'postgres.<project-ref>' (e.g. postgres.fktfhtygvwqlmoazmhdf). "
+                "Supabase pooler 'Tenant or user not found' means the DATABASE_URL username "
+                "is wrong or missing the project-ref suffix. "
+                "Required format: postgres://<user>.<project-ref>:<password>@*.pooler.supabase.com:5432/<db>. "
+                "Update DATABASE_URL in Railway → Variables. "
                 "detail=%s", _db_detail,
             )
         else:
@@ -150,20 +151,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # 3b. Assert that DB objects created by migrations actually exist.
         #     Raises RuntimeError (→ hard startup fail) if any are absent.
         verify_migration_objects()
-        # 3c. Python backfill migration 009 (idempotent — backfills NULL event_hash rows).
-        #     Not a SQL file so not covered by apply_pending_migrations(); run via importlib.
-        try:
-            import importlib.util as _ilu
-            _spec = _ilu.spec_from_file_location(
-                "migration_009",
-                pathlib.Path(__file__).parent / "migrations" / "009_hash_chain_columns.py",
-            )
-            _mod = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
-            _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
-            _mod.upgrade()
-            logger.info("Migration 009 (hash chain backfill) applied")
-        except Exception as _exc:
-            logger.warning("Migration 009 backfill skipped (non-fatal): %s", _exc)
+        # 3c. Python migrations not covered by apply_pending_migrations() (no .sql file).
+        #     Run via importlib — each upgrade() must be idempotent.
+        for _py_migration in (
+            ("migration_008", "008_remediation_note.py", "remediation_note column"),
+            ("migration_009", "009_hash_chain_columns.py", "hash chain backfill"),
+        ):
+            _mig_name, _mig_file, _mig_desc = _py_migration
+            try:
+                import importlib.util as _ilu
+                _spec = _ilu.spec_from_file_location(
+                    _mig_name,
+                    pathlib.Path(__file__).parent / "migrations" / _mig_file,
+                )
+                _mod = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+                _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+                _mod.upgrade()
+                logger.info("Python migration %s (%s) applied", _mig_name, _mig_desc)
+            except Exception as _exc:
+                logger.warning("Python migration %s skipped (non-fatal): %s", _mig_name, _exc)
         # 4. Seed persona permissions (idempotent — skips existing rows)
         seed_persona_permissions()
         logger.info("Database schema synchronised")
@@ -283,6 +289,23 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         "error_class": type(exc).__name__,
     }
 
+    # DB connectivity failures must return 503, not 500, so clients and load
+    # balancers can distinguish a config/infra error from an application bug.
+    import re as _re
+    if _re.search(
+        r"Tenant or user not found|password authentication failed|"
+        r"could not connect to server|connection refused|connect timeout",
+        exc_str, _re.IGNORECASE,
+    ):
+        _slog.error("db_connection_error_on_request", exc_info=True, **log_fields)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Database unavailable — check DATABASE_URL in Railway Variables.",
+                "type": "db_connection_error",
+            },
+        )
+
     col_match = _UNDEFINED_COL_RE.search(exc_str)
     tbl_match = _UNDEFINED_TABLE_RE.search(exc_str)
 
@@ -399,11 +422,17 @@ def health() -> JSONResponse:
                         _t("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1")
                     ).fetchone()
                     schema_version = row[0] if row else None
-                    schema_ok = schema_version == highest_on_disk
+                    # schema_ok=None (unknown) when schema_migrations is empty —
+                    # migrations may still be running on first boot.  Only flag
+                    # mismatch when we have a concrete version that differs.
+                    if schema_version is None:
+                        schema_ok = None
+                    else:
+                        schema_ok = schema_version == highest_on_disk
                 except Exception:
                     # schema_migrations table not yet created (first boot before migrations run)
                     schema_version = None
-                    schema_ok = False
+                    schema_ok = None
             finally:
                 db.close()
         except Exception:
@@ -418,7 +447,12 @@ def health() -> JSONResponse:
         http_status = 200 if db_error == "auth_failure" else 503
         status = "degraded"
     elif schema_ok is False:
+        # Only hard-503 when we have a definite mismatch (known version ≠ highest on disk).
+        # schema_ok=None means migrations haven't recorded yet — return degraded/200 so
+        # Railway doesn't restart-loop during the first-boot migration window.
         status, http_status = "schema_mismatch", 503
+    elif schema_ok is None and db_ok:
+        status, http_status = "degraded", 200
     else:
         status, http_status = "ok", 200
 

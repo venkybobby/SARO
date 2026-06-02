@@ -54,11 +54,14 @@ jobs:
 
       - name: Trigger processor
         env:
-          SARO_URL:            https://saro-platform.fly.dev
+          # GAP-003: app is on Railway, not Fly.io; use SARO_RAILWAY_URL secret
+          # (falls back to the Railway production URL if secret not set)
+          SARO_URL:            ${{ secrets.SARO_RAILWAY_URL || 'https://saro-production-2993.up.railway.app' }}
           SARO_BEARER:         ${{ secrets.SARO_PROCESSOR_TOKEN }}
           SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
         run: |
-          curl -X POST \
+          # GAP-003: correct path is /api/v1/hf/process (not /api/v1/hf-processor/run)
+          curl -f -X POST \
             "$SARO_URL/api/v1/hf/process?tenant_id=$SARO_DEMO_TENANT_ID" \
             -H "Authorization: Bearer $SARO_BEARER" \
             -w "\nHTTP %{http_code}\n"

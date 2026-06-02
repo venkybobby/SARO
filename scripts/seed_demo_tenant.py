@@ -274,7 +274,7 @@ def verify_dashboard(saro_url: str, token: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="SARO Demo Tenant Seed Script")
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
-    parser.add_argument("--saro-url", default="https://saro-platform.fly.dev")
+    parser.add_argument("--saro-url", default="https://saro-production-2993.up.railway.app")
     args = parser.parse_args()
 
     if not args.database_url:

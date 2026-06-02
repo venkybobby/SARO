@@ -26,15 +26,19 @@ export async function fetchRecentAudits(token, tenantId, limit = 20) {
   return r.json();
 }
 
-export async function fetchComplianceCoverage(token, tenantId, window = "7d") {
-  const url = `${SARO_API_URL}/api/v1/compliance_matrix?window=${window}`;
+// GAP-009: vertical param wires the dashboard vertical switcher to backend filter
+export async function fetchComplianceCoverage(token, tenantId, window = "7d", vertical = null) {
+  let url = `${SARO_API_URL}/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=${window}`;
+  if (vertical) url += `&vertical=${encodeURIComponent(vertical)}`;
   const r = await fetch(url, { headers: authHeaders(token) });
   if (!r.ok) throw new Error(`Coverage API ${r.status}`);
   return r.json();
 }
 
-export async function fetchRiskDashboard(token, tenantId) {
-  const url = `${SARO_API_URL}/api/v1/risk_dashboard?tenant_id=${tenantId}`;
+// GAP-009: vertical param wires the dashboard vertical switcher to backend filter
+export async function fetchRiskDashboard(token, tenantId, vertical = null) {
+  let url = `${SARO_API_URL}/api/v1/risk_dashboard?tenant_id=${tenantId}`;
+  if (vertical) url += `&vertical=${encodeURIComponent(vertical)}`;
   const r = await fetch(url, { headers: authHeaders(token) });
   if (!r.ok) throw new Error(`Risk dashboard API ${r.status}`);
   return r.json();
