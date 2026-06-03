@@ -9,9 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Copy the local saro-data-framework package so the ./saro-data-framework
-# path in requirements.txt resolves correctly during the Docker build.
-COPY saro-data-framework/ ./saro-data-framework/
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir --prefix=/install \
     -r requirements.txt \
@@ -33,6 +30,11 @@ COPY --from=builder /install /usr/local
 
 # Copy application source
 COPY . /app
+
+# Install saro-data-framework from the local subdirectory now that /app exists.
+# This is done in Stage 2 (not Stage 1 builder) because the local path
+# ./saro-data-framework cannot be resolved in Stage 1's restricted context.
+RUN pip install --no-cache-dir /app/saro-data-framework
 
 ENV PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \

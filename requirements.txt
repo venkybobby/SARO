@@ -32,7 +32,8 @@ weasyprint>=62.0
 datasets>=2.18.0
 huggingface-hub>=0.22.0
 # SARO Data Framework — offline evaluation batch jobs
-# Installed as a local editable package from the subdirectory.
-# On Railway the Dockerfile/Nixpacks build installs this automatically.
-./saro-data-framework
+# NOTE: saro-data-framework is a local package installed separately in
+# the Dockerfile Stage 2 (after COPY . /app) to avoid path resolution
+# issues in multi-stage Docker builds. See Dockerfile for the RUN step.
+# For local dev: pip install -e ./saro-data-framework
 python-dateutil>=2.8.0
