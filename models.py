@@ -959,3 +959,39 @@ class HFSampleQueue(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO Data Framework — Evaluation Run tracking
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EvaluationRun(Base):
+    """
+    Tracks every execution of the saro-data-framework TestRunner.
+
+    Status values: running | completed | partial | failed
+    Triggered by:  api | schedule | ci | manual
+    """
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    triggered_by: Mapped[str] = mapped_column(String(50), nullable=False, default="api")
+    triggered_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    datasets_requested: Mapped[str] = mapped_column(Text, nullable=False, default="all")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="running")
+    datasets_attempted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_passed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_skipped: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_samples_uploaded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    overall_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    elapsed_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    run_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    api_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
