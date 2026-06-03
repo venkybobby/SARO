@@ -270,7 +270,7 @@ def remediate_trace(
     db.commit()
     db.refresh(trace)
     logger.info(
-        "Trace %s (audit=%s, gate=%d, check=%s) marked remediated by %s",
+        "Trace %s (audit=%s, gate=%s, check=%s) marked remediated by %s",
         trace_id, audit_id, trace.gate_id, trace.check_name, current_user.email,
     )
     return AuditTraceOut.model_validate(trace)

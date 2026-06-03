@@ -359,16 +359,31 @@ def get_enhanced_trace(
     audit = db.get(Audit, audit_id)
     if not audit or audit.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Audit not found")
-    if audit.status != "completed":
+
+    # Allow "completed" and "failed" — failed audits may have partial trace data
+    # from before any mid-run crash (e.g. the gate_id NOT NULL bug in earlier
+    # deployments). Only block genuinely non-started audits (pending / running
+    # with zero trace records).
+    if audit.status not in ("completed", "failed"):
         raise HTTPException(
             status_code=400,
-            detail=f"Audit is {audit.status} — trace available only for completed audits.",
+            detail=f"Audit is {audit.status} — trace available only after the audit finishes.",
         )
 
     # Return cached enhanced trace if it exists
     existing = db.query(EnhancedTrace).filter(EnhancedTrace.audit_id == audit_id).first()
     if existing:
         return EnhancedTraceOut.model_validate(existing)
+
+    # For "failed" audits: if there are no traces AND no report, return a
+    # clear 404 rather than crashing during synthesis.
+    has_traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_id).first()
+    has_report = db.query(ScanReport).filter(ScanReport.audit_id == audit_id).first()
+    if not has_traces and not has_report:
+        raise HTTPException(
+            status_code=404,
+            detail="No trace data available for this audit. It may have failed before generating any output.",
+        )
 
     # Synthesise from AuditTrace + ScanReport (first access)
     traces = (
