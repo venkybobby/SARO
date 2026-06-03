@@ -243,7 +243,7 @@ class SARoDataBatchIn(BaseModel):
 
 
 class GateResultOut(BaseModel):
-    gate_id: int
+    gate_id: int | None  # None for post-gate summary rows (Explain, Remediate)
     name: str
     status: Literal["pass", "warn", "fail"]
     score: float = Field(..., ge=0.0, le=1.0)
@@ -402,7 +402,7 @@ class AuditTraceOut(BaseModel):
     """One trace record capturing a single check result during an audit."""
     id: uuid.UUID
     audit_id: uuid.UUID
-    gate_id: int
+    gate_id: int | None  # None for post-gate summary rows (Explain, Remediate)
     gate_name: str
     check_type: str
     check_name: str

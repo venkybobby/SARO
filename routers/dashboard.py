@@ -46,12 +46,15 @@ def _risk_color(score: float | None) -> str | None:
 
 def _synthesize_cot(traces: list[AuditTrace]) -> dict[str, Any]:
     """Build chain-of-thought JSON from existing AuditTrace records."""
-    by_gate: dict[int, list[AuditTrace]] = defaultdict(list)
+    by_gate: dict[int | None, list[AuditTrace]] = defaultdict(list)
     for t in traces:
         by_gate[t.gate_id].append(t)
 
+    # Sort gate buckets: real gates (1-4) first, None-keyed summary rows last
     steps = []
-    for gate_id in sorted(by_gate.keys()):
+    sorted_keys = sorted((k for k in by_gate if k is not None)) + \
+                  ([None] if None in by_gate else [])
+    for gate_id in sorted_keys:
         gate_traces = by_gate[gate_id]
         gate_name = gate_traces[0].gate_name
 
@@ -118,7 +121,7 @@ def _generate_executive_summary(report: ScanReport, traces: list[AuditTrace]) ->
 
     summary = (
         f"RISK ASSESSMENT: {risk_level} (Score {risk_score:.1f}/100)\n\n"
-        f"This audit evaluated {len(traces)} checks across {len(set(t.gate_id for t in traces))} gates. "
+        f"This audit evaluated {len(traces)} checks across {len(set(t.gate_id for t in traces if t.gate_id is not None))} gates. "
         f"MIT AI Risk coverage stands at {mit_cov:.1f}% of assessed domains. "
         f"The fixed-delta is {delta:+.3f} ({delta_dir}): {delta_note} "
         f"Model confidence is {conf:.1%}.\n\n"
@@ -126,13 +129,13 @@ def _generate_executive_summary(report: ScanReport, traces: list[AuditTrace]) ->
         f"{remediated} remediated, {pending} pending resolution.\n\n"
     )
 
-    # Gate outcomes
-    by_gate: dict[int, list[AuditTrace]] = defaultdict(list)
+    # Gate outcomes (exclude None-keyed summary rows like Explain / Remediate)
+    by_gate: dict[int | None, list[AuditTrace]] = defaultdict(list)
     for t in traces:
         by_gate[t.gate_id].append(t)
 
     summary += "GATE OUTCOMES:\n"
-    for gate_id in sorted(by_gate.keys()):
+    for gate_id in sorted(k for k in by_gate if k is not None):
         gate_traces = by_gate[gate_id]
         gate_name = gate_traces[0].gate_name
         gate_failed = sum(1 for t in gate_traces if t.result in _FAILED_RESULTS)
