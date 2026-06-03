@@ -250,12 +250,12 @@ async def run_daily_expiry_scan() -> None:
     """
     import asyncio
 
-    from database import SessionLocal
+    from database import _get_session_factory
 
     logger.info("EVF daily expiry scan task started")
     while True:
         try:
-            db = SessionLocal()
+            db = _get_session_factory()()
             try:
                 result = scan_qco_expiry(db)
                 logger.info("EVF daily expiry scan result: %s", result)
