@@ -66,6 +66,7 @@ from routers.ingest import router as ingest_router
 from routers.fe_dashboard import router as fe_dashboard_router
 from routers.evf import router as evf_router
 from routers.evf_sprint2 import router as evf_sprint2_router
+from routers.evf_sprint3 import router as evf_sprint3_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -204,7 +205,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("Demo data seeding failed (non-fatal — continuing startup)")
 
+    # Start EVF daily expiry scan background task (FR-EVF-13)
+    import asyncio
+    from services.evf_expiry_service import run_daily_expiry_scan
+    _evf_expiry_task = asyncio.create_task(run_daily_expiry_scan())
+    logger.info("EVF daily QCO expiry scan background task started")
+
     yield
+
+    # Cancel background task on shutdown
+    _evf_expiry_task.cancel()
+    try:
+        await _evf_expiry_task
+    except asyncio.CancelledError:
+        pass
 
     engine.dispose()
     logger.info("SARO shut down cleanly")
@@ -375,6 +389,7 @@ app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)
 app.include_router(evf_router)
 app.include_router(evf_sprint2_router)
+app.include_router(evf_sprint3_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
