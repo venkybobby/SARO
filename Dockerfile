@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# Copy the local saro-data-framework package so the ./saro-data-framework
+# path in requirements.txt resolves correctly during the Docker build.
+COPY saro-data-framework/ ./saro-data-framework/
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir --prefix=/install \
     -r requirements.txt \
