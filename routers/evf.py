@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import SMEEngagementState, EVFFramework, SMEEngagement, SMEEngagementTransition, ValidationGate
+from models import SMEEngagementState, EVFFramework, ValidationGate
 from services.evf_engagement_service import (
     create_engagement,
     get_engagement,

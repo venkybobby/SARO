@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import enum as py_enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
@@ -799,6 +799,97 @@ class ValidationGate(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     engagement: Mapped["SMEEngagement"] = relationship(back_populates="gate")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EVF Sprint 2: FR-EVF-10 (QCO Registry) + FR-EVF-20/21 (Publication Audit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class QCORegistry(Base):
+    """
+    Immutable QCO registry. Records become immutable once published=True.
+    Immutability is enforced at the application layer (evf_qco_service.py).
+
+    Hash chain: each published record carries prev_hash + record_hash covering
+    all immutable fields so tampering with any published entry breaks the chain.
+    FR-EVF-10 | SARO-RISK-001
+    """
+    __tablename__ = "evf_qco_registry"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Format: SARO-QCO-{FRAMEWORK}-{YYYY}-{SEQ:03d}
+    qco_reference_number: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # EVFFramework enum value stored as string
+    framework_covered: Mapped[str] = mapped_column(String(50), nullable=False)
+    saro_version_assessed: Mapped[str] = mapped_column(String(50), nullable=False)
+    sme_firm: Mapped[str] = mapped_column(String(255), nullable=False)
+    sme_credential: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Set at publish time (FR-EVF-13: expiry_date <= issue_date + 365 days)
+    issue_date: Mapped[date | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    expiry_date: Mapped[date | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    scope_boundary_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Access-controlled signed URL; SHA-256 of the document for integrity
+    document_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    engagement_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="SET NULL"), nullable=True
+    )
+    # Publication state — once True, record is immutable
+    published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Hash chain (populated at publish time)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    record_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Renewal links
+    renews_qco_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+    )
+    superseded_by_qco_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class QCOPublicationEvent(Base):
+    """
+    Append-only hash-chained log of every external compliance claim publication.
+    Immutability enforced by DB trigger (migration 012).
+
+    Five required fields per AC-21a:
+      timestamp, artefact_identifier, qco_reference_number,
+      publisher_user_id, distribution_channel
+
+    FR-EVF-20, FR-EVF-21 | SARO-RISK-001
+    """
+    __tablename__ = "evf_publication_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Required field 1: server-set UTC timestamp
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Required field 2: identifies the artefact that triggered the publication
+    artefact_identifier: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Required field 3: soft FK to QCORegistry (string ref for resilience)
+    qco_reference_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Required field 4: identity of the user who triggered publication
+    publisher_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Required field 5: channel through which the claim was published
+    # Allowed: API | REPORT_PDF | DASHBOARD | SALES_DECK | WEBSITE | PARTNER_PORTAL
+    distribution_channel: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Hash chain
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Idempotency key — deduplication for retries
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

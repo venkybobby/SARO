@@ -14,13 +14,9 @@ Covers:
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -48,17 +44,14 @@ PG_JSON.__init__ = lambda self, *a, **kw: sa_types.Text.__init__(self)  # type: 
 
 from database import Base
 
-import models  # noqa: E402 — must be after engine patching; registers all ORM classes onto Base.metadata
 from models import (
     EVFFramework, SMEEngagementState, SMEEngagement,
-    SMEEngagementTransition, ValidationGate,
 )
 Base.metadata.create_all(engine)  # create tables after all models are registered
 
 from services.evf_engagement_service import (
-    create_engagement, get_engagement, list_engagements,
-    list_transitions, transition_engagement,
-    _allowed_transitions, _compute_transition_hash, _build_transition_payload,
+    create_engagement, list_transitions, transition_engagement,
+    _allowed_transitions, _compute_transition_hash,
 )
 from services.evf_gate_service import (
     GATE_ITEMS, get_gate, update_gate, lock_gate, gate_is_locked,
@@ -97,7 +90,6 @@ def _make_engagement(db, framework: str = "EU_AI_ACT") -> SMEEngagement:
 
 class TestAllowedTransitions:
     def test_forward_chain_is_complete(self):
-        states = list(SMEEngagementState)
         forward_states = [
             SMEEngagementState.SHORTLISTED,
             SMEEngagementState.COI_CLEARED,
@@ -248,7 +240,7 @@ class TestTransitionHashChain:
         transition_engagement(db, eng.id, to_state="COI_CLEARED", actor_user_id=ACTOR)
         transitions = list_transitions(db, eng.id)
         # Simulate tampering: recompute second hash with a modified prev_hash
-        t1, t2 = transitions[0], transitions[1]
+        _t1, t2 = transitions[0], transitions[1]
         tampered_prev = "0" * 64
         payload = {
             "id": str(t2.id),
