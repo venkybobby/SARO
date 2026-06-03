@@ -119,18 +119,27 @@ class TestEvaluationRunModel:
 # ── Ingest endpoint logic ─────────────────────────────────────────────────────
 
 class TestIngestPayload:
-    def _payload(self, **kwargs: object) -> IngestPayload:
+    def _payload(  # type: ignore[override]
+        self,
+        overall_passed: bool = True,
+        datasets_passed: int = 4,
+        datasets_failed: int = 0,
+        datasets_attempted: int = 5,
+        datasets_skipped: int = 1,
+        total_samples_uploaded: int = 800,
+        elapsed_seconds: float = 120.5,
+    ) -> IngestPayload:
         return IngestPayload(
-            run_at=str(kwargs.get("run_at", "2026-06-03T02:00:00+00:00")),
-            api_url=str(kwargs.get("api_url", "https://saro.railway.app")),
-            overall_passed=bool(kwargs.get("overall_passed", True)),
-            elapsed_seconds=float(kwargs.get("elapsed_seconds", 120.5)),
-            datasets_attempted=int(kwargs.get("datasets_attempted", 5)),
-            datasets_passed=int(kwargs.get("datasets_passed", 4)),
-            datasets_failed=int(kwargs.get("datasets_failed", 0)),
-            datasets_skipped=int(kwargs.get("datasets_skipped", 1)),
-            total_samples_uploaded=int(kwargs.get("total_samples_uploaded", 800)),
-            results=list(kwargs.get("results", [])),  # type: ignore[arg-type]
+            run_at="2026-06-03T02:00:00+00:00",
+            api_url="https://saro.railway.app",
+            overall_passed=overall_passed,
+            elapsed_seconds=elapsed_seconds,
+            datasets_attempted=datasets_attempted,
+            datasets_passed=datasets_passed,
+            datasets_failed=datasets_failed,
+            datasets_skipped=datasets_skipped,
+            total_samples_uploaded=total_samples_uploaded,
+            results=[],
         )
 
     def test_ingest_creates_evaluation_run(self):
