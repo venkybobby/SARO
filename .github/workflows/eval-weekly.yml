@@ -47,7 +47,7 @@ jobs:
       # ── Run evaluations ───────────────────────────────────────────────────────
       - name: Run evaluations (convert + upload + validate)
         env:
-          SARO_URL:            ${{ secrets.SARO_RAILWAY_URL || 'https://saro-production-2993.up.railway.app' }}
+          SARO_URL:            ${{ secrets.SARO_RAILWAY_URL || 'https://saro-production.up.railway.app' }}
           SARO_BEARER:         ${{ secrets.SARO_PROCESSOR_TOKEN }}
           HF_TOKEN:            ${{ secrets.HF_TOKEN }}
           MAX_SAMPLES:         ${{ github.event.inputs.max_samples || '200' }}
@@ -56,6 +56,7 @@ jobs:
             ${{ steps.datasets.outputs.args }} \
             --api-url "$SARO_URL" \
             --token "$SARO_BEARER" \
+            --hf-token "$HF_TOKEN" \
             --max-samples "$MAX_SAMPLES" \
             --output ./eval-output \
           && echo "EVAL_STATUS=pass" >> "$GITHUB_ENV" \
