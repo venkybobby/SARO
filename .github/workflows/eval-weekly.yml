@@ -1,0 +1,107 @@
+name: SARO Data Framework — Weekly Evaluation
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"   # Monday 02:00 UTC every week
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+    inputs:
+      datasets:
+        description: "Comma-separated dataset names (leave blank for all)"
+        required: false
+        default: ""
+      max_samples:
+        description: "Max samples per dataset (50–2000)"
+        required: false
+        default: "200"
+
+jobs:
+  evaluate:
+    name: Run SARO Data Framework evaluations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install saro-data-framework
+        run: pip install ./saro-data-framework
+
+      # ── Parse optional dataset override ──────────────────────────────────────
+      - name: Set datasets variable
+        id: datasets
+        run: |
+          DATASETS="${{ github.event.inputs.datasets }}"
+          if [ -z "$DATASETS" ]; then
+            echo "args=--all" >> "$GITHUB_OUTPUT"
+          else
+            # Convert comma-separated list to --datasets arg format
+            echo "args=--datasets $(echo $DATASETS | tr ',' ' ')" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Run evaluations ───────────────────────────────────────────────────────
+      - name: Run evaluations (convert + upload + validate)
+        env:
+          SARO_URL:            ${{ secrets.SARO_RAILWAY_URL || 'https://saro-production-2993.up.railway.app' }}
+          SARO_BEARER:         ${{ secrets.SARO_PROCESSOR_TOKEN }}
+          HF_TOKEN:            ${{ secrets.HF_TOKEN }}
+          MAX_SAMPLES:         ${{ github.event.inputs.max_samples || '200' }}
+        run: |
+          saro-data run \
+            ${{ steps.datasets.outputs.args }} \
+            --api-url "$SARO_URL" \
+            --token "$SARO_BEARER" \
+            --max-samples "$MAX_SAMPLES" \
+            --output ./eval-output \
+          && echo "EVAL_STATUS=pass" >> "$GITHUB_ENV" \
+          || echo "EVAL_STATUS=fail" >> "$GITHUB_ENV"
+
+      # ── Record run in SARO database ───────────────────────────────────────────
+      - name: POST run summary to SARO evaluations API
+        if: always()
+        env:
+          SARO_URL:    ${{ secrets.SARO_RAILWAY_URL || 'https://saro-production-2993.up.railway.app' }}
+          SARO_BEARER: ${{ secrets.SARO_PROCESSOR_TOKEN }}
+        run: |
+          if [ -f ./eval-output/run_report.json ]; then
+            REPORT=$(cat ./eval-output/run_report.json)
+            # Inject trigger metadata and POST to the evaluations ingest endpoint
+            PAYLOAD=$(python3 - <<'EOF'
+          import json, os, sys
+          report = json.loads(os.environ.get("REPORT", "{}"))
+          report["triggered_by"] = "ci"
+          report["workflow_run_url"] = os.environ.get("GITHUB_SERVER_URL", "") + \
+              "/" + os.environ.get("GITHUB_REPOSITORY", "") + \
+              "/actions/runs/" + os.environ.get("GITHUB_RUN_ID", "")
+          print(json.dumps(report))
+          EOF
+            )
+            curl -f -s -X POST \
+              "$SARO_URL/api/v1/evaluations/ingest" \
+              -H "Authorization: Bearer $SARO_BEARER" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              -w "\nHTTP %{http_code}\n" \
+            || echo "Warning: ingest POST failed — run still recorded locally"
+          else
+            echo "No run_report.json found — evaluation did not complete"
+          fi
+
+      # ── Upload report as artifact ─────────────────────────────────────────────
+      - name: Upload eval report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: eval-output/
+          retention-days: 30
+
+      # ── Fail the workflow if evaluations failed ───────────────────────────────
+      - name: Assert all evaluations passed
+        if: env.EVAL_STATUS == 'fail'
+        run: |
+          echo "One or more dataset evaluations failed. See run_report.json artifact."
+          exit 1

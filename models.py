@@ -959,3 +959,55 @@ class HFSampleQueue(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SARO Data Framework — Evaluation Run tracking
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EvaluationRun(Base):
+    """
+    Tracks every execution of the saro-data-framework TestRunner.
+
+    Each row represents one complete run (all datasets or a subset).
+    The full RunSummary JSON is stored in run_summary_json for detailed
+    per-dataset and per-rule inspection via the evaluations API.
+
+    Status values:
+      running   — background task in progress
+      completed — all non-skipped datasets passed
+      partial   — some datasets failed; others passed
+      failed    — run could not be completed (API unreachable, etc.)
+    """
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # How the run was triggered
+    triggered_by: Mapped[str] = mapped_column(String(50), nullable=False, default="api")
+    # Null for scheduled/CI runs; set for user-initiated API triggers
+    triggered_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Comma-separated list of dataset names included in this run ("all" = all enabled)
+    datasets_requested: Mapped[str] = mapped_column(Text, nullable=False, default="all")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # running | completed | partial | failed
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="running")
+    # Aggregate counts from RunSummary
+    datasets_attempted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_passed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_skipped: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    datasets_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_samples_uploaded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    overall_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    elapsed_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Full RunSummary.as_dict() serialised as JSON text for cross-DB compatibility.
+    # Use EvaluationRun.get_summary() / set_summary() helpers to parse/write.
+    run_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SARO API URL the run was targeting
+    api_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    # Set if the run itself errored (not individual dataset failures)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
