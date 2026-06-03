@@ -893,6 +893,41 @@ class QCOPublicationEvent(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# EVF Sprint 3: FR-EVF-13 (QCO Expiry Notifications)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class QCOExpiryNotification(Base):
+    """
+    Idempotent log of every QCO expiry notification dispatched.
+    One row per (qco_id, notification_type, expiry_date) — never duplicated.
+
+    Notification types:
+      T_MINUS_60  — renewal trigger at 60-day warning
+      T_MINUS_30  — 30-day reminder
+      T_MINUS_7   — 7-day reminder
+      EXPIRED     — QCO expired, validation reverted to Tier 2
+      SALES_NOTIFY — 24h Sales alert (AC-13c)
+
+    FR-EVF-13 | SARO-RISK-001
+    """
+    __tablename__ = "evf_expiry_notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    qco_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+    )
+    qco_reference_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    framework: Mapped[str] = mapped_column(String(50), nullable=False)
+    # T_MINUS_60 | T_MINUS_30 | T_MINUS_7 | EXPIRED | SALES_NOTIFY
+    notification_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    expires_in_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Idempotency key: "{qco_id}:{notification_type}:{reference_date}"
+    idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 class HFSampleQueue(Base):
     """
     Queue of individual samples pulled from HuggingFace datasets.
