@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models import Audit, User
+from services.evf_validation_status_service import get_all_framework_statuses
 from services.persona_service import persona_required
 
 router = APIRouter(prefix="/api/v1/compliance", tags=["compliance-hub"])
@@ -100,9 +101,23 @@ def get_compliance_hub(
         .all()
     )
 
+    # FR-EVF-11: stamp live EVF validation tier alongside claims_status so the
+    # hub never shows a compliance RAG colour without the corresponding tier label.
+    evf_statuses = get_all_framework_statuses(db)
+
     return {
         "recent_audits": _recent_audit_summaries(recent_audits),
         "claims_status": _claims_status(recent_audits),
         "governance_links": _GOVERNANCE_LINKS,
         "readiness_checklist": _readiness_checklist(recent_audits),
+        # EVF validation tier per framework — Tier 1/2/3 per FR-EVF-16
+        "evf_validation_status": {
+            s["framework"]: {
+                "tier":          s["tier"],
+                "label":         s["label"],
+                "qco_reference": s["qco_reference"],
+                "expires_in_days": s["expires_in_days"],
+            }
+            for s in evf_statuses
+        },
     }

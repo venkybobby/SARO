@@ -15,6 +15,15 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_role
 from database import get_db
 from models import Audit, AuditMetadata, AuditTrace, ScanReport
+from services.evf_validation_status_service import get_validation_status
+
+# Map display name → EVFFramework enum value used in the status service
+_DISPLAY_TO_EVF_KEY: dict[str, str] = {
+    "NIST AI RMF 1.0": "NIST_AI_RMF",
+    "EU AI Act":        "EU_AI_ACT",
+    "ISO 42001":        "ISO_42001",
+    "AIGP":             "AIGP",
+}
 
 router = APIRouter(prefix="/api/v1", tags=["fe-dashboard"])
 
@@ -84,16 +93,21 @@ async def get_compliance_matrix(
     window_days: int = _WINDOW_DAYS.get(window, 7)
 
     if not audit_ids:
-        empty_frameworks: list[dict[str, Any]] = [
-            {
+        empty_frameworks: list[dict[str, Any]] = []
+        for fw in _ALL_FRAMEWORKS:
+            evf_key = _DISPLAY_TO_EVF_KEY.get(fw, fw)
+            evf = get_validation_status(db, evf_key)
+            empty_frameworks.append({
                 "name": fw,
                 "namespace": _FRAMEWORK_NAMESPACE.get(fw, fw.lower().replace(" ", "_")),
                 "rules_triggered": 0,
                 "rules_total": 0,
                 "coverage_pct": 0.0,
-            }
-            for fw in _ALL_FRAMEWORKS
-        ]
+                # FR-EVF-11: EVF validation tier stamp
+                "evf_tier":  evf["tier"],
+                "evf_label": evf["label"],
+                "evf_qco_reference": evf["qco_reference"],
+            })
         return {
             "frameworks": empty_frameworks,
             "window_days": window_days,
@@ -124,11 +138,17 @@ async def get_compliance_matrix(
         total: int = fw_total[fw_name]
         passed: int = fw_passed[fw_name]
         pct = round(passed / total * 100, 1) if total else 0.0
+        evf_key = _DISPLAY_TO_EVF_KEY.get(fw_name, fw_name)
+        evf = get_validation_status(db, evf_key)
         result.append({
             "name": fw_name,
             "rules_triggered": total - passed,
             "rules_total": max(total, 1),
             "coverage_pct": pct,
+            # FR-EVF-11: EVF validation tier stamp — Tier 1/2/3 per FR-EVF-16
+            "evf_tier":  evf["tier"],
+            "evf_label": evf["label"],
+            "evf_qco_reference": evf["qco_reference"],
         })
 
     return {
