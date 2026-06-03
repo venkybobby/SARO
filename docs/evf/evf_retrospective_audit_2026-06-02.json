@@ -1,0 +1,444 @@
+{
+  "generated_at": "2026-06-03T03:25:33.690363+00:00",
+  "repo_root": "C:\\Users\\shris\\SARO",
+  "files_scanned": 238,
+  "files_with_violations": 19,
+  "total_violations": 26,
+  "category_a_count": 0,
+  "category_b_count": 7,
+  "category_c_count": 19,
+  "audit_result": "FAIL",
+  "findings": [
+    {
+      "file_path": "ADR-004-compliance-scope-locks.md",
+      "line_number": 21,
+      "line_text": "| ISO 42001 | Document lifecycle linking only | Not full ISO 42001 certification support |",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "compliance-agent.md",
+      "line_number": 25,
+      "line_text": "- Does NOT claim: full EU AI Act coverage, ISO 42001 certification, AIGP audit readiness",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "compliance-context.md",
+      "line_number": 25,
+      "line_text": "- Do NOT position as full ISO 42001 certification support",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/api_scan_endpoints.md",
+      "line_number": 631,
+      "line_text": "- \u274c **FORBIDDEN:** \"Compliant: Yes/No\" | \"NIST Certified\" | \"Compliance score\"",
+      "matched_phrase": "NIST Certified",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/compliance-claims.md",
+      "line_number": 51,
+      "line_text": "| Continuous AI output monitoring aligned with AIGP principles | Human governance committee decisions |",
+      "matched_phrase": "aligned with AIGP",
+      "category": "b",
+      "remediation": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\"",
+      "severity": "high"
+    },
+    {
+      "file_path": "docs/compliance-claims.md",
+      "line_number": 62,
+      "line_text": "| Audit trail documentation aligned with ISO 42001 Clause 9 (performance evaluation) | ISO 42001 certification audit by an accredited certification body |",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/evf_qco_template.txt",
+      "line_number": 24,
+      "line_text": "Principles evaluation supporting human-in-the-loop workflows. SARO does NOT issue AIGP certifications or replace AIGP-certified human judgment.",
+      "matched_phrase": "AIGP certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/evf_sow_template.txt",
+      "line_number": 24,
+      "line_text": "Principles evaluation supporting human-in-the-loop workflows. No AIGP certification.",
+      "matched_phrase": "AIGP certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_lang.js",
+      "line_number": 125,
+      "line_text": "[\"NIST compliant\", \"\\\"SARO provides evidence supporting NIST AI RMF function areas\\\"\"],",
+      "matched_phrase": "NIST compliant",
+      "category": "c",
+      "remediation": "Remove \u2014 no QCO issued. Omit NIST AI RMF alignment reference.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_lang.js",
+      "line_number": 126,
+      "line_text": "[\"EU AI Act certified\", \"\\\"SARO generates indicators consistent with EU AI Act high-risk criteria\\\"\"],",
+      "matched_phrase": "EU AI Act certified",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_lang.js",
+      "line_number": 127,
+      "line_text": "[\"ISO 42001 certified\", \"\\\"SARO links audit records to ISO 42001 document lifecycle stages\\\"\"],",
+      "matched_phrase": "ISO 42001 certified",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_lang.js",
+      "line_number": 128,
+      "line_text": "[\"AIGP certified\", \"\\\"SARO supports human-in-the-loop workflows for AIGP-certified reviewers\\\"\"],",
+      "matched_phrase": "AIGP certified",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_qco.js",
+      "line_number": 70,
+      "line_text": "[\"AIGP\", \"Principles evaluation supporting human-in-the-loop workflows. SARO does NOT issue AIGP certifications or replace AIGP-certified human judgment.\"],",
+      "matched_phrase": "AIGP certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "docs/evf/gen_sow.js",
+      "line_number": 83,
+      "line_text": "\"Principles evaluation supporting human-in-the-loop workflows. No AIGP certification.\",",
+      "matched_phrase": "AIGP certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "files1/compliance-context.md",
+      "line_number": 25,
+      "line_text": "- Do NOT position as full ISO 42001 certification support",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "frontend/app.py",
+      "line_number": 363,
+      "line_text": "placeholder=\"We want to audit our NLP models for bias, safety, and EU AI Act compliance\u2026\",",
+      "matched_phrase": "EU AI Act compliance",
+      "category": "c",
+      "remediation": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "frontend/src/components/RegCoverage.jsx",
+      "line_number": 2,
+      "line_text": "* RegCoverage \u2014 per-framework compliance coverage bars.",
+      "matched_phrase": "framework compliance",
+      "category": "b",
+      "remediation": "Replace with Tier 2 language or remove if no QCO is in progress.",
+      "severity": "high"
+    },
+    {
+      "file_path": "frontend/tabs/claims_matrix.py",
+      "line_number": 67,
+      "line_text": "\"Continuous AI output monitoring aligned with AIGP principles\",",
+      "matched_phrase": "aligned with AIGP",
+      "category": "b",
+      "remediation": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\"",
+      "severity": "high"
+    },
+    {
+      "file_path": "frontend/tabs/claims_matrix.py",
+      "line_number": 85,
+      "line_text": "\"Audit trail documentation aligned with ISO 42001 Clause 9 (performance evaluation)\",",
+      "matched_phrase": "aligned with ISO 42001",
+      "category": "b",
+      "remediation": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\"",
+      "severity": "high"
+    },
+    {
+      "file_path": "frontend/tabs/claims_matrix.py",
+      "line_number": 90,
+      "line_text": "\"ISO 42001 certification audit by an accredited certification body\",",
+      "matched_phrase": "ISO 42001 certification",
+      "category": "c",
+      "remediation": "Remove \u2014 SARO never certifies. Omit entirely.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "frontend/tabs/onboarding.py",
+      "line_number": 473,
+      "line_text": "'Compliant with EU AI Act Art. 9, SOC 2 Type II, ISO 27001 A.9.4.'",
+      "matched_phrase": "Compliant with EU AI Act",
+      "category": "c",
+      "remediation": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "routers/compliance_hub.py",
+      "line_number": 92,
+      "line_text": "Returns recent audits, per-framework compliance status, governance doc links,",
+      "matched_phrase": "framework compliance",
+      "category": "b",
+      "remediation": "Replace with Tier 2 language or remove if no QCO is in progress.",
+      "severity": "high"
+    },
+    {
+      "file_path": "routers/compliance_matrix.py",
+      "line_number": 93,
+      "line_text": "@router.get(\"/coverage\", summary=\"Per-framework compliance coverage summary\")",
+      "matched_phrase": "framework compliance",
+      "category": "b",
+      "remediation": "Replace with Tier 2 language or remove if no QCO is in progress.",
+      "severity": "high"
+    },
+    {
+      "file_path": "routers/compliance_matrix.py",
+      "line_number": 99,
+      "line_text": "Returns per-framework compliance coverage percentages computed from",
+      "matched_phrase": "framework compliance",
+      "category": "b",
+      "remediation": "Replace with Tier 2 language or remove if no QCO is in progress.",
+      "severity": "high"
+    },
+    {
+      "file_path": "scripts/generate_governance_pdfs.py",
+      "line_number": 164,
+      "line_text": "\"Forbidden: 'SARO certifies compliance', 'EU AI Act compliant', 'NIST Certified'.\"),",
+      "matched_phrase": "EU AI Act compliant",
+      "category": "c",
+      "remediation": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference.",
+      "severity": "critical"
+    },
+    {
+      "file_path": "veriaegis-landing/app/components/FAQ.tsx",
+      "line_number": 20,
+      "line_text": "q: 'Does SARO certify compliance with EU AI Act or NIST?',",
+      "matched_phrase": "compliance with EU AI Act",
+      "category": "c",
+      "remediation": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference.",
+      "severity": "critical"
+    }
+  ],
+  "summary_by_file": {
+    "ADR-004-compliance-scope-locks.md": [
+      {
+        "line": 21,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "compliance-agent.md": [
+      {
+        "line": 25,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "compliance-context.md": [
+      {
+        "line": 25,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/api_scan_endpoints.md": [
+      {
+        "line": 631,
+        "matched": "NIST Certified",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/compliance-claims.md": [
+      {
+        "line": 51,
+        "matched": "aligned with AIGP",
+        "category": "b",
+        "action": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\""
+      },
+      {
+        "line": 62,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/evf/evf_qco_template.txt": [
+      {
+        "line": 24,
+        "matched": "AIGP certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/evf/evf_sow_template.txt": [
+      {
+        "line": 24,
+        "matched": "AIGP certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/evf/gen_lang.js": [
+      {
+        "line": 125,
+        "matched": "NIST compliant",
+        "category": "c",
+        "action": "Remove \u2014 no QCO issued. Omit NIST AI RMF alignment reference."
+      },
+      {
+        "line": 126,
+        "matched": "EU AI Act certified",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      },
+      {
+        "line": 127,
+        "matched": "ISO 42001 certified",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      },
+      {
+        "line": 128,
+        "matched": "AIGP certified",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/evf/gen_qco.js": [
+      {
+        "line": 70,
+        "matched": "AIGP certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "docs/evf/gen_sow.js": [
+      {
+        "line": 83,
+        "matched": "AIGP certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "files1/compliance-context.md": [
+      {
+        "line": 25,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "frontend/app.py": [
+      {
+        "line": 363,
+        "matched": "EU AI Act compliance",
+        "category": "c",
+        "action": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference."
+      }
+    ],
+    "frontend/src/components/RegCoverage.jsx": [
+      {
+        "line": 2,
+        "matched": "framework compliance",
+        "category": "b",
+        "action": "Replace with Tier 2 language or remove if no QCO is in progress."
+      }
+    ],
+    "frontend/tabs/claims_matrix.py": [
+      {
+        "line": 67,
+        "matched": "aligned with AIGP",
+        "category": "b",
+        "action": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\""
+      },
+      {
+        "line": 85,
+        "matched": "aligned with ISO 42001",
+        "category": "b",
+        "action": "Replace with Tier 2: \"SARO is undergoing independent review for [Framework] coverage.\""
+      },
+      {
+        "line": 90,
+        "matched": "ISO 42001 certification",
+        "category": "c",
+        "action": "Remove \u2014 SARO never certifies. Omit entirely."
+      }
+    ],
+    "frontend/tabs/onboarding.py": [
+      {
+        "line": 473,
+        "matched": "Compliant with EU AI Act",
+        "category": "c",
+        "action": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference."
+      }
+    ],
+    "routers/compliance_hub.py": [
+      {
+        "line": 92,
+        "matched": "framework compliance",
+        "category": "b",
+        "action": "Replace with Tier 2 language or remove if no QCO is in progress."
+      }
+    ],
+    "routers/compliance_matrix.py": [
+      {
+        "line": 93,
+        "matched": "framework compliance",
+        "category": "b",
+        "action": "Replace with Tier 2 language or remove if no QCO is in progress."
+      },
+      {
+        "line": 99,
+        "matched": "framework compliance",
+        "category": "b",
+        "action": "Replace with Tier 2 language or remove if no QCO is in progress."
+      }
+    ],
+    "scripts/generate_governance_pdfs.py": [
+      {
+        "line": 164,
+        "matched": "EU AI Act compliant",
+        "category": "c",
+        "action": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference."
+      }
+    ],
+    "veriaegis-landing/app/components/FAQ.tsx": [
+      {
+        "line": 20,
+        "matched": "compliance with EU AI Act",
+        "category": "c",
+        "action": "Remove \u2014 no QCO issued. Omit EU AI Act alignment reference."
+      }
+    ]
+  },
+  "remediation_instructions": "FR-EVF-17 Remediation Instructions\n========================================\n\nCategory (a) \u2014 QCO Available [0 findings]:\n  Update the artefact to include the QCO reference number.\n  Use Tier 1 language: \"Externally Reviewed \u2014 QCO [ref] | [SME Firm] | [Date]\"\n\nCategory (b) \u2014 QCO Not Yet Available [7 findings]:\n  Replace the compliance claim with Tier 2 approved language:\n  \"SARO is undergoing independent review for [Framework] coverage.\n   Claims will be published upon QCO completion.\"\n  OR remove the claim entirely if review has not started.\n\nCategory (c) \u2014 Remove Entirely [19 findings]:\n  Remove the claim. No compliance alignment reference permitted\n  until a QCO reference number is assigned (FR-EVF-16 Tier 3).\n\nAC-17b deadline: all Category (b) and (c) artefacts must be\nremediated within 30 days of the audit report sign-off.\n\nSee docs/COMPLIANCE_CLAIMS_MATRIX.md for approved language."
+}
