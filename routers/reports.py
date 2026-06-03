@@ -25,6 +25,7 @@ from auth import get_current_user, require_role
 from database import get_db
 from engine import COMPLIANCE_MATRIX_VERSION, SARO_ENGINE_VERSION, _COMPLIANCE_TRIGGERS, _RISK_SIGNALS
 from models import AIIncident, Audit, Iso42001Document, NISTControl, ScanReport, User
+from services.evf_validation_status_service import get_all_framework_statuses
 from schemas import (
     AppliedRuleOut,
     AuditReportOut,
@@ -125,6 +126,10 @@ def reports_summary(
         or 0
     )
 
+    # FR-EVF-11: stamp live validation status on every summary response so
+    # dashboards and reports always display the correct EVF tier label.
+    evf_statuses = get_all_framework_statuses(db)
+
     return {
         "total_audits": total,
         "completed": total,
@@ -134,6 +139,16 @@ def reports_summary(
         "avg_fixed_delta": round(sum(deltas) / len(deltas), 4) if deltas else None,
         "top_triggered_frameworks": top_frameworks,
         "top_triggered_domains": top_domains,
+        # EVF validation labels — Tier 1/2/3 per framework (FR-EVF-11, FR-EVF-16)
+        "evf_validation_status": {
+            s["framework"]: {
+                "tier":  s["tier"],
+                "label": s["label"],
+                "qco_reference": s["qco_reference"],
+                "expires_in_days": s["expires_in_days"],
+            }
+            for s in evf_statuses
+        },
     }
 
 
@@ -148,6 +163,18 @@ def get_full_report(
     db: Annotated[Session, Depends(get_db)],
 ) -> AuditReportOut:
     data = _get_report_or_404(audit_id, current_user.tenant_id, db)
+    # FR-EVF-11: embed live EVF validation labels so every exported report
+    # carries the correct Tier 1/2/3 stamp at the time of generation.
+    evf_statuses = get_all_framework_statuses(db)
+    data["evf_validation_status"] = {
+        s["framework"]: {
+            "tier":  s["tier"],
+            "label": s["label"],
+            "qco_reference": s["qco_reference"],
+            "expires_in_days": s["expires_in_days"],
+        }
+        for s in evf_statuses
+    }
     return AuditReportOut.model_validate(data)
 
 
