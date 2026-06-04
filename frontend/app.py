@@ -49,6 +49,8 @@ _TAB_REGISTRY: dict[str, tuple[str, str]] = {
     "aims":            ("📋 AIMS",               "aims"),
     # CF-05: Governance trust documents
     "governance":      ("🏛️ Governance Trust",   "governance"),
+    # Evaluation History — saro-data-framework run history
+    "evaluations":     ("🧪 Evaluations",        "evaluations"),
 }
 
 _PERSONA_TABS: dict[str, list[str]] = {
@@ -56,7 +58,7 @@ _PERSONA_TABS: dict[str, list[str]] = {
         "dashboard", "compliance_hub", "trace_view", "evidence_export",
         "claims_matrix", "how_saro_reasons", "dpa_governance",
         "aims", "governance",  # CF-04 / CF-05
-        "onboarding", "upload",
+        "onboarding", "upload", "evaluations",
     ],
     "risk_officer": [
         "dashboard", "risk_summary", "vendor_risk", "ir_plan", "trace_view",
@@ -70,7 +72,7 @@ _PERSONA_TABS: dict[str, list[str]] = {
         "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
         "dpa_governance", "rule_packs", "coverage_gap", "remediation",
         "drift_alerts", "aims", "governance",  # CF-04 / CF-05
-        "onboarding", "upload", "admin_settings",
+        "onboarding", "upload", "admin_settings", "evaluations",
     ],
     # Fallback for legacy roles
     "super_admin": [
@@ -78,7 +80,7 @@ _PERSONA_TABS: dict[str, list[str]] = {
         "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
         "dpa_governance", "rule_packs", "coverage_gap", "remediation",
         "drift_alerts", "aims", "governance",  # CF-04 / CF-05
-        "onboarding", "upload", "admin_settings",
+        "onboarding", "upload", "admin_settings", "evaluations",
     ],
     "operator": ["dashboard", "upload", "trace_view", "remediation"],
 }
