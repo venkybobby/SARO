@@ -996,3 +996,51 @@ class EvaluationRun(Base):
     api_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SAR-013: EU AI Act AI System Inventory
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AISystem(Base):
+    """
+    Persistent inventory record for an AI system in scope for EU AI Act Art. 49.
+
+    CRITICAL: eu_ai_act_risk_tier is a HUMAN governance decision per EU AI Act Art. 14.
+    The audit engine MUST NEVER set this field automatically — it may only suggest.
+    Only compliance_lead and risk_officer personas may write eu_ai_act_risk_tier via API.
+    """
+    __tablename__ = "ai_systems"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    system_owner: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deployment_context: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # EU AI Act risk tier — HUMAN DECISION ONLY (Art. 14). Never set by engine.
+    # Values: "unacceptable" | "high" | "limited" | "minimal" | None (not classified)
+    eu_ai_act_risk_tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    last_audit_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SystemAudit(Base):
+    """Junction table linking AI systems to their audit records."""
+    __tablename__ = "system_audits"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    system_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ai_systems.id", ondelete="CASCADE"), nullable=False
+    )
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

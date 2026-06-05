@@ -65,11 +65,24 @@ def get_claims_matrix_header() -> str:
     return "These mappings reflect SARO's internal assessment. Independent SME validation is in progress."
 
 
-def upgrade_to_tier1(framework: str, qco_reference: str, sme_firm: str, qco_expiry: str) -> None:
+def upgrade_to_tier1(
+    framework: str,
+    qco_reference: str,
+    sme_firm: str,
+    qco_expiry: str,
+    *,
+    write_to_disk: bool = True,
+) -> None:
     """
     Upgrade a framework label to Tier 1 when a QCO is issued.
-    Writes back to the registry JSON file.
-    Called by EVF service when QCO is published.
+
+    When called from the EVF QCO publish cascade, pass ``write_to_disk=False``
+    so the in-memory cache is updated immediately but the registry file is NOT
+    modified as a side effect of a DB transaction. A separate admin action or
+    deploy step should persist the tier upgrade to disk.
+
+    When called directly via the admin API or a manual upgrade command, leave
+    ``write_to_disk=True`` (the default) to persist the change to the JSON file.
     """
     global _registry
     reg = _load()
@@ -83,6 +96,9 @@ def upgrade_to_tier1(framework: str, qco_reference: str, sme_firm: str, qco_expi
         "tier1_text": f"Externally Reviewed — QCO {qco_reference} | {sme_firm} | {qco_expiry}",
     })
     _registry = reg
-    with open(_REGISTRY_PATH, "w") as f:
-        json.dump(reg, f, indent=2)
-    logger.info("Tier 1 upgrade applied: framework=%s qco=%s", framework, qco_reference)
+    if write_to_disk:
+        with open(_REGISTRY_PATH, "w") as f:
+            json.dump(reg, f, indent=2)
+        logger.info("Tier 1 upgrade persisted to disk: framework=%s qco=%s", framework, qco_reference)
+    else:
+        logger.info("Tier 1 upgrade applied in-memory only: framework=%s qco=%s", framework, qco_reference)

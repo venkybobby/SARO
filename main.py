@@ -68,6 +68,7 @@ from routers.evf import router as evf_router
 from routers.evf_sprint2 import router as evf_sprint2_router
 from routers.evf_sprint3 import router as evf_sprint3_router
 from routers.evaluations import router as evaluations_router
+from routers.systems import router as systems_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -392,6 +393,7 @@ app.include_router(evf_router)
 app.include_router(evf_sprint2_router)
 app.include_router(evf_sprint3_router)
 app.include_router(evaluations_router)
+app.include_router(systems_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

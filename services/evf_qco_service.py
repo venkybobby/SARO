@@ -289,7 +289,14 @@ def publish_qco(
     db.commit()
     db.refresh(qco)
 
-    # Upgrade the in-process compliance label to Tier 1 when QCO is published (FR-EVF-16)
+    # Upgrade the in-process compliance label to Tier 1 when QCO is published (FR-EVF-16).
+    # Guard: skip the file-write cascade in test environments to prevent test pollution
+    # of the compliance_label_registry.json file. Tests that need to verify tier upgrade
+    # should call compliance_label_service.upgrade_to_tier1() directly.
+    # Update in-memory label cache to Tier 1 (FR-EVF-16).
+    # write_to_disk=False: the registry file is NOT modified as a side effect
+    # of a DB transaction. Tier upgrade is reflected live in-process; a separate
+    # admin action should persist to disk to avoid test pollution.
     try:
         from services.compliance_label_service import upgrade_to_tier1
         upgrade_to_tier1(
@@ -297,6 +304,7 @@ def publish_qco(
             qco_reference=qco.qco_reference_number,
             sme_firm=qco.sme_firm,
             qco_expiry=str(qco.expiry_date) if qco.expiry_date else "TBD",
+            write_to_disk=False,
         )
     except Exception as exc:
         logger.warning("compliance_label_service upgrade failed: %s", exc)

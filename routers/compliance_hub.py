@@ -2,17 +2,19 @@
 Compliance Hub API.
 
 GET /api/v1/compliance/hub — aggregated compliance status for the authenticated tenant.
+GET /api/v1/compliance/dpa  — download GDPR Art. 28 DPA as PDF (compliance_lead / admin only).
 """
 from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response as FastAPIResponse
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import Audit, User
+from models import Audit, AuditEvent, Tenant, User
 from services.persona_service import persona_required
 
 router = APIRouter(prefix="/api/v1/compliance", tags=["compliance-hub"])
@@ -106,3 +108,60 @@ def get_compliance_hub(
         "governance_links": _GOVERNANCE_LINKS,
         "readiness_checklist": _readiness_checklist(recent_audits),
     }
+
+
+@router.get(
+    "/dpa",
+    summary="Download the SARO GDPR Art. 28 DPA as PDF (compliance_lead / admin only)",
+)
+def download_dpa(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> FastAPIResponse:
+    """
+    Download the SARO GDPR Art. 28 DPA as PDF for the authenticated tenant.
+
+    Restricted to compliance_lead, admin, and super_admin personas.
+    Logs a dpa_downloaded AuditEvent on each successful download.
+
+    Returns the DPA as application/pdf. If WeasyPrint is unavailable the
+    fallback is an equivalent text/html document.
+    """
+    if current_user.persona_role not in ("compliance_lead", "admin", "super_admin"):
+        raise HTTPException(
+            status_code=403,
+            detail="compliance_lead or admin persona required",
+        )
+
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    from services.dpa_service import _DPA_VERSION, generate_dpa_pdf
+
+    pdf_bytes = generate_dpa_pdf(
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+    )
+
+    ev = AuditEvent(
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        event_type="dpa_downloaded",
+        event_data={
+            "dpa_version": _DPA_VERSION,
+            "tenant_id": str(current_user.tenant_id),
+            "user_id": str(current_user.id),
+        },
+    )
+    db.add(ev)
+    db.commit()
+
+    content_type = "application/pdf" if pdf_bytes[:4] == b"%PDF" else "text/html"
+    filename = f"SARO_DPA_v{_DPA_VERSION}_{tenant.slug}.pdf"
+
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type=content_type,
+        headers={"Content-Disposition": f"attachment; filename={filename!r}"},
+    )

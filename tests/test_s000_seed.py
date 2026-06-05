@@ -159,7 +159,7 @@ class TestVerifyDashboard:
         from scripts.seed_demo_tenant import verify_dashboard
 
         resp = MagicMock()
-        resp.json.return_value = {"audit_count": 800}
+        resp.json.return_value = {"audit_count": 850}
 
         with patch("scripts.seed_demo_tenant.requests.get", return_value=resp):
             assert verify_dashboard("https://test.local", "tok") is True
@@ -169,6 +169,15 @@ class TestVerifyDashboard:
 
         resp = MagicMock()
         resp.json.return_value = {"total_audits": 0}
+
+        with patch("scripts.seed_demo_tenant.requests.get", return_value=resp):
+            assert verify_dashboard("https://test.local", "tok") is False
+
+    def test_partial_seed_returns_false(self):
+        from scripts.seed_demo_tenant import verify_dashboard
+
+        resp = MagicMock()
+        resp.json.return_value = {"total_audits": 9}
 
         with patch("scripts.seed_demo_tenant.requests.get", return_value=resp):
             assert verify_dashboard("https://test.local", "tok") is False
