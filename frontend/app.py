@@ -51,6 +51,8 @@ _TAB_REGISTRY: dict[str, tuple[str, str]] = {
     "governance":      ("🏛️ Governance Trust",   "governance"),
     # Evaluation History — saro-data-framework run history
     "evaluations":     ("🧪 Evaluations",        "evaluations"),
+    # SAR-004: EVF Admin Status (admin-only)
+    "evf_admin":       ("🔐 EVF Status",         "evf_status_admin"),
 }
 
 _PERSONA_TABS: dict[str, list[str]] = {
@@ -73,6 +75,7 @@ _PERSONA_TABS: dict[str, list[str]] = {
         "dpa_governance", "rule_packs", "coverage_gap", "remediation",
         "drift_alerts", "aims", "governance",  # CF-04 / CF-05
         "onboarding", "upload", "admin_settings", "evaluations",
+        "evf_admin",  # SAR-004
     ],
     # Fallback for legacy roles
     "super_admin": [
@@ -265,6 +268,15 @@ def _login(email: str, password: str) -> bool:
 
 
 def _render_login() -> None:
+    st.warning(
+        "⚠️ Magic link login is for testing and internal use only. "
+        "Enterprise users must authenticate via SSO. "
+        "Contact your administrator for access.",
+        icon="⚠️",
+    )
+    if st.session_state.get("sso_only_mode"):
+        st.error("This tenant requires SSO login. Please authenticate via your identity provider.")
+        st.stop()
     st.markdown(
         '<div style="text-align:center;padding:40px 0 24px">'
         '<div style="font-size:3rem">🛡️</div>'

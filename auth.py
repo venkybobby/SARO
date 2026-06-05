@@ -213,6 +213,30 @@ def require_role(*roles: str):
     return _check
 
 
+def persona_required(*personas: str):
+    """
+    FastAPI dependency that enforces persona_role membership.
+
+    Usage::
+
+        @router.get("/path", dependencies=[Depends(persona_required("compliance_lead", "admin"))])
+    """
+
+    async def _check(
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        persona_role = getattr(current_user, "persona_role", None) or ""
+        if persona_role not in personas:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Persona {persona_role!r} is not authorised for this endpoint. "
+                       f"Required: {list(personas)}",
+            )
+        return current_user
+
+    return _check
+
+
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     """Return the User if credentials are valid, else None."""
     user = db.query(User).filter(User.email == email).first()

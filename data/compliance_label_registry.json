@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-06-04",
+  "frameworks": {
+    "EU_AI_ACT": {
+      "display_name": "EU AI Act",
+      "tier": 2,
+      "qco_reference": null,
+      "qco_expiry": "2026-06-04 00:00:00",
+      "sme_firm": null,
+      "last_updated": "2026-06-04",
+      "tier2_text": "SARO is undergoing independent review for EU AI Act coverage. Results will be published upon completion.",
+      "tier1_text": null,
+      "tier3_text": "EU AI Act coverage not yet assessed for external claim."
+    },
+    "NIST_AI_RMF": {
+      "display_name": "NIST AI RMF 1.0",
+      "tier": 2,
+      "qco_reference": null,
+      "qco_expiry": "2026-08-04 00:00:00",
+      "sme_firm": null,
+      "last_updated": "2026-06-04",
+      "tier2_text": "SARO is undergoing independent review for NIST AI RMF 1.0 coverage. Results will be published upon completion.",
+      "tier1_text": null,
+      "tier3_text": "NIST AI RMF coverage not yet assessed for external claim."
+    },
+    "AIGP": {
+      "display_name": "AIGP",
+      "tier": 2,
+      "qco_reference": null,
+      "qco_expiry": "2026-06-12 00:00:00",
+      "sme_firm": null,
+      "last_updated": "2026-06-04",
+      "tier2_text": "SARO is undergoing independent review for AIGP coverage. Results will be published upon completion.",
+      "tier1_text": null,
+      "tier3_text": "AIGP coverage not yet assessed for external claim."
+    },
+    "ISO_42001": {
+      "display_name": "ISO 42001",
+      "tier": 2,
+      "qco_reference": null,
+      "qco_expiry": "2026-05-31 00:00:00",
+      "sme_firm": null,
+      "last_updated": "2026-06-04",
+      "tier2_text": "SARO is undergoing independent review for ISO 42001 coverage. Results will be published upon completion.",
+      "tier1_text": null,
+      "tier3_text": "ISO 42001 coverage not yet assessed for external claim."
+    }
+  },
+  "global_disclaimer": "These mappings reflect SARO's internal assessment. Independent SME validation is in progress. Not independently validated. Does not constitute regulatory certification."
+}

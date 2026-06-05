@@ -1,0 +1,32 @@
+name: SARO Demo Seed Refresh
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Every Sunday at 02:00 UTC
+  workflow_dispatch:       # Allow manual trigger
+
+jobs:
+  refresh-seed:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      SARO_DEMO_URL: https://saro-platform.fly.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run demo seed refresh
+        run: |
+          python scripts/seed_demo_tenant.py \
+            --database-url "$DATABASE_URL" \
+            --saro-url "$SARO_DEMO_URL"
+      - name: Verify seed health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://saro-platform.fly.dev/health)
+          [ "$STATUS" = "200" ] || (echo "Health check failed" && exit 1)

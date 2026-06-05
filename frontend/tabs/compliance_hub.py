@@ -10,18 +10,20 @@ Sections:
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
 
 import requests
 import streamlit as st
 
-_EVF_KEY_TO_LABEL: dict[str, str] = {
-    "EU_AI_ACT":   "EU AI Act",
-    "NIST_AI_RMF": "NIST AI RMF 1.0",
-    "AIGP":        "AIGP",
-    "ISO_42001":   "ISO 42001",
-}
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from services.compliance_label_service import get_all_labels, get_claims_matrix_header, get_disclaimer  # noqa: E402
 
+# Derived from registry — display names come from the single source of truth
+_EVF_KEY_TO_LABEL: dict[str, str] = {lbl["framework"]: lbl["display_name"] for lbl in get_all_labels()}
+
+# Tier style config — render-only; label text comes from compliance_label_service
 _TIER_CONFIG: dict[str, dict[str, str]] = {
     "tier_1": {"color": "#16a34a", "icon": "✅", "short": "EXTERNALLY REVIEWED"},
     "tier_2": {"color": "#ca8a04", "icon": "⏳", "short": "UNDER REVIEW"},

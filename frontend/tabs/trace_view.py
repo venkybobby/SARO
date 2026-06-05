@@ -158,7 +158,18 @@ def render(token: str, tab_key: str = "trace_view") -> None:
     st.header("TRACE View")
     st.caption("Step-by-step AI explainability timeline for any audit.")
 
-    col_id, col_mode = st.columns([3, 1])
+    # ── Query param handling (Streamlit ≥1.30) ────────────────────────────────
+    _forced_mode = st.query_params.get("mode", None)
+    _qp_audit_id = st.query_params.get("audit_id", None)
+
+    if _forced_mode == "executive":
+        # Forced executive mode: default to executive, hide the technical toggle
+        technical = False
+        col_id = st.columns([1])[0]
+        show_mode_toggle = False
+    else:
+        col_id, col_mode = st.columns([3, 1])
+        show_mode_toggle = True
 
     with col_id:
         audits = _load_recent_audits(token)
@@ -170,9 +181,18 @@ def render(token: str, tab_key: str = "trace_view") -> None:
                 label = f"{a.get('dataset_name') or 'Unnamed'} — {aid[:8]}… ({a.get('status', '?')})"
                 options_map[label] = aid
 
+            # Pre-select audit from ?audit_id= query param if present
+            default_index = 0
+            if _qp_audit_id:
+                for idx, (lbl, uid) in enumerate(options_map.items(), start=1):
+                    if uid.startswith(_qp_audit_id) or uid == _qp_audit_id:
+                        default_index = idx
+                        break
+
             selected_label = st.selectbox(
                 "Select audit",
                 options=["— choose an audit —"] + list(options_map.keys()),
+                index=default_index,
                 label_visibility="collapsed",
                 key=f"{tab_key}_audit_select",
             )
@@ -182,12 +202,14 @@ def render(token: str, tab_key: str = "trace_view") -> None:
             audit_id = st.text_input(
                 "Audit ID (UUID)",
                 placeholder="e.g. 3f2a1b4c-…",
+                value=_qp_audit_id or "",
                 label_visibility="collapsed",
                 key=f"{tab_key}_audit_id",
             ).strip()
 
-    with col_mode:
-        technical = st.toggle("Technical mode", value=False, key=f"{tab_key}_tech_mode")
+    if show_mode_toggle:
+        with col_mode:
+            technical = st.toggle("Technical mode", value=False, key=f"{tab_key}_tech_mode")
 
     if not audit_id:
         st.info("Select an audit above to load its TRACE timeline.")

@@ -288,6 +288,19 @@ def publish_qco(
 
     db.commit()
     db.refresh(qco)
+
+    # Upgrade the in-process compliance label to Tier 1 when QCO is published (FR-EVF-16)
+    try:
+        from services.compliance_label_service import upgrade_to_tier1
+        upgrade_to_tier1(
+            framework=qco.framework_covered,
+            qco_reference=qco.qco_reference_number,
+            sme_firm=qco.sme_firm,
+            qco_expiry=str(qco.expiry_date) if qco.expiry_date else "TBD",
+        )
+    except Exception as exc:
+        logger.warning("compliance_label_service upgrade failed: %s", exc)
+
     return qco
 
 

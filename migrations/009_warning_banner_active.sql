@@ -1,0 +1,1 @@
+ALTER TABLE client_configs ADD COLUMN IF NOT EXISTS warning_banner_active BOOLEAN NOT NULL DEFAULT TRUE;

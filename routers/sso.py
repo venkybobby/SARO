@@ -19,7 +19,7 @@ from typing import Optional
 from xml.etree import ElementTree
 
 from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -274,11 +274,14 @@ def magic_link_login(payload: MagicLinkIn, db: Session = Depends(get_db)) -> dic
                 detail={"error": "magic_link_disabled",
                         "message": "This tenant requires SSO login."},
             )
-    return {
-        "status": "magic_link_sent",
-        "warning": "Magic link login is for testing only. Enterprise users must use SSO.",
-        "email": payload.email,
-    }
+    return JSONResponse(
+        content={
+            "status": "magic_link_sent",
+            "warning": "Magic link login is for testing only. Enterprise users must use SSO.",
+            "email": payload.email,
+        },
+        headers={"X-SARO-Auth-Type": "magic-link-testing-only"},
+    )
 
 
 # ── Legacy backwards-compatible endpoints ─────────────────────────────────────
