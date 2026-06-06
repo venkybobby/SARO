@@ -1346,6 +1346,8 @@ class SARoEngine:
         hybrid_mode = bool(api_key)
         llm_calls_made = 0
         llm_parse_failures = 0
+        # SPEC-E1: accumulate per-flag LLM verdicts for storage in detail_json
+        llm_verdicts: list[dict] = []
 
         if hybrid_mode and flags:
             try:
@@ -1358,6 +1360,14 @@ class SARoEngine:
                         continue
                     verdict = self._gate3_llm_verify_sync(_client, flag.signal, flag.domain)
                     llm_calls_made += 1
+                    if verdict is not None:
+                        # Store the verdict for trace detail_json
+                        llm_verdicts.append({
+                            "domain": flag.domain,
+                            "confirmed": verdict.get("confirmed"),
+                            "confidence": verdict.get("confidence"),
+                            "reasoning_summary": str(verdict.get("reasoning", ""))[:200],
+                        })
                     if verdict is None:
                         llm_parse_failures += 1
                         confirmed_flags.append(flag)
@@ -1391,23 +1401,44 @@ class SARoEngine:
         else:
             status = "pass"
 
+        # SPEC-E1: build llm_classification summary for AuditTrace.detail_json
+        llm_classification: dict | None = None
+        if hybrid_mode and llm_verdicts:
+            confirmed_count = sum(1 for v in llm_verdicts if v.get("confirmed"))
+            confidences = [v["confidence"] for v in llm_verdicts if v.get("confidence") is not None]
+            avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
+            llm_classification = {
+                "model": "claude-sonnet-4-20250514",
+                "verdicts_count": len(llm_verdicts),
+                "confirmed_count": confirmed_count,
+                "confidence_avg": avg_confidence,
+                "reasoning_summary": "; ".join(
+                    v["reasoning_summary"] for v in llm_verdicts[:3] if v.get("reasoning_summary")
+                )[:500] or None,
+                "verdicts": llm_verdicts[:10],  # cap at 10 for storage
+            }
+
+        gate3_details: dict = {
+            "total_samples": n,
+            "flagged_samples": total_flagged,
+            "flag_rate": round(flag_rate, 4),
+            "domain_counts": domain_counts,
+            "domain_flag_counts": domain_counts,
+            "total_flags": len(flags),
+            "hybrid_mode": hybrid_mode,
+            "llm_calls_made": llm_calls_made,
+            "llm_parse_failures": llm_parse_failures,
+            "false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0,
+        }
+        if llm_classification:
+            gate3_details["llm_classification"] = llm_classification
+
         return flags, _GateResult(
             gate_id=3,
             name="Risk Classification (MIT Taxonomy)",
             status=status,
             score=round(score, 4),
-            details={
-                "total_samples": n,
-                "flagged_samples": total_flagged,
-                "flag_rate": round(flag_rate, 4),
-                "domain_counts": domain_counts,
-                "domain_flag_counts": domain_counts,
-                "total_flags": len(flags),
-                "hybrid_mode": hybrid_mode,
-                "llm_calls_made": llm_calls_made,
-                "llm_parse_failures": llm_parse_failures,
-                "false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0,
-            },
+            details=gate3_details,
         )
 
     # SPEC-E1: LLM-as-judge synchronous verification
