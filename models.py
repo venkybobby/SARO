@@ -1044,3 +1044,53 @@ class SystemAudit(Base):
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SAR-010: Unified Control Library
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Control(Base):
+    """
+    Single unified control entry in the SARO control library.
+
+    Each control appears once and is tagged to the frameworks it satisfies
+    via ControlFrameworkMapping (many-to-many). Rule packs are the technical
+    implementation of a control — controls are the governance-layer abstraction.
+    """
+    __tablename__ = "controls"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Human-readable control identifier, e.g. "CTRL-RISK-001"
+    control_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # "preventive" | "detective" | "corrective" | "compensating"
+    control_type: Mapped[str] = mapped_column(String(50), nullable=False, default="detective")
+    # "active" | "planned" | "deprecated"
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    # Aggregate count of audit traces that serve as evidence for this control (denormalised)
+    evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_assessed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ControlFrameworkMapping(Base):
+    """
+    Many-to-many junction: one control maps to one framework+clause reference.
+
+    A single control may have multiple rows here (one per framework clause it
+    satisfies), enabling cross-framework coverage queries.
+    """
+    __tablename__ = "control_framework_mappings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    control_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("controls.id", ondelete="CASCADE"), nullable=False
+    )
+    # "EU_AI_ACT" | "NIST_AI_RMF" | "AIGP" | "ISO_42001"
+    framework: Mapped[str] = mapped_column(String(50), nullable=False)
+    # e.g. "Art.9", "Cl.6.1", "GOVERN-1.7", "Pr.4"
+    clause_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
