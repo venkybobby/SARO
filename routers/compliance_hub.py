@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import Audit, AuditEvent, Tenant, User
+from models import Audit, AuditEvent, AuditTrace, EnhancedTrace, Tenant, User
 from services.persona_service import persona_required
 
 router = APIRouter(prefix="/api/v1/compliance", tags=["compliance-hub"])
@@ -57,14 +57,58 @@ def _claims_status(audits: list[Audit]) -> dict[str, str]:
     }
 
 
-def _readiness_checklist(audits: list[Audit]) -> list[dict[str, Any]]:
-    """Compute readiness checklist based on tenant audit history."""
-    has_completed = any(a.status == "completed" for a in audits)
-    result = []
-    for item in _READINESS_ITEMS:
-        complete = has_completed
-        result.append({"id": item["id"], "label": item["label"], "complete": complete})
-    return result
+def _readiness_checklist(
+    audits: list[Audit],
+    db: Session,
+    tenant_id: Any,
+) -> list[dict[str, Any]]:
+    """
+    Compute a 5-item readiness checklist dynamically from DB and static assets.
+
+    Each item is evaluated independently (SAR-007 / PER-003 compliance_service spec):
+      1. audit_trail     — tenant has at least one completed audit with hash-chained traces
+      2. trace_export    — at least one EnhancedTrace record exists for tenant
+      3. claims_matrix   — compliance label registry is loaded (always available)
+      4. dpa_complete    — GDPR Art. 28 DPA template file is present on disk
+      5. how_saro_reasons — static documentation is accessible (always available)
+    """
+    from pathlib import Path
+
+    completed_audit_ids = {a.id for a in audits if a.status == "completed"}
+
+    # Item 1: tamper-evident audit trail — any AuditTrace with event_hash present
+    has_audit_trail = bool(completed_audit_ids) and db.query(AuditTrace).filter(
+        AuditTrace.audit_id.in_(completed_audit_ids),
+        AuditTrace.event_hash.isnot(None),
+    ).first() is not None
+
+    # Item 2: TRACE export — at least one EnhancedTrace for the tenant
+    has_trace_export = (
+        bool(completed_audit_ids)
+        and db.query(EnhancedTrace)
+        .filter(EnhancedTrace.audit_id.in_(completed_audit_ids))
+        .first() is not None
+    )
+
+    # Item 3: claims matrix — compliance label registry file exists
+    registry_path = Path(__file__).parent.parent / "data" / "compliance_label_registry.json"
+    has_claims_matrix = registry_path.exists()
+
+    # Item 4: DPA complete — DPA template file exists on disk
+    dpa_path = Path(__file__).parent.parent / "docs" / "legal" / "saro-dpa-template-v1.0.md"
+    has_dpa = dpa_path.exists()
+
+    # Item 5: How SARO Reasons — static documentation always present
+    how_path = Path(__file__).parent.parent / "frontend" / "tabs" / "how_saro_reasons.py"
+    has_how_saro = how_path.exists()
+
+    return [
+        {"id": "audit_trail",      "label": "Hash-chained audit trail exists",   "complete": has_audit_trail},
+        {"id": "trace_export",     "label": "TRACE export functional",            "complete": has_trace_export},
+        {"id": "claims_matrix",    "label": "Claims matrix published",            "complete": has_claims_matrix},
+        {"id": "dpa_complete",     "label": "DPA template complete",              "complete": has_dpa},
+        {"id": "how_saro_reasons", "label": "How SARO Reasons published",         "complete": has_how_saro},
+    ]
 
 
 def _recent_audit_summaries(audits: list[Audit]) -> list[dict[str, Any]]:
@@ -106,7 +150,7 @@ def get_compliance_hub(
         "recent_audits": _recent_audit_summaries(recent_audits),
         "claims_status": _claims_status(recent_audits),
         "governance_links": _GOVERNANCE_LINKS,
-        "readiness_checklist": _readiness_checklist(recent_audits),
+        "readiness_checklist": _readiness_checklist(recent_audits, db, current_user.tenant_id),
     }
 
 
