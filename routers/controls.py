@@ -48,12 +48,13 @@ def list_controls(
     """
     if frameworks:
         # Controls that have at least one mapping to one of the requested frameworks
-        matching_ids = (
+        matching_id_rows = (
             db.query(ControlFrameworkMapping.control_id)
             .filter(ControlFrameworkMapping.framework.in_(frameworks))
             .distinct()
-            .subquery()
+            .all()
         )
+        matching_ids = [row[0] for row in matching_id_rows]
         controls = (
             db.query(Control)
             .filter(Control.id.in_(matching_ids), Control.status != "deprecated")

@@ -263,7 +263,7 @@ class MagicLinkIn(BaseModel):
 
 
 @router.post("/api/v1/sso/magic-link", summary="Magic link login (non-enterprise/testing only)")
-def magic_link_login(payload: MagicLinkIn, db: Session = Depends(get_db)) -> dict:
+def magic_link_login(payload: MagicLinkIn, db: Session = Depends(get_db)) -> JSONResponse:
     """Send magic link. Returns 403 if tenant has allow_magic_link_fallback=False."""
     tenant = db.query(Tenant).filter(Tenant.slug == payload.tenant_slug).first()
     if tenant:
