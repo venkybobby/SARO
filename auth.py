@@ -158,19 +158,21 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token")
 
     # S-205: Demo tokens carry role="demo_viewer" and sub=tenant_id (not a user UUID).
-    # Synthesise a transient User-like object so get_current_user returns without a DB hit.
-    # The synthetic user is never persisted — it only exists for the lifetime of the request.
+    # Synthesise a transient namespace object so get_current_user returns without a DB hit.
+    # We use SimpleNamespace so SQLAlchemy's ORM instrumentation is never involved.
     if payload.get("role") == "demo_viewer":
         import uuid as _uuid
-        synthetic = User.__new__(User)
-        synthetic.id = _uuid.UUID(user_id)
-        synthetic.tenant_id = _uuid.UUID(payload.get("tenant_id", user_id))
-        synthetic.email = "demo@saro-demo.internal"
-        synthetic.role = "demo_viewer"
-        synthetic.persona_role = "compliance_lead"
-        synthetic.is_active = True
-        synthetic.read_only = True  # type: ignore[attr-defined]
-        synthetic.hashed_password = ""
+        from types import SimpleNamespace
+        synthetic = SimpleNamespace(
+            id=_uuid.UUID(user_id),
+            tenant_id=_uuid.UUID(payload.get("tenant_id", user_id)),
+            email="demo@saro-demo.internal",
+            role="demo_viewer",
+            persona_role="compliance_lead",
+            is_active=True,
+            read_only=True,
+            hashed_password="",
+        )
         return synthetic  # type: ignore[return-value]
 
     user = db.get(User, user_id)
