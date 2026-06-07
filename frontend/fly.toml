@@ -1,40 +1,38 @@
-# fly.toml — SARO frontend production deployment
-# App:    saro-frontend
-# Region: dfw (Dallas — closest to Georgetown TX)
-# Deploy: flyctl deploy --app saro-frontend
-#         --build-arg VITE_SARO_API_URL=https://saro-backend.fly.dev
+# fly.toml — SARO frontend (sarofrontend)
+# Deploy from REPO ROOT: flyctl deploy --config frontend/fly.toml --app sarofrontend
+#   --build-arg VITE_SARO_API_URL=https://saro-backend.fly.dev
 #
-# IMPORTANT: VITE_* env vars are baked into the static bundle at build time.
-# They cannot be injected as Fly secrets after the image is built.
-# Always pass them as --build-arg at deploy time (or set in [build.args] below).
-#
-# The frontend source uses REACT_APP_SARO_API_URL which vite.config.js maps
-# to VITE_SARO_API_URL at build time.
+# Build context = repo root (flyctl uses the directory of the config file only
+# when dockerfile is a relative path from that directory — here we keep the
+# dockerfile path absolute relative to repo root so context = repo root).
 
-app            = "saro-frontend"
-primary_region = "dfw"
+app            = 'sarofrontend'
+primary_region = 'dfw'
 
 [build]
-  dockerfile = "frontend/Dockerfile"
+  # Path is relative to build context (repo root).
+  # Run: flyctl deploy --config frontend/fly.toml from repo root.
+  dockerfile = 'frontend/Dockerfile'
   [build.args]
-    VITE_SARO_API_URL = "https://saro-backend.fly.dev"
-    VITE_APP_ENV      = "production"
+    VITE_SARO_API_URL = 'https://saro-backend.fly.dev'
+    VITE_APP_ENV      = 'production'
 
 [http_service]
   internal_port        = 80
   force_https          = true
-  auto_stop_machines   = false
+  auto_stop_machines   = 'off'
   auto_start_machines  = true
   min_machines_running = 1
 
   [[http_service.checks]]
-    grace_period = "5s"
-    interval     = "30s"
-    method       = "GET"
-    path         = "/"
-    timeout      = "5s"
+    grace_period = '5s'
+    interval     = '30s'
+    method       = 'GET'
+    path         = '/'
+    timeout      = '5s'
 
 [[vm]]
-  cpu_kind = "shared"
-  cpus     = 1
-  memory   = "256mb"
+  cpu_kind  = 'shared'
+  cpus      = 1
+  memory    = '256mb'
+  memory_mb = 256

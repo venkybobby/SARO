@@ -28,12 +28,17 @@ logger = logging.getLogger(__name__)
 
 def _database_url() -> str:
     from urllib.parse import urlparse, urlunparse
+    import re as _re
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
             "Add it as a Railway variable or set it in your .env file."
         )
+    # Python 3.11+ rejects bracketed non-IP hostnames (e.g. [hostname.example.com]).
+    # Supabase sometimes produces DATABASE_URLs with the host wrapped in brackets —
+    # strip them before parsing so urlparse doesn't raise a ValueError.
+    url = _re.sub(r'@\[([^\]]+)\]:', r'@\1:', url)
     # Supabase pooler authentication guard: the Supabase session/transaction
     # pooler (*.pooler.supabase.com) requires the project-scoped username
     # "postgres.<project-ref>" rather than the bare "postgres".  A bare
