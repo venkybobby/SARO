@@ -37,7 +37,6 @@ def test_risk_officer_dashboard_has_ir_plan_link():
 
 def test_claims_matrix_in_tab_registry():
     """_TAB_REGISTRY must include claims_matrix (FR-06 — accessible in tab system)."""
-    import ast
     src = (_REPO_ROOT / "frontend" / "app.py").read_text(encoding="utf-8")
     assert '"claims_matrix"' in src, "claims_matrix must be registered in _TAB_REGISTRY"
 

@@ -18,7 +18,7 @@ import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from services.compliance_label_service import get_all_labels, get_claims_matrix_header, get_disclaimer  # noqa: E402
+from services.compliance_label_service import get_all_labels  # noqa: E402
 
 # Derived from registry — display names come from the single source of truth
 _EVF_KEY_TO_LABEL: dict[str, str] = {lbl["framework"]: lbl["display_name"] for lbl in get_all_labels()}

@@ -9,9 +9,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))

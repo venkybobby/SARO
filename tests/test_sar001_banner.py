@@ -12,7 +12,6 @@ import os
 import sys
 import uuid
 
-import pytest
 from unittest.mock import MagicMock
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,11 +21,10 @@ if _REPO_ROOT not in sys.path:
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-unit-tests")
 
-from fastapi.testclient import TestClient
-
-from database import get_db
-from main import app
-from models import ClientConfig, Tenant
+from fastapi.testclient import TestClient  # noqa: E402
+from database import get_db  # noqa: E402
+from main import app  # noqa: E402
+from models import ClientConfig, Tenant  # noqa: E402
 
 client = TestClient(app)
 

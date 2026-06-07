@@ -106,7 +106,7 @@ def render(token: str) -> None:
             )
             state = eng.get("state", "SHORTLISTED") if eng else "SHORTLISTED"
             new_state = st.selectbox(
-                f"Lifecycle state",
+                "Lifecycle state",
                 _LIFECYCLE_STATES,
                 index=_LIFECYCLE_STATES.index(state) if state in _LIFECYCLE_STATES else 0,
                 key=f"evf_state_{fw_key}",

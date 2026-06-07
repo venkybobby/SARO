@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -29,6 +30,8 @@ from sqlalchemy.orm import Session
 
 from models import QCORegistry, QCOPublicationEvent
 from services.evf_gate_service import gate_is_locked
+
+logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 

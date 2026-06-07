@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user
 from database import get_db
 from models import AISystem, SystemAudit, User
-from services.system_service import compute_audit_status, system_to_dict
+from services.system_service import system_to_dict
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/systems", tags=["systems"])
