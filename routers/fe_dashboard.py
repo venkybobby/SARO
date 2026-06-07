@@ -189,3 +189,43 @@ async def get_risk_dashboard(
     }
 
     return {"vendors": vendors, "summary": summary}
+
+
+@router.get(
+    "/dashboard",
+    summary="Alias: combined dashboard summary (demo-compatible)",
+    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
+)
+async def get_dashboard_summary(
+    window: str = Query(default="7d"),
+    vertical: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Unified dashboard endpoint called by the React frontend.
+    Returns compliance_matrix + risk_dashboard combined under one request.
+    """
+    tid = current_user.tenant_id
+    cutoff = _window_cutoff(window)
+
+    audit_ids = (
+        db.query(Audit.id)
+        .outerjoin(AuditMetadata, AuditMetadata.audit_id == Audit.id)
+        .filter(
+            Audit.tenant_id == tid,
+            Audit.status == "completed",
+            Audit.created_at >= cutoff,
+            *([AuditMetadata.vertical == vertical] if vertical else []),
+        )
+        .all()
+    )
+    audit_count = len(audit_ids)
+
+    return {
+        "status": "ok",
+        "audit_count": audit_count,
+        "window": window,
+        "vertical": vertical,
+        "tenant_id": str(tid),
+    }
