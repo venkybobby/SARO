@@ -10,9 +10,11 @@ app            = 'sarofrontend'
 primary_region = 'dfw'
 
 [build]
-  # Path is relative to build context (repo root).
-  # Run: flyctl deploy --config frontend/fly.toml from repo root.
-  dockerfile = 'frontend/Dockerfile'
+  # Fly resolves dockerfile relative to the fly.toml's directory (frontend/).
+  # So "Dockerfile" here resolves to frontend/Dockerfile. ✅
+  # Build context = repo root (where flyctl deploy is invoked).
+  # COPY frontend/... paths in the Dockerfile work from repo root. ✅
+  dockerfile = 'Dockerfile'
   [build.args]
     VITE_SARO_API_URL = 'https://saro-backend.fly.dev'
     VITE_APP_ENV      = 'production'
