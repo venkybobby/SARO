@@ -39,8 +39,8 @@ def _control_to_dict(ctrl: Control, mappings: list[ControlFrameworkMapping]) -> 
 @router.get("", summary="List controls, optionally filtered by framework(s)")
 def list_controls(
     frameworks: list[str] = Query(default=[], alias="frameworks"),
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,  # type: ignore[assignment]
+    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
 ) -> list[dict[str, Any]]:
     """
     Return all controls. Pass `?frameworks=ISO_42001&frameworks=EU_AI_ACT` to
@@ -82,8 +82,8 @@ def list_controls(
 @router.get("/{control_id}/evidence", summary="Audit trace IDs serving as evidence for a control")
 def control_evidence(
     control_id: uuid.UUID,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,  # type: ignore[assignment]
+    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """
     Returns audit trace IDs that can be cited as evidence for the control.
