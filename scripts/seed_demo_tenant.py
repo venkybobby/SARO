@@ -252,8 +252,12 @@ def get_or_create_demo_tenant(session) -> dict:
         )
     session.execute(
         text(
-            "INSERT INTO client_configs (id, tenant_id, industry, created_at) "
-            "VALUES (gen_random_uuid(), :tid, 'multi_vertical', NOW()) "
+            "INSERT INTO client_configs "
+            "(id, tenant_id, industry, sso_enabled, mfa_required, "
+            " allow_magic_link_fallback, warning_banner_active, "
+            " scim_enabled, created_at) "
+            "VALUES (gen_random_uuid(), :tid, 'multi_vertical', "
+            " true, false, true, true, false, NOW()) "
             "ON CONFLICT (tenant_id) DO NOTHING"
         ),
         {"tid": tenant_id},
