@@ -175,6 +175,14 @@ def render(token: str, tab_key: str = "risk_summary") -> None:
     st.header("Risk Officer Dashboard")
     st.caption("Board-level risk view — RAG status, trends, findings, and vendor exposure.")
 
+    # SAR-011 FR-08: IR Plan quick-link prominent at the top of the Risk Officer view
+    # so Risk Officers can navigate directly without going to the Governance tab.
+    st.info(
+        "🚨 **Incident Response Plan** — "
+        "[View IR Plan](#) · Ensure your AI incident response procedures are up to date.",
+        icon="🚨",
+    )
+
     with st.spinner("Loading risk summary…"):
         summary = _safe_get(token, "/api/v1/risk/summary")
         vendors = _safe_get(token, "/api/v1/risk/vendors")
