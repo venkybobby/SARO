@@ -2,9 +2,11 @@
  * App shell — client-side routing for the SARO React frontend.
  *
  * Routes:
- *   /demo          → DemoEntry  (public, auto-fetches read-only demo JWT)
- *   /dashboard     → Dashboard  (authenticated)
- *   /              → redirect to /demo
+ *   /              → redirect to /login  (entry point for all users)
+ *   /login         → Login page (unauthenticated) OR redirect to /dashboard (authenticated)
+ *   /demo          → DemoEntry  (public, auto-fetches read-only demo JWT — accessible directly)
+ *   /dashboard     → Dashboard  (authenticated) OR redirect to /login (unauthenticated)
+ *   *              → redirect to /login
  */
 import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -41,8 +43,9 @@ export default function App() {
               : <Navigate to="/login" replace />
           }
         />
-        <Route path="/" element={<Navigate to="/demo" replace />} />
-        <Route path="*" element={<Navigate to="/demo" replace />} />
+        {/* Default: login is the entry point. /demo remains publicly accessible via direct URL. */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
