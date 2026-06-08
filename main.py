@@ -178,6 +178,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 logger.warning("Python migration %s skipped (non-fatal): %s", _mig_name, _exc)
         # 4. Seed persona permissions (idempotent — skips existing rows)
         seed_persona_permissions()
+        # 4b. SAR-010: seed unified control library (idempotent — skips existing controls)
+        try:
+            from scripts.seed_control_library import seed_controls
+            seeded = seed_controls()
+            if seeded:
+                logger.info("Control library seeded: %d controls added", seeded)
+            else:
+                logger.info("Control library already seeded — no changes")
+        except Exception as _exc:
+            logger.warning("Control library seed skipped (non-fatal): %s", _exc)
         logger.info("Database schema synchronised")
         # SPEC-E3: Initialise SARoEngine singleton with TF-IDF index
         try:

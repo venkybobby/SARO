@@ -53,36 +53,48 @@ _TAB_REGISTRY: dict[str, tuple[str, str]] = {
     "evaluations":     ("🧪 Evaluations",        "evaluations"),
     # SAR-004: EVF Admin Status (admin-only)
     "evf_admin":       ("🔐 EVF Status",         "evf_status_admin"),
+    # SAR-010: Unified Control Library
+    "controls":        ("📚 Control Library",    "controls"),
+    # SAR-013: AI System Inventory
+    "systems":         ("🤖 AI Systems",         "systems"),
 }
 
+# SAR-011: consolidated tab lists — each persona sees only relevant tabs.
+# Duplicates removed (evidence_export merged into trace_view, vendor_risk merged
+# into risk_summary). SAR-010 controls + SAR-013 systems added where appropriate.
 _PERSONA_TABS: dict[str, list[str]] = {
     "compliance_lead": [
-        "dashboard", "compliance_hub", "trace_view", "evidence_export",
-        "claims_matrix", "how_saro_reasons", "dpa_governance",
-        "aims", "governance",  # CF-04 / CF-05
+        "dashboard", "compliance_hub", "systems",        # SAR-013
+        "trace_view", "claims_matrix", "controls",       # SAR-010
+        "how_saro_reasons", "dpa_governance",
+        "aims", "governance",
         "onboarding", "upload", "evaluations",
     ],
     "risk_officer": [
-        "dashboard", "risk_summary", "vendor_risk", "ir_plan", "trace_view",
+        "dashboard", "risk_summary", "systems",          # SAR-013
+        "ir_plan", "trace_view",
     ],
     "ai_auditor": [
-        "dashboard", "trace_view", "evidence_export",
-        "rule_packs", "coverage_gap", "remediation", "drift_alerts", "upload",
+        "dashboard", "trace_view", "controls",           # SAR-010
+        "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "upload",
     ],
     "admin": [
-        "dashboard", "compliance_hub", "trace_view", "evidence_export",
-        "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
-        "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-        "drift_alerts", "aims", "governance",  # CF-04 / CF-05
-        "onboarding", "upload", "admin_settings", "evaluations",
-        "evf_admin",  # SAR-004
+        "dashboard", "compliance_hub", "systems",        # SAR-013
+        "trace_view", "risk_summary", "claims_matrix",
+        "how_saro_reasons", "dpa_governance", "controls", # SAR-010
+        "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "aims", "governance",
+        "onboarding", "upload", "admin_settings",
+        "evaluations", "evf_admin",
     ],
     # Fallback for legacy roles
     "super_admin": [
-        "dashboard", "compliance_hub", "trace_view", "evidence_export",
-        "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
-        "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-        "drift_alerts", "aims", "governance",  # CF-04 / CF-05
+        "dashboard", "compliance_hub", "systems",
+        "trace_view", "risk_summary", "claims_matrix",
+        "how_saro_reasons", "dpa_governance", "controls",
+        "rule_packs", "coverage_gap", "remediation",
+        "drift_alerts", "aims", "governance",
         "onboarding", "upload", "admin_settings", "evaluations",
     ],
     "operator": ["dashboard", "upload", "trace_view", "remediation"],
