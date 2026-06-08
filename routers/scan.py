@@ -29,6 +29,66 @@ from schemas import (
 from services.hash_chain_service import LEGACY_SENTINEL, compute_event_hash
 from sqlalchemy import text as _sql_text
 
+
+# ── SAR-008: risk notification thresholds ────────────────────────────────────
+_NOTIF_CRITICAL_THRESHOLD = 0.80   # risk score ≥ 80 → critical alert
+_NOTIF_HIGH_THRESHOLD = 0.60       # risk score ≥ 60 → high alert
+
+
+def _maybe_dispatch_risk_notification(
+    db: Session,
+    tenant_id,
+    audit_id,
+    overall_risk: float,
+    dataset_name: str,
+) -> None:
+    """
+    Create and dispatch a Notification when a batch scan exceeds risk thresholds.
+
+    Thresholds (configurable via _NOTIF_* constants):
+      ≥ 0.80 → severity=critical  (threshold_breach)
+      ≥ 0.60 → severity=high      (threshold_breach)
+
+    Non-blocking: any exception is logged and swallowed so the scan
+    response is never delayed or failed by notification side-effects.
+    """
+    from models import Notification
+    from services.notification_service import dispatch_notification
+
+    if overall_risk < _NOTIF_HIGH_THRESHOLD:
+        return
+
+    severity = "critical" if overall_risk >= _NOTIF_CRITICAL_THRESHOLD else "high"
+    risk_pct = round(overall_risk * 100, 1)
+
+    try:
+        notif = Notification(
+            tenant_id=tenant_id,
+            type="threshold_breach",
+            title=f"Risk threshold exceeded — {dataset_name}",
+            body=(
+                f"Audit {audit_id} scored {risk_pct}/100 risk. "
+                f"Severity: {severity.upper()}. "
+                "Review findings and remediation guidance in the TRACE tab."
+            ),
+            severity=severity,
+            metadata_json=f'{{"audit_id": "{audit_id}", "risk_score": {risk_pct}}}',
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+        dispatch_notification(db, notif)
+        logger.info(
+            "Risk notification dispatched: audit=%s risk=%.1f severity=%s",
+            audit_id, risk_pct, severity,
+        )
+    except Exception as exc:
+        logger.warning("Risk notification failed (non-fatal): %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
@@ -199,6 +259,15 @@ def scan_batch(
 
         # ── Persist audit traces (non-critical — never block the response) ──
         _persist_traces(engine, audit_id, db)
+
+        # SAR-008: dispatch notification when risk score is high or critical
+        _maybe_dispatch_risk_notification(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            audit_id=audit_id,
+            overall_risk=report.bayesian_scores.overall,
+            dataset_name=batch.dataset_name or "Unnamed dataset",
+        )
 
         logger.info(
             "Audit %s completed: status=%s, mit_coverage=%.3f, delta=%.3f",

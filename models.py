@@ -369,6 +369,10 @@ class ClientConfig(Base):
     # None → use global ACCESS_TOKEN_EXPIRE_MINUTES env var (default 480 = 8h).
     # Set to e.g. 480 for enterprise SSO sessions, 60 for high-security tenants.
     token_expire_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # LIVE-004: data region for GDPR / DPA compliance.
+    # "EU" → EU data residency required; GitHub integration blocked until DPA amended.
+    # "US" or None → no EU-specific restrictions.
+    data_region: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

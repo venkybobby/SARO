@@ -146,12 +146,39 @@ def _render_recent_audits(audits: list[dict]) -> None:
             c3.markdown(audit.get("status", "—"))
 
 
-def _render_governance_links(links: dict) -> None:
+def _render_governance_links(links: dict, token: str) -> None:
     st.markdown("### Governance Documents")
-    cols = st.columns(len(_GOVERNANCE_LINKS))
-    for col, item in zip(cols, _GOVERNANCE_LINKS):
-        url = links.get(item["key"], "#")
-        with col:
+
+    # SAR-007/SAR-009: DPA in-app download (primary CTA)
+    col_dpa, col_rest = st.columns([1, 2])
+    with col_dpa:
+        st.markdown("**GDPR Art. 28 DPA**")
+        base = st.session_state.get("api_base", "http://localhost:8000").rstrip("/")
+        if st.button("⬇ Download DPA (PDF)", use_container_width=True, key="dpa_download_btn", type="primary"):
+            try:
+                import requests as _req
+                resp = _req.get(
+                    f"{base}/api/v1/compliance/dpa",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    st.download_button(
+                        label="Save DPA PDF",
+                        data=resp.content,
+                        file_name="SARO_DPA.pdf",
+                        mime=resp.headers.get("content-type", "application/pdf"),
+                        key="dpa_save_btn",
+                    )
+                else:
+                    st.error(f"DPA download failed ({resp.status_code}). Check DPA template is configured.")
+            except Exception as exc:
+                st.error(f"Request failed: {exc}")
+
+    with col_rest:
+        st.markdown("**Other Governance Links**")
+        for item in _GOVERNANCE_LINKS[1:]:  # skip DPA — handled above
+            url = links.get(item["key"], "#")
             st.markdown(f"[{item['label']}]({url})")
 
 
@@ -236,7 +263,7 @@ def render(token: str) -> None:
     _render_recent_audits(recent_audits)
     st.divider()
 
-    _render_governance_links(gov_links)
+    _render_governance_links(gov_links, token)
     st.divider()
 
     _render_expiry_alerts(token)

@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from models import Audit, AuditTrace, GitHubIntegration, GitHubScanResult, User
+from models import Audit, AuditTrace, ClientConfig, GitHubIntegration, GitHubScanResult, User
 from routers.clients import _log_event
 from schemas import (
     GitHubIntegrationConfigIn,
@@ -38,6 +38,39 @@ router = APIRouter(prefix="/api/v1/github", tags=["github-integration"])
 
 _GITHUB_API = "https://api.github.com"
 _SNIPPET_MAX_CHARS = 500  # max snippet length stored per file — never full file
+
+
+# ── LIVE-004: EU data-region enforcement ─────────────────────────────────────
+
+def _require_non_eu_tenant(tenant_id, db: Session) -> None:
+    """
+    Raise HTTP 403 if the tenant is configured as an EU data-region tenant.
+
+    GitHub integration stores file snippets and hashes from customer code
+    repositories — a new personal data category not covered by the current
+    SARO DPA template. EU tenants must have a DPA amendment that adds GitHub
+    as an Annex C sub-processor before this feature can be enabled.
+
+    Non-EU tenants (data_region != "EU" or None) pass through unchanged.
+    """
+    cfg = (
+        db.query(ClientConfig)
+        .filter(ClientConfig.tenant_id == tenant_id)
+        .first()
+    )
+    if cfg and cfg.data_region == "EU":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "github_eu_dpa_required",
+                "message": (
+                    "GitHub integration requires a DPA amendment for EU tenants. "
+                    "Source code snippets from customer repositories constitute "
+                    "personal data under GDPR. Contact your SARO account manager "
+                    "to initiate a DPA Annex C amendment before enabling this feature."
+                ),
+            },
+        )
 _MAX_RESULTS_PER_SCAN = 20  # cap on correlated file results per audit
 
 # MIT domain → search keywords for GitHub code search
@@ -174,6 +207,9 @@ def configure_github(
     The PAT is hashed (SHA-256) before storage and is never retrievable.
     SARO will only read repositories explicitly listed in `allowed_repos`.
     """
+    # LIVE-004: block GitHub integration for EU tenants until DPA is amended
+    _require_non_eu_tenant(current_user.tenant_id, db)
+
     # Validate PAT has basic GitHub API access (read-only test)
     try:
         resp = httpx.get(
@@ -292,6 +328,9 @@ def scan_repos_for_audit(
     Full file content is NEVER stored — only the first 500 chars + SHA-256.
     Every scan is logged to the immutable audit_events table.
     """
+    # LIVE-004: block GitHub scan for EU tenants until DPA is amended
+    _require_non_eu_tenant(current_user.tenant_id, db)
+
     # Validate audit belongs to this tenant
     audit = db.get(Audit, audit_id)
     if not audit or audit.tenant_id != current_user.tenant_id:
