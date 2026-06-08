@@ -34,7 +34,10 @@ export default function Login({ onLogin }) {
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        throw new Error(data.detail || `Login failed (${r.status})`);
+        const detail = Array.isArray(data.detail)
+          ? data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
+          : data.detail;
+        throw new Error(detail || `Login failed (${r.status})`);
       }
       const { access_token } = await r.json();
       const payload = parseJwtPayload(access_token);
