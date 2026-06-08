@@ -1,0 +1,98 @@
+:root {
+  /* Typography */
+  --font-display: 'DM Sans', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Type Scale */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  /* Font Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Neutral Colors */
+  --color-bg-base: #0D0F12;
+  --color-bg-surface: #13161B;
+  --color-bg-elevated: #1C2028;
+  --color-bg-overlay: #242932;
+  --color-border-subtle: rgba(255,255,255,0.06);
+  --color-border-default: rgba(255,255,255,0.10);
+  --color-border-strong: rgba(255,255,255,0.18);
+
+  /* Text Colors */
+  --color-text-primary: #F0F2F5;
+  --color-text-secondary: #8C95A3;
+  --color-text-muted: #4E5764;
+  --color-text-inverse: #0D0F12;
+
+  /* Semantic Colors */
+  --color-critical: #E8443A;
+  --color-critical-bg: rgba(232,68,58,0.10);
+  --color-critical-border: rgba(232,68,58,0.25);
+
+  --color-high: #F0832A;
+  --color-high-bg: rgba(240,131,42,0.10);
+  --color-high-border: rgba(240,131,42,0.25);
+
+  --color-medium: #E8C53A;
+  --color-medium-bg: rgba(232,197,58,0.10);
+  --color-medium-border: rgba(232,197,58,0.25);
+
+  --color-low: #3AB87A;
+  --color-low-bg: rgba(58,184,122,0.10);
+  --color-low-border: rgba(58,184,122,0.25);
+
+  --color-info: #4A9EE8;
+  --color-info-bg: rgba(74,158,232,0.10);
+  --color-info-border: rgba(74,158,232,0.25);
+
+  --color-ai: #8B6EE8;
+  --color-ai-bg: rgba(139,110,232,0.10);
+  --color-ai-border: rgba(139,110,232,0.25);
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+
+  /* Transitions */
+  --transition-fast: 100ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--color-info);
+
+  /* Z-Index */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

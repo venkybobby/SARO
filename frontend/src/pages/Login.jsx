@@ -1,8 +1,6 @@
-/**
- * Login — JWT login. After token, fetches /api/v1/auth/me for full user profile (persona, role).
- * Accepts sessionExpired prop to show expiry warning.
- */
 import React, { useState } from "react";
+import { Eye, EyeOff, Shield } from "lucide-react";
+import { Button, Input } from "../components/ui/index.jsx";
 
 function parseJwtPayload(token) {
   try {
@@ -16,15 +14,15 @@ function parseJwtPayload(token) {
 export default function Login({ onLogin, sessionExpired }) {
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
+  const [showPw,   setShowPw]   = useState(false);
   const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState(null);
+  const [errors,   setErrors]   = useState({});
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setErrors({});
     try {
-      // 1. Get token
       const r = await fetch("/api/v1/auth/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -39,105 +37,151 @@ export default function Login({ onLogin, sessionExpired }) {
       }
       const { access_token } = await r.json();
 
-      // 2. Fetch full user profile (includes persona_role, role, tenant_id)
       let userProfile = parseJwtPayload(access_token);
       try {
         const meRes = await fetch("/api/v1/auth/me", {
           headers: { Authorization: `Bearer ${access_token}` },
         });
-        if (meRes.ok) {
-          userProfile = { ...userProfile, ...(await meRes.json()) };
-        }
+        if (meRes.ok) userProfile = { ...userProfile, ...(await meRes.json()) };
       } catch {
-        // Use JWT payload as fallback
+        /* Use JWT payload as fallback */
       }
-
       onLogin(access_token, userProfile);
     } catch (err) {
-      setError(err.message);
+      if (err.message.toLowerCase().includes("email") || err.message.toLowerCase().includes("account")) {
+        setErrors({ email: err.message });
+      } else if (err.message.toLowerCase().includes("password") || err.message.toLowerCase().includes("credential")) {
+        setErrors({ password: err.message });
+      } else {
+        setErrors({ form: err.message });
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  const inputStyle = {
-    width: "100%", padding: "10px 12px", borderRadius: 8,
-    border: "1px solid #d1d5db", fontSize: 14, outline: "none",
-    boxSizing: "border-box",
-  };
-
   return (
     <div style={{
-      minHeight: "100vh", background: "#f9fafb",
+      minHeight: "100vh",
+      background: "var(--color-bg-base)",
       display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "var(--space-6)",
     }}>
       <form
         onSubmit={handleSubmit}
+        noValidate
         style={{
-          background: "#fff", borderRadius: 16, padding: "40px 48px",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.08)", width: 380,
+          background: "var(--color-bg-surface)",
+          border: "1px solid var(--color-border-default)",
+          borderRadius: "var(--radius-xl)",
+          padding: "var(--space-10) var(--space-8)",
+          width: "100%", maxWidth: 400,
+          boxShadow: "var(--shadow-lg)",
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 36, marginBottom: 6 }}>🛡️</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d9488" }}>SARO</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-            Smart AI Risk Orchestrator — Enterprise Governance Platform
-          </div>
+        {/* Brand */}
+        <div style={{ textAlign: "center", marginBottom: "var(--space-8)" }}>
+          <Shield size={36} color="var(--color-info)" style={{ marginBottom: "var(--space-3)" }} />
+          <h1 style={{
+            fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)",
+            color: "var(--color-text-primary)", fontFamily: "var(--font-display)",
+            marginBottom: "var(--space-1)",
+          }}>
+            Sign in to SARO
+          </h1>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
+            Smart AI Risk Orchestrator
+          </p>
         </div>
 
+        {/* Session expired banner */}
         {sessionExpired && (
-          <div style={{
-            background: "#fffbeb", border: "1px solid #fde68a",
-            borderRadius: 8, padding: "10px 14px", marginBottom: 16,
-            fontSize: 13, color: "#92400e",
+          <div role="alert" style={{
+            background: "var(--color-medium-bg)",
+            border: "1px solid var(--color-medium-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3) var(--space-4)",
+            marginBottom: "var(--space-5)",
+            fontSize: "var(--text-sm)", color: "var(--color-medium)",
           }}>
-            ⏱ Your session has expired — please sign in again.
+            Your session has expired — please sign in again.
           </div>
         )}
 
-        {error && (
-          <div style={{
-            background: "#fef2f2", border: "1px solid #fca5a5",
-            borderRadius: 8, padding: "10px 14px", marginBottom: 20,
-            fontSize: 13, color: "#b91c1c",
+        {/* Form-level error */}
+        {errors.form && (
+          <div role="alert" style={{
+            background: "var(--color-critical-bg)",
+            border: "1px solid var(--color-critical-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3) var(--space-4)",
+            marginBottom: "var(--space-5)",
+            fontSize: "var(--text-sm)", color: "var(--color-critical)",
           }}>
-            {error}
+            {errors.form}
           </div>
         )}
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Work Email</label>
-          <input
-            type="email" value={email}
+        {/* Email */}
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <Input
+            label="Work email"
+            type="email"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required placeholder="operator@acme.com" style={inputStyle}
+            required
+            autoFocus
+            autoComplete="email"
+            placeholder="you@company.com"
+            disabled={loading}
+            error={errors.email}
           />
         </div>
 
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Password</label>
-          <input
-            type="password" value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required placeholder="••••••••" style={inputStyle}
-          />
+        {/* Password */}
+        <div style={{ marginBottom: "var(--space-2)" }}>
+          <div style={{ position: "relative" }}>
+            <Input
+              label="Password"
+              type={showPw ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              disabled={loading}
+              error={errors.password}
+            />
+            <button
+              type="button"
+              aria-label={showPw ? "Hide password" : "Show password"}
+              onClick={() => setShowPw((v) => !v)}
+              style={{
+                position: "absolute", right: 10,
+                top: errors.password ? "calc(50% - 10px)" : "calc(50% + 6px)",
+                transform: "translateY(-50%)",
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--color-text-muted)", padding: 2,
+              }}
+            >
+              {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
 
-        <button
-          type="submit" disabled={loading}
-          style={{
-            width: "100%", padding: "11px 0", borderRadius: 8, border: "none",
-            background: loading ? "#99f6e4" : "#0d9488", color: "#fff",
-            fontSize: 15, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Signing in…" : "Sign in →"}
-        </button>
+        {/* Forgot password — immediately below password field */}
+        <div style={{ textAlign: "right", marginBottom: "var(--space-6)" }}>
+          <a href="/forgot-password" style={{ fontSize: "var(--text-sm)", color: "var(--color-info)" }}>
+            Forgot password?
+          </a>
+        </div>
 
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <a href="/demo" style={{ fontSize: 13, color: "#0d9488", textDecoration: "none" }}>
-            View public demo instead →
+        <Button type="submit" loading={loading} size="lg" style={{ width: "100%" }}>
+          Sign in
+        </Button>
+
+        <div style={{ textAlign: "center", marginTop: "var(--space-5)" }}>
+          <a href="/demo" style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
+            View public demo →
           </a>
         </div>
       </form>

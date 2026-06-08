@@ -290,7 +290,6 @@ class TestSar005Sso:
 
     # LIVE-008: replay guard — second use of same assertion_id returns 400
     def test_replay_attack_returns_400(self):
-        import uuid as _uuid
         from routers.sso import _SEEN_ASSERTION_IDS  # type: ignore[attr-defined]
 
         tenant = _make_mock_tenant()
@@ -298,7 +297,7 @@ class TestSar005Sso:
         user = _make_mock_user(tenant_id=tenant.id)
 
         # Use a unique assertion ID so this test is isolated from others
-        aid = f"_test_replay_{_uuid.uuid4().hex}"
+        aid = f"_test_replay_{uuid.uuid4().hex}"
         # Clear any leftover state for this ID
         _SEEN_ASSERTION_IDS.pop(aid, None)
 
@@ -328,13 +327,11 @@ class TestSar005Sso:
 
     # LIVE-008: SSO JIT user is created with hashed_password=None (LIVE-002 compat)
     def test_sso_jit_user_created_with_null_password(self):
-        import uuid as _uuid
         tenant = _make_mock_tenant()
         config = _make_mock_config()
         app.dependency_overrides[get_db] = _override_db(tenant=tenant, config=config, user=None)
 
         captured_users: list = []
-        original_override = app.dependency_overrides[get_db]
 
         def _capturing_override():
             mock_db = MagicMock()
