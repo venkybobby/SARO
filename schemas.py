@@ -22,6 +22,9 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # SAR-001: non-null when the tenant has magic-link fallback active or
+    # warning_banner_active=True — signals the frontend to render a banner.
+    warning_banner: str | None = None
 
 
 class LoginIn(BaseModel):

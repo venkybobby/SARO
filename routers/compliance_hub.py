@@ -35,7 +35,15 @@ _GOVERNANCE_LINKS: dict[str, str] = {
 
 
 def _claims_status(audits: list[Audit]) -> dict[str, str]:
-    """Derive RAG compliance status per framework from completed audit data."""
+    """
+    Derive internal RAG readiness indicator per framework from completed audit data.
+
+    SAR-002 / COMPLIANCE_CLAIMS_MATRIX: these colours are INTERNAL dashboard
+    indicators only (Green = audit evidence present, Amber = partial/no evidence).
+    They must never be rendered as external compliance certifications.
+    Use the framework_labels field (from compliance_label_service) for any
+    externally-visible badge or claim text.
+    """
     completed = [a for a in audits if a.status == "completed"]
     count = len(completed)
     if count >= 5:
@@ -146,9 +154,18 @@ def get_compliance_hub(
         .all()
     )
 
+    # SAR-002: surface Tier 2 label text for each framework so the frontend
+    # renders the correct EVF-approved badge rather than raw RAG colours.
+    from services.compliance_label_service import get_all_labels
+    try:
+        framework_labels = get_all_labels()
+    except Exception:
+        framework_labels = []
+
     return {
         "recent_audits": _recent_audit_summaries(recent_audits),
         "claims_status": _claims_status(recent_audits),
+        "framework_labels": framework_labels,
         "governance_links": _GOVERNANCE_LINKS,
         "readiness_checklist": _readiness_checklist(recent_audits, db, current_user.tenant_id),
     }

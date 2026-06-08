@@ -24,7 +24,7 @@ from auth import (
     require_role,
 )
 from database import get_db
-from models import PersonaPermission, Tenant, User
+from models import ClientConfig, PersonaPermission, Tenant, User
 from schemas import (
     BootstrapIn,
     LoginIn,
@@ -102,7 +102,19 @@ def login(payload: LoginIn, db: Annotated[Session, Depends(get_db)]) -> TokenOut
         )
     token = create_access_token(user)
     logger.info("User %s logged in (role=%s)", user.email, user.role)
-    return TokenOut(access_token=token)
+
+    # SAR-001: include warning banner when tenant uses magic-link / non-SSO login.
+    # Reads ClientConfig for the user's tenant; no banner if config is absent.
+    warning_banner: str | None = None
+    cfg = db.query(ClientConfig).filter(ClientConfig.tenant_id == user.tenant_id).first()
+    if cfg and (cfg.warning_banner_active or cfg.allow_magic_link_fallback):
+        warning_banner = (
+            "⚠️ This tenant is using magic-link / password login. "
+            "For enterprise security, configure SSO in tenant settings. "
+            "Magic-link access is for testing only."
+        )
+
+    return TokenOut(access_token=token, warning_banner=warning_banner)
 
 
 @router.post(
