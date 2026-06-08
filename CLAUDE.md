@@ -95,6 +95,11 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 - [@.claude/skills/test-patterns](.claude/skills/test-patterns/SKILL.md) — pytest / E2E / Locust
 - [@.claude/skills/deploy-railway](.claude/skills/deploy-railway/SKILL.md) — Railway + Supabase deploy
 - [@.claude/skills/drift-sentinel](.claude/skills/drift-sentinel/SKILL.md) — KS-test / circuit breaker
+- [@.claude/skills/saro-dev](.claude/skills/saro-dev/SKILL.md) — E2E implementation pipeline (master orchestrator)
+- [@.claude/skills/auto-pr-review](.claude/skills/auto-pr-review/SKILL.md) — autonomous PR review before merge
+- [@.claude/skills/tdd-enforcer](.claude/skills/tdd-enforcer/SKILL.md) — Red-Green-Refactor TDD cycle
+- [@.claude/skills/security-audit](.claude/skills/security-audit/SKILL.md) — OWASP + PII + SARO surface audit
+- [@.claude/skills/ci-debugger](.claude/skills/ci-debugger/SKILL.md) — autonomous CI failure diagnosis & fix
 
 ## References
 
