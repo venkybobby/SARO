@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
@@ -37,6 +37,7 @@ router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
 )
 async def demo_signup(
     payload: DemoRequestIn,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
 ) -> DemoRequestOut:
     """Accept a demo signup request from a prospective customer."""
@@ -71,6 +72,11 @@ async def demo_signup(
         payload.first_name, payload.last_name, payload.email,
         payload.company_name or "—",
     )
+
+    # LIVE-006: notify Sales team via Slack webhook (non-blocking background task)
+    from services.sales_notification_service import notify_new_demo_request_sync
+    background_tasks.add_task(notify_new_demo_request_sync, record)
+
     return DemoRequestOut.model_validate(record)
 
 

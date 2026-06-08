@@ -100,13 +100,20 @@ def login(payload: LoginIn, db: Annotated[Session, Depends(get_db)]) -> TokenOut
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = create_access_token(user)
-    logger.info("User %s logged in (role=%s)", user.email, user.role)
+    # Look up ClientConfig once — used for both LIVE-005 (session length) and SAR-001 (banner)
+    cfg = db.query(ClientConfig).filter(ClientConfig.tenant_id == user.tenant_id).first()
+
+    # LIVE-005: per-tenant JWT session length
+    expire_minutes: int | None = cfg.token_expire_minutes if cfg else None
+
+    token = create_access_token(user, expire_minutes=expire_minutes)
+    logger.info(
+        "User %s logged in (role=%s, expire_minutes=%s)",
+        user.email, user.role, expire_minutes or "global_default",
+    )
 
     # SAR-001: include warning banner when tenant uses magic-link / non-SSO login.
-    # Reads ClientConfig for the user's tenant; no banner if config is absent.
     warning_banner: str | None = None
-    cfg = db.query(ClientConfig).filter(ClientConfig.tenant_id == user.tenant_id).first()
     if cfg and (cfg.warning_banner_active or cfg.allow_magic_link_fallback):
         warning_banner = (
             "⚠️ This tenant is using magic-link / password login. "

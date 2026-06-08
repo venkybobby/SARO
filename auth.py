@@ -116,9 +116,16 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ── Token helpers ─────────────────────────────────────────────────────────────
 
 
-def create_access_token(user: User) -> str:
-    """Create a signed JWT containing user identity and role."""
-    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=_expire_minutes())
+def create_access_token(user: User, expire_minutes: int | None = None) -> str:
+    """Create a signed JWT containing user identity and role.
+
+    Args:
+        user: authenticated User ORM object or SimpleNamespace (demo viewer).
+        expire_minutes: per-tenant session length override. When None, falls
+            back to the ACCESS_TOKEN_EXPIRE_MINUTES env var (default 480 = 8h).
+    """
+    minutes = expire_minutes if expire_minutes is not None else _expire_minutes()
+    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=minutes)
     payload = {
         "sub": str(user.id),
         "email": user.email,
