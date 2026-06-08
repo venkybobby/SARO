@@ -1,6 +1,6 @@
 /**
  * Login — standard JWT login for non-demo users.
- * Posts to POST /api/v1/auth/token (OAuth2PasswordRequestForm).
+ * Posts to POST /api/v1/auth/token with JSON body { email, password }.
  */
 import React, { useState } from "react";
 
@@ -26,11 +26,10 @@ export default function Login({ onLogin }) {
     setLoading(true);
     setError(null);
     try {
-      const body = new URLSearchParams({ username: email, password });
       const r = await fetch(`${SARO_API_URL}/api/v1/auth/token`, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString(),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
