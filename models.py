@@ -66,7 +66,7 @@ class User(Base):
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE")
     )
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Roles: "super_admin" | "operator"
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="operator")
     # Persona: "compliance_lead" | "risk_officer" | "ai_auditor" | "admin" | None

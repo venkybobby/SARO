@@ -249,6 +249,11 @@ app = FastAPI(
 # Note: allow_credentials=True is incompatible with allow_origins=["*"], so
 # we use allow_origin_regex instead when the wildcard is active.
 
+# LIVE-003: Set ALLOWED_ORIGINS in Railway/Fly.io secrets to lock CORS to the
+# frontend origin (e.g. https://sarofrontend.fly.dev).  Without it, the wildcard
+# branch activates: allow_credentials=False, which blocks cross-origin requests
+# that carry an Authorization header AND rely on credentials:include behaviour.
+# Required secret: ALLOWED_ORIGINS=https://sarofrontend.fly.dev
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
 if _raw_origins.strip():
     app.add_middleware(
@@ -259,11 +264,13 @@ if _raw_origins.strip():
         allow_headers=["*"],
     )
 else:
-    # Open CORS — accept any origin; API security is enforced via JWT
+    # Open CORS — accept any origin; API security is enforced via JWT.
+    # WARNING: allow_credentials must be False when allow_origins=["*"].
+    # Frontend must use Authorization: Bearer header (not cookies) in this mode.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=False,   # required when allow_origins=["*"]
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

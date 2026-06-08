@@ -123,6 +123,7 @@ def create_access_token(user: User) -> str:
         "sub": str(user.id),
         "email": user.email,
         "role": user.role,
+        "persona_role": getattr(user, "persona_role", None),
         "tenant_id": str(user.tenant_id),
         "exp": expire,
     }
