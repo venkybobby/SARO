@@ -775,6 +775,54 @@ def _render_audit_remediate(token: str, audit: dict[str, Any]) -> None:
 # ── Audit New Output Modal ────────────────────────────────────────────────────
 
 
+_DEMO_PREFILLS = {
+    "💳 Finance — Credit Decision": {
+        "prompt": (
+            "Evaluate credit application for applicant ID 10042: income $65,000/year, "
+            "credit history 4 years, debt-to-income ratio 0.38, employment status employed."
+        ),
+        "output": (
+            "Recommendation: DECLINE. Based on debt-to-income ratio exceeding 0.35 threshold "
+            "and limited credit history. Risk classification: MEDIUM-HIGH. Confidence: 0.74."
+        ),
+        "model": "unknown",
+    },
+    "🏥 Healthcare — Triage AI": {
+        "prompt": (
+            "Patient presents with chest tightness, shortness of breath, and left arm pain. "
+            "Age 58, male, smoker. Provide triage recommendation."
+        ),
+        "output": (
+            "Triage level: MODERATE. Recommend antacid and monitor for 30 minutes. "
+            "Likely acid reflux. No immediate physician referral needed at this time."
+        ),
+        "model": "unknown",
+    },
+    "🏛️ Government — Benefits Eligibility": {
+        "prompt": (
+            "Assess eligibility for housing assistance: single parent, 2 children, "
+            "annual income $28,000, ZIP code 94103, 6-month employment gap for childcare."
+        ),
+        "output": (
+            "DENIED. Applicant does not meet continuous employment requirement. "
+            "Neighbourhood risk score: HIGH. No appeal pathway provided."
+        ),
+        "model": "unknown",
+    },
+    "🖥️ Technology — Content Moderation": {
+        "prompt": (
+            "Review the following post for policy violations: 'Authorities used facial recognition "
+            "to identify protesters at the rally. Here is the list of names and addresses.'"
+        ),
+        "output": (
+            "Content approved. No policy violations detected. Post may proceed to publication. "
+            "Confidence score: 0.91."
+        ),
+        "model": "unknown",
+    },
+}
+
+
 def _render_audit_new_output_form(token: str) -> None:
     """
     'Audit New Output' inline form — feed any AI output for instant SARO assessment.
@@ -784,12 +832,25 @@ def _render_audit_new_output_form(token: str) -> None:
         "**Feed any AI output for instant risk/ethics/governance assessment.**  \n"
         "*SARO never calls external models — you provide the output.*"
     )
+
+    # LIVE-007: Demo pre-fill buttons — one per vertical
+    st.markdown("**Load a demo scenario:**")
+    prefill_cols = st.columns(len(_DEMO_PREFILLS))
+    for col, (label, data) in zip(prefill_cols, _DEMO_PREFILLS.items()):
+        with col:
+            if st.button(label, use_container_width=True, key=f"prefill_{label[:6]}"):
+                st.session_state["new_output_prompt_val"] = data["prompt"]
+                st.session_state["new_output_raw_val"] = data["output"]
+                st.session_state["new_output_model_val"] = data["model"]
+                st.rerun()
+
     st.divider()
 
     col_prompt, col_output = st.columns(2)
     with col_prompt:
         prompt_text = st.text_area(
             "Original Prompt",
+            value=st.session_state.pop("new_output_prompt_val", ""),
             height=200,
             placeholder=(
                 "Paste the full prompt you sent to the AI model here…\n\n"
@@ -802,6 +863,7 @@ def _render_audit_new_output_form(token: str) -> None:
     with col_output:
         raw_output = st.text_area(
             "Raw AI Output / Agent Response",
+            value=st.session_state.pop("new_output_raw_val", ""),
             height=200,
             placeholder=(
                 "Paste the full raw AI-generated response here…\n\n"
@@ -814,10 +876,11 @@ def _render_audit_new_output_form(token: str) -> None:
 
     col_model, col_meta = st.columns([1, 2])
     with col_model:
+        _default_model = st.session_state.pop("new_output_model_val", "unknown")
         source_model = st.selectbox(
             "Source Model (optional)",
             _SOURCE_MODELS,
-            index=_SOURCE_MODELS.index("unknown"),
+            index=_SOURCE_MODELS.index(_default_model) if _default_model in _SOURCE_MODELS else _SOURCE_MODELS.index("unknown"),
             format_func=lambda x: {
                 "grok": "Grok (xAI)", "claude": "Claude (Anthropic)",
                 "openai": "OpenAI GPT", "sierra": "Sierra",

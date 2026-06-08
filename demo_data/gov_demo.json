@@ -1,0 +1,1605 @@
+{
+  "dataset_name": "Government \u2014 Public Sector AI Risk Demo (200 samples)",
+  "samples": [
+    {
+      "sample_id": "695bb758-1c23-4c50-8e4b-7c6bb8a055b5",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "da37e359-820b-42ca-b63b-c40a2cbd5284",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "df159c0f-8ee1-40dc-8e89-b764610cd365",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c574b203-0d87-4b99-a3ec-351c4bab1a6b",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8214a39c-3e56-47aa-bb07-d70af681ab36",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5c470db8-dea3-4e34-9a9a-ce945e7182c8",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a4f52e65-a6ad-44e0-a457-7a1ce22d6168",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "01961f6c-734e-4d18-9f0d-388be40a4ffd",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "41aa4977-a6df-456c-b143-0d0c81ac67ca",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "35b2afc0-2285-4720-ad17-c6c4c4559ea8",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7b2d2fbf-08d7-45bf-89ba-c5a2905b3039",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "df492868-02c1-4d2b-8149-3eabb2518cbc",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7d31a3ae-8241-4d97-a0dd-f18299762d6f",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5aa9323c-0d39-4da1-8335-56bc3db2d242",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "431ec2c7-5aff-4749-bd11-804dd77b8b93",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "573aa45e-a25c-4af1-be60-37f4197e8984",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b2f11ec3-e4df-4da4-85bb-1d3350c25cc1",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "985dda4f-43b1-43fe-9415-0fe0c84f1e2b",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6d1d3301-89b8-4b1c-a7b2-54f0d89baa89",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "79b8d2df-0b61-4d52-a421-c57b575649df",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "65f95d4f-70f5-48fb-a5cc-acaebfecb465",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "cae85ed4-b12a-4126-aaf0-0e5ca164d9c2",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f8e6cff3-4980-4ce9-a249-67c1bb19fd3e",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6767d1cc-186a-429f-baed-1c5598946019",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "09edeae6-11af-4e23-a4ce-066425144127",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "84d5f07d-7dee-4983-abff-7bd24dce30e8",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6eb4a5d1-de46-4a1a-87b7-9125e00f3d1c",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8b37f1f9-6fa3-4fc2-ac86-67eb04f0e4d5",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7b6a11fb-4e2d-49d8-be93-f6b483c9253b",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "80ba7024-71fa-4632-8f43-80f30490ed61",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c1a390e2-d724-4a65-981b-9bc27ca7a588",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e636982c-c32e-4e00-86f8-a61fa4fe4e6a",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2700be65-4469-42df-aef1-c4733518d1bd",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "69b821c1-1a6a-40e8-bd3a-d66d19d893b2",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f5b43261-355b-4ecd-ac5a-dcb30a1bce58",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7d17e246-7e50-43f0-9ecf-6a410c0f97b2",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "25e6f997-22f4-42cb-b3a9-35748eb4f743",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e74d303a-cfc4-48b9-8350-a18354e1e47b",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1a304605-f3f6-421b-87de-6324f33245d3",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b65cc8cf-f1e4-47a5-b191-115bb794976d",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7277c408-423f-4e76-9a27-e86741a8b3e6",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f4176a78-1d5f-4966-86cd-5348a014fac0",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9d5c9065-6fb0-430c-a796-a6d9837b386e",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b11f2617-8d60-4764-aedc-9f9cf53eee39",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "cd2e6835-2a88-4b3f-92ad-299c6f89aafa",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2e8bddf6-aef8-414d-839b-ab1cab91734f",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f4316f4f-1d2f-4cc5-9420-9e9d320173b1",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7cbfcc19-b46e-4fc2-ba2a-7199fc9856c6",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6581f7b6-a5ba-4edf-84eb-90f4b1d24498",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "aa05d350-bc2c-42fa-89b0-632af97d63c5",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "bbc318d0-15dc-4d15-9cfa-554d3877f601",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "27032ee8-dfa0-4958-a381-cc37f28352cd",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c539ecc6-4ab4-4ee9-b1e4-e715401c23de",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d093e3af-f131-48c9-b6ec-7e5f347b0954",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fb9417b6-dd8b-49f1-af28-38a2a8dce189",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "216c6415-b983-4874-a20a-f2f64477c051",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b84ca4bb-ce1c-407f-b79e-197e6b63f002",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8013ee94-643f-4849-87f3-747d33357829",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "26708443-a89e-4eb0-9c6f-5ef56bb927db",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "54245d23-37f6-4032-8159-53c90d2dbaa0",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "19f63dd7-eef1-4aba-b82f-a2c5b58ef93f",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "20bfb2aa-c0e4-4221-87f9-b88fd1cf3663",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d701cca4-7cb1-40a6-9307-824288b913c7",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0c84516c-02bb-49d8-902e-120d3cb06667",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4156c73f-68c5-422f-a834-955767dd3263",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "af9d5f09-ea88-454c-9ef3-9966c3fa1301",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e9212d01-35b9-4129-b647-970153e99408",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "eebc2e6f-7e33-4d50-b091-a5228aa3606c",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "121194b9-2000-4c11-93ba-c0ab4c53d922",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a716f7c6-3657-47da-9c21-7d66781375ef",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "937f3683-f52b-4dbf-b7e0-0f2372179f50",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c00b8d57-436d-4f17-be85-67d5ad7f6f57",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8af23dea-aa3b-43af-b898-a43e73881fe7",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c9f4e1c6-7365-4544-954b-c119d777e6fa",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7b450fbc-8d33-4766-90f7-17e9d395e18d",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "44b4af9a-f586-4649-9476-c3668f284e3f",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4f8ac301-f5aa-4938-b17b-5aa34f3619a4",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9df1ef6c-0d3c-4d78-9566-7cebc790f236",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "14a75bc7-b7c7-4a2c-ac50-3be89e87d898",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "30efd829-cce1-4a19-ac18-0cdf9a0ed20b",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d6c8cdc0-a1da-4eaa-937b-2c000cec0bb4",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d344aef9-fabb-49d6-8a66-1d616e7a643e",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "747d0aef-8968-442a-bf34-1208ad97abc4",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5dff7193-a812-46bc-b743-83d0ec95e277",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1fb2ad9c-2dd9-4113-8f90-22751014f081",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "67bda887-1daa-40fa-af32-8dd7967c5953",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "01f90f63-24d6-4c16-9fff-2abaa132c38f",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "cdc835f5-cc52-426d-ae56-c040b09bc987",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b9d5680a-ba64-474c-81b5-8f7c9c045e2a",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "625b9725-e30c-4ea4-9147-ffd6dec156fa",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a090cb6e-354a-4d41-86a6-6ca3e2d27086",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "bb567bb2-195b-46c2-b6b2-d08c3be20f3f",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "53a35b82-1cb5-497b-aa58-10f8f8b1c595",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a6dc285f-d099-42d1-825b-634ef6ba1527",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ad59725f-c390-4bb9-9455-7d288f934275",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b2d3c804-cf26-42bd-8b2a-a73a5b8ae7d6",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b186102c-f68f-491e-afad-d80b7bb0014f",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6071d534-429a-4fd0-8742-d4d0df87a40e",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4c2fe6c1-d87c-4f5d-b1a2-3250ba2abbb4",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0b57f926-535f-47b9-b484-c56e0f5a75bb",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "945f1015-3a2d-453d-9f80-a15b395a7e8c",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "45cd28d1-abcb-49db-a176-3337d64874a5",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d45ca56d-c7b0-4889-b8f9-43d7a870702b",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "58668621-ea87-4840-bc4b-d3bf914eff67",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "cad80f0c-3e5f-4e77-8445-89ac53f832d6",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "461f6766-18cd-48a0-9fc0-3fc9fd69a970",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "402ab9bb-6f6d-4861-b6a7-00e556259590",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7eceb6fe-e5e1-4468-bd39-6f85fed91330",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2707a4dd-6d97-4c6b-8d45-c6d77f91a469",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a6eaf793-44e7-4d1b-b2ec-68fa83d2228c",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "03e52204-b9d2-4dd0-a96d-dbb4c920767b",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "753e7401-d5e4-49cf-b5a6-02481d89218a",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f1f5418b-3b61-4b4e-aaa0-3bc797e082e8",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1c8916b6-22f0-4712-ba69-06577b4b5321",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f6a21b83-c279-4b78-a7b3-09e915d502a4",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c69f857c-9e35-4e2b-9140-1fd2b7a86db5",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8cd1f303-1c70-48c1-b224-1e7d6ef17a79",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9b5b2c7c-43ac-4b75-a024-d0e62a6ace76",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2683bfe3-8f09-48cb-b62b-ed60a8fb4b55",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "81ecaf2d-e84d-4f70-bcb3-26eb34887d52",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "cee42e2a-1824-43eb-859d-13bf67133ae6",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4104d372-d33f-4069-8d53-9efdf929fde6",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "32f62f5a-492d-4159-9510-a4ef7eb33d6b",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "86d08a17-e49a-4ff2-8f28-a6d1a0d1c2f3",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fe219ec2-6b3a-4a1f-9af6-0aac87ff39fe",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "553005ca-6575-402a-b346-cf0d6befd6a7",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "317aa2df-5d16-4de3-80e9-d21ee165495d",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "89af00d3-1c33-4ffa-886d-e2c22f14a930",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9393940c-035f-4c7a-8f01-19de387033c7",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "296e1f26-9b10-4be7-b6d7-f0fa15bf5e0d",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "047f802f-b270-4fb6-a4a8-928faa5d2ab0",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "27dcd249-faa5-4ff3-9f80-e8bd0b1ed67e",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "71b78cf5-b6ff-4120-a6b9-27ff93cd7e15",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2dd18412-5ac8-4864-9de0-ab7dbbaeb05f",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d3b92124-e820-424a-b790-82637c9c7839",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "712b5b43-44da-4721-a15b-19a22d662cdc",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6c6fd862-01cf-437a-ab41-f395a8809747",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "33685bc1-cdf5-44cb-9267-0d0eee7a6ce9",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ec579704-7e7f-4a68-b4f1-94ca80ddcb51",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e6dd71fe-aed8-4b88-9397-4955b79b058a",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f5c847e9-c318-462f-8f06-4fbe3c6a4e41",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ffe5d021-c106-4231-b4e9-7a98126e5fed",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "23d4a18a-e054-43c0-970b-776bf222471f",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "010d8488-d832-4230-89ee-5ffdee63674e",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2e9cd7e9-8e57-43f4-bee0-47c3626922af",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1d97448d-6bc0-474c-8548-9317540f6379",
+      "text": "Tax fraud AI flagged small businesses owned by ethnic minorities at 3\u00d7 average rate.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "aa1ba2c2-16c8-4b38-919d-9c6db63570db",
+      "text": "Public benefits AI used social media language to infer political affiliation and deprioritise claims.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "33787c3f-c267-4ca0-a2ee-dbae871d57bf",
+      "text": "Automated surveillance system tracked protesters without judicial authorisation.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2a7cf7cc-1be0-491b-a0d3-aeea34e32a1b",
+      "text": "Child benefit AI scored single mothers as higher fraud risk than married couples.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7d0884e8-5476-402d-a299-1e2518a18a2b",
+      "text": "Public housing waitlist AI used neighbourhood 'quality scores' correlated with race.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f9532278-caae-4456-a759-f0c5da4c2c3b",
+      "text": "Benefit eligibility AI denied housing assistance to applicant without providing appeal rights.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "52cf1c9c-b94c-4b90-a2f7-66beeb770efe",
+      "text": "Predictive policing model flagged neighbourhood with 78% minority population as 'high risk'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "bca13881-14e1-4309-83f8-16f325300766",
+      "text": "Child welfare AI assigned higher risk scores to families in poverty; no human review triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f8d27427-e585-4609-9b5b-b8d32cb4b635",
+      "text": "Automated benefits system denied disability claim based on social media activity analysis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5864dd48-1e8c-44cf-abb1-bb169e65cacd",
+      "text": "AI recidivism tool COMPAS assigned Black defendants 2\u00d7 higher risk scores at equal prior records.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7751ba56-2332-4014-be8f-f3fc9e0e8c5f",
+      "text": "Autonomous immigration risk model denied visa without explanation or right to appeal.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b78944c3-1d30-42bf-ac64-86fcc86e4749",
+      "text": "Government facial recognition misidentified 3 Black citizens as criminal suspects.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "97fca6eb-9fe6-48aa-b9a7-efaec04c95b1",
+      "text": "Welfare AI terminated food assistance without 10-day advance notice required by law.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9a8c99fa-0ddc-428d-98ad-3b195f9d55ed",
+      "text": "Automated parole denial system provided no reasons; violated due process requirements.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "edc8bbf3-df1f-4a49-910f-b493dd6f462d",
+      "text": "AI hiring tool for government positions screened out applicants with disability-related gaps.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5b05766f-2709-4dde-9cac-8d58e124a7ad",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f0beecaf-7d36-4068-b848-83432de51f82",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "3b1aa59e-91b3-478d-b004-208778ac8ffa",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4bedd85f-f4d1-4df0-8b1d-1421ba1b43a6",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "645289b6-e980-4b69-96b3-dada2bf05ecf",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "769ac381-3c07-4f9d-b2b5-d92b4b7d31e1",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "3ade78f7-d730-451e-93ba-e12e4228543f",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "91fc1a32-7128-43d1-980c-1727db574398",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "44c35ee0-5ab6-4320-9f7b-0d89eae3777a",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "89824fac-5448-48d4-86e3-928fd2d66dd7",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b9b02aaa-47f8-4c89-b9d4-51f06528d9a3",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e7a4eef6-413a-4a0e-b47a-7364f425d649",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "08ba0ab4-849a-4244-ba2e-a818cdc0bce0",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9c7c1cb5-6b1b-41e5-be07-9a28315d35d9",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e005d67f-ede6-4030-9ec4-ddf1c349b82a",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "062e8b77-c931-4d10-9ac8-d2301a2e9bb9",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7c5bbfd9-661f-492b-ab20-754014509f02",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e8c05869-fcd1-4996-bfa5-ff38053d8504",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "33a0a0f9-b954-4c6c-937a-2af7b5ca9e4f",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "153307e6-e0c6-4cbb-a5c8-7abb85cc7db2",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6a20b267-87af-430d-94b4-7ed11443638f",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a14efbe3-e98e-4bbf-ad25-a81d3e844b01",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7b642db8-1198-4b32-974e-4a933a7ffa3d",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "337fb1ad-0177-430e-be78-6ed7719e9d1f",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2de235d4-38be-4b95-9ce9-62811117911a",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d42c427b-0090-41b9-bc30-cde75c1d826a",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "35a1b44a-8cc6-4da4-a8dd-b3b9e56b67c7",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2cf37bc3-9d94-4038-b871-2d4ada2f9dad",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "643959d0-0c8f-47dc-9a54-470cb38471be",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fed3e632-6360-45fe-9147-f9a14f91beb6",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6a7902a1-4186-4eda-97d3-eb3bac5a7954",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a82031fe-64b5-40d8-9949-ac3c348d2519",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6ff68cb3-e16e-47bc-bbe8-8d9e1b8ada8b",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ac5f1a12-5af8-40e2-9932-eb42574f01e2",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "64a0b4be-dff6-4e31-a5bd-8a70860c326c",
+      "text": "AI risk tool recommendation overridden by human officer in 14% of cases; override rate monitored.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fce56d1d-f142-433a-a24a-9388d7a90755",
+      "text": "Facial recognition AI result confirmed by two human officers before any enforcement action.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ae20b4d4-bb8c-4397-bafd-a4c633ca79b2",
+      "text": "Benefits eligibility decision reviewed by human case worker; appeal rights clearly communicated.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e329b44a-75b6-4be0-96c5-251f36efdb14",
+      "text": "AI recommendation for benefit denial included specific reasons and 30-day appeal window.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f0e4a046-0fc1-4c1c-922d-564630247d66",
+      "text": "Government AI system audited for demographic parity; no disparate impact found across groups.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    },
+    {
+      "sample_id": "69026b6f-c7bf-4969-b774-aeed39511e2e",
+      "text": "Automated scoring tool used only legally permissible variables; bias audit passed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "government",
+      "metadata": {}
+    }
+  ]
+}

@@ -140,37 +140,34 @@ def seed() -> None:
         db.flush()
         logger.info("Created demo user: %s (persona=compliance_lead)", DEMO_USER_EMAIL)
 
-        # Seed Finance audit
-        finance_path = DEMO_DATA_DIR / "finance_demo.json"
-        if finance_path.exists():
-            finance_data = json.loads(finance_path.read_text())
-            finance_audit = Audit(
-                tenant_id=tenant.id,
-                user_id=user.id,
-                dataset_name=finance_data["dataset_name"],
-                sample_count=len(finance_data["samples"]),
-                status="running",
-            )
-            db.add(finance_audit)
-            db.flush()
-            from engine import SARoEngine
-            _run_audit_and_persist(db, SARoEngine, finance_audit, finance_data["samples"], finance_data["dataset_name"])
+        # SAR-003: seed all 4 verticals — 200 samples each = 800 records total
+        from engine import SARoEngine  # noqa: PLC0415
 
-        # Seed Healthcare audit
-        health_path = DEMO_DATA_DIR / "healthcare_demo.json"
-        if health_path.exists():
-            health_data = json.loads(health_path.read_text())
-            health_audit = Audit(
+        _VERTICAL_FILES = [
+            "finance_demo.json",
+            "healthcare_demo.json",
+            "gov_demo.json",
+            "tech_demo.json",
+        ]
+        for fname in _VERTICAL_FILES:
+            vpath = DEMO_DATA_DIR / fname
+            if not vpath.exists():
+                logger.warning("Demo data file not found, skipping: %s", fname)
+                continue
+            vdata = json.loads(vpath.read_text())
+            vaudit = Audit(
                 tenant_id=tenant.id,
                 user_id=user.id,
-                dataset_name=health_data["dataset_name"],
-                sample_count=len(health_data["samples"]),
+                dataset_name=vdata["dataset_name"],
+                sample_count=len(vdata["samples"]),
                 status="running",
             )
-            db.add(health_audit)
+            db.add(vaudit)
             db.flush()
-            from engine import SARoEngine
-            _run_audit_and_persist(db, SARoEngine, health_audit, health_data["samples"], health_data["dataset_name"])
+            _run_audit_and_persist(
+                db, SARoEngine, vaudit, vdata["samples"], vdata["dataset_name"]
+            )
+            logger.info("Seeded vertical: %s (%d samples)", fname, len(vdata["samples"]))
 
         db.commit()
         logger.info("Demo data seeding complete")

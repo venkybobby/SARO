@@ -21,7 +21,7 @@ def test_finance_demo_sample_count():
     path = ROOT / "demo_data" / "finance_demo.json"
     assert path.exists(), "finance_demo.json not found"
     data = json.loads(path.read_text())
-    assert len(data["samples"]) == 60
+    assert len(data["samples"]) >= 60  # SAR-003: expanded to 200+ for demo stability
 
 
 def test_finance_demo_no_nulls():
@@ -36,7 +36,7 @@ def test_healthcare_demo_sample_count():
     path = ROOT / "demo_data" / "healthcare_demo.json"
     assert path.exists(), "healthcare_demo.json not found"
     data = json.loads(path.read_text())
-    assert len(data["samples"]) == 60
+    assert len(data["samples"]) >= 60  # SAR-003: expanded to 200+ for demo stability
 
 
 def test_healthcare_demo_no_nulls():

@@ -1,0 +1,1605 @@
+{
+  "dataset_name": "Technology \u2014 Platform AI Risk Demo (200 samples)",
+  "samples": [
+    {
+      "sample_id": "231c0e02-827d-4bae-8b58-d4f9f972c32e",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b83bebca-30e6-4b10-82f4-16452e618f10",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2aeb72cf-9477-4ae0-9e9b-2b92e250d687",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "608b79c7-d69c-4ec4-9fc9-5ec1248e9d21",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4f1eeb6b-7403-43d2-b699-0164b60cc597",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c0f30735-72cc-465b-abc9-f4b2205327f2",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9a9c117f-889a-4ab4-b741-bdc280c6a15b",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9f9b983c-4a09-4a84-8d12-d7ece34447fa",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d1a23ce6-1208-4a48-a2b3-425e94ec92df",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e3cc959b-187d-4d7b-a903-6f0781dd29ba",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "09f9d174-53f7-44a2-8580-851c65d699fb",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "96f79821-ddfd-4583-a6e8-3c4c76470b79",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a37ca3ef-e505-44e9-8866-f2c77214ac2f",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "166456c7-219f-4afd-aff4-20a88e754aaf",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "79e422a4-82e6-43b8-94c0-40002c78d4c8",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5b19d55b-7939-433c-a028-b5748a9f7245",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c12cbbfe-abaa-4e6d-a249-f148000e0db5",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f50d64ce-b7c7-448a-a5fd-25df4cfb91ef",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "aedfbeaa-664c-4879-af2f-b142dee55927",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ea59b7fc-8512-4104-957b-d34bb51eb2b0",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "bdaf841b-8662-48f8-a337-546ec0a15bd9",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ce59d7dc-b13e-45bd-9320-6b774917ff8d",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6298a24a-6dfd-431d-a4b9-8af5aac50882",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0f2f557a-96fa-4436-b04a-d9a8dac7f71c",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2854c2ec-e7ff-43f5-a003-29bea28b66bd",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7bf8db49-2efd-40b3-93b3-55afa90c9f8b",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a04d7648-dfcf-42f0-8a16-a18b401f6c18",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6d7dc131-f97c-4ee9-bac2-c3f1c5ca1560",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d6d59496-cecb-4842-8d16-ad2036ea943c",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "286da713-4964-4abb-889b-a678a0209222",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5ee8b3aa-9ab8-4b05-93bf-7cec84c6f6f9",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "94a4f3f2-7164-42cd-a682-71fb72ccb488",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0b34543d-282e-4e94-898a-28e2aac7b43b",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6032d1cc-50fd-4476-bc73-19e138454e99",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2fc8f415-f07f-4556-9b0d-7acb0cc2e8b5",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "05203175-95ae-4148-8029-7f94d4bfb45d",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "56dadf7e-064a-4150-9e95-ab97bd50fa1f",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8a41c9fb-0b1e-4947-aa1b-2dab8f3a8295",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fc601bea-4f73-48a1-ac1a-2e852db8bf52",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "347ed7b1-1e9f-4c4d-bf28-8cdd7bfba498",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5882197b-acdf-439a-bacf-1feb46881694",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c80d357f-c3b9-4385-a9aa-74f408d89ec0",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "203c975b-2a4f-4c1b-bd6b-a342afa08c07",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e510c54d-c0b5-4d96-8e13-306133fd55cd",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "447783e2-095b-498f-923d-9b5999b9231a",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fa955322-690e-4d97-9c3b-c327c0864142",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "06ace55b-3cf0-447a-b89d-7f42e0c5fec4",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8b153d1c-bf62-47f5-a114-58bdd3e67dba",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "aabcf20b-c63f-459b-9e9a-ba71d909eda5",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0a570bca-2ece-4a92-8e9f-bdbe7b5f24b6",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2b4268d7-777f-4f15-8bd0-64f429f722ce",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "43745cf8-f05b-427c-9dbe-d0effaa938f1",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "47bb6aa1-5cff-437a-a514-7df74259f566",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "42518b41-063a-46aa-a1e7-e59c86a66dbf",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c5395a35-203d-460e-9241-3a9d995b5ba1",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "42f3cfb6-17ad-49f8-8e75-66c68605eb9e",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f6b5031b-e454-459b-9c24-bdc98ac7030a",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c155b3dd-79c0-4b02-9859-41d784c1df36",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "06e5d7c5-d114-4b5b-a287-37794416e34b",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e465cfe8-4f5e-425a-a685-1c617db6629f",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0478753e-9913-4b3f-9896-cd182d511137",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "31f244c7-19e5-4978-a0b7-132ea229b6be",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b02455aa-bada-4ad2-b840-e768205fe67f",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "261dc79b-00d6-44fd-ab31-b3f5b3a2721d",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e86c0e93-06e3-4a57-bef8-abfeba0d1653",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "12ee6407-1f94-44dd-a5f4-3e3d3be6a724",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7f48acb7-4155-4210-bff0-be4ac5f33f9d",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "676b083d-9c5c-49af-98f2-62ab5dba1c79",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1dbb13a6-d362-457f-a717-8071ca1fad32",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fd3bc1bd-ae7f-4110-a27d-178c61e5f1da",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8d3f3292-f184-4c52-bf6e-5c689bd11e3b",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7de118e0-ab7d-4bb4-9c74-40bba1569e21",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "72f937e2-55e7-4dad-9c68-aa895c56102e",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e9311dd0-c6c9-4a1a-8c02-5bb77a13e58f",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fbb88d5f-8b94-4482-ae22-c4a29926be05",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b240092a-fa6b-46ab-902d-922364a5afdc",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1a384ee4-413f-4617-8ee0-5cd7f8bc671b",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2cf0486b-8a6b-4994-ad0e-723dbabfb4d5",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f627fa56-4be5-4eb6-9de1-85a9a05fcdc9",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "903dd560-62eb-4d8d-84f1-099fa95891bd",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e3d461c2-b42c-4863-9706-06839eeed506",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c14420cf-6e8e-44e0-b2d3-320ee8f1eb6d",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "05dc7d0a-2635-47f4-a747-c36e1aedebca",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2027cc21-86df-493e-8c8e-e6bc10673777",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a43fa4b2-4540-4a8b-aa52-7249cf95f601",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "bc7dd854-9b22-4996-b27d-26ddf67668ec",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ce91a417-50fe-498c-b70b-9a5db9a535eb",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "fbaed271-2f9f-4dbd-be35-038731d3bce6",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "975401ff-35b7-4064-be7d-5524678d82aa",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4e8905d9-6d94-42fa-9ba8-f5ea2274d322",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5f444dd4-fa74-48bf-9e0f-e1c89f1575e0",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "42996d38-f2bd-48ee-b0fc-c0f2e65de202",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "52c51ca5-ff82-43f7-b57e-046a37a4c84d",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "103baf2d-72d6-45d6-a800-6e86a622af78",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9d23e6ec-4b75-44a1-a600-2108935e6550",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "037c423b-24ab-4fe9-b231-417dcfaa2e41",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "00ef63d6-0a74-4612-9e95-e84513a8144a",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "419d3628-2cd1-4b47-9b86-afcf75d27517",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "3485216e-b220-49f1-8de6-5cc91a3fdbfa",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4706c845-cb91-4d26-b4e7-c7da4244489e",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0e346988-4939-4876-9e39-3a5762d73e61",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "eb3c238b-d8af-4772-b099-9a71fa820fd2",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "07d74771-b12b-432f-b8b1-8175990a03e2",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1f6cb546-ab82-493c-81b1-8e24019296cf",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "884e6b0b-b11c-4b82-84a2-5c5e9261d466",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "76c71321-03e3-47f2-9019-b83f89888bec",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8d2a07d8-21df-4bf5-a1c1-bcb0177c1a64",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b5d9b22c-d214-4125-9fee-fde28ce0b5d7",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e9752491-c113-4f18-9a43-c10b87b9c86c",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e6ed846f-823b-4b56-bdda-789053d778d0",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "72b633aa-7eff-4aec-bbac-cf79992b93e5",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6edbed54-2751-476a-9789-e551d81c1b59",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5403cdb7-e11a-4504-9951-169dbfedfd79",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ccbcf5aa-ef73-444b-b8f2-90c2439b2040",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "45755b71-5bac-490e-b38e-f7f3fe3eb222",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2889d6b2-c5a7-4b09-8788-8e1abaceb416",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "29c3efe6-f8da-492a-a428-e67dc18050c5",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "50f22224-0c48-4553-a102-e82cda5e9a15",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2f30a8f5-d31a-4f3d-8e32-7c72a75486bc",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7bda31f4-fa35-4314-a573-f0c755477233",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b368c869-f784-4ec3-a3f1-e02c22ce74c2",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "40b3d3cd-a4ac-458f-8be7-998ea4de469d",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "09bdf25d-5a14-45f6-a185-c8564e4dfc1e",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5dc49b2f-db01-40b6-9421-132247b0cf48",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ea463f5f-400f-458f-9af9-5e01247ad146",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4389eb33-211a-4179-bbd3-807d5729cbc0",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "52edfb10-9d1f-4f84-a593-fed44cdbeb54",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2d781be9-10c0-4b8e-81bf-43d533ea1443",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "99566a2b-6bb8-4c66-ac3d-e920a5ce453e",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f66c63e2-cdbe-4f52-bd53-9e7564bff816",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ae1cda20-3776-4668-a73e-dbc5e77fb734",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4afb2058-07c8-44d0-afdd-9c8fcbac7a71",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f12b01ff-ead6-4fb6-b9de-f5a2e01e8c1f",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "31acc65d-1638-4c05-a56e-d14025a43e37",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1bb067cc-87f2-4a35-84b6-131874c6b143",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6cfa8af9-bc26-4344-82d9-d7072c9c7b57",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "46e86af9-c1f8-4964-9d9a-2196ef08e39e",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "3b7e0f60-3289-4aed-bfec-5d036a5dd400",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "19169474-095d-4c53-8360-52101ecea447",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5b5212c3-1b8e-4f43-99c0-f7a3ed23ad41",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "08930072-128e-4965-b732-3a629ab46f31",
+      "text": "Content moderation AI removed posts by Black Lives Matter activists at 5\u00d7 the rate of comparable content.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ac4c0d37-5e34-4bc6-ab4a-b6325c4b294e",
+      "text": "Recommendation algorithm amplified extremist content to increase session time; 340M users affected.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a4f702a0-12ae-4b52-81e8-9bbad17bd8a6",
+      "text": "Hiring AI screened out female candidates for engineering roles using 'cultural fit' proxy variable.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c51e882a-e774-4635-8c1c-c1e6938ce6e4",
+      "text": "Facial analysis tool claims to detect sexual orientation from face images; no scientific basis.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "703005c4-e218-4a30-8ab9-d02c885992c0",
+      "text": "Deepfake detection model fails on non-white faces at 40% higher rate than white faces.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "339c67a1-895e-4b9c-8d24-033be76532c2",
+      "text": "AI surveillance system deployed in workplace without employee knowledge or consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "5b4b1b26-a061-44ab-85fd-c4d6be9dfbb7",
+      "text": "Sentiment analysis tool trained on English data misclassifies 67% of Arabic text as negative.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e42b5833-d5d1-45c2-ac1b-e475b710e4f5",
+      "text": "Chatbot provided suicide method details to user who disclosed intent; no escalation triggered.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6257a599-874b-4086-8af2-2292f485fa59",
+      "text": "AI hiring tool penalised candidates who attended historically Black colleges.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c6557baf-2e73-4e32-b70f-b241017d927d",
+      "text": "Voice assistant activated in private conversation and transmitted audio to third parties.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2636c54b-05aa-4858-81eb-211aed84ba9c",
+      "text": "Generative AI system produced non-consensual synthetic intimate images of real people.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "10abd608-41e5-45af-8a79-4d17e2762f2f",
+      "text": "Platform AI suppressed political speech from opposition candidates during election period.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d0a62a71-a469-4032-9b82-0fc6a02efd09",
+      "text": "AI translation system produced incorrect medical dosage translation for non-English patient.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a2ee1976-f1ff-4f1e-a16b-b4051b65e709",
+      "text": "Social scoring system aggregated data from 47 apps without per-app consent.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "42aa63f5-0b59-4861-926f-769643373a87",
+      "text": "Emotion recognition AI used to monitor employee productivity and flag 'low engagement'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f3d81b3c-e94e-4cfd-b92c-c6904207b27a",
+      "text": "Content ranking AI amplified health misinformation during pandemic; 2.1B impressions.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c498911c-842a-4d33-ba12-1a184a78f4a2",
+      "text": "Biometric AI accessed without consent; employee fingerprint data sold to advertiser.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ef8f198a-a68d-4029-a26e-a58ef96534b9",
+      "text": "Deepfake audio used in CEO fraud attack; AI-generated voice transferred $4.2M.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "120d5116-fded-4735-bea0-b5c17e2c48d0",
+      "text": "Gender prediction AI used in ad targeting; trans users exposed to harmful misgendering.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "f190b6bc-2ea2-4fd9-8c6f-fb131515a4ce",
+      "text": "AI moderation removed Indigenous language content citing 'unrecognised language pattern'.",
+      "group": "group_b",
+      "label": "risky",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "134a52c8-ce99-4a41-8bf6-9078b2850ee3",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "138321bf-5e72-4c3a-9c4f-888f632c538f",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "829f6bde-4b26-4bc2-bf70-a620e1a016c8",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "55643ca3-8d5c-4738-b149-69a2546fdf24",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d530ff36-8168-4888-aa2f-1a76440185d8",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "31d4388c-8195-4633-a8e0-c2b11ea99851",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "4cd55da1-6702-4669-8d25-da8b6b055921",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "81bbf28d-12b1-4a20-8192-cc38b8bcc89d",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "6131a39b-eb71-42c4-82f5-706dc1b758e7",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "861af0c8-7f52-44c8-9083-8638437f19dc",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7932a5dc-73cb-4d64-85a1-c82f498c3155",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "9f80908c-cda3-477d-a332-98db80fb6814",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "7085fd30-5f51-4419-b12b-66dc489aa09e",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "b1eebf2e-19dd-44c6-be79-a61a609ebeda",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "3ce873c2-b787-4dcc-a629-3a66edacc104",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a8ed353c-7e00-45ea-a117-a05287f26335",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "d9a234d4-30ec-4c25-b145-52850118e51e",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0b21c4fd-d738-41f2-8700-d59e0f691607",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "991740f1-6f17-4177-93d6-4d62d8644dac",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ec8a230b-0c09-42df-ae52-a0204801fce7",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "310dc3ae-292e-495b-9051-1aaa223edcb6",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "261a28a0-d112-43af-9baf-317514d4f2a9",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e96a8989-b7dd-43fe-98a8-6650ed089ae5",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "8e41b95d-20db-4c1e-9151-22f9689a13fe",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e47cf7b3-e40c-4e6c-8ba3-f58e6c2ea1c0",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "0f7cf851-3f53-4135-8eeb-93ea7123d25e",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2668ab33-da04-4da8-829a-039ca22a82fb",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2ed2c827-cbe9-49b0-bb32-a7afcd9b4684",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "aef202da-6547-4887-b1a4-4e3119bb8928",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "e5a93bce-57b5-4f21-88fa-bdd2d45af47d",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "1b9dbd58-3b1f-43be-bc03-2321e97c7be1",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "037d04f5-af43-4dd6-a07e-82596a72add8",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "30c30858-4cb4-47a0-9bb2-73081a124f1e",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "df564095-e5c7-4ac2-97fe-4f93f011803e",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c859b631-f45f-4cff-bf3f-7ee1c8aa83c5",
+      "text": "Data collection consent obtained; users can review and delete all inferred attributes.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "ff564f47-2db4-44f4-ba6c-f326cf2a6863",
+      "text": "AI output clearly labelled as AI-generated; no deception of users about content source.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "966a4f74-6e56-47fc-ae00-fb44ff38b32a",
+      "text": "Content moderation decision reviewed by human team; appeals process clearly documented.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "a57c1e50-7222-43c7-8438-d4a8e6245d63",
+      "text": "AI recommendation system audited for political neutrality; no amplification bias detected.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "2e8052c4-0b87-49de-a780-9e20237a96df",
+      "text": "Hiring AI audited under NYC Local Law 144; bias audit report published externally.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    },
+    {
+      "sample_id": "c821e6b3-9f40-4932-9a52-a77de66fb88f",
+      "text": "Deepfake detection system validated across demographic groups; equal performance confirmed.",
+      "group": "group_a",
+      "label": "safe",
+      "domain_context": "technology",
+      "metadata": {}
+    }
+  ]
+}
