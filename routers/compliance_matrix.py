@@ -236,3 +236,12 @@ async def export_matrix_csv(
     )
 
 
+
+
+@router.get("/summary", summary="Compliance matrix summary — alias for /coverage (React compat)")
+async def get_summary(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Alias of /coverage for React frontend compatibility."""
+    return await get_coverage_summary(current_user, db)

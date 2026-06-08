@@ -84,3 +84,27 @@ def drift_check(
 ):
     """Alias for /drift-alerts — used by the Streamlit drift tab."""
     return _build_drift_response()
+
+
+# React frontend compatibility aliases
+# /api/v1/rule-packs   → /api/v1/rules/packs
+# /api/v1/drift/alerts → /api/v1/rules/drift-alerts
+_alias_router = APIRouter(prefix="/api/v1", tags=["rule-packs"])
+
+
+@_alias_router.get("/rule-packs")
+def get_rule_packs_alias(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Alias of /api/v1/rules/packs for React frontend compatibility."""
+    return get_rule_packs(db=db, current_user=current_user)
+
+
+@_alias_router.get("/drift/alerts")
+def get_drift_alerts_alias(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Alias of /api/v1/rules/drift-alerts for React frontend compatibility."""
+    return get_drift_alerts(db=db, current_user=current_user)

@@ -58,3 +58,35 @@ def set_retention_policy(
         "cutoff_date": calculate_retention_cutoff(policy.retention_days).isoformat(),
         "status": "active",
     }
+
+
+# ── React frontend compat aliases (fixes 404s for /governance/docs and /governance/ir-plan) ──
+
+@router.get("/docs")
+def list_governance_docs(current_user=Depends(get_current_user)):
+    """List available governance documents (React frontend compatibility)."""
+    return [
+        {"key": "dpa-template",       "label": "DPA Template",              "url": "/api/v1/governance/docs/dpa-template"},
+        {"key": "nist-self-assessment","label": "NIST Self-Assessment",       "url": "/api/v1/governance/docs/nist-self-assessment"},
+        {"key": "eu-ai-act-position",  "label": "EU AI Act Position Paper",   "url": "/api/v1/governance/docs/eu-ai-act-position"},
+        {"key": "soc2-roadmap",        "label": "SOC 2 Roadmap",              "url": "/api/v1/governance/docs/soc2-roadmap"},
+        {"key": "ir-plan",             "label": "Incident Response Plan",     "url": "/api/v1/governance/ir-plan"},
+    ]
+
+
+@router.get("/ir-plan")
+def get_ir_plan(current_user=Depends(get_current_user)):
+    """Incident Response Plan summary (React frontend compatibility)."""
+    return {
+        "title": "SARO Incident Response Plan",
+        "version": "1.0",
+        "sections": [
+            {"id": "false-negative", "title": "False Negative Response", "sla_hours": 4},
+            {"id": "downtime",       "title": "Service Downtime",         "sla_hours": 1},
+            {"id": "data-breach",    "title": "Data Breach Protocol",     "sla_hours": 1},
+            {"id": "escalation",     "title": "Escalation Contacts",      "sla_hours": None},
+        ],
+        "contact_email": "security@saro.app",
+        "last_reviewed": "2026-06-01",
+        "note": "Full IR plan available at GET /api/v1/governance/docs/ir-plan (download)",
+    }

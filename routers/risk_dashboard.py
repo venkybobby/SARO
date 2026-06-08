@@ -499,3 +499,13 @@ def export_board_summary_pdf(
 
     except ImportError:
         return summary
+
+
+@router.get("/vendor-risk")
+def get_vendor_risk_alias(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    tenant_id: str | None = None,
+):
+    """Alias of /risk/vendors for React frontend compatibility."""
+    return get_vendor_risk(db=db, current_user=current_user)
