@@ -66,15 +66,22 @@ jobs:
     # is present in the DB before any code that references the new columns starts
     # serving traffic.  For destructive DDL (DROP/RENAME) a separate backward-
     # compatible alias strategy is required.
+    #
+    # IMPORTANT — IPv4 requirement: GitHub Actions runners cannot reach Supabase
+    # direct (IPv6) hosts.  SUPABASE_DB_HOST *must* be set to the Session-mode
+    # pooler hostname from Supabase → Project Settings → Database → Connection
+    # string → "Session" tab (e.g. aws-0-us-east-1.pooler.supabase.com).
+    # The pooler listens on port 6543 and is IPv4-reachable.
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
       PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PGHOST:     ${{ secrets.SUPABASE_DB_HOST }}
-      PGPORT:     "5432"
+      PGPORT:     "6543"
       PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
       PGUSER:     ${{ secrets.SUPABASE_DB_USER }}
+      PGSSLMODE:  "require"
       DB_SSLMODE: "require"
 
     steps:
