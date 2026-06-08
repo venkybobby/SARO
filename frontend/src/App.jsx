@@ -3,19 +3,16 @@
  *
  * Auth token is persisted in localStorage so page refresh doesn't log out.
  * Sidebar navigation matches the Streamlit persona-based tab list exactly.
- *
- * Routes / pages:
- *   /login          → Login (unauthenticated)
- *   /demo           → DemoEntry (public)
- *   /app/*          → Authenticated app shell with sidebar
  */
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login    from "./pages/Login";
 import DemoEntry from "./pages/DemoEntry";
 import Sidebar  from "./components/Sidebar";
+import { ToastContainer } from "./components/ui/index.jsx";
+import { useToast } from "./hooks/useToast.js";
 
-// Lazy-load pages to keep initial bundle small
+// Lazy-load pages
 const Dashboard     = lazy(() => import("./pages/Dashboard"));
 const ComplianceHub = lazy(() => import("./pages/ComplianceHub"));
 const TraceView     = lazy(() => import("./pages/TraceView"));
@@ -35,14 +32,18 @@ const Evaluations   = lazy(() => import("./pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("./pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const DemoRequests  = lazy(() => import("./pages/DemoRequests"));
+const RiskRegister  = lazy(() => import("./pages/RiskRegister"));
+const AIInsights    = lazy(() => import("./pages/AIInsights"));
+const Reports       = lazy(() => import("./pages/Reports"));
+const Settings      = lazy(() => import("./pages/Settings"));
 
-// Tab ID → component mapping
 const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
   compliance_hub:   ComplianceHub,
   trace_view:       TraceView,
   evidence_export:  TraceView,
   risk_summary:     RiskSummary,
+  risk_register:    RiskRegister,
   vendor_risk:      RiskSummary,
   claims_matrix:    ClaimsMatrix,
   how_saro_reasons: HowSaroReasons,
@@ -60,6 +61,9 @@ const PAGE_COMPONENTS = {
   evf_admin:        EvfAdmin,
   admin_settings:   AdminSettings,
   demo_requests:    DemoRequests,
+  ai_insights:      AIInsights,
+  reports:          Reports,
+  settings:         Settings,
 };
 
 function parseJwt(token) {
@@ -86,18 +90,25 @@ const LS_USER  = "saro_user";
 
 function Loader() {
   return (
-    <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading…</div>
+    <div style={{
+      padding: 40, textAlign: "center",
+      color: "var(--color-text-muted)",
+      fontFamily: "var(--font-body)",
+      fontSize: "var(--text-sm)",
+    }}>
+      Loading…
+    </div>
   );
 }
 
-function AppShell({ token, user, onSignOut }) {
+function AppShell({ token, user, onSignOut, toast }) {
   const [activePage, setActivePage] = useState("dashboard");
   const tenantId = user?.tenant_id || parseJwt(token)?.tenant_id || parseJwt(token)?.sub;
 
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Sidebar
         user={user}
         activePage={activePage}
@@ -105,9 +116,19 @@ function AppShell({ token, user, onSignOut }) {
         onSignOut={onSignOut}
         token={token}
       />
-      <main style={{ flex: 1, overflowY: "auto", background: "#f9fafb" }}>
+      <main
+        id="main-content"
+        style={{ flex: 1, overflowY: "auto", background: "var(--color-bg-base)" }}
+      >
         <Suspense fallback={<Loader />}>
-          <PageComponent token={token} tenantId={tenantId} user={user} />
+          <PageComponent
+            token={token}
+            tenantId={tenantId}
+            user={user}
+            toast={toast}
+            onNavigate={setActivePage}
+            onSave={() => toast.success("Settings saved")}
+          />
         </Suspense>
       </main>
     </div>
@@ -115,16 +136,17 @@ function AppShell({ token, user, onSignOut }) {
 }
 
 export default function App() {
-  const [token, setToken]   = useState(() => {
+  const { toasts, dismiss, toast } = useToast();
+
+  const [token, setToken] = useState(() => {
     const stored = localStorage.getItem(LS_TOKEN);
     return isTokenValid(stored) ? stored : null;
   });
-  const [user, setUser]     = useState(() => {
+  const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch { return null; }
   });
   const [expired, setExpired] = useState(false);
 
-  // Check token expiry on mount and every minute
   useEffect(() => {
     const check = () => {
       if (token && !isTokenValid(token)) {
@@ -146,6 +168,7 @@ export default function App() {
     setExpired(false);
     localStorage.setItem(LS_TOKEN, newToken);
     localStorage.setItem(LS_USER, JSON.stringify(userPayload));
+    toast.success("Signed in successfully");
   }
 
   function handleSignOut() {
@@ -173,15 +196,16 @@ export default function App() {
           path="/app"
           element={
             isAuth
-              ? <AppShell token={token} user={user} onSignOut={handleSignOut} />
+              ? <AppShell token={token} user={user} onSignOut={handleSignOut} toast={toast} />
               : <Navigate to="/login" replace />
           }
         />
-        {/* Legacy /dashboard route — redirect to /app */}
         <Route path="/dashboard" element={<Navigate to="/app" replace />} />
         <Route path="/" element={<Navigate to={isAuth ? "/app" : "/login"} replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </BrowserRouter>
   );
 }

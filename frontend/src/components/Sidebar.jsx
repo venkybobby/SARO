@@ -1,132 +1,88 @@
-/**
- * Sidebar — persona-aware navigation mirroring the Streamlit sidebar.
- * Reads persona from props, renders filtered tab list, health indicator.
- */
 import React, { useEffect, useState } from "react";
+import {
+  LayoutDashboard, Shield, Search, Package, BarChart2,
+  Map, Wrench, Activity, Building2, Upload, Settings,
+  ClipboardList, BookOpen, Users, Lightbulb, FileText,
+  AlertTriangle, Lock, ShieldCheck, LogOut, ChevronRight,
+  ShieldAlert, Sparkles, LineChart,
+} from "lucide-react";
+import { StatusDot } from "./ui/index.jsx";
 
 const PERSONA_TABS = {
   compliance_lead: [
-    "dashboard", "compliance_hub", "trace_view", "evidence_export",
-    "claims_matrix", "how_saro_reasons", "dpa_governance",
-    "aims", "governance", "onboarding", "upload", "evaluations",
+    "dashboard","compliance_hub","trace_view","evidence_export",
+    "claims_matrix","how_saro_reasons","dpa_governance",
+    "aims","governance","onboarding","upload","evaluations",
   ],
-  risk_officer: [
-    "dashboard", "risk_summary", "vendor_risk", "ir_plan", "trace_view",
-  ],
+  risk_officer: ["dashboard","risk_register","risk_summary","vendor_risk","ir_plan","trace_view","ai_insights","reports"],
   ai_auditor: [
-    "dashboard", "trace_view", "evidence_export",
-    "rule_packs", "coverage_gap", "remediation", "drift_alerts", "upload",
+    "dashboard","trace_view","evidence_export",
+    "rule_packs","coverage_gap","remediation","drift_alerts","upload",
   ],
   admin: [
-    "dashboard", "compliance_hub", "trace_view", "evidence_export",
-    "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
-    "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-    "drift_alerts", "aims", "governance", "onboarding", "upload",
-    "admin_settings", "evaluations", "evf_admin", "demo_requests",
+    "dashboard","compliance_hub","trace_view","evidence_export",
+    "risk_summary","vendor_risk","claims_matrix","how_saro_reasons",
+    "dpa_governance","rule_packs","coverage_gap","remediation",
+    "drift_alerts","aims","governance","onboarding","upload",
+    "admin_settings","evaluations","evf_admin","demo_requests",
+    "risk_register","ai_insights","reports","settings",
   ],
   super_admin: [
-    "dashboard", "compliance_hub", "trace_view", "evidence_export",
-    "risk_summary", "vendor_risk", "claims_matrix", "how_saro_reasons",
-    "dpa_governance", "rule_packs", "coverage_gap", "remediation",
-    "drift_alerts", "aims", "governance", "onboarding", "upload",
-    "admin_settings", "evaluations", "demo_requests",
+    "dashboard","compliance_hub","trace_view","evidence_export",
+    "risk_summary","vendor_risk","claims_matrix","how_saro_reasons",
+    "dpa_governance","rule_packs","coverage_gap","remediation",
+    "drift_alerts","aims","governance","onboarding","upload",
+    "admin_settings","evaluations","demo_requests",
   ],
-  operator: ["dashboard", "upload", "trace_view", "remediation"],
+  operator: ["dashboard","upload","trace_view","remediation"],
 };
 
 const TAB_REGISTRY = {
-  dashboard:       { label: "🏠 Dashboard",           page: "dashboard" },
-  compliance_hub:  { label: "🏛️ Compliance Hub",      page: "compliance_hub" },
-  trace_view:      { label: "🔍 TRACE View",           page: "trace_view" },
-  evidence_export: { label: "📦 Evidence Export",      page: "trace_view" },
-  risk_summary:    { label: "📊 Risk Summary",         page: "risk_summary" },
-  vendor_risk:     { label: "🏢 Vendor Risk",          page: "risk_summary" },
-  claims_matrix:   { label: "📋 Claims Matrix",        page: "claims_matrix" },
-  how_saro_reasons:{ label: "💡 How SARO Reasons",     page: "how_saro_reasons" },
-  dpa_governance:  { label: "📄 DPA & Governance",     page: "governance_docs" },
-  ir_plan:         { label: "🚨 IR Plan",              page: "governance_docs" },
-  rule_packs:      { label: "📦 Rule Packs",           page: "rule_packs" },
-  coverage_gap:    { label: "🗺️ Coverage Gap",         page: "coverage_gap" },
-  remediation:     { label: "🔧 Remediation",          page: "remediation" },
-  drift_alerts:    { label: "📡 Drift Alerts",         page: "drift_alerts" },
-  onboarding:      { label: "🏢 Onboarding",           page: "onboarding" },
-  upload:          { label: "📤 Upload & Scan",        page: "upload" },
-  admin_settings:  { label: "⚙️ Admin Settings",       page: "admin_settings" },
-  aims:            { label: "📋 AIMS",                 page: "aims" },
-  governance:      { label: "🏛️ Governance Trust",    page: "governance" },
-  evaluations:     { label: "🧪 Evaluations",          page: "evaluations" },
-  evf_admin:       { label: "🔐 EVF Status",           page: "evf_admin" },
-  demo_requests:   { label: "📋 Demo Requests",        page: "demo_requests" },
+  dashboard:        { label: "Dashboard",         icon: LayoutDashboard, page: "dashboard" },
+  compliance_hub:   { label: "Compliance Hub",    icon: Shield,          page: "compliance_hub" },
+  trace_view:       { label: "TRACE View",         icon: Search,          page: "trace_view" },
+  evidence_export:  { label: "Evidence Export",    icon: Package,         page: "trace_view" },
+  risk_summary:     { label: "Risk Summary",       icon: BarChart2,       page: "risk_summary" },
+  vendor_risk:      { label: "Vendor Risk",        icon: Building2,       page: "risk_summary" },
+  claims_matrix:    { label: "Claims Matrix",      icon: ClipboardList,   page: "claims_matrix" },
+  how_saro_reasons: { label: "How SARO Reasons",  icon: Lightbulb,       page: "how_saro_reasons" },
+  dpa_governance:   { label: "DPA & Governance",   icon: FileText,        page: "governance_docs" },
+  ir_plan:          { label: "IR Plan",            icon: AlertTriangle,   page: "governance_docs" },
+  rule_packs:       { label: "Rule Packs",         icon: Package,         page: "rule_packs" },
+  coverage_gap:     { label: "Coverage Gap",       icon: Map,             page: "coverage_gap" },
+  remediation:      { label: "Remediation",        icon: Wrench,          page: "remediation" },
+  drift_alerts:     { label: "Drift Alerts",       icon: Activity,        page: "drift_alerts" },
+  onboarding:       { label: "Onboarding",         icon: Building2,       page: "onboarding" },
+  upload:           { label: "Upload & Scan",      icon: Upload,          page: "upload" },
+  admin_settings:   { label: "Admin Settings",     icon: Settings,        page: "admin_settings" },
+  aims:             { label: "AIMS",               icon: ClipboardList,   page: "aims" },
+  governance:       { label: "Governance Trust",   icon: ShieldCheck,     page: "governance" },
+  evaluations:      { label: "Evaluations",        icon: BookOpen,        page: "evaluations" },
+  evf_admin:        { label: "EVF Status",         icon: Lock,            page: "evf_admin" },
+  demo_requests:    { label: "Demo Requests",      icon: Users,           page: "demo_requests" },
+  risk_register:    { label: "Risk Register",      icon: ShieldAlert,     page: "risk_register" },
+  ai_insights:      { label: "AI Insights",        icon: Sparkles,        page: "ai_insights" },
+  reports:          { label: "Reports",            icon: LineChart,       page: "reports" },
+  settings:         { label: "Settings",           icon: Settings,        page: "settings" },
 };
 
-const PERSONA_ICONS = {
-  compliance_lead: "⚖️",
-  risk_officer: "📊",
-  ai_auditor: "🔍",
-  admin: "⚙️",
-  super_admin: "⚙️",
-  operator: "👤",
-};
-
-const PERSONA_LABELS = {
+const ROLE_LABELS = {
   compliance_lead: "Compliance Lead",
-  risk_officer: "Risk Officer",
-  ai_auditor: "AI Auditor",
-  admin: "Admin",
-  super_admin: "Super Admin",
-  operator: "Operator",
+  risk_officer:    "Risk Officer",
+  ai_auditor:      "AI Auditor",
+  admin:           "Admin",
+  super_admin:     "Super Admin",
+  operator:        "Operator",
 };
 
-const S = {
-  sidebar: {
-    width: 240,
-    background: "#0f172a",
-    color: "#e2e8f0",
-    height: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    padding: "16px 0",
-    flexShrink: 0,
-    overflowY: "auto",
-  },
-  logo: { padding: "0 16px 12px", borderBottom: "1px solid #1e293b" },
-  logoTitle: { fontWeight: 700, fontSize: 16, color: "#f1f5f9" },
-  logoSub: { fontSize: 10, color: "#475569", letterSpacing: "0.06em", textTransform: "uppercase" },
-  userBlock: { padding: "12px 16px", borderBottom: "1px solid #1e293b" },
-  userLabel: { fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 3 },
-  userEmail: { fontSize: 13, color: "#e2e8f0", fontWeight: 500, wordBreak: "break-all" },
-  badge: (bg, color) => ({
-    display: "inline-block", background: bg, color, padding: "2px 8px",
-    borderRadius: 4, fontSize: 11, fontWeight: 600, marginTop: 4,
-  }),
-  health: { padding: "8px 16px", borderBottom: "1px solid #1e293b", fontSize: 12, color: "#475569" },
-  navSection: { flex: 1, padding: "8px 0" },
-  navItem: (active) => ({
-    display: "block", width: "100%", textAlign: "left",
-    padding: "8px 16px", background: active ? "#1e293b" : "transparent",
-    color: active ? "#f1f5f9" : "#94a3b8", border: "none",
-    fontSize: 13, cursor: "pointer", transition: "all 0.15s",
-    borderLeft: active ? "3px solid #0d9488" : "3px solid transparent",
-  }),
-  signout: {
-    padding: "12px 16px", borderTop: "1px solid #1e293b", marginTop: "auto",
-  },
-  signoutBtn: {
-    width: "100%", padding: "8px 0", background: "#1e293b", color: "#94a3b8",
-    border: "1px solid #334155", borderRadius: 6, fontSize: 13, cursor: "pointer",
-  },
-  version: { fontSize: 10, color: "#334155", textAlign: "center", padding: "8px 16px 0" },
-};
-
-export default function Sidebar({ user, activePage, onNavigate, onSignOut, token }) {
+export default function Sidebar({ user, activePage, onNavigate, onSignOut }) {
   const [health, setHealth] = useState(null);
 
   useEffect(() => {
     const check = async () => {
       try {
-        const r = await fetch("/api/v1/../health");
-        if (r.ok) setHealth(await r.json());
-        else setHealth(null);
+        const r = await fetch("/health");
+        setHealth(r.ok ? await r.json() : null);
       } catch {
         setHealth(null);
       }
@@ -145,74 +101,153 @@ export default function Sidebar({ user, activePage, onNavigate, onSignOut, token
     return true;
   });
 
+  const initials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "??";
+
   return (
-    <div style={S.sidebar}>
+    <nav
+      aria-label="Main navigation"
+      style={{
+        width: 240, flexShrink: 0,
+        background: "var(--color-bg-surface)",
+        borderRight: "1px solid var(--color-border-subtle)",
+        height: "100vh", display: "flex", flexDirection: "column",
+        overflowY: "auto",
+      }}
+    >
       {/* Logo */}
-      <div style={S.logo}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 20 }}>🛡️</span>
-          <div>
-            <div style={S.logoTitle}>SARO</div>
-            <div style={S.logoSub}>Smart AI Risk Orchestrator</div>
+      <div style={{
+        padding: "var(--space-4) var(--space-4) var(--space-3)",
+        borderBottom: "1px solid var(--color-border-subtle)",
+        display: "flex", alignItems: "center", gap: "var(--space-3)",
+      }}>
+        <Shield size={22} color="var(--color-info)" strokeWidth={2} />
+        <div>
+          <div style={{
+            fontFamily: "var(--font-display)", fontWeight: "var(--weight-semibold)",
+            fontSize: "var(--text-md)", color: "var(--color-text-primary)",
+            lineHeight: 1.2,
+          }}>
+            SARO
+          </div>
+          <div style={{
+            fontSize: "var(--text-xs)", color: "var(--color-text-muted)",
+            letterSpacing: "0.05em", textTransform: "uppercase",
+          }}>
+            AI Risk Orchestrator
           </div>
         </div>
       </div>
 
       {/* User block */}
-      <div style={S.userBlock}>
-        <div style={S.userLabel}>Signed in as</div>
-        <div style={S.userEmail}>{user?.email}</div>
-        <div>
-          <span style={S.badge("#1e3a5f", "#60a5fa")}>
-            {user?.role?.replace("_", " ") || ""}
-          </span>
-          {persona && PERSONA_LABELS[persona] && persona !== user?.role && (
-            <span style={{ ...S.badge("#14532d", "#86efac"), marginLeft: 4 }}>
-              {PERSONA_ICONS[persona]} {PERSONA_LABELS[persona]}
-            </span>
-          )}
+      <div style={{
+        padding: "var(--space-3) var(--space-4)",
+        borderBottom: "1px solid var(--color-border-subtle)",
+        display: "flex", alignItems: "center", gap: "var(--space-3)",
+      }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: "50%",
+          background: "var(--color-info-bg)",
+          border: "1px solid var(--color-info-border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+          color: "var(--color-info)", flexShrink: 0,
+        }}>
+          {initials}
+        </div>
+        <div style={{ overflow: "hidden" }}>
+          <div style={{
+            fontSize: "var(--text-sm)", color: "var(--color-text-primary)",
+            fontWeight: "var(--weight-medium)", whiteSpace: "nowrap",
+            overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {user?.email}
+          </div>
+          <div style={{
+            fontSize: "var(--text-xs)", color: "var(--color-text-muted)",
+            textTransform: "uppercase", letterSpacing: "0.05em",
+          }}>
+            {ROLE_LABELS[persona] || persona}
+          </div>
         </div>
       </div>
 
-      {/* Health */}
-      <div style={S.health}>
-        {health ? (
-          <>
-            <span style={{ color: "#4ade80" }}>● API online</span>
-            {"  "}
-            <span style={{ color: health.db_ok ? "#4ade80" : "#f87171" }}>
-              ● DB {health.db_ok ? "ok" : "error"}
-            </span>
-          </>
-        ) : (
-          <span style={{ color: "#f87171" }}>● API offline</span>
-        )}
+      {/* API health */}
+      <div style={{
+        padding: "var(--space-2) var(--space-4)",
+        borderBottom: "1px solid var(--color-border-subtle)",
+        display: "flex", alignItems: "center", gap: "var(--space-2)",
+        fontSize: "var(--text-xs)", color: "var(--color-text-muted)",
+      }}>
+        <StatusDot status={health ? (health.db_ok ? "low" : "high") : "critical"} />
+        {health ? `API online · DB ${health.db_ok ? "ok" : "error"}` : "API offline"}
       </div>
 
-      {/* Nav */}
-      <nav style={S.navSection}>
+      {/* Nav items */}
+      <div style={{ flex: 1, padding: "var(--space-2) 0" }}>
         {tabs.map((tabId) => {
-          const { label, page } = TAB_REGISTRY[tabId];
-          const active = activePage === page || (activePage === page && tabId === activePage);
+          const { label, icon: Icon } = TAB_REGISTRY[tabId];
+          const isActive = activePage === tabId;
           return (
             <button
               key={tabId}
-              style={S.navItem(activePage === tabId)}
               onClick={() => onNavigate(tabId)}
+              aria-current={isActive ? "page" : undefined}
+              className="nav-item"
+              style={{
+                display: "flex", alignItems: "center", gap: "var(--space-3)",
+                width: "100%", padding: "var(--space-3) var(--space-4)",
+                background: isActive ? "var(--color-bg-overlay)" : "transparent",
+                borderLeft: `3px solid ${isActive ? "var(--color-info)" : "transparent"}`,
+                border: "none",
+                color: isActive ? "var(--color-text-primary)" : "var(--color-text-muted)",
+                fontSize: "var(--text-sm)", fontFamily: "var(--font-body)",
+                cursor: "pointer", textAlign: "left",
+                transition: "background var(--transition-fast), color var(--transition-fast)",
+                outline: "none",
+              }}
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--color-bg-elevated)"; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+              onFocus={(e) => { e.currentTarget.style.boxShadow = "var(--focus-ring)"; }}
+              onBlur={(e) => { e.currentTarget.style.boxShadow = "none"; }}
             >
-              {label}
+              <Icon size={16} style={{ flexShrink: 0, color: isActive ? "var(--color-info)" : "inherit" }} />
+              <span style={{ flex: 1 }}>{label}</span>
+              {isActive && <ChevronRight size={12} style={{ color: "var(--color-info)", opacity: 0.7 }} />}
             </button>
           );
         })}
-      </nav>
+      </div>
 
       {/* Sign out */}
-      <div style={S.signout}>
-        <button style={S.signoutBtn} onClick={onSignOut}>
-          Sign Out
+      <div style={{
+        padding: "var(--space-3) var(--space-4)",
+        borderTop: "1px solid var(--color-border-subtle)",
+      }}>
+        <button
+          onClick={onSignOut}
+          style={{
+            display: "flex", alignItems: "center", gap: "var(--space-3)",
+            width: "100%", padding: "var(--space-2) var(--space-3)",
+            background: "none", border: "none",
+            color: "var(--color-text-muted)", fontSize: "var(--text-sm)",
+            cursor: "pointer", borderRadius: "var(--radius-md)",
+            fontFamily: "var(--font-body)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-bg-elevated)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--color-text-muted)"; }}
+        >
+          <LogOut size={16} />
+          Sign out
         </button>
-        <div style={S.version}>SARO v8.0.0 — Enterprise AI Governance</div>
+        <div style={{
+          fontSize: "var(--text-xs)", color: "var(--color-text-muted)",
+          textAlign: "center", marginTop: "var(--space-2)", opacity: 0.5,
+        }}>
+          SARO v8.0.0
+        </div>
       </div>
-    </div>
+    </nav>
   );
 }

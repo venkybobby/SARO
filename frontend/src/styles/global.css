@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--color-info); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font-family: inherit; }
+input, select, textarea { font-family: var(--font-body); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg-base); }
+::-webkit-scrollbar-thumb { background: var(--color-bg-overlay); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* Mobile — prevent iOS auto-zoom on focus */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px; }
+  body { font-size: 15px; }
+}
+
+/* Touch targets */
+.btn, .nav-item, .icon-btn {
+  min-height: 36px;
+}
+@media (max-width: 768px) {
+  .btn, .nav-item, .icon-btn { min-height: 44px; min-width: 44px; }
+}
+
+/* Print */
+@media print {
+  .report-toolbar, .sidebar, .export-menu, .mobile-tab-bar { display: none; }
+  .chart-container { break-inside: avoid; }
+  .report-section { page-break-after: always; }
+  body { background: white; color: black; }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+/* Pulse animation for StatusDot */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* AI thinking step animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
