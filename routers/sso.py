@@ -292,9 +292,10 @@ async def saml_acs(
     assertion_id = assertion_el.get("ID") if assertion_el is not None else None
     if assertion_id:
         # Use NotOnOrAfter as TTL; fall back to 5-minute window if absent
+        _noa = conditions.get("NotOnOrAfter") if conditions is not None else None
         _replay_expiry = (
-            datetime.fromisoformat(not_on_or_after.replace("Z", "+00:00"))
-            if (conditions is not None and conditions.get("NotOnOrAfter"))
+            datetime.fromisoformat(_noa.replace("Z", "+00:00"))
+            if _noa
             else datetime.now(timezone.utc).replace(second=0, microsecond=0)
         )
         if not _check_and_record_assertion_id(assertion_id, _replay_expiry):
