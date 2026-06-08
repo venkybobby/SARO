@@ -63,7 +63,8 @@ def render(token: str) -> None:
         engagements = []
 
     try:
-        resp_qco = _api(token, "get", "/api/v1/evf/qco-registry")
+        # SAR-004: endpoint is /api/v1/evf/qco (not /qco-registry)
+        resp_qco = _api(token, "get", "/api/v1/evf/qco")
         qco_records = resp_qco.json() if resp_qco.status_code == 200 else []
     except Exception:
         qco_records = []
@@ -123,11 +124,38 @@ def render(token: str) -> None:
                 gate = eng.get("gate") or {}
                 st.markdown("**Validation Gate Checklist**")
                 for field, label in _GATE_ITEMS:
-                    status = gate.get(field, False)
-                    icon = "✅" if status else "⬜"
+                    item_done = gate.get(field, False)
+                    icon = "✅" if item_done else "⬜"
                     st.markdown(f"{icon} {label}")
             else:
-                st.info("No engagement record. Create one via the EVF API.")
+                # SAR-004: inline engagement create form
+                st.warning("No engagement record for this framework.")
+                with st.expander("➕ Create SME Engagement"):
+                    with st.form(key=f"create_eng_{fw_key}"):
+                        sme_firm = st.text_input("SME Firm Name", key=f"firm_{fw_key}")
+                        sme_contact = st.text_input("Key Contact (optional)", key=f"contact_{fw_key}")
+                        sme_cred = st.text_input("Credential (optional)", key=f"cred_{fw_key}")
+                        notes = st.text_area("Notes (optional)", key=f"notes_{fw_key}", height=80)
+                        if st.form_submit_button("Create Engagement", type="primary"):
+                            if not sme_firm.strip():
+                                st.error("SME Firm Name is required.")
+                            else:
+                                payload = {
+                                    "framework": fw_key,
+                                    "sme_firm_name": sme_firm.strip(),
+                                    "sme_key_contact": sme_contact.strip() or None,
+                                    "sme_credential": sme_cred.strip() or None,
+                                    "notes": notes.strip() or None,
+                                }
+                                try:
+                                    r = _api(token, "post", "/api/v1/evf/engagements", json=payload)
+                                    if r.status_code in (200, 201):
+                                        st.success(f"Engagement created for {lbl['display_name']}.")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Failed ({r.status_code}): {r.text[:200]}")
+                                except Exception as exc:
+                                    st.error(f"Request failed: {exc}")
 
             st.markdown(f"*{lbl['label_text']}*")
             st.divider()

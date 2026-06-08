@@ -228,6 +228,10 @@ def _login(email: str, password: str) -> bool:
         resp.raise_for_status()
         data = resp.json()
         st.session_state["token"] = data["access_token"]
+        # SAR-001/SAR-006: persist warning banner from login response so the
+        # app shell can render it on the first authenticated render.
+        if data.get("warning_banner"):
+            st.session_state["warning_banner"] = data["warning_banner"]
 
         me_resp = requests.get(
             f"{_API_BASE}/api/v1/auth/me",
@@ -542,6 +546,11 @@ def _render_app() -> None:
 
     st.session_state["api_base"] = _API_BASE
     st.session_state["persona"] = persona
+
+    # SAR-001/SAR-006: show magic-link / non-SSO warning banner if present
+    banner = st.session_state.get("warning_banner")
+    if banner:
+        st.warning(banner, icon="⚠️")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
