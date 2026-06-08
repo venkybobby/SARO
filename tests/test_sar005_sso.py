@@ -102,6 +102,7 @@ def _make_saml_response(
     expired: bool = False,
     with_mfa: bool = False,
     email: str = "user@test.com",
+    assertion_id: str | None = None,
 ) -> str:
     not_after = "2099-01-01T00:00:00Z" if not expired else "2020-01-01T00:00:00Z"
     sig = (
@@ -117,11 +118,12 @@ def _make_saml_response(
         if with_mfa
         else ""
     )
+    id_attr = f' ID="{assertion_id}"' if assertion_id else ""
     xml = f"""<?xml version="1.0"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
                 xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
   {sig}
-  <saml:Assertion>
+  <saml:Assertion{id_attr}>
     <saml:Subject>
       <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">{email}</saml:NameID>
     </saml:Subject>
@@ -285,3 +287,88 @@ class TestSar005Sso:
         )
         assert resp.status_code == 200
         assert resp.headers.get("x-saro-auth-type") == "magic-link-testing-only"
+
+    # LIVE-008: replay guard — second use of same assertion_id returns 400
+    def test_replay_attack_returns_400(self):
+        import uuid as _uuid
+        from routers.sso import _SEEN_ASSERTION_IDS  # type: ignore[attr-defined]
+
+        tenant = _make_mock_tenant()
+        config = _make_mock_config()
+        user = _make_mock_user(tenant_id=tenant.id)
+
+        # Use a unique assertion ID so this test is isolated from others
+        aid = f"_test_replay_{_uuid.uuid4().hex}"
+        # Clear any leftover state for this ID
+        _SEEN_ASSERTION_IDS.pop(aid, None)
+
+        saml = _make_saml_response(with_signature=True, assertion_id=aid)
+
+        with patch("routers.sso.create_access_token", return_value="mock-jwt-token"):
+            # First use — should succeed
+            app.dependency_overrides[get_db] = _override_db(tenant=tenant, config=config, user=user)
+            r1 = client.post("/api/v1/sso/acs/test-tenant", data={"SAMLResponse": saml})
+            assert r1.status_code == 200, f"First use should succeed, got {r1.status_code}: {r1.text}"
+
+            # Second use with the same assertion — must be rejected
+            app.dependency_overrides[get_db] = _override_db(tenant=tenant, config=config, user=user)
+            r2 = client.post("/api/v1/sso/acs/test-tenant", data={"SAMLResponse": saml})
+            assert r2.status_code == 400, f"Replay should be rejected, got {r2.status_code}: {r2.text}"
+            assert "replay" in r2.json().get("detail", "").lower()
+
+    # LIVE-008: unsigned assertion is still rejected (presence check intact)
+    def test_unsigned_assertion_still_rejected(self):
+        tenant = _make_mock_tenant()
+        config = _make_mock_config()
+        app.dependency_overrides[get_db] = _override_db(tenant=tenant, config=config)
+
+        saml = _make_saml_response(with_signature=False)
+        resp = client.post("/api/v1/sso/acs/test-tenant", data={"SAMLResponse": saml})
+        assert resp.status_code == 400
+
+    # LIVE-008: SSO JIT user is created with hashed_password=None (LIVE-002 compat)
+    def test_sso_jit_user_created_with_null_password(self):
+        import uuid as _uuid
+        tenant = _make_mock_tenant()
+        config = _make_mock_config()
+        app.dependency_overrides[get_db] = _override_db(tenant=tenant, config=config, user=None)
+
+        captured_users: list = []
+        original_override = app.dependency_overrides[get_db]
+
+        def _capturing_override():
+            mock_db = MagicMock()
+
+            def _query(model):
+                q = MagicMock()
+                name = model.__name__ if hasattr(model, "__name__") else str(model)
+                if name == "Tenant":
+                    q.filter.return_value.first.return_value = tenant
+                elif name == "ClientConfig":
+                    q.filter.return_value.first.return_value = config
+                elif name == "User":
+                    q.filter.return_value.first.return_value = None  # force JIT
+                else:
+                    q.filter.return_value.first.return_value = None
+                return q
+
+            def _add(obj):
+                captured_users.append(obj)
+
+            mock_db.query.side_effect = _query
+            mock_db.add.side_effect = _add
+            mock_db.commit.return_value = None
+            mock_db.refresh.return_value = None
+            yield mock_db
+
+        app.dependency_overrides[get_db] = _capturing_override
+        saml = _make_saml_response(with_signature=True)
+
+        with patch("routers.sso.create_access_token", return_value="mock-jwt"):
+            client.post("/api/v1/sso/acs/test-tenant", data={"SAMLResponse": saml})
+
+        user_rows = [u for u in captured_users if hasattr(u, "hashed_password")]
+        assert user_rows, "Expected a User to be added via db.add()"
+        assert user_rows[0].hashed_password is None, (
+            f"SSO JIT user should have hashed_password=None, got {user_rows[0].hashed_password!r}"
+        )

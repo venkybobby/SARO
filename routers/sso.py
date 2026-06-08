@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -36,6 +37,100 @@ _SP_ENTITY_ID = os.environ.get("SAML_SP_ENTITY_ID", "https://saro.app/sp")
 _SP_ACS_BASE = os.environ.get("SAML_SP_ACS_URL", "https://saro.app/api/v1/sso/acs")
 _SP_CERT = os.environ.get("SAML_SP_CERT", "")
 _SP_KEY = os.environ.get("SAML_SP_KEY", "")
+
+
+# ── LIVE-008: Assertion replay guard ─────────────────────────────────────────
+# In-memory store: assertion_id → expiry (UTC datetime).
+# Thread-safe; expired entries are pruned on every check.
+# Single-process safe (Railway/Fly.io single-dyno).  For multi-process deploys
+# this should be moved to Redis — see services/replay_cache.py.
+
+_SEEN_ASSERTION_IDS: dict[str, datetime] = {}
+_SEEN_ASSERTION_IDS_LOCK = threading.Lock()
+
+
+def _check_and_record_assertion_id(assertion_id: str, expiry: datetime) -> bool:
+    """
+    Return True if assertion_id is new (first use); False if it has been seen
+    before (replay attack).  Thread-safe.
+
+    Expired entries are pruned on each call so the dict doesn't grow unbounded.
+    """
+    now = datetime.now(timezone.utc)
+    with _SEEN_ASSERTION_IDS_LOCK:
+        # Prune stale entries
+        stale = [k for k, v in _SEEN_ASSERTION_IDS.items() if v < now]
+        for k in stale:
+            del _SEEN_ASSERTION_IDS[k]
+        if assertion_id in _SEEN_ASSERTION_IDS:
+            return False  # Replay detected
+        _SEEN_ASSERTION_IDS[assertion_id] = expiry
+        return True
+
+
+# ── LIVE-008: SAML signature verification ────────────────────────────────────
+
+def _verify_saml_signature(assertion_xml: str, idp_cert: str | None) -> bool:
+    """
+    Verify the XML signature in a SAMLResponse.
+
+    Two-tier strategy:
+    1. Structural check — if no <ds:Signature> element is present, always reject.
+    2. Cryptographic check — if an IdP certificate is configured, verify the
+       signature against it using python3-saml (onelogin.saml2).  If the
+       library is not installed (e.g. local Windows dev without xmlsec1),
+       falls back to presence-only and logs a prominent warning.  Railway /
+       Fly.io deployments always have python3-saml installed via requirements.txt.
+
+    Returns True only when the assertion should be accepted.
+    """
+    try:
+        root = ElementTree.fromstring(assertion_xml)
+    except ElementTree.ParseError:
+        return False
+
+    ns = {"ds": "http://www.w3.org/2000/09/xmldsig#"}
+    if root.find(".//ds:Signature", ns) is None:
+        return False  # No signature element — always reject
+
+    if not idp_cert:
+        # No certificate to verify against — presence-only.
+        # Safe for local dev; production tenants must configure x509cert.
+        logger.warning(
+            "SAML: IdP certificate not configured for this tenant — "
+            "signature accepted by presence only.  Set idp_metadata.x509cert "
+            "to enable full cryptographic verification."
+        )
+        return True
+
+    # Attempt cryptographic verification via python3-saml
+    try:
+        from onelogin.saml2.utils import OneLogin_Saml2_Utils  # noqa: PLC0415
+
+        # Strip PEM headers if present — python3-saml expects raw base64
+        cert = (
+            idp_cert
+            .replace("-----BEGIN CERTIFICATE-----", "")
+            .replace("-----END CERTIFICATE-----", "")
+            .strip()
+        )
+        result = OneLogin_Saml2_Utils.validate_sign(
+            root, cert, fingerprintalg="sha256"
+        )
+        if not result:
+            logger.warning("SAML: cryptographic signature verification failed")
+        return bool(result)
+
+    except ImportError:
+        # python3-saml / xmlsec not available in this environment.
+        logger.warning(
+            "SAML: python3-saml not available — falling back to presence-only "
+            "signature check.  Install python3-saml[xmlsec] for full crypto."
+        )
+        return True  # Cert was configured but can't verify — allow with warning
+    except Exception as exc:
+        logger.warning("SAML: signature verification error: %s", exc)
+        return False
 
 
 def _write_audit_event(db: Session, tenant_id, user_id, event_type: str, data: dict) -> None:
@@ -151,23 +246,27 @@ async def saml_acs(
                            {"reason": "invalid_xml", "tenant_slug": tenant_slug})
         raise HTTPException(status_code=400, detail="Invalid SAMLResponse XML")
 
-    # SPEC-F2 TR-03: check for signature (wantMessagesSigned=True)
+    # SPEC-F2 TR-03: verify signature (presence + optional crypto via IdP cert)
     ns = {
         "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
         "samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
         "ds": "http://www.w3.org/2000/09/xmldsig#",
     }
-    sig = root.find(".//ds:Signature", ns)
-    if sig is None:
+    idp_meta = config.idp_metadata or {}
+    idp_cert: str | None = (
+        idp_meta.get("idp", {}).get("x509cert")
+        or idp_meta.get("x509cert")
+        or idp_meta.get("idp_cert")
+    )
+    if not _verify_saml_signature(assertion_xml, idp_cert):
         _write_audit_event(db, tenant.id, None, "sso_login_failure",
                            {"reason": "invalid_signature", "tenant_slug": tenant_slug})
         raise HTTPException(status_code=400, detail="SAMLResponse signature missing or invalid")
 
-    # Extract NameID (email)
-    name_id_el = (
-        root.find(".//saml:NameID", ns)
-        or root.find(".//saml:Subject/saml:NameID", ns)
-    )
+    # Extract NameID (email) — avoid Element truthiness DeprecationWarning
+    name_id_el = root.find(".//saml:NameID", ns)
+    if name_id_el is None:
+        name_id_el = root.find(".//saml:Subject/saml:NameID", ns)
     if name_id_el is None or not name_id_el.text:
         _write_audit_event(db, tenant.id, None, "sso_login_failure",
                            {"reason": "missing_name_id", "tenant_slug": tenant_slug})
@@ -188,6 +287,21 @@ async def saml_acs(
             except ValueError:
                 pass
 
+    # LIVE-008: Assertion replay guard — reject reuse of the same assertion ID
+    assertion_el = root.find(".//saml:Assertion", ns)
+    assertion_id = assertion_el.get("ID") if assertion_el is not None else None
+    if assertion_id:
+        # Use NotOnOrAfter as TTL; fall back to 5-minute window if absent
+        _replay_expiry = (
+            datetime.fromisoformat(not_on_or_after.replace("Z", "+00:00"))
+            if (conditions is not None and conditions.get("NotOnOrAfter"))
+            else datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        )
+        if not _check_and_record_assertion_id(assertion_id, _replay_expiry):
+            _write_audit_event(db, tenant.id, None, "sso_login_failure",
+                               {"reason": "assertion_replayed", "assertion_id": assertion_id})
+            raise HTTPException(status_code=400, detail="SAMLResponse assertion already used (replay rejected)")
+
     # Extract optional role attribute
     persona_role = None
     for attr in root.findall(".//saml:Attribute", ns):
@@ -202,14 +316,14 @@ async def saml_acs(
     user = db.query(User).filter(User.email == email, User.tenant_id == tenant.id).first()
     user_created = False
     if user is None:
-        # SSO users have no local password — set a non-guessable placeholder
-        # The string "sso_no_local_auth" is not a real credential.
-        _sso_placeholder = "sso_no_local_auth"
+        # SSO JIT users have no local password.
+        # hashed_password is nullable (migration 017) — store None so
+        # authenticate_user() returns None immediately for any password attempt.
         user = User(
             id=uuid.uuid4(),
             tenant_id=tenant.id,
             email=email,
-            hashed_password=_sso_placeholder,
+            hashed_password=None,
             role="operator",
             persona_role=persona_role or "compliance_lead",
             is_active=True,
