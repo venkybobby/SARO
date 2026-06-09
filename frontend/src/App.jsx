@@ -60,7 +60,7 @@ const PAGE_COMPONENTS = {
   evaluations:      Evaluations,
   evf_admin:        EvfAdmin,
   admin_settings:   AdminSettings,
-  demo_requests:    DemoRequests,
+  // demo_requests removed — STORY-016
   ai_insights:      AIInsights,
   reports:          Reports,
   settings:         Settings,

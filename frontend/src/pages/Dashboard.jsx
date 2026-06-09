@@ -116,7 +116,7 @@ const POSTURE_STYLES = {
   LOW:      { bg: "var(--color-low-bg)",       border: "var(--color-low-border)",      color: "var(--color-low)" },
 };
 
-function RiskPostureBanner({ level, openRisks, overdueItems, lastUpdated }) {
+function RiskPostureBanner({ level, openRisks, overdueItems, lastUpdated, loading }) {
   const s = POSTURE_STYLES[level] || POSTURE_STYLES.HIGH;
   return (
     <div style={{
@@ -136,27 +136,35 @@ function RiskPostureBanner({ level, openRisks, overdueItems, lastUpdated }) {
           }}>
             Risk Posture
           </div>
-          <div style={{
-            fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)",
-            color: s.color, fontFamily: "var(--font-display)", lineHeight: 1.2,
-          }}>
-            {level}
-          </div>
+          {loading ? (
+            <Skeleton height={28} width={80} />
+          ) : (
+            <div style={{
+              fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)",
+              color: s.color, fontFamily: "var(--font-display)", lineHeight: 1.2,
+            }}>
+              {level}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", gap: "var(--space-8)", flexWrap: "wrap" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: s.color, fontFamily: "var(--font-mono)" }}>
-            {openRisks}
-          </div>
+          {loading ? <Skeleton height={32} width={40} /> : (
+            <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: s.color, fontFamily: "var(--font-mono)" }}>
+              {openRisks}
+            </div>
+          )}
           <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Open Risks
           </div>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: s.color, fontFamily: "var(--font-mono)" }}>
-            {overdueItems}
-          </div>
+          {loading ? <Skeleton height={32} width={40} /> : (
+            <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: s.color, fontFamily: "var(--font-mono)" }}>
+              {overdueItems}
+            </div>
+          )}
           <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             Overdue
           </div>
@@ -174,8 +182,7 @@ function RiskPostureBanner({ level, openRisks, overdueItems, lastUpdated }) {
   );
 }
 
-function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
-  const sev = severity === "ai" ? "ai" : severity;
+function KpiCard({ label, value, delta, severity, size, icon: Icon, loading, sub }) {
   const colors = {
     critical: "var(--color-critical)",
     high:     "var(--color-high)",
@@ -184,7 +191,7 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
     ai:       "var(--color-ai)",
     info:     "var(--color-info)",
   };
-  const color = colors[sev] || colors.info;
+  const color   = colors[severity] || colors.info;
   const isLarge = size === "large";
 
   return (
@@ -221,6 +228,12 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
         </div>
       )}
 
+      {sub && !loading && (
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
+          {sub}
+        </div>
+      )}
+
       {delta !== undefined && delta !== null && !loading && (
         <div style={{
           fontSize: "var(--text-xs)",
@@ -229,6 +242,106 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
           {delta > 0 ? `↑ +${delta}` : delta < 0 ? `↓ ${delta}` : "— no change"} since last period
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * STORY-015: Inline drift alert notifications.
+ * Fetches /api/v1/drift/alerts (shared with DriftAlerts page).
+ * Renders triggered alerts as dismissible amber chips.
+ */
+function DriftAlertsBanner({ token, onNavigate }) {
+  const [alerts, setAlerts]   = useState([]);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("saro_dismissed_drift") || "[]"); } catch { return []; }
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch("/api/v1/drift/alerts", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        const raw = Array.isArray(d) ? d : (d?.alerts || []);
+        setAlerts(raw);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  function dismiss(id) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    localStorage.setItem("saro_dismissed_drift", JSON.stringify(next));
+  }
+
+  const visible = alerts.filter((a) => {
+    const id = a.id || a.alert_id || a.name || JSON.stringify(a);
+    const active = a.triggered || a.status === "triggered"
+      || a.drift_detected || a.has_drift
+      || a.severity === "high" || a.severity === "critical";
+    return !dismissed.includes(id) && active;
+  });
+
+  if (loading || visible.length === 0) return null;
+
+  return (
+    <div style={{
+      background: "#fffbeb", border: "1px solid #fde68a",
+      borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
+      marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: 10,
+    }}>
+      <Activity size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{
+          fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+          color: "#92400e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+        }}>
+          {visible.length} Drift Alert{visible.length > 1 ? "s" : ""} Detected
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {visible.slice(0, 5).map((a, i) => {
+            const id    = a.id || a.alert_id || a.name || String(i);
+            const label = a.framework_name || a.name || a.alert_type || `Alert ${i + 1}`;
+            const sev   = a.severity || "medium";
+            const sevColor = sev === "critical" || sev === "high" ? "#dc2626" : "#b45309";
+            return (
+              <span key={id} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                background: "#fef3c7", border: "1px solid #fcd34d",
+                borderRadius: 6, padding: "3px 8px",
+                fontSize: "var(--text-xs)", color: sevColor, fontWeight: "var(--weight-medium)",
+              }}>
+                ⚠ {label}
+                <button
+                  onClick={() => dismiss(id)}
+                  aria-label={`Dismiss ${label}`}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0, lineHeight: 1, marginLeft: 2 }}
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            );
+          })}
+          {visible.length > 5 && (
+            <span style={{ fontSize: "var(--text-xs)", color: "#92400e", alignSelf: "center" }}>
+              +{visible.length - 5} more
+            </span>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onNavigate?.("drift_alerts")}
+        style={{
+          padding: "4px 10px", background: "#fef3c7", border: "1px solid #fcd34d",
+          borderRadius: 5, cursor: "pointer", fontSize: "var(--text-xs)",
+          color: "#92400e", fontWeight: "var(--weight-semibold)", flexShrink: 0,
+          fontFamily: "var(--font-body)",
+        }}
+      >
+        View All →
+      </button>
     </div>
   );
 }
@@ -287,8 +400,6 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
   const [vertical,   setVertical]   = useState("finance");
   const [timeWindow, setTimeWindow] = useState("7d");
   const [degraded,   setDegraded]   = useState(false);
-  const [kpiLoading, setKpiLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState("just now");
 
   const kpis = PERSONA_KPIS[persona] || PERSONA_KPIS.operator;
 
@@ -361,6 +472,20 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
                 <option key={w} value={w}>{w === "7d" ? "7 days" : w === "30d" ? "30 days" : "90 days"}</option>
               ))}
             </select>
+            {/* Manual refresh */}
+            <button
+              onClick={refetch}
+              disabled={loading}
+              aria-label="Refresh dashboard"
+              style={{
+                padding: "4px 8px", borderRadius: "var(--radius-md)",
+                border: "1px solid var(--color-border-default)",
+                background: "var(--color-bg-elevated)", cursor: loading ? "default" : "pointer",
+                color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 4,
+              }}
+            >
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
           </div>
         }
       />
@@ -385,10 +510,11 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
 
         {/* Risk posture banner — must be first thing visible */}
         <RiskPostureBanner
-          level="HIGH"
-          openRisks={47}
-          overdueItems={12}
-          lastUpdated={lastUpdated}
+          level={posture.postureLevel}
+          openRisks={posture.openRisks}
+          overdueItems={posture.overdue}
+          lastUpdated={posture.lastUpdated}
+          loading={loading}
         />
 
         {/* KPI cards — persona-specific (STORY-006) */}
@@ -439,14 +565,31 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           </button>
         </div>
 
-        {/* Last updated indicator */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: "var(--space-2)",
-          fontSize: "var(--text-xs)", color: "var(--color-text-muted)",
-          marginBottom: "var(--space-5)",
-        }}>
-          <RefreshCw size={11} />
-          Last updated {lastUpdated}
+        {/* Quick actions — persona-specific */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
+          {persona === "operator" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          {["risk_officer","admin","super_admin"].includes(persona) && (
+            <button onClick={() => onNavigate?.("risk_register")} style={qaBtn("#0d9488")}>
+              Open Risk Register
+            </button>
+          )}
+          {persona === "compliance_lead" && (
+            <button onClick={() => onNavigate?.("compliance_hub")} style={qaBtn("#0d9488")}>
+              Compliance Hub
+            </button>
+          )}
+          {persona === "ai_auditor" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          <button onClick={() => onNavigate?.("trace_view")} style={qaBtn("#6b7280")}>
+            View Recent TRACE
+          </button>
         </div>
 
         {/* Pipeline status */}

@@ -60,6 +60,124 @@ function RiskBadge({ score }) {
   );
 }
 
+// ─── STORY-010: Compliance Calendar ──────────────────────────────────────────
+
+const KNOWN_FRAMEWORKS = ["eu_ai_act", "nist_ai_rmf", "aigp", "iso_42001"];
+const FW_LABELS = {
+  eu_ai_act:    "EU AI Act",
+  nist_ai_rmf:  "NIST AI RMF",
+  aigp:         "AIGP",
+  iso_42001:    "ISO 42001",
+};
+
+/**
+ * Compliance Calendar — pulls EVF validation status and QCO expiry alerts.
+ * Shows each framework's review cycle and any upcoming expirations.
+ */
+function ComplianceCalendar({ token }) {
+  const [statuses, setStatuses] = useState([]);
+  const [expiries, setExpiries] = useState([]);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    const h = { Authorization: `Bearer ${token}` };
+    const safe = (url) => fetch(url, { headers: h }).then((r) => r.ok ? r.json() : []).catch(() => []);
+    Promise.all([
+      safe("/api/v1/evf/validation-status"),
+      safe("/api/v1/evf/qco/expiry-alerts?limit=20"),
+    ]).then(([st, ex]) => {
+      setStatuses(Array.isArray(st) ? st : []);
+      setExpiries(Array.isArray(ex) ? ex : []);
+      setLoading(false);
+    });
+  }, [token]);
+
+  function daysUntil(isoStr) {
+    if (!isoStr) return null;
+    const d = Math.ceil((new Date(isoStr).getTime() - Date.now()) / 86400000);
+    return d;
+  }
+
+  if (loading) return <div style={{ color: "#9ca3af", fontSize: 13 }}>Loading calendar…</div>;
+
+  // Build calendar rows: one per framework
+  const rows = KNOWN_FRAMEWORKS.map((fw) => {
+    const status = statuses.find((s) => s.framework === fw || s.name === fw) || {};
+    const tier   = status.tier || status.evf_tier || "tier_3";
+    const expiry  = expiries.find((e) => e.framework === fw || e.name === fw);
+    const expDate = status.qco_expiry_date || expiry?.expiry_date || null;
+    const revDate = status.next_review_date || status.review_date || null;
+    const days    = daysUntil(expDate);
+
+    return { fw, label: FW_LABELS[fw] || fw, tier, expDate, revDate, days };
+  });
+
+  return (
+    <div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Framework</th>
+            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>EVF Tier</th>
+            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>QCO Expiry</th>
+            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Next Review</th>
+            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ fw, label, tier, expDate, revDate, days }) => {
+            const tierCfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" };
+            const urgentColor = days !== null && days < 30 ? "#dc2626" : days !== null && days < 60 ? "#ca8a04" : "#374151";
+            return (
+              <tr key={fw} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: "10px 10px", fontWeight: 600 }}>{label}</td>
+                <td style={{ padding: "10px 10px" }}>
+                  <span style={{
+                    background: tierCfg.color + "20", color: tierCfg.color,
+                    border: `1px solid ${tierCfg.color}40`,
+                    padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+                  }}>
+                    {tierCfg.icon} {tierCfg.short}
+                  </span>
+                </td>
+                <td style={{ padding: "10px 10px", color: urgentColor, fontFamily: "monospace", fontSize: 12 }}>
+                  {expDate
+                    ? `${expDate.slice(0, 10)}${days !== null ? ` (${days > 0 ? `${days}d` : "EXPIRED"})` : ""}`
+                    : <span style={{ color: "#9ca3af" }}>—</span>}
+                </td>
+                <td style={{ padding: "10px 10px", fontFamily: "monospace", fontSize: 12, color: "#6b7280" }}>
+                  {revDate ? revDate.slice(0, 10) : <span style={{ color: "#9ca3af" }}>—</span>}
+                </td>
+                <td style={{ padding: "10px 10px" }}>
+                  {days !== null && days < 0
+                    ? <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }}>⚠ EXPIRED</span>
+                    : days !== null && days < 30
+                    ? <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>🔴 Urgent</span>
+                    : days !== null && days < 60
+                    ? <span style={{ color: "#ca8a04", fontWeight: 600, fontSize: 11 }}>🟡 Due soon</span>
+                    : tier === "tier_3"
+                    ? <span style={{ color: "#64748b", fontSize: 11 }}>Not assessed</span>
+                    : <span style={{ color: "#16a34a", fontSize: 11 }}>✓ OK</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {expiries.length === 0 && statuses.length === 0 && (
+        <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8, fontStyle: "italic" }}>
+          No EVF records found — all frameworks are at Tier 3 (Internal Review Only).
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+        EVF = External Validation Framework · QCO = Qualified Compliance Opinion.
+        Expiry data requires a QCO reference number from an approved SME firm.
+      </p>
+    </div>
+  );
+}
+
 export default function ComplianceHub({ token, tenantId }) {
   const [coverage, setCoverage] = useState(null);
   const [audits, setAudits] = useState([]);
@@ -170,6 +288,15 @@ export default function ComplianceHub({ token, tenantId }) {
           </div>
         </Card>
       </div>
+
+      {/* Compliance Calendar — STORY-010 */}
+      <Card style={{ marginTop: 20, marginBottom: 0 }}>
+        <h2 style={{ fontSize: 15, marginBottom: 14 }}>📅 Compliance Calendar</h2>
+        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
+          QCO expiry dates, next review schedules, and EVF validation tier per framework.
+        </p>
+        <ComplianceCalendar token={token} />
+      </Card>
 
       {/* Disclaimer */}
       <div style={{ marginTop: 24, padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#64748b" }}>
