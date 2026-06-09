@@ -87,7 +87,11 @@ export default function Sidebar({ user, activePage, onNavigate, onSignOut, token
   const [switching, setSwitching] = useState(false);
   const switchRef = useRef(null);
 
-  const canSwitch = ["admin","super_admin"].includes(user?.persona_role || user?.role);
+  // canSwitch must check the immutable base role, NOT persona_role.
+  // persona_role is the current view; role is the account-level assignment.
+  // A super_admin who switched to "risk_officer" still has role="super_admin"
+  // and must be able to switch back — including after logout/login.
+  const canSwitch = ["admin","super_admin"].includes(user?.role);
 
   useEffect(() => {
     const check = async () => {
