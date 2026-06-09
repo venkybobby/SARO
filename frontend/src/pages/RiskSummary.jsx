@@ -1,10 +1,36 @@
-/**
- * Risk Summary — board-level risk officer view.
- * Key metrics, top findings, what's changed, vendor risk.
- */
 import React, { useEffect, useState } from "react";
 
 const RAG_COLORS = { green: "#16a34a", amber: "#ca8a04", red: "#dc2626" };
+
+/**
+ * Inline SVG sparkline — no external charting dependency.
+ * Points is an array of numbers. Width/height in px.
+ */
+function Sparkline({ points = [], width = 120, height = 40, color = "#0d9488" }) {
+  if (points.length < 2) {
+    return <span style={{ fontSize: 11, color: "#9ca3af" }}>Insufficient data</span>;
+  }
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const pad = 3;
+  const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (width - pad * 2));
+  const ys = points.map((v) => pad + (1 - (v - min) / range) * (height - pad * 2));
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const last = points[points.length - 1];
+  const prev = points[points.length - 2];
+  const trend = last > prev ? "↑" : last < prev ? "↓" : "→";
+  const trendColor = last > prev ? "#dc2626" : last < prev ? "#16a34a" : "#6b7280";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <svg width={width} height={height} style={{ overflow: "visible" }}>
+        <path d={d} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={3} fill={color} />
+      </svg>
+      <span style={{ fontSize: 13, fontWeight: 700, color: trendColor }}>{trend} {last?.toFixed(0)}</span>
+    </div>
+  );
+}
 
 function RagBadge({ rag }) {
   const color = RAG_COLORS[(rag || "amber").toLowerCase()] || "#6b7280";
@@ -29,6 +55,7 @@ export default function RiskSummary({ token, tenantId }) {
   const [summary, setSummary] = useState(null);
   const [findings, setFindings] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [scoreHistory, setScoreHistory] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -40,8 +67,29 @@ export default function RiskSummary({ token, tenantId }) {
       .then((d) => {
         setSummary(d.summary || d);
         setFindings(d.top_findings || []);
+        // score_history: array of {date, avg_score} or plain numbers
+        const hist = d.score_history || d.summary?.score_history || [];
+        setScoreHistory(
+          hist.map((pt) => (typeof pt === "number" ? pt : pt.avg_score ?? pt.score ?? 0))
+        );
       })
       .catch((e) => setError(`Risk dashboard unavailable (${e})`));
+
+    // Fallback: derive sparkline from recent audits if risk_dashboard doesn't include score_history
+    fetch(`/api/v1/audits?limit=30&sort=desc`, { headers: h })
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => {
+        const audits = Array.isArray(d) ? d : d.items || [];
+        if (audits.length >= 2) {
+          const pts = audits
+            .slice()
+            .reverse()
+            .map((a) => a.risk_score ?? a.score ?? null)
+            .filter((v) => v !== null);
+          if (pts.length >= 2) setScoreHistory((prev) => prev.length >= 2 ? prev : pts);
+        }
+      })
+      .catch(() => {});
 
     fetch(`/api/v1/vendor-risk${tenantId ? `?tenant_id=${tenantId}` : ""}`, { headers: h })
       .then((r) => r.ok ? r.json() : [])
@@ -70,7 +118,15 @@ export default function RiskSummary({ token, tenantId }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Overall RAG</div>
           <RagBadge rag={summary?.rag_status} />
         </div>
-        <KpiCard label="90-Day Trend" value={summary?.trend_label || "—"} sub="Direction of avg risk score" />
+        <div style={{ flex: 1, minWidth: 160, padding: 16, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+            90-Day Trend
+            {summary?.trend_label && (
+              <span style={{ marginLeft: 8, fontSize: 11, color: "#9ca3af", fontWeight: 400 }}>{summary.trend_label}</span>
+            )}
+          </div>
+          <Sparkline points={scoreHistory} />
+        </div>
         <KpiCard label="Remediation %" value={summary?.remediation_rate != null ? `${(summary.remediation_rate * 100).toFixed(0)}%` : "—"} />
         <KpiCard label="Open Findings" value={summary?.open_findings} />
         <KpiCard label="Avg Risk Score" value={summary?.avg_risk_score?.toFixed(1)} />
