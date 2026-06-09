@@ -6,7 +6,7 @@ import React, { useState } from "react";
 const SOURCE_MODELS = ["openai", "claude", "grok", "sierra", "internal", "unknown"];
 const VERTICALS = ["finance", "healthcare", "legal", "government", "general"];
 
-export default function Upload({ token, tenantId }) {
+export default function Upload({ token, tenantId, onNavigate }) {
   const [prompt, setPrompt]     = useState("");
   const [output, setOutput]     = useState("");
   const [model, setModel]       = useState("openai");
@@ -137,9 +137,21 @@ export default function Upload({ token, tenantId }) {
                 SARO scored this output at {riskScore}/100 — <span style={{ color: riskColor }}>{riskScore >= 70 ? "HIGH RISK" : riskScore >= 40 ? "MODERATE RISK" : "LOW RISK"}</span>
               </div>
               {result.audit_id && (
-                <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace" }}>
+                <div style={{ fontSize: 12, color: "#9ca3af", fontFamily: "monospace", marginBottom: 8 }}>
                   Audit ID: {result.audit_id}
                 </div>
+              )}
+              {result.audit_id && (
+                <button
+                  onClick={() => onNavigate?.("trace_view", result.audit_id)}
+                  style={{
+                    padding: "7px 14px", background: "#0d9488", color: "#fff",
+                    border: "none", borderRadius: 6, fontSize: 13, fontWeight: 600,
+                    cursor: "pointer", marginTop: 4,
+                  }}
+                >
+                  View TRACE →
+                </button>
               )}
             </div>
           </div>

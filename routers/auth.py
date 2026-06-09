@@ -226,7 +226,31 @@ def list_tenants(
 
 # ── Persona assignment ────────────────────────────────────────────────────────
 
-_VALID_PERSONAS = {"compliance_lead", "risk_officer", "ai_auditor", "admin"}
+_VALID_PERSONAS = {"compliance_lead", "risk_officer", "ai_auditor", "admin", "super_admin", "operator"}
+
+
+@router.get(
+    "/users",
+    response_model=list[UserOut],
+)
+def list_users(
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+    skip: int = 0,
+    limit: int = 100,
+) -> list[UserOut]:
+    """List all users in the caller's tenant. Requires admin or super_admin."""
+    if current.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="admin or super_admin required")
+    users = (
+        db.query(User)
+        .filter(User.tenant_id == current.tenant_id)
+        .order_by(User.email)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [UserOut.model_validate(u) for u in users]
 
 
 @router.patch("/users/{user_id}/persona", response_model=UserOut)

@@ -1,8 +1,4 @@
-/**
- * TRACE View — load any audit ID and display 6-step pipeline timeline.
- * Executive / Technical toggle, full chain-of-thought.
- */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const STEPS = [
   { key: "ingest",    label: "1. Ingest" },
@@ -41,19 +37,44 @@ function RiskChip({ score }) {
   );
 }
 
-export default function TraceView({ token }) {
-  const [auditId, setAuditId] = useState("");
-  const [trace, setTrace]     = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
-  const [mode, setMode]       = useState("summary"); // summary | technical
+export default function TraceView({ token, initialAuditId }) {
+  const [auditId, setAuditId]   = useState(initialAuditId || "");
+  const [trace, setTrace]       = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [mode, setMode]         = useState("summary");
+  const [recent, setRecent]     = useState([]);
+  const [recentLoading, setRecentLoading] = useState(true);
 
-  async function load() {
-    if (!auditId.trim()) return;
+  useEffect(() => {
+    async function loadRecent() {
+      setRecentLoading(true);
+      try {
+        const r = await fetch("/api/v1/audits?limit=10&sort=desc", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) setRecent(await r.json());
+      } catch {
+        // non-fatal — recent list is a convenience feature
+      } finally {
+        setRecentLoading(false);
+      }
+    }
+    loadRecent();
+  }, [token]);
+
+  useEffect(() => {
+    if (initialAuditId) load(initialAuditId);
+  }, [initialAuditId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load(id) {
+    const target = (id || auditId).trim();
+    if (!target) return;
+    if (id) setAuditId(id);
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`/api/v1/traces/${auditId.trim()}`, {
+      const r = await fetch(`/api/v1/traces/${target}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error(`${r.status} — audit not found`);
@@ -68,10 +89,45 @@ export default function TraceView({ token }) {
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🔍 TRACE View</h1>
+      <h1 style={{ fontSize: 22, marginBottom: 4 }}>TRACE View</h1>
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Enter an Audit ID to view its 6-step TRACE pipeline timeline.
+        Select a recent trace or enter an Audit ID to view its 6-step TRACE pipeline timeline.
       </p>
+
+      {/* Recent traces */}
+      {(recentLoading || recent.length > 0) && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Recent Traces</div>
+          {recentLoading ? (
+            <div style={{ fontSize: 13, color: "#9ca3af" }}>Loading recent traces…</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {recent.map((a) => {
+                const id = a.audit_id || a.id;
+                const score = a.risk_score != null ? Math.round(a.risk_score * 100) : null;
+                const color = score >= 70 ? "#dc2626" : score >= 40 ? "#ca8a04" : "#16a34a";
+                return (
+                  <button
+                    key={id}
+                    onClick={() => load(id)}
+                    style={{
+                      padding: "5px 10px", borderRadius: 6, border: "1px solid #e5e7eb",
+                      background: auditId === id ? "#f0fdf4" : "#f8fafc",
+                      cursor: "pointer", fontSize: 12, fontFamily: "monospace",
+                      color: "#374151", display: "flex", alignItems: "center", gap: 6,
+                    }}
+                  >
+                    {id.slice(0, 8)}…
+                    {score != null && (
+                      <span style={{ fontWeight: 700, color }}>{score}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Search bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
@@ -83,7 +139,7 @@ export default function TraceView({ token }) {
           style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14 }}
         />
         <button
-          onClick={load}
+          onClick={() => load()}
           disabled={loading}
           style={{ padding: "10px 20px", background: "#0d9488", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
         >
