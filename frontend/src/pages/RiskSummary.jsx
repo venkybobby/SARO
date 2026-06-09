@@ -57,6 +57,35 @@ export default function RiskSummary({ token, tenantId }) {
   const [vendors, setVendors] = useState([]);
   const [scoreHistory, setScoreHistory] = useState([]);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  async function exportPdf() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const r = await fetch("/api/v1/risk/board-export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail: `${r.status}` }));
+        throw new Error(err.detail || `${r.status}`);
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `SARO_Board_Risk_Summary_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportError(e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -109,8 +138,29 @@ export default function RiskSummary({ token, tenantId }) {
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1100 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>📊 Risk Summary</h1>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>Board-level risk officer view — overall RAG status, trends, and top findings.</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>📊 Risk Summary</h1>
+          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>Board-level risk officer view — overall RAG status, trends, and top findings.</p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <button
+            onClick={exportPdf}
+            disabled={exporting}
+            style={{
+              padding: "8px 16px", background: exporting ? "#9ca3af" : "#1e40af",
+              color: "#fff", border: "none", borderRadius: 7,
+              cursor: exporting ? "default" : "pointer",
+              fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {exporting ? "⏳ Generating…" : "📄 Export Board PDF"}
+          </button>
+          {exportError && (
+            <span style={{ fontSize: 11, color: "#dc2626" }}>⚠ {exportError}</span>
+          )}
+        </div>
+      </div>
 
       {/* KPI bar */}
       <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>

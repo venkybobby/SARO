@@ -31,7 +31,7 @@ const Upload        = lazy(() => import("./pages/Upload"));
 const Evaluations   = lazy(() => import("./pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("./pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
-const DemoRequests  = lazy(() => import("./pages/DemoRequests"));
+// DemoRequests removed — STORY-016: page deprecated, entry points already removed from nav
 const RiskRegister    = lazy(() => import("./pages/RiskRegister"));
 const RiskForm        = lazy(() => import("./pages/RiskForm"));
 const RiskDetail      = lazy(() => import("./pages/RiskDetail"));
@@ -60,7 +60,7 @@ const PAGE_COMPONENTS = {
   evaluations:      Evaluations,
   evf_admin:        EvfAdmin,
   admin_settings:   AdminSettings,
-  demo_requests:    DemoRequests,
+  // demo_requests removed — STORY-016
   ai_insights:      AIInsights,
   reports:          Reports,
   settings:         Settings,
