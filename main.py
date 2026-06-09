@@ -71,6 +71,7 @@ from routers.evaluations import router as evaluations_router
 from routers.systems import router as systems_router
 from routers.controls import router as controls_router
 from routers.onboarding import router as onboarding_router
+from routers.risks import router as risks_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -416,6 +417,7 @@ app.include_router(evaluations_router)
 app.include_router(systems_router)
 app.include_router(controls_router)
 app.include_router(onboarding_router)
+app.include_router(risks_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

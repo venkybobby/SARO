@@ -41,14 +41,11 @@ const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
   compliance_hub:   ComplianceHub,
   trace_view:       TraceView,
-  evidence_export:  TraceView,
   risk_summary:     RiskSummary,
   risk_register:    RiskRegister,
-  vendor_risk:      RiskSummary,
   claims_matrix:    ClaimsMatrix,
   how_saro_reasons: HowSaroReasons,
   dpa_governance:   GovernanceDocs,
-  ir_plan:          GovernanceDocs,
   rule_packs:       RulePacks,
   coverage_gap:     CoverageGap,
   remediation:      Remediation,
@@ -101,19 +98,26 @@ function Loader() {
   );
 }
 
-function AppShell({ token, user, onSignOut, toast }) {
+function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
   const [activePage, setActivePage] = useState("dashboard");
+  const [navPayload, setNavPayload] = useState(null);
   const tenantId = user?.tenant_id || parseJwt(token)?.tenant_id || parseJwt(token)?.sub;
 
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
+
+  function handleNavigate(page, payload) {
+    setActivePage(page);
+    setNavPayload(payload || null);
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Sidebar
         user={user}
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         onSignOut={onSignOut}
+        onUserUpdate={onUserUpdate}
         token={token}
       />
       <main
@@ -126,8 +130,9 @@ function AppShell({ token, user, onSignOut, toast }) {
             tenantId={tenantId}
             user={user}
             toast={toast}
-            onNavigate={setActivePage}
+            onNavigate={handleNavigate}
             onSave={() => toast.success("Settings saved")}
+            initialAuditId={activePage === "trace_view" ? navPayload : undefined}
           />
         </Suspense>
       </main>
@@ -178,6 +183,11 @@ export default function App() {
     localStorage.removeItem(LS_USER);
   }
 
+  function handleUserUpdate(updatedUser) {
+    setUser(updatedUser);
+    localStorage.setItem(LS_USER, JSON.stringify(updatedUser));
+  }
+
   const isAuth = token && isTokenValid(token);
 
   return (
@@ -196,7 +206,7 @@ export default function App() {
           path="/app"
           element={
             isAuth
-              ? <AppShell token={token} user={user} onSignOut={handleSignOut} toast={toast} />
+              ? <AppShell token={token} user={user} onSignOut={handleSignOut} onUserUpdate={handleUserUpdate} toast={toast} />
               : <Navigate to="/login" replace />
           }
         />

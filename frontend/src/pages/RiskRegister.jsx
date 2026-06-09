@@ -1,19 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Search, Plus, Eye, Edit2, Trash2, ChevronUp, ChevronDown,
   ChevronsUpDown, User, Tag, ShieldOff, ArrowLeft, ArrowRight,
 } from "lucide-react";
 import { Badge, Button, EmptyState, IconButton, Skeleton, ConfirmDialog, PageHeader } from "../components/ui/index.jsx";
 
-const MOCK_RISKS = [
-  { id: "R-001", title: "Vendor data breach via third-party API access", category: "Data Security",   severity: "critical", owner: "A. Rivera", dueDate: "2026-06-01", status: "Open" },
-  { id: "R-002", title: "LLM output hallucination in medical advice module",  category: "AI Quality",    severity: "high",     owner: "J. Lee",     dueDate: "2026-06-15", status: "In Review" },
-  { id: "R-003", title: "GDPR consent tracking gap in onboarding flow",       category: "Compliance",    severity: "high",     owner: "S. Patel",   dueDate: "2026-07-01", status: "Open" },
-  { id: "R-004", title: "Model drift detected in fraud scoring pipeline",      category: "AI Quality",    severity: "medium",   owner: "A. Rivera",  dueDate: "2026-07-10", status: "Monitoring" },
-  { id: "R-005", title: "Missing audit trail for automated decisioning",       category: "Governance",    severity: "medium",   owner: "J. Lee",     dueDate: "2026-08-01", status: "Open" },
-  { id: "R-006", title: "PII exposure in debug logs",                          category: "Data Security", severity: "low",      owner: "T. Kim",     dueDate: "2026-08-15", status: "Closed" },
-  { id: "R-007", title: "Bias detected in hiring recommendation model",        category: "AI Ethics",     severity: "critical", owner: "S. Patel",   dueDate: "2026-06-05", status: "Escalated" },
-];
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -27,6 +18,7 @@ function isOverdue(dueDate) {
 }
 
 export default function RiskRegister({ token, onNavigate }) {
+  const [risks,       setRisks]       = useState([]);
   const [search,      setSearch]      = useState("");
   const [sortKey,     setSortKey]     = useState("severity");
   const [sortDir,     setSortDir]     = useState("desc");
@@ -34,19 +26,39 @@ export default function RiskRegister({ token, onNavigate }) {
   const [pageSize,    setPageSize]    = useState(25);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleteId,    setDeleteId]    = useState(null);
-  const [loading]                     = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [fetchError,  setFetchError]  = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const r = await fetch("/api/v1/risks", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) throw new Error(`${r.status}`);
+        setRisks(await r.json());
+      } catch (e) {
+        setFetchError(`Could not load risks from API: ${e.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [token]);
 
   const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return MOCK_RISKS.filter((r) =>
+    return risks.filter((r) =>
       !q ||
       r.title.toLowerCase().includes(q) ||
       r.id.toLowerCase().includes(q) ||
       r.owner.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, risks]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -140,6 +152,12 @@ export default function RiskRegister({ token, onNavigate }) {
           <Button variant="ghost" size="sm"><Tag size={13} /> Change status</Button>
           <Button variant="danger" size="sm"><Trash2 size={13} /> Delete</Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear</Button>
+        </div>
+      )}
+
+      {fetchError && (
+        <div style={{ padding: "var(--space-3) var(--space-6)", background: "#fffbeb", borderBottom: "1px solid #fde68a", fontSize: "var(--text-sm)", color: "#92400e" }}>
+          {fetchError}
         </div>
       )}
 
