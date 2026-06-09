@@ -11,13 +11,10 @@ import { StatusDot } from "./ui/index.jsx";
 const PERSONA_TABS = {
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
-    "claims_matrix","aims","onboarding","upload","evaluations",
-    "knowledge_portal",
+    "claims_matrix","how_saro_reasons","dpa_governance",
+    "aims","governance","onboarding","upload","evaluations",
   ],
-  risk_officer: [
-    "dashboard","risk_register","risk_summary","trace_view",
-    "ai_insights","reports","knowledge_portal",
-  ],
+  risk_officer: ["dashboard","risk_register","risk_summary","trace_view","ai_insights","reports"],
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","coverage_gap","remediation","drift_alerts","upload",
@@ -25,7 +22,7 @@ const PERSONA_TABS = {
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix",
+    "risk_summary","claims_matrix","how_saro_reasons",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","evf_admin","demo_requests",
@@ -33,11 +30,10 @@ const PERSONA_TABS = {
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix",
+    "risk_summary","claims_matrix","how_saro_reasons",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
-    "admin_settings","evaluations","risk_register","ai_insights","reports",
-    "settings","knowledge_portal",
+    "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
   ],
   operator: ["dashboard","upload","trace_view","remediation","knowledge_portal"],
 };

@@ -40,7 +40,6 @@ function RiskChip({ score }) {
 export default function TraceView({ token, initialAuditId }) {
   const [auditId, setAuditId]   = useState(initialAuditId || "");
   const [trace, setTrace]       = useState(null);
-  const [auditMeta, setAuditMeta] = useState(null); // rule_pack_hash + created_at from audit report
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const [mode, setMode]         = useState("summary");
@@ -76,8 +75,9 @@ export default function TraceView({ token, initialAuditId }) {
     setError(null);
     setAuditMeta(null);
     try {
-      const h = { Authorization: `Bearer ${token}` };
-      const r = await fetch(`/api/v1/traces/${target}`, { headers: h });
+      const r = await fetch(`/api/v1/traces/${target}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!r.ok) throw new Error(`${r.status} — audit not found`);
       setTrace(await r.json());
 
