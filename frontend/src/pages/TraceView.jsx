@@ -73,12 +73,19 @@ export default function TraceView({ token, initialAuditId }) {
     if (id) setAuditId(id);
     setLoading(true);
     setError(null);
+    setAuditMeta(null);
     try {
       const r = await fetch(`/api/v1/traces/${target}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error(`${r.status} — audit not found`);
       setTrace(await r.json());
+
+      // Also fetch audit report for rule_pack_hash + created_at (non-blocking)
+      fetch(`/api/v1/audits/${target}`, { headers: h })
+        .then((ar) => ar.ok ? ar.json() : null)
+        .then((ad) => { if (ad) setAuditMeta(ad); })
+        .catch(() => {});
     } catch (e) {
       setError(e.message);
       setTrace(null);
@@ -163,6 +170,25 @@ export default function TraceView({ token, initialAuditId }) {
               </div>
               <StatusBadge status={trace.status} />
               <RiskChip score={trace.risk_score} />
+              {/* Rule Pack badge — shows which pack version was active for this scan */}
+              {(auditMeta?.rule_pack_hash || auditMeta?.rule_pack_version) && (
+                <span style={{
+                  background: "#eff6ff", color: "#1d4ed8",
+                  border: "1px solid #bfdbfe", padding: "2px 8px",
+                  borderRadius: 6, fontSize: 11, fontFamily: "monospace",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}>
+                  📦 Rule Pack{" "}
+                  {auditMeta.rule_pack_version
+                    ? `v${auditMeta.rule_pack_version}`
+                    : auditMeta.rule_pack_hash?.slice(0, 8) + "…"}
+                </span>
+              )}
+              {auditMeta?.created_at && (
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                  {new Date(auditMeta.created_at).toLocaleString()}
+                </span>
+              )}
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 {["summary", "technical"].map((m) => (
                   <button

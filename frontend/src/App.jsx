@@ -32,10 +32,13 @@ const Evaluations   = lazy(() => import("./pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("./pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const DemoRequests  = lazy(() => import("./pages/DemoRequests"));
-const RiskRegister  = lazy(() => import("./pages/RiskRegister"));
-const AIInsights    = lazy(() => import("./pages/AIInsights"));
-const Reports       = lazy(() => import("./pages/Reports"));
-const Settings      = lazy(() => import("./pages/Settings"));
+const RiskRegister    = lazy(() => import("./pages/RiskRegister"));
+const RiskForm        = lazy(() => import("./pages/RiskForm"));
+const RiskDetail      = lazy(() => import("./pages/RiskDetail"));
+const KnowledgePortal = lazy(() => import("./pages/KnowledgePortal"));
+const AIInsights      = lazy(() => import("./pages/AIInsights"));
+const Reports         = lazy(() => import("./pages/Reports"));
+const Settings        = lazy(() => import("./pages/Settings"));
 
 const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
@@ -103,6 +106,12 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
   const [navPayload, setNavPayload] = useState(null);
   const tenantId = user?.tenant_id || parseJwt(token)?.tenant_id || parseJwt(token)?.sub;
 
+  // Show onboarding wizard only on first-ever login (admin/super_admin) if not yet dismissed
+  const showWizardForPersona = ["admin","super_admin"].includes(user?.persona_role || user?.role);
+  const [showOnboarding, setShowOnboarding] = useState(
+    showWizardForPersona && !localStorage.getItem(LS_ONBOARDING_DISMISSED)
+  );
+
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
 
   function handleNavigate(page, payload) {
@@ -112,6 +121,14 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      {showOnboarding && (
+        <OnboardingWizard
+          token={token}
+          tenantId={tenantId}
+          onDismiss={dismissOnboarding}
+          onNavigate={handleNavigate}
+        />
+      )}
       <Sidebar
         user={user}
         activePage={activePage}

@@ -1,11 +1,113 @@
 import React, { useState, useEffect } from "react";
-import { ShieldAlert, Clock, AlertTriangle, Sparkles, RefreshCw } from "lucide-react";
+import { ShieldAlert, Clock, AlertTriangle, Sparkles, RefreshCw, Activity, Shield, X } from "lucide-react";
 import { Badge, Skeleton, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import FlowStrip    from "../components/FlowStrip";
 import LiveFeed     from "../components/LiveFeed";
 import MetricsRow   from "../components/MetricsRow";
 import RegCoverage  from "../components/RegCoverage";
 import EngineScores from "../components/EngineScores";
+
+/**
+ * STORY-015: Inline drift alert notifications on the Dashboard.
+ * Fetches /api/v1/drift/alerts and surfaces triggered alerts as
+ * dismissible chips — replaces the need to navigate to the drift_alerts
+ * tab for routine monitoring.
+ */
+function DriftAlertsBanner({ token, onNavigate }) {
+  const [alerts, setAlerts]   = useState([]);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("saro_dismissed_drift") || "[]"); } catch { return []; }
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch("/api/v1/drift/alerts", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => {
+        const raw = Array.isArray(d) ? d : d.alerts || d.items || [];
+        setAlerts(raw);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  function dismiss(id) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    localStorage.setItem("saro_dismissed_drift", JSON.stringify(next));
+  }
+
+  const visible = alerts.filter((a) => {
+    const id = a.id || a.alert_id || a.name || JSON.stringify(a);
+    // Show if not dismissed and has any sign of being active
+    const active = a.triggered || a.status === "triggered" || a.drift_detected
+      || a.has_drift || a.severity === "high" || a.severity === "critical"
+      || (typeof a === "object" && Object.keys(a).length > 0);
+    return !dismissed.includes(id) && active;
+  });
+
+  if (loading || visible.length === 0) return null;
+
+  return (
+    <div style={{
+      background: "#fffbeb", border: "1px solid #fde68a",
+      borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
+      marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: 10,
+    }}>
+      <Activity size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{
+          fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+          color: "#92400e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+        }}>
+          {visible.length} Drift Alert{visible.length > 1 ? "s" : ""} Detected
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {visible.slice(0, 5).map((a, i) => {
+            const id = a.id || a.alert_id || a.name || String(i);
+            const label = a.framework_name || a.name || a.alert_type || `Alert ${i + 1}`;
+            const severity = a.severity || "medium";
+            const sevColor = severity === "critical" || severity === "high" ? "#dc2626" : "#b45309";
+            return (
+              <span key={id} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                background: "#fef3c7", border: "1px solid #fcd34d",
+                borderRadius: 6, padding: "3px 8px",
+                fontSize: "var(--text-xs)", color: sevColor, fontWeight: "var(--weight-medium)",
+              }}>
+                ⚠ {label}
+                <button
+                  onClick={() => dismiss(id)}
+                  aria-label={`Dismiss alert ${label}`}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0, lineHeight: 1, marginLeft: 2 }}
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            );
+          })}
+          {visible.length > 5 && (
+            <span style={{ fontSize: "var(--text-xs)", color: "#92400e", alignSelf: "center" }}>
+              +{visible.length - 5} more
+            </span>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onNavigate?.("drift_alerts")}
+        style={{
+          padding: "4px 10px", background: "#fef3c7", border: "1px solid #fcd34d",
+          borderRadius: 5, cursor: "pointer", fontSize: "var(--text-xs)",
+          color: "#92400e", fontWeight: "var(--weight-semibold)", flexShrink: 0,
+          fontFamily: "var(--font-body)",
+        }}
+      >
+        View All →
+      </button>
+    </div>
+  );
+}
 
 const POSTURE_STYLES = {
   CRITICAL: { bg: "var(--color-critical-bg)", border: "var(--color-critical-border)", color: "var(--color-critical)" },
@@ -134,12 +236,61 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
 const VERTICALS = ["finance", "healthcare", "legal", "government"];
 const WINDOWS   = ["7d", "30d", "90d"];
 
-export default function Dashboard({ token, tenantId }) {
+const qaBtn = (bg) => ({
+  padding: "6px 14px", background: bg, color: "#fff", border: "none",
+  borderRadius: 6, cursor: "pointer", fontSize: "var(--text-sm)",
+  fontWeight: "var(--weight-medium)", fontFamily: "var(--font-body)",
+});
+
+// Persona-specific KPI configurations (STORY-006)
+const PERSONA_KPIS = {
+  compliance_lead: [
+    { label: "EVF Frameworks",    value: 4,   delta: 0,   severity: "info",     icon: Shield },
+    { label: "Controls Overdue",  value: 5,   delta: +1,  severity: "high",     icon: AlertTriangle },
+    { label: "Scans This Week",   value: 12,  delta: -2,  severity: "low",      icon: Clock },
+    { label: "Readiness %",       value: "68%", delta: null, severity: "medium", icon: Sparkles },
+  ],
+  risk_officer: [
+    { size: "large", label: "Critical Risks",  value: 12,  delta: +3,  severity: "critical", icon: ShieldAlert },
+    { label: "Due This Week",    value: 8,   delta: -1,  severity: "high",     icon: Clock },
+    { label: "Controls Overdue", value: 5,   delta: 0,   severity: "medium",   icon: AlertTriangle },
+    { label: "Remediation %",    value: "54%", delta: null, severity: "low",   icon: Sparkles },
+  ],
+  ai_auditor: [
+    { label: "Scans Today",       value: 7,   delta: +2,  severity: "info",     icon: Clock },
+    { label: "Rule Pack Version", value: "v3.1", delta: null, severity: "info", icon: Shield },
+    { label: "Drift Alerts",      value: 2,   delta: +2,  severity: "high",     icon: AlertTriangle },
+    { label: "Coverage Gap %",    value: "18%", delta: null, severity: "medium", icon: Sparkles },
+  ],
+  operator: [
+    { label: "Scans Today",       value: 7,   delta: +2,  severity: "info",     icon: Clock },
+    { label: "Failed Scans",      value: 1,   delta: +1,  severity: "high",     icon: AlertTriangle },
+    { label: "Queue Depth",       value: 3,   delta: null, severity: "medium",  icon: Sparkles },
+    { label: "Avg Score",         value: 41,  delta: -3,  severity: "low",      icon: ShieldAlert },
+  ],
+};
+// admin and super_admin see the full risk view (same as risk_officer)
+PERSONA_KPIS.admin       = PERSONA_KPIS.risk_officer;
+PERSONA_KPIS.super_admin = PERSONA_KPIS.risk_officer;
+
+const PERSONA_SUBTITLE = {
+  compliance_lead: "Compliance readiness & EVF status",
+  risk_officer:    "Risk posture & open findings",
+  ai_auditor:      "Scan pipeline & drift monitoring",
+  operator:        "Upload queue & scan activity",
+  admin:           "Risk posture & open findings",
+  super_admin:     "Risk posture & open findings",
+};
+
+export default function Dashboard({ token, tenantId, user, onNavigate }) {
+  const persona = user?.persona_role || user?.role || "operator";
   const [vertical,   setVertical]   = useState("finance");
   const [timeWindow, setTimeWindow] = useState("7d");
   const [degraded,   setDegraded]   = useState(false);
   const [kpiLoading, setKpiLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("just now");
+
+  const kpis = PERSONA_KPIS[persona] || PERSONA_KPIS.operator;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -171,7 +322,7 @@ export default function Dashboard({ token, tenantId }) {
     <div style={{ background: "var(--color-bg-base)", minHeight: "100vh" }}>
       <PageHeader
         title="Dashboard"
-        subtitle="Operational risk posture overview"
+        subtitle={PERSONA_SUBTITLE[persona] || "Operational risk posture overview"}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
             {/* Vertical selector */}
@@ -227,6 +378,11 @@ export default function Dashboard({ token, tenantId }) {
           </div>
         )}
 
+        {/* Drift alerts inline — STORY-015: ai_auditor, admin, compliance_lead */}
+        {["ai_auditor","admin","super_admin","compliance_lead"].includes(persona) && (
+          <DriftAlertsBanner token={token} onNavigate={onNavigate} />
+        )}
+
         {/* Risk posture banner — must be first thing visible */}
         <RiskPostureBanner
           level="HIGH"
@@ -235,17 +391,52 @@ export default function Dashboard({ token, tenantId }) {
           lastUpdated={lastUpdated}
         />
 
-        {/* KPI cards — ordered by business importance */}
+        {/* KPI cards — persona-specific (STORY-006) */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
           gap: "var(--space-4)",
           marginBottom: "var(--space-6)",
         }}>
-          <KpiCard size="large" label="Critical Risks"   value={12}  delta={+3}  severity="critical" icon={ShieldAlert} loading={kpiLoading} />
-          <KpiCard              label="Due This Week"     value={8}   delta={-1}  severity="high"     icon={Clock}       loading={kpiLoading} />
-          <KpiCard              label="Controls Overdue"  value={5}   delta={0}   severity="medium"   icon={AlertTriangle} loading={kpiLoading} />
-          <KpiCard              label="AI Pending"        value={23}  delta={+7}  severity="ai"       icon={Sparkles}    loading={kpiLoading} />
+          {kpis.map((kpi, i) => (
+            <KpiCard
+              key={i}
+              size={kpi.size}
+              label={kpi.label}
+              value={kpi.value}
+              delta={kpi.delta}
+              severity={kpi.severity}
+              icon={kpi.icon}
+              loading={kpiLoading}
+            />
+          ))}
+        </div>
+
+        {/* Quick actions — persona-specific */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
+          {persona === "operator" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          {["risk_officer","admin","super_admin"].includes(persona) && (
+            <button onClick={() => onNavigate?.("risk_register")} style={qaBtn("#0d9488")}>
+              Open Risk Register
+            </button>
+          )}
+          {persona === "compliance_lead" && (
+            <button onClick={() => onNavigate?.("compliance_hub")} style={qaBtn("#0d9488")}>
+              Compliance Hub
+            </button>
+          )}
+          {persona === "ai_auditor" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          <button onClick={() => onNavigate?.("trace_view")} style={qaBtn("#6b7280")}>
+            View Recent TRACE
+          </button>
         </div>
 
         {/* Last updated indicator */}

@@ -18,6 +18,7 @@ const PERSONA_TABS = {
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","coverage_gap","remediation","drift_alerts","upload",
+    "knowledge_portal",
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
@@ -25,7 +26,7 @@ const PERSONA_TABS = {
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","evf_admin","demo_requests",
-    "risk_register","ai_insights","reports","settings",
+    "risk_register","ai_insights","reports","settings","knowledge_portal",
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
@@ -34,7 +35,7 @@ const PERSONA_TABS = {
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
   ],
-  operator: ["dashboard","upload","trace_view","remediation"],
+  operator: ["dashboard","upload","trace_view","remediation","knowledge_portal"],
 };
 
 const TAB_REGISTRY = {
@@ -64,6 +65,7 @@ const TAB_REGISTRY = {
   ai_insights:      { label: "AI Insights",        icon: Sparkles,        page: "ai_insights" },
   reports:          { label: "Reports",            icon: LineChart,       page: "reports" },
   settings:         { label: "Settings",           icon: Settings,        page: "settings" },
+  knowledge_portal: { label: "Knowledge Portal",   icon: BookOpen,        page: "knowledge_portal" },
 };
 
 const ROLE_LABELS = {
