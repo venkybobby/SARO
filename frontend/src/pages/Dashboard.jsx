@@ -403,13 +403,10 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
 
   const kpis = PERSONA_KPIS[persona] || PERSONA_KPIS.operator;
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setKpiLoading(false);
-      setLastUpdated("2 min ago");
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data, loading, refetch } = useDashboardData(token);
+
+  const kpis    = data ? deriveKpis(data, persona)    : [];
+  const posture = data ? derivePosture(data)           : { postureLevel: "HIGH", openRisks: "—", overdue: "—", lastUpdated: "—" };
 
   useEffect(() => {
     const handler = (e) => {
