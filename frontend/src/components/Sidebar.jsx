@@ -11,30 +11,35 @@ import { StatusDot } from "./ui/index.jsx";
 const PERSONA_TABS = {
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
-    "claims_matrix","how_saro_reasons","dpa_governance",
-    "aims","governance","onboarding","upload","evaluations",
+    "claims_matrix","aims","onboarding","upload","evaluations",
+    "knowledge_portal",
   ],
-  risk_officer: ["dashboard","risk_register","risk_summary","trace_view","ai_insights","reports"],
+  risk_officer: [
+    "dashboard","risk_register","risk_summary","trace_view",
+    "ai_insights","reports","knowledge_portal",
+  ],
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","coverage_gap","remediation","drift_alerts","upload",
+    "knowledge_portal",
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
+    "risk_summary","claims_matrix",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","evf_admin","demo_requests",
-    "risk_register","ai_insights","reports","settings",
+    "risk_register","ai_insights","reports","settings","knowledge_portal",
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
+    "risk_summary","claims_matrix",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
-    "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
+    "admin_settings","evaluations","risk_register","ai_insights","reports",
+    "settings","knowledge_portal",
   ],
-  operator: ["dashboard","upload","trace_view","remediation"],
+  operator: ["dashboard","upload","trace_view","remediation","knowledge_portal"],
 };
 
 const TAB_REGISTRY = {
@@ -64,6 +69,7 @@ const TAB_REGISTRY = {
   ai_insights:      { label: "AI Insights",        icon: Sparkles,        page: "ai_insights" },
   reports:          { label: "Reports",            icon: LineChart,       page: "reports" },
   settings:         { label: "Settings",           icon: Settings,        page: "settings" },
+  knowledge_portal: { label: "Knowledge Portal",   icon: BookOpen,        page: "knowledge_portal" },
 };
 
 const ROLE_LABELS = {

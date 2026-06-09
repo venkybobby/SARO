@@ -134,12 +134,61 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading }) {
 const VERTICALS = ["finance", "healthcare", "legal", "government"];
 const WINDOWS   = ["7d", "30d", "90d"];
 
-export default function Dashboard({ token, tenantId }) {
+const qaBtn = (bg) => ({
+  padding: "6px 14px", background: bg, color: "#fff", border: "none",
+  borderRadius: 6, cursor: "pointer", fontSize: "var(--text-sm)",
+  fontWeight: "var(--weight-medium)", fontFamily: "var(--font-body)",
+});
+
+// Persona-specific KPI configurations (STORY-006)
+const PERSONA_KPIS = {
+  compliance_lead: [
+    { label: "EVF Frameworks",    value: 4,   delta: 0,   severity: "info",     icon: Shield },
+    { label: "Controls Overdue",  value: 5,   delta: +1,  severity: "high",     icon: AlertTriangle },
+    { label: "Scans This Week",   value: 12,  delta: -2,  severity: "low",      icon: Clock },
+    { label: "Readiness %",       value: "68%", delta: null, severity: "medium", icon: Sparkles },
+  ],
+  risk_officer: [
+    { size: "large", label: "Critical Risks",  value: 12,  delta: +3,  severity: "critical", icon: ShieldAlert },
+    { label: "Due This Week",    value: 8,   delta: -1,  severity: "high",     icon: Clock },
+    { label: "Controls Overdue", value: 5,   delta: 0,   severity: "medium",   icon: AlertTriangle },
+    { label: "Remediation %",    value: "54%", delta: null, severity: "low",   icon: Sparkles },
+  ],
+  ai_auditor: [
+    { label: "Scans Today",       value: 7,   delta: +2,  severity: "info",     icon: Clock },
+    { label: "Rule Pack Version", value: "v3.1", delta: null, severity: "info", icon: Shield },
+    { label: "Drift Alerts",      value: 2,   delta: +2,  severity: "high",     icon: AlertTriangle },
+    { label: "Coverage Gap %",    value: "18%", delta: null, severity: "medium", icon: Sparkles },
+  ],
+  operator: [
+    { label: "Scans Today",       value: 7,   delta: +2,  severity: "info",     icon: Clock },
+    { label: "Failed Scans",      value: 1,   delta: +1,  severity: "high",     icon: AlertTriangle },
+    { label: "Queue Depth",       value: 3,   delta: null, severity: "medium",  icon: Sparkles },
+    { label: "Avg Score",         value: 41,  delta: -3,  severity: "low",      icon: ShieldAlert },
+  ],
+};
+// admin and super_admin see the full risk view (same as risk_officer)
+PERSONA_KPIS.admin       = PERSONA_KPIS.risk_officer;
+PERSONA_KPIS.super_admin = PERSONA_KPIS.risk_officer;
+
+const PERSONA_SUBTITLE = {
+  compliance_lead: "Compliance readiness & EVF status",
+  risk_officer:    "Risk posture & open findings",
+  ai_auditor:      "Scan pipeline & drift monitoring",
+  operator:        "Upload queue & scan activity",
+  admin:           "Risk posture & open findings",
+  super_admin:     "Risk posture & open findings",
+};
+
+export default function Dashboard({ token, tenantId, user, onNavigate }) {
+  const persona = user?.persona_role || user?.role || "operator";
   const [vertical,   setVertical]   = useState("finance");
   const [timeWindow, setTimeWindow] = useState("7d");
   const [degraded,   setDegraded]   = useState(false);
   const [kpiLoading, setKpiLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("just now");
+
+  const kpis = PERSONA_KPIS[persona] || PERSONA_KPIS.operator;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -171,7 +220,7 @@ export default function Dashboard({ token, tenantId }) {
     <div style={{ background: "var(--color-bg-base)", minHeight: "100vh" }}>
       <PageHeader
         title="Dashboard"
-        subtitle="Operational risk posture overview"
+        subtitle={PERSONA_SUBTITLE[persona] || "Operational risk posture overview"}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
             {/* Vertical selector */}
@@ -235,17 +284,52 @@ export default function Dashboard({ token, tenantId }) {
           lastUpdated={lastUpdated}
         />
 
-        {/* KPI cards — ordered by business importance */}
+        {/* KPI cards — persona-specific (STORY-006) */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
           gap: "var(--space-4)",
           marginBottom: "var(--space-6)",
         }}>
-          <KpiCard size="large" label="Critical Risks"   value={12}  delta={+3}  severity="critical" icon={ShieldAlert} loading={kpiLoading} />
-          <KpiCard              label="Due This Week"     value={8}   delta={-1}  severity="high"     icon={Clock}       loading={kpiLoading} />
-          <KpiCard              label="Controls Overdue"  value={5}   delta={0}   severity="medium"   icon={AlertTriangle} loading={kpiLoading} />
-          <KpiCard              label="AI Pending"        value={23}  delta={+7}  severity="ai"       icon={Sparkles}    loading={kpiLoading} />
+          {kpis.map((kpi, i) => (
+            <KpiCard
+              key={i}
+              size={kpi.size}
+              label={kpi.label}
+              value={kpi.value}
+              delta={kpi.delta}
+              severity={kpi.severity}
+              icon={kpi.icon}
+              loading={kpiLoading}
+            />
+          ))}
+        </div>
+
+        {/* Quick actions — persona-specific */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
+          {persona === "operator" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          {["risk_officer","admin","super_admin"].includes(persona) && (
+            <button onClick={() => onNavigate?.("risk_register")} style={qaBtn("#0d9488")}>
+              Open Risk Register
+            </button>
+          )}
+          {persona === "compliance_lead" && (
+            <button onClick={() => onNavigate?.("compliance_hub")} style={qaBtn("#0d9488")}>
+              Compliance Hub
+            </button>
+          )}
+          {persona === "ai_auditor" && (
+            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
+              + New Scan
+            </button>
+          )}
+          <button onClick={() => onNavigate?.("trace_view")} style={qaBtn("#6b7280")}>
+            View Recent TRACE
+          </button>
         </div>
 
         {/* Last updated indicator */}

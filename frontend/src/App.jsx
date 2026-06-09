@@ -32,10 +32,13 @@ const Evaluations   = lazy(() => import("./pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("./pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const DemoRequests  = lazy(() => import("./pages/DemoRequests"));
-const RiskRegister  = lazy(() => import("./pages/RiskRegister"));
-const AIInsights    = lazy(() => import("./pages/AIInsights"));
-const Reports       = lazy(() => import("./pages/Reports"));
-const Settings      = lazy(() => import("./pages/Settings"));
+const RiskRegister    = lazy(() => import("./pages/RiskRegister"));
+const RiskForm        = lazy(() => import("./pages/RiskForm"));
+const RiskDetail      = lazy(() => import("./pages/RiskDetail"));
+const KnowledgePortal = lazy(() => import("./pages/KnowledgePortal"));
+const AIInsights      = lazy(() => import("./pages/AIInsights"));
+const Reports         = lazy(() => import("./pages/Reports"));
+const Settings        = lazy(() => import("./pages/Settings"));
 
 const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
@@ -43,6 +46,9 @@ const PAGE_COMPONENTS = {
   trace_view:       TraceView,
   risk_summary:     RiskSummary,
   risk_register:    RiskRegister,
+  risk_form:        RiskForm,
+  risk_detail:      RiskDetail,
+  knowledge_portal: KnowledgePortal,
   claims_matrix:    ClaimsMatrix,
   how_saro_reasons: HowSaroReasons,
   dpa_governance:   GovernanceDocs,
@@ -98,10 +104,135 @@ function Loader() {
   );
 }
 
+const ONBOARDING_STEPS = [
+  { id: "tenant_created",     label: "Tenant Created" },
+  { id: "users_invited",      label: "Users Invited" },
+  { id: "personas_assigned",  label: "Personas Assigned" },
+  { id: "first_scan",         label: "First Scan Completed" },
+  { id: "rule_packs_reviewed",label: "Rule Packs Reviewed" },
+  { id: "integrations",       label: "Integrations Configured" },
+  { id: "compliance_review",  label: "Compliance Review Booked" },
+];
+
+function OnboardingWizard({ token, tenantId, onDismiss, onNavigate }) {
+  const [progress, setProgress] = useState({});
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const url = `/api/v1/onboarding/status${tenantId ? `?tenant_id=${tenantId}` : ""}`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : {})
+      .then(setProgress)
+      .catch(() => {});
+  }, [token, tenantId]);
+
+  const completed = ONBOARDING_STEPS.filter((s) => progress[s.id]).length;
+  const pct = Math.round((completed / ONBOARDING_STEPS.length) * 100);
+
+  const STEP_ACTIONS = {
+    first_scan:   () => onNavigate?.("upload"),
+    rule_packs_reviewed: () => onNavigate?.("rule_packs"),
+    personas_assigned: () => onNavigate?.("admin_settings"),
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <div style={{
+        background: "var(--color-bg-surface)", borderRadius: 12,
+        width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+        border: "1px solid var(--color-border-subtle)",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid var(--color-border-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>
+              Welcome to SARO
+            </div>
+            <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 20, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 12 }}>
+            Complete these steps to get fully operational. You can revisit this checklist any time from Settings.
+          </div>
+          <div style={{ height: 6, background: "var(--color-bg-elevated)", borderRadius: 3 }}>
+            <div style={{ height: 6, width: `${pct}%`, background: "var(--color-info)", borderRadius: 3, transition: "width 0.4s" }} />
+          </div>
+          <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
+            {completed}/{ONBOARDING_STEPS.length} steps complete
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div style={{ padding: "12px 24px" }}>
+          {ONBOARDING_STEPS.map((s, i) => {
+            const done = !!progress[s.id];
+            const action = STEP_ACTIONS[s.id];
+            return (
+              <div key={s.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
+                borderBottom: i < ONBOARDING_STEPS.length - 1 ? "1px solid var(--color-border-subtle)" : "none",
+              }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                  background: done ? "var(--color-info)" : "var(--color-bg-elevated)",
+                  border: `1px solid ${done ? "var(--color-info)" : "var(--color-border-default)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, color: done ? "#fff" : "var(--color-text-muted)", fontWeight: 700,
+                }}>
+                  {done ? "✓" : i + 1}
+                </div>
+                <span style={{ flex: 1, fontSize: 13, color: done ? "var(--color-text-muted)" : "var(--color-text-primary)" }}>
+                  {s.label}
+                  {done && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--color-info)" }}>Done</span>}
+                </span>
+                {!done && action && (
+                  <button onClick={() => { action(); onDismiss(); }} style={{
+                    padding: "4px 10px", background: "var(--color-info-bg)", color: "var(--color-info)",
+                    border: "1px solid var(--color-info-border)", borderRadius: 5,
+                    cursor: "pointer", fontSize: 11, fontWeight: 600,
+                  }}>
+                    Go →
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "12px 24px 20px", borderTop: "1px solid var(--color-border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {pct === 100 ? (
+            <span style={{ fontSize: 13, color: "var(--color-info)", fontWeight: 600 }}>🎉 Setup complete!</span>
+          ) : (
+            <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>You can dismiss this and return to it later via Settings.</span>
+          )}
+          <button onClick={onDismiss} style={{
+            padding: "7px 16px", background: "var(--color-info)", color: "#fff",
+            border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600,
+          }}>
+            {pct === 100 ? "Finish" : "Continue to App →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LS_ONBOARDING_DISMISSED = "saro_onboarding_dismissed";
+
 function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
   const [activePage, setActivePage] = useState("dashboard");
   const [navPayload, setNavPayload] = useState(null);
   const tenantId = user?.tenant_id || parseJwt(token)?.tenant_id || parseJwt(token)?.sub;
+
+  // Show onboarding wizard only on first-ever login (admin/super_admin) if not yet dismissed
+  const showWizardForPersona = ["admin","super_admin"].includes(user?.persona_role || user?.role);
+  const [showOnboarding, setShowOnboarding] = useState(
+    showWizardForPersona && !localStorage.getItem(LS_ONBOARDING_DISMISSED)
+  );
 
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
 
@@ -110,8 +241,21 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
     setNavPayload(payload || null);
   }
 
+  function dismissOnboarding() {
+    localStorage.setItem(LS_ONBOARDING_DISMISSED, "1");
+    setShowOnboarding(false);
+  }
+
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      {showOnboarding && (
+        <OnboardingWizard
+          token={token}
+          tenantId={tenantId}
+          onDismiss={dismissOnboarding}
+          onNavigate={handleNavigate}
+        />
+      )}
       <Sidebar
         user={user}
         activePage={activePage}
@@ -132,7 +276,8 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             toast={toast}
             onNavigate={handleNavigate}
             onSave={() => toast.success("Settings saved")}
-            initialAuditId={activePage === "trace_view" ? navPayload : undefined}
+            initialAuditId={activePage === "trace_view"  ? navPayload : undefined}
+            riskId={["risk_form","risk_detail"].includes(activePage) ? navPayload : undefined}
           />
         </Suspense>
       </main>
