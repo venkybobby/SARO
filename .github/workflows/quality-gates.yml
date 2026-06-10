@@ -1,0 +1,62 @@
+name: Quality Gates (Ratchet, Regression, Migrations)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  regression-and-ratchet:
+    name: Regression Suite + Quality Ratchet
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      SARO_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r requirements.txt pytest pytest-cov pytest-asyncio pyyaml ruff
+      - name: Manifest integrity (the policy is itself a test)
+        run: pytest tests/regression/test_manifest_integrity.py -q
+      - name: Full regression suite (never sampled)
+        run: pytest tests/regression -q --tb=short
+      - name: Coverage run
+        run: pytest tests/ -q --cov=. --cov-report=json --tb=no
+      - name: Ratchet gate — quality may only improve or hold
+        run: python scripts/check_quality_ratchet.py
+
+  migrations-apply:
+    name: Migrations Apply Cleanly (fresh Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: saro
+          POSTGRES_PASSWORD: saro
+          POSTGRES_DB: saro_migration_check
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saro"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply all SQL migrations in order
+        env:
+          PGPASSWORD: saro
+        run: |
+          set -euo pipefail
+          for f in $(ls migrations/*.sql | sort); do
+            echo "==> applying $f"
+            psql -h localhost -U saro -d saro_migration_check -v ON_ERROR_STOP=1 -f "$f"
+          done
+          echo "All SQL migrations applied cleanly to a fresh database."
+      - name: Note non-SQL migrations
+        run: ls migrations/*.py 2>/dev/null && echo "::warning::Python migrations exist — not covered by this gate; verify via docs/MIGRATION_RUNBOOK.md" || true

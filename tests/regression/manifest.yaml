@@ -1,0 +1,19 @@
+# Regression Test Manifest — single source of truth: finding -> pinning test.
+# Append-only. Enforced by tests/regression/test_manifest_integrity.py (runs in CI).
+# status: open (no test yet) | pinned (test exists & passes) | quarantined (flaky, must have expiry)
+findings:
+  - id: FND-001
+    title: Redis session management broken
+    test: tests/regression/test_fnd_001_session_invalidation.py
+    status: open
+    quarantine_expires: null
+  - id: FND-002
+    title: Missing DELETE /auth/logout endpoint
+    test: tests/regression/test_fnd_002_logout_endpoint.py
+    status: open
+    quarantine_expires: null
+  - id: FND-003
+    title: Hardcoded JWT secret
+    test: tests/regression/test_fnd_003_jwt_secret_from_env.py
+    status: open
+    quarantine_expires: null
