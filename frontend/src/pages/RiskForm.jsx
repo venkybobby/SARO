@@ -95,7 +95,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
 
   const inputStyle = (hasErr) => ({
     width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 13,
-    border: `1px solid ${hasErr ? "#fca5a5" : "#d1d5db"}`,
+    border: `1px solid ${hasErr ? "var(--color-critical)" : "var(--color-border-default)"}`,
     background: "var(--color-bg-elevated)", color: "var(--color-text-primary)",
     fontFamily: "var(--font-body)", boxSizing: "border-box",
   });
@@ -130,10 +130,10 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
             {/* Title */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                Title <span style={{ color: "#ef4444" }}>*</span>
+                Title <span style={{ color: "var(--color-critical)" }}>*</span>
               </label>
               <input {...field("title")} placeholder="Describe the risk…" style={inputStyle(errors.title)} />
-              {errors.title && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.title}</div>}
+              {errors.title && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.title}</div>}
             </div>
 
             {/* Description */}
@@ -169,17 +169,17 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
             <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                  Owner <span style={{ color: "#ef4444" }}>*</span>
+                  Owner <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
                 <input {...field("owner")} placeholder="Name or email…" style={inputStyle(errors.owner)} />
-                {errors.owner && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.owner}</div>}
+                {errors.owner && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.owner}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                  Due Date <span style={{ color: "#ef4444" }}>*</span>
+                  Due Date <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
                 <input type="date" {...field("dueDate")} style={inputStyle(errors.dueDate)} />
-                {errors.dueDate && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.dueDate}</div>}
+                {errors.dueDate && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.dueDate}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 140 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>Status</label>
