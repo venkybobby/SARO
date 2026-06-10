@@ -38,10 +38,14 @@ Users see validation errors on individual fields as they move through the form (
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E: required field onBlur → error appears | RiskForm.jsx, E2E test suite |
-| AC-2 | E2E: correct field → error clears | RiskForm.jsx, E2E test suite |
-| AC-3 | E2E: submit with remaining errors | RiskForm.jsx, E2E test suite |
-| AC-4 | E2E: fix one error, form does not submit | RiskForm.jsx, E2E test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: shows an inline error when a required field is left empty on blur", "AC-1/NFR: error messages are associated with their field via aria-describedby" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: clears the error immediately when the field is corrected (onChange)" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: submit still validates all required fields at once" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | `RiskForm.test.jsx`: "AC-4: correcting one error leaves remaining errors and does not submit" | RiskForm.jsx, RiskForm.test.jsx |
+
+**Edge cases covered:** rapid tab-through, clear-after-correction stays errored, pre-filled edit-mode does not error on initial render — all in `RiskForm.test.jsx`.
+
+**Note:** "Read-only mode" edge case is N/A — RiskForm has no read-only/view mode in this codebase.
 
 ---
 
