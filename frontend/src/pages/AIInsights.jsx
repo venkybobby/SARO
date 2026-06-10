@@ -168,10 +168,11 @@ function InsightCard({ insight, onAccept, onSnooze, onDismiss }) {
   );
 }
 
-export default function AIInsights({ token }) {
+export default function AIInsights({ token, initialRiskId }) {
   const [aiLoading, setAiLoading]   = useState(true);
   const [insights,  setInsights]    = useState(MOCK_INSIGHTS);
   const [filter,    setFilter]      = useState("active");
+  const [riskFilter, setRiskFilter] = useState(initialRiskId || null);
 
   const STEPS = [
     { label: "Reading risk patterns",             done: true },
@@ -184,7 +185,7 @@ export default function AIInsights({ token }) {
     return () => clearTimeout(t);
   }, []);
 
-  const visible = insights.filter((i) => i.status === filter);
+  const visible = insights.filter((i) => i.status === filter && (!riskFilter || i.riskId === riskFilter));
 
   function handleDismiss(id) {
     setInsights((prev) => prev.map((i) => i.id === id ? { ...i, status: "dismissed" } : i));
@@ -210,6 +211,18 @@ export default function AIInsights({ token }) {
         subtitle="SARO-generated risk recommendations — human review required"
         breadcrumb={<><span>Dashboard</span><span style={{ color: "var(--color-text-muted)" }}> › </span><span>AI Insights</span></>}
       />
+
+      {riskFilter && (
+        <div style={{
+          padding: "var(--space-2) var(--space-6)",
+          background: "var(--color-info-bg)", border: "1px solid var(--color-info-border)",
+          display: "flex", alignItems: "center", gap: "var(--space-3)",
+          fontSize: "var(--text-sm)", color: "var(--color-info)",
+        }}>
+          <span>Showing insights for <strong style={{ fontFamily: "var(--font-mono)" }}>{riskFilter}</strong></span>
+          <Button variant="ghost" size="sm" onClick={() => setRiskFilter(null)}>Show all insights</Button>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div style={{
@@ -245,7 +258,13 @@ export default function AIInsights({ token }) {
           <EmptyState
             icon={<AlertCircle />}
             title={filter === "active" ? "No active insights" : `No ${filter} insights`}
-            description={filter === "active" ? "SARO has no new recommendations. Check back after adding more risks." : `No insights in this state.`}
+            description={
+              riskFilter
+                ? `No ${filter} insights for ${riskFilter}.`
+                : filter === "active"
+                  ? "SARO has no new recommendations. Check back after adding more risks."
+                  : `No insights in this state.`
+            }
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>

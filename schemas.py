@@ -928,3 +928,33 @@ class IncidentCorpusStatsOut(BaseModel):
     pct_fixed: float
     last_corpus_update: datetime | None
     minimum_similarity_threshold: float = 0.15
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Risk Register overrides
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class RiskUpdateIn(BaseModel):
+    """Partial update for a risk register entry — owner and/or status override."""
+    model_config = {"str_strip_whitespace": True}
+
+    owner: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=50)
+
+
+class RiskBulkActionIn(BaseModel):
+    """Bulk action applied to a set of risk register entries."""
+    model_config = {"str_strip_whitespace": True}
+
+    ids: list[str] = Field(..., min_length=1, max_length=500)
+    action: Literal["assign_owner", "change_status", "delete"]
+    owner: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=50)
+
+    @field_validator("ids")
+    @classmethod
+    def _non_empty_ids(cls, v: list[str]) -> list[str]:
+        if any(not item.strip() for item in v):
+            raise ValueError("ids must not contain blank values")
+        return v

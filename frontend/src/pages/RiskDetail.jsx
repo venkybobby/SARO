@@ -1,12 +1,19 @@
 /**
- * RiskDetail — full risk view with tabs: Details, Remediation, TRACE History, AI Insights.
+ * RiskDetail — full risk view with tabs: Details, Remediation, TRACE History.
  * Reached by clicking the eye icon on any row in RiskRegister.
  */
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Edit2, ExternalLink, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Edit2, ExternalLink, AlertTriangle, CheckCircle, Clock, Sparkles } from "lucide-react";
 import { Badge, Button, PageHeader, Skeleton } from "../components/ui/index.jsx";
 
 const TABS = ["Details", "Remediation", "TRACE History"];
+
+const SCORE_BANDS = [
+  { max: 30,  label: "Low",      color: "#16a34a" },
+  { max: 50,  label: "Medium",   color: "#ca8a04" },
+  { max: 70,  label: "High",     color: "#ea580c" },
+  { max: 101, label: "Critical", color: "#dc2626" },
+];
 
 export default function RiskDetail({ token, riskId, onNavigate }) {
   const [risk,       setRisk]       = useState(null);
@@ -20,12 +27,10 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
     async function load() {
       setLoading(true);
       try {
-        // Load risk from the risks list
-        const rr = await fetch("/api/v1/risks", { headers: { Authorization: `Bearer ${token}` } });
+        const rr = await fetch(`/api/v1/risks/${riskId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (rr.ok) {
-          const all = await rr.json();
-          const found = all.find((r) => r.audit_id === riskId || r.id === riskId);
-          setRisk(found || null);
+          const found = await rr.json();
+          setRisk(found);
 
           // If the risk has an audit_id, also fetch its trace and remediation data
           const auditId = found?.audit_id;
@@ -40,9 +45,11 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
               setRemediation(Array.isArray(d) ? d : d.items || []);
             }
           }
+        } else {
+          setRisk(null);
         }
       } catch {
-        // non-fatal
+        setRisk(null);
       } finally {
         setLoading(false);
       }
@@ -97,6 +104,9 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
             <Button variant="secondary" size="sm" onClick={() => onNavigate?.("risk_form", riskId)}>
               <Edit2 size={13} /> Edit
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => onNavigate?.("ai_insights", riskId)}>
+              <Sparkles size={13} /> View AI Insights
+            </Button>
           </div>
         }
       />
@@ -124,8 +134,18 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
           </span>
         </div>
         {risk.risk_score != null && (
-          <div style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 16, color: sevColor }}>
-            {risk.risk_score}/100
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {SCORE_BANDS.map((band) => (
+                <span key={band.label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--color-text-muted)" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: band.color, display: "inline-block" }} />
+                  {band.label}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 16, color: sevColor }}>
+              {risk.risk_score}/100
+            </div>
           </div>
         )}
       </div>
@@ -152,12 +172,12 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
             }}
           >
             {t}
-            {t === "Remediation" && remediation.length > 0 && (
-              <span style={{ marginLeft: 6, background: "var(--color-info-bg)", color: "var(--color-info)", padding: "1px 6px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+            {t === "Remediation" && (
+              <span style={{ marginLeft: 6, background: remediation.length > 0 ? "var(--color-info-bg)" : "var(--color-bg-overlay)", color: remediation.length > 0 ? "var(--color-info)" : "var(--color-text-muted)", padding: "1px 6px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                 {remediation.length}
               </span>
             )}
-            {t === "TRACE History" && traces.length > 0 && (
+            {t === "TRACE History" && (
               <span style={{ marginLeft: 6, background: "var(--color-bg-overlay)", color: "var(--color-text-muted)", padding: "1px 6px", borderRadius: 999, fontSize: 11 }}>
                 {traces.length}
               </span>

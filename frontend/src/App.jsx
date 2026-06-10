@@ -272,6 +272,7 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             onNavigate={handleNavigate}
             onSave={() => toast.success("Settings saved")}
             initialAuditId={activePage === "trace_view" ? navPayload : undefined}
+            initialRiskId={activePage === "ai_insights" ? navPayload : undefined}
           />
         </Suspense>
       </main>

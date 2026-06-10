@@ -379,6 +379,12 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "prompt_s3_key", "output_s3_key",
         "created_at",
     },
+    # Risk Register overrides — owner, status, dismissed (soft-delete)
+    "risk_metadata": {
+        "id", "audit_id",
+        "owner", "status_override", "dismissed",
+        "created_at", "updated_at",
+    },
     # S-001: HuggingFace sample queue
     "hf_sample_queue": {
         "id", "tenant_id", "vertical", "source_dataset",
@@ -513,6 +519,7 @@ def ensure_app_schema() -> None:
         "iso42001_documents",    # → audits (SARO-005)
         "github_scan_results",   # → audits
         "enhanced_traces",       # → audits
+        "risk_metadata",         # → audits
         "audit_metadata",        # → audits
         "audit_events",          # → tenants, users
         "client_configs",        # → tenants
