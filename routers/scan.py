@@ -266,7 +266,7 @@ def scan_batch(
             tenant_id=current_user.tenant_id,
             audit_id=audit_id,
             overall_risk=report.bayesian_scores.overall,
-            dataset_name=batch.dataset_name or "Unnamed dataset",
+            dataset_name=payload.dataset_name or "Unnamed dataset",
         )
 
         logger.info(

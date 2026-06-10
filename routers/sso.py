@@ -5,14 +5,16 @@ Implements:
   GET  /api/v1/sso/metadata/{tenant_slug}    — SP SAML metadata XML
   GET  /api/v1/sso/login/{tenant_slug}       — SP-initiated SSO redirect
   POST /api/v1/sso/acs/{tenant_slug}         — Assertion Consumer Service
-  (legacy) POST /api/v1/auth/saml/acs        — kept for backwards compatibility
-  (legacy) GET  /api/v1/auth/saml/metadata   — kept for backwards compatibility
+  POST /api/v1/sso/magic-link               — Magic link login (testing only)
+
+Legacy /api/v1/auth/saml/* endpoints were removed (SEC-C2): they bypassed
+per-tenant cert binding, hardcoded tenant_id=1 (wrong type), and had no
+signature validation.
 """
 from __future__ import annotations
 
 import base64
 import logging
-import os
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -25,6 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import create_access_token
+from config import settings
 from database import get_db
 from models import AuditEvent, ClientConfig, Tenant, User
 
@@ -32,11 +35,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sso"])
 
-# SP config from env vars (SPEC-F2 TR-02)
-_SP_ENTITY_ID = os.environ.get("SAML_SP_ENTITY_ID", "https://saro.app/sp")
-_SP_ACS_BASE = os.environ.get("SAML_SP_ACS_URL", "https://saro.app/api/v1/sso/acs")
-_SP_CERT = os.environ.get("SAML_SP_CERT", "")
-_SP_KEY = os.environ.get("SAML_SP_KEY", "")
+# SP config (SPEC-F2 TR-02)
+_SP_ENTITY_ID = settings.saml_sp_entity_id
+_SP_ACS_BASE = settings.saml_sp_acs_url
+_SP_CERT = settings.saml_sp_cert or ""
+_SP_KEY = settings.saml_sp_key or ""
 
 
 # ── LIVE-008: Assertion replay guard ─────────────────────────────────────────
@@ -122,12 +125,15 @@ def _verify_saml_signature(assertion_xml: str, idp_cert: str | None) -> bool:
         return bool(result)
 
     except ImportError:
-        # python3-saml / xmlsec not available in this environment.
-        logger.warning(
-            "SAML: python3-saml not available — falling back to presence-only "
-            "signature check.  Install python3-saml[xmlsec] for full crypto."
+        # python3-saml / xmlsec not available — FAIL CLOSED.
+        # An IdP cert is configured, meaning this tenant expects cryptographic
+        # verification. Accepting without it would allow forged assertions.
+        # Install python3-saml[xmlsec] in the runtime environment.
+        logger.error(
+            "SAML: python3-saml not available but IdP cert is configured — "
+            "rejecting assertion. Install python3-saml[xmlsec] for SSO to work."
         )
-        return True  # Cert was configured but can't verify — allow with warning
+        return False
     except Exception as exc:
         logger.warning("SAML: signature verification error: %s", exc)
         return False
@@ -399,62 +405,6 @@ def magic_link_login(payload: MagicLinkIn, db: Session = Depends(get_db)) -> JSO
     )
 
 
-# ── Legacy backwards-compatible endpoints ─────────────────────────────────────
-
-class SSOConfig(BaseModel):
-    tenant_id: int
-    idp_entity_id: str
-    idp_sso_url: str
-    idp_certificate: str
-    sp_entity_id: str = "https://saro.app/sp"
-
-
-@router.post("/api/v1/auth/saml/acs", include_in_schema=False)
-async def legacy_saml_acs(
-    SAMLResponse: str = Form(...),
-    RelayState: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Legacy ACS — parses assertion without tenant routing."""
-    from services.saml_service import map_persona_from_claims, parse_saml_assertion, provision_user_from_saml
-    try:
-        assertion_xml = base64.b64decode(SAMLResponse).decode("utf-8")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid SAMLResponse encoding")
-    claims = parse_saml_assertion(assertion_xml)
-    if not claims["valid"]:
-        raise HTTPException(status_code=401, detail=f"SAML assertion invalid: {claims.get('error', 'unknown')}")
-    tenant_id = 1
-    user_data = provision_user_from_saml(claims, tenant_id)
-    persona = map_persona_from_claims(claims)
-    return {
-        "status": "authenticated",
-        "email": user_data["email"],
-        "persona": persona,
-        "tenant_id": tenant_id,
-        "sso_provider": "saml",
-        "session_created": datetime.now(timezone.utc).isoformat(),
-        "relay_state": RelayState,
-        "warning": "Magic link login is for testing only. Enterprise users must use SSO.",
-    }
-
-
-@router.get("/api/v1/auth/saml/metadata", include_in_schema=False)
-def legacy_sp_metadata() -> dict:
-    return {
-        "entity_id": _SP_ENTITY_ID,
-        "acs_url": f"{_SP_ACS_BASE}/default",
-        "name_id_format": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-        "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-        "warning": "Magic link is for testing only. Enterprise users must use SSO.",
-    }
-
-
-@router.post("/api/v1/auth/saml/config", include_in_schema=False)
-def legacy_set_sso_config(config: SSOConfig, db: Session = Depends(get_db)) -> dict:
-    return {
-        "tenant_id": config.tenant_id,
-        "idp_entity_id": config.idp_entity_id,
-        "status": "configured",
-        "configured_at": datetime.now(timezone.utc).isoformat(),
-    }
+# Legacy /api/v1/auth/saml/* endpoints removed (SEC-C2).
+# They bypassed per-tenant cert binding and hardcoded tenant_id=1 (integer,
+# wrong type — tenants use UUIDs). Use /api/v1/sso/* exclusively.

@@ -14,12 +14,13 @@ from __future__ import annotations
 import functools
 import hashlib
 import logging
-import os
 import pathlib
 
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 def _database_url() -> str:
     from urllib.parse import urlparse, urlunparse
     import re as _re
-    url = os.environ.get("DATABASE_URL")
+    url = settings.database_url
     if not url:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set. "
@@ -47,10 +48,7 @@ def _database_url() -> str:
     parsed = urlparse(url)
     if parsed.hostname and "pooler.supabase.com" in parsed.hostname:
         _username = parsed.username or ""
-        _project_ref = (
-            os.environ.get("SUPABASE_PROJECT_REF")
-            or "fktfhtygvwqlmoazmhdf"
-        )
+        _project_ref = settings.supabase_project_ref or "fktfhtygvwqlmoazmhdf"
         if "." not in _username:
             # Username is missing the project-ref suffix — auto-correct it.
             _fixed_username = f"{_username}.{_project_ref}"
@@ -89,7 +87,7 @@ def _get_engine():
         echo=False,
         connect_args={
             "connect_timeout": 10,
-            "sslmode": os.environ.get("DB_SSLMODE", "require"),
+            "sslmode": settings.db_sslmode,
             "options": "-c statement_timeout=30000",
         },
     )
@@ -440,6 +438,21 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
         "prompt_text": "TEXT",
         "raw_output_text": "TEXT",
     },
+    # scan_reports holds hash-chained ScanReport rows — dropping destroys the
+    # tamper-evident chain that the COMPLIANCE_CLAIMS_MATRIX promises auditors.
+    "scan_reports": {
+        "engine_version": "VARCHAR(50)",
+        "rule_pack_hash": "VARCHAR(64)",
+        "compliance_matrix_version": "VARCHAR(50)",
+        "confidence_score": "FLOAT",
+    },
+    # enhanced_traces holds the full TRACE timeline linked to each audit.
+    "enhanced_traces": {},
+    # sample_findings holds per-sample risk evidence — immutable audit artefacts.
+    "sample_findings": {},
+    # iso42001_documents and github_scan_results reference audits with live data.
+    "iso42001_documents": {},
+    "github_scan_results": {},
     # Infrastructure table — never drop regardless of column drift.
     "schema_migrations": {},
 }

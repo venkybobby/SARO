@@ -168,11 +168,19 @@ class TestSSO:
         from routers.sso import router
         assert router is not None
 
-    def test_magic_link_warning_in_legacy_metadata(self):
-        from routers.sso import legacy_sp_metadata
-        result = legacy_sp_metadata()
-        assert "warning" in result
-        assert "testing only" in result["warning"].lower()
+    def test_legacy_saml_endpoints_removed(self):
+        # SEC-C2: legacy /api/v1/auth/saml/* endpoints were deleted because
+        # they bypassed per-tenant cert binding and hardcoded tenant_id=1.
+        import routers.sso as sso_module
+        assert not hasattr(sso_module, "legacy_sp_metadata"), (
+            "legacy_sp_metadata must not exist — SEC-C2 removed it"
+        )
+        assert not hasattr(sso_module, "legacy_saml_acs"), (
+            "legacy_saml_acs must not exist — SEC-C2 removed it"
+        )
+        assert not hasattr(sso_module, "legacy_set_sso_config"), (
+            "legacy_set_sso_config must not exist — SEC-C2 removed it"
+        )
 
     def test_magic_link_disabled_raises_403(self):
         from routers.sso import magic_link_login, MagicLinkIn
