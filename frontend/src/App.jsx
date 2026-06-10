@@ -31,7 +31,7 @@ const Upload        = lazy(() => import("./pages/Upload"));
 const Evaluations   = lazy(() => import("./pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("./pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
-const DemoRequests  = lazy(() => import("./pages/DemoRequests"));
+// DemoRequests removed — STORY-016: page deprecated, entry points already removed from nav
 const RiskRegister    = lazy(() => import("./pages/RiskRegister"));
 const RiskForm        = lazy(() => import("./pages/RiskForm"));
 const RiskDetail      = lazy(() => import("./pages/RiskDetail"));
@@ -272,6 +272,7 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             onNavigate={handleNavigate}
             onSave={() => toast.success("Settings saved")}
             initialAuditId={activePage === "trace_view" ? navPayload : undefined}
+            initialRiskId={activePage === "ai_insights" ? navPayload : undefined}
           />
         </Suspense>
       </main>

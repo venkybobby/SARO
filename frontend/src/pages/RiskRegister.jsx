@@ -1,12 +1,15 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Search, Plus, Eye, Edit2, Trash2, ChevronUp, ChevronDown,
-  ChevronsUpDown, User, Tag, ShieldOff, ArrowLeft, ArrowRight,
+  ChevronsUpDown, User, Tag, ShieldOff, ArrowLeft, ArrowRight, X,
 } from "lucide-react";
 import { Badge, Button, EmptyState, IconButton, Skeleton, ConfirmDialog, PageHeader } from "../components/ui/index.jsx";
 
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
+const PAGE_SIZE_STORAGE_KEY = "saro_risk_register_page_size";
+const SEVERITY_OPTIONS = ["critical", "high", "medium", "low", "info"];
+const STATUS_OPTIONS = ["Open", "In Review", "Monitoring", "Escalated", "Closed"];
 
 function SortIcon({ active, direction }) {
   if (!active) return <ChevronsUpDown size={12} style={{ opacity: 0.3 }} />;
@@ -23,42 +26,59 @@ export default function RiskRegister({ token, onNavigate }) {
   const [sortKey,     setSortKey]     = useState("severity");
   const [sortDir,     setSortDir]     = useState("desc");
   const [page,        setPage]        = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [deleteId,    setDeleteId]    = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [fetchError,  setFetchError]  = useState(null);
+  const [pageSize,    setPageSize]    = useState(() => {
+    const stored = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return PAGE_SIZE_OPTIONS.includes(stored) ? stored : 25;
+  });
+  const [selectedIds,    setSelectedIds]    = useState([]);
+  const [deleteId,       setDeleteId]       = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [fetchError,     setFetchError]     = useState(null);
+  const [severityFilter, setSeverityFilter] = useState([]);
+  const [statusFilter,   setStatusFilter]   = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [bulkMode,        setBulkMode]        = useState(null); // null | "owner" | "status"
+  const [bulkValue,       setBulkValue]       = useState("");
+  const [bulkDeleteOpen,  setBulkDeleteOpen]  = useState(false);
+  const [bulkBusy,        setBulkBusy]        = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const r = await fetch("/api/v1/risks", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!r.ok) throw new Error(`${r.status}`);
-        setRisks(await r.json());
-      } catch (e) {
-        setFetchError(`Could not load risks from API: ${e.message}`);
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const r = await fetch("/api/v1/risks", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      setRisks(await r.json());
+    } catch (e) {
+      setFetchError(`Could not load risks from API: ${e.message}`);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [token]);
 
+  useEffect(() => { load(); }, [load]);
+
   const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+  const categoryOptions = useMemo(
+    () => [...new Set(risks.map((r) => r.category).filter(Boolean))].sort(),
+    [risks]
+  );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return risks.filter((r) =>
-      !q ||
-      r.title.toLowerCase().includes(q) ||
-      r.id.toLowerCase().includes(q) ||
-      r.owner.toLowerCase().includes(q)
+      (!q ||
+        r.title.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q) ||
+        r.owner.toLowerCase().includes(q)) &&
+      (severityFilter.length === 0 || severityFilter.includes(r.severity)) &&
+      (!statusFilter || r.status === statusFilter) &&
+      (!categoryFilter || r.category === categoryFilter)
     );
-  }, [search, risks]);
+  }, [search, risks, severityFilter, statusFilter, categoryFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -84,6 +104,72 @@ export default function RiskRegister({ token, onNavigate }) {
 
   function toggleSelectAll() {
     setSelectedIds((prev) => prev.length === paginated.length ? [] : paginated.map((r) => r.id));
+  }
+
+  function toggleSeverityFilter(sev) {
+    setSeverityFilter((prev) => prev.includes(sev) ? prev.filter((s) => s !== sev) : [...prev, sev]);
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setSeverityFilter([]);
+    setStatusFilter("");
+    setCategoryFilter("");
+    setPage(1);
+  }
+
+  const hasActiveFilters = severityFilter.length > 0 || !!statusFilter || !!categoryFilter;
+
+  function handlePageSizeChange(n) {
+    setPageSize(n);
+    setPage(1);
+    localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(n));
+  }
+
+  async function runBulkAction(action, extra = {}) {
+    setBulkBusy(true);
+    try {
+      const r = await fetch("/api/v1/risks/bulk", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, action, ...extra }),
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      const data = await r.json();
+      const verb = action === "delete" ? "deleted" : action === "assign_owner" ? "assigned" : "updated";
+      if (data.not_found?.length) {
+        toast?.error(`${data.updated.length} ${verb}, ${data.not_found.length} not found`);
+      } else {
+        toast?.success(`${data.updated.length} risk${data.updated.length === 1 ? "" : "s"} ${verb}`);
+      }
+      await load();
+      setSelectedIds([]);
+      setBulkMode(null);
+      setBulkValue("");
+      setBulkDeleteOpen(false);
+    } catch (e) {
+      toast?.error(`Bulk action failed: ${e.message}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function confirmDeleteRisk() {
+    if (!deleteId) return;
+    try {
+      const r = await fetch(`/api/v1/risks/${deleteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      setRisks((prev) => prev.filter((x) => x.id !== deleteId));
+      setSelectedIds((prev) => prev.filter((x) => x !== deleteId));
+      toast?.success(`${deleteId} deleted`);
+    } catch (e) {
+      toast?.error(`Delete failed: ${e.message}`);
+    } finally {
+      setDeleteId(null);
+    }
   }
 
   const thStyle = (key) => ({
@@ -121,7 +207,6 @@ export default function RiskRegister({ token, onNavigate }) {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search risks by title, ID, owner…"
-            autoFocus
             style={{
               width: "100%", paddingLeft: 30, paddingRight: 12,
               paddingTop: 8, paddingBottom: 8,
@@ -137,6 +222,71 @@ export default function RiskRegister({ token, onNavigate }) {
         </div>
       </div>
 
+      {/* Filter row */}
+      <div style={{
+        padding: "var(--space-3) var(--space-6)",
+        borderBottom: "1px solid var(--color-border-subtle)",
+        background: "var(--color-bg-surface)",
+        display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: "var(--weight-semibold)" }}>
+          Severity
+        </span>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {SEVERITY_OPTIONS.map((sev) => {
+            const active = severityFilter.includes(sev);
+            return (
+              <button
+                key={sev}
+                onClick={() => toggleSeverityFilter(sev)}
+                style={{
+                  padding: "3px 10px", borderRadius: 999, fontSize: "var(--text-xs)",
+                  cursor: "pointer", textTransform: "capitalize",
+                  border: `1px solid ${active ? "var(--color-info)" : "var(--color-border-default)"}`,
+                  background: active ? "var(--color-info-bg)" : "var(--color-bg-elevated)",
+                  color: active ? "var(--color-info)" : "var(--color-text-secondary)",
+                  fontWeight: active ? "var(--weight-semibold)" : "var(--weight-normal)",
+                }}
+              >
+                {sev}
+              </button>
+            );
+          })}
+        </div>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          style={{
+            background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)",
+            borderRadius: "var(--radius-sm)", color: "var(--color-text-primary)",
+            fontSize: "var(--text-sm)", padding: "4px 8px", cursor: "pointer",
+          }}
+        >
+          <option value="">All statuses</option>
+          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select
+          value={categoryFilter}
+          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+          style={{
+            background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)",
+            borderRadius: "var(--radius-sm)", color: "var(--color-text-primary)",
+            fontSize: "var(--text-sm)", padding: "4px 8px", cursor: "pointer",
+          }}
+        >
+          <option value="">All categories</option>
+          {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X size={13} /> Clear filters
+          </Button>
+        )}
+      </div>
+
       {/* Bulk action bar */}
       {selectedIds.length > 0 && (
         <div style={{
@@ -148,10 +298,54 @@ export default function RiskRegister({ token, onNavigate }) {
           <span style={{ fontSize: "var(--text-sm)", color: "var(--color-info)", fontWeight: "var(--weight-medium)" }}>
             {selectedIds.length} selected
           </span>
-          <Button variant="ghost" size="sm"><User size={13} /> Assign owner</Button>
-          <Button variant="ghost" size="sm"><Tag size={13} /> Change status</Button>
-          <Button variant="danger" size="sm"><Trash2 size={13} /> Delete</Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear</Button>
+
+          {bulkMode === "owner" ? (
+            <>
+              <input
+                value={bulkValue}
+                onChange={(e) => setBulkValue(e.target.value)}
+                placeholder="Owner name or email…"
+                autoFocus
+                style={{
+                  padding: "5px 8px", borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--color-border-default)",
+                  background: "var(--color-bg-elevated)", color: "var(--color-text-primary)",
+                  fontSize: "var(--text-sm)", fontFamily: "var(--font-body)",
+                }}
+              />
+              <Button variant="primary" size="sm" disabled={!bulkValue.trim() || bulkBusy} onClick={() => runBulkAction("assign_owner", { owner: bulkValue.trim() })}>
+                Apply
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setBulkMode(null); setBulkValue(""); }}>Cancel</Button>
+            </>
+          ) : bulkMode === "status" ? (
+            <>
+              <select
+                value={bulkValue}
+                onChange={(e) => setBulkValue(e.target.value)}
+                style={{
+                  padding: "5px 8px", borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--color-border-default)",
+                  background: "var(--color-bg-elevated)", color: "var(--color-text-primary)",
+                  fontSize: "var(--text-sm)", cursor: "pointer",
+                }}
+              >
+                <option value="">Select status…</option>
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Button variant="primary" size="sm" disabled={!bulkValue || bulkBusy} onClick={() => runBulkAction("change_status", { status: bulkValue })}>
+                Apply
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setBulkMode(null); setBulkValue(""); }}>Cancel</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" disabled={bulkBusy} onClick={() => { setBulkMode("owner"); setBulkValue(""); }}><User size={13} /> Assign owner</Button>
+              <Button variant="ghost" size="sm" disabled={bulkBusy} onClick={() => { setBulkMode("status"); setBulkValue(""); }}><Tag size={13} /> Change status</Button>
+              <Button variant="danger" size="sm" disabled={bulkBusy} onClick={() => setBulkDeleteOpen(true)}><Trash2 size={13} /> Delete</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear</Button>
+            </>
+          )}
         </div>
       )}
 
@@ -230,10 +424,15 @@ export default function RiskRegister({ token, onNavigate }) {
                     </span>
                   </td>
                   <td style={{ padding: "var(--space-3)", maxWidth: 280 }}>
-                    <span style={{
-                      fontSize: "var(--text-sm)", color: "var(--color-text-primary)",
-                      display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }} title={risk.title}>
+                    <span
+                      style={{
+                        fontSize: "var(--text-sm)", color: "var(--color-text-primary)",
+                        display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+                        overflow: "hidden", lineHeight: 1.4,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => onNavigate?.("risk_detail", risk.id)}
+                    >
                       {risk.title}
                     </span>
                   </td>
@@ -288,7 +487,7 @@ export default function RiskRegister({ token, onNavigate }) {
               <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>Rows per page:</span>
               <select
                 value={pageSize}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 style={{
                   background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)",
                   borderRadius: "var(--radius-sm)", color: "var(--color-text-primary)",
@@ -317,8 +516,18 @@ export default function RiskRegister({ token, onNavigate }) {
         title="Delete risk"
         description={`Delete ${deleteId}? This action cannot be undone.`}
         confirmLabel="Delete risk"
-        onConfirm={() => setDeleteId(null)}
+        onConfirm={confirmDeleteRisk}
         onCancel={() => setDeleteId(null)}
+      />
+
+      {/* Bulk delete confirm */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title="Delete selected risks"
+        description={`Delete ${selectedIds.length} selected risk${selectedIds.length === 1 ? "" : "s"}? This action cannot be undone.`}
+        confirmLabel="Delete risks"
+        onConfirm={() => runBulkAction("delete")}
+        onCancel={() => setBulkDeleteOpen(false)}
       />
     </div>
   );

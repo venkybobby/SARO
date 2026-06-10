@@ -178,6 +178,30 @@ class AuditMetadata(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class RiskMetadata(Base):
+    """
+    1:1 extension of Audit holding Risk Register overrides.
+
+    Risk Register entries are derived from Audit + ScanReport at read time
+    (see routers/risks.py); this table persists the parts of a "risk" that
+    don't otherwise exist on Audit — owner assignment, status override, and
+    a soft-delete ("dismissed") flag used by the register's delete action.
+    """
+    __tablename__ = "risk_metadata"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status_override: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    dismissed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AuditTrace(Base):
     """
     Granular trace record for each check performed during an audit.
