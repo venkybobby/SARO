@@ -139,6 +139,11 @@ async def notification_stream(
     """
     Server-Sent Events stream for real-time in-app bell-icon notifications.
     Heartbeat ping every 30s keeps Railway proxy connection alive.
+
+    SARO-H10: this endpoint requires Authorization: Bearer like every other
+    route. The browser-native EventSource API cannot set custom headers, so
+    frontend consumers MUST use fetch() + ReadableStream (with the bearer
+    token attached) rather than `new EventSource(...)`.
     """
     from services.notification_service import (
         register_sse_connection,

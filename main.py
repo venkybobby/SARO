@@ -106,6 +106,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     logger.info("SARO starting up — environment=%s", os.environ.get("ENVIRONMENT", "development"))
 
+    # SARO-H11 / G-07: an open CORS policy (allow_origins=["*"]) is acceptable
+    # in dev but must not go unnoticed in production — flag it loudly so it
+    # gets caught in deploy logs even though the app continues to start.
+    if os.environ.get("ENVIRONMENT", "development") == "production":
+        if not os.environ.get("ALLOWED_ORIGINS", "").strip():
+            logger.critical(
+                "SECURITY: ALLOWED_ORIGINS is not set in production. "
+                "CORS is open to all origins (allow_origins=['*']). "
+                "Set ALLOWED_ORIGINS=https://saro.vercel.app in Railway."
+            )
+
     _db_health = health_check()
     if not _db_health["ok"]:
         # Log a warning but do NOT crash — the process must bind its port so

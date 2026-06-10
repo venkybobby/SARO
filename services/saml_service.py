@@ -3,6 +3,13 @@
 Provides assertion parsing, user provisioning from SAML claims, and
 persona mapping from IdP attributes. Uses a simplified assertion model
 suitable for testing with mock IdPs.
+
+NOT USED IN PRODUCTION (SARO-H09): the live SSO endpoint
+(routers/sso.py::saml_acs) has its own assertion parsing and signature
+verification (_verify_saml_signature, fail-closed). This module performs
+NO signature verification and exists only for tests/test_epic7_onboarding.py.
+Do not wire this into an auth flow without adding cryptographic
+verification first.
 """
 from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
