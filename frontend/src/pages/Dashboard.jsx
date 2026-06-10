@@ -433,26 +433,6 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
         subtitle={PERSONA_SUBTITLE[persona] || "Operational risk posture overview"}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            {/* Vertical selector */}
-            <div style={{ display: "flex", gap: "var(--space-1)" }}>
-              {VERTICALS.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVertical(v)}
-                  style={{
-                    padding: "4px 10px", borderRadius: 999,
-                    border: `1px solid ${vertical === v ? "var(--color-info)" : "var(--color-border-default)"}`,
-                    background: vertical === v ? "var(--color-info-bg)" : "transparent",
-                    color: vertical === v ? "var(--color-info)" : "var(--color-text-muted)",
-                    cursor: "pointer", fontSize: "var(--text-xs)",
-                    fontFamily: "var(--font-display)", fontWeight: "var(--weight-medium)",
-                    transition: "all var(--transition-fast)",
-                  }}
-                >
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
-                </button>
-              ))}
-            </div>
             {/* Window selector */}
             <select
               value={timeWindow}
@@ -589,54 +569,82 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           </button>
         </div>
 
-        {/* Pipeline status */}
+        {/* Operational detail — collapsed by default for risk_officer/compliance_lead,
+            who care more about posture/KPIs than pipeline internals */}
         <div style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={{
-            fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-            color: "var(--color-text-muted)", textTransform: "uppercase",
-            letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-            fontFamily: "var(--font-display)",
-          }}>
-            Pipeline Status
-          </h2>
-          <FlowStrip token={token} />
-        </div>
+          <button
+            onClick={() => setShowOperationalDetail((v) => !v)}
+            aria-expanded={showOperationalDetail}
+            style={{
+              display: "flex", alignItems: "center", gap: "var(--space-2)",
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+              color: "var(--color-text-muted)", textTransform: "uppercase",
+              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+              fontFamily: "var(--font-display)",
+            }}
+          >
+            {showOperationalDetail ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Operational Detail
+          </button>
 
-        {/* Lower panels */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-5)", flexWrap: "wrap" }}>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Live Audit Feed
-            </h2>
-            <LiveFeed token={token} tenantId={tenantId} />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Regulation Coverage
-            </h2>
-            <RegCoverage token={token} tenantId={tenantId} window={timeWindow} vertical={vertical} />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Engine Scores
-            </h2>
-            <EngineScores token={token} tenantId={tenantId} vertical={vertical} />
-          </div>
+          {showOperationalDetail && (
+            <>
+              {/* Pipeline status */}
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h2 style={{
+                  fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                  color: "var(--color-text-muted)", textTransform: "uppercase",
+                  letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  Pipeline Status
+                </h2>
+                <FlowStrip token={token} />
+              </div>
+
+              {/* Lower panels */}
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-5)", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={{
+                    fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                    color: "var(--color-text-muted)", textTransform: "uppercase",
+                    letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+                    fontFamily: "var(--font-display)",
+                  }}>
+                    Live Audit Feed
+                  </h2>
+                  <LiveFeed token={token} tenantId={tenantId} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                    <h2 style={{
+                      fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                      color: "var(--color-text-muted)", textTransform: "uppercase",
+                      letterSpacing: "0.08em", fontFamily: "var(--font-display)",
+                    }}>
+                      Regulation Coverage
+                    </h2>
+                    <VerticalSelector vertical={vertical} onChange={setVertical} />
+                  </div>
+                  <RegCoverage token={token} tenantId={tenantId} window={timeWindow} vertical={vertical} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                    <h2 style={{
+                      fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                      color: "var(--color-text-muted)", textTransform: "uppercase",
+                      letterSpacing: "0.08em", fontFamily: "var(--font-display)",
+                    }}>
+                      Engine Scores
+                    </h2>
+                    <VerticalSelector vertical={vertical} onChange={setVertical} />
+                  </div>
+                  <EngineScores token={token} tenantId={tenantId} vertical={vertical} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

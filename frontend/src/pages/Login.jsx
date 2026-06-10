@@ -11,6 +11,55 @@ function parseJwtPayload(token) {
   }
 }
 
+/**
+ * Enterprise SSO entry point — collapsed by default. Redirects to the
+ * SP-initiated SAML flow at GET /api/v1/sso/login/{tenant_slug} (routers/sso.py).
+ */
+function SsoEntry() {
+  const [open, setOpen] = useState(false);
+  const [slug, setSlug] = useState("");
+
+  function handleSso(e) {
+    e.preventDefault();
+    if (!slug.trim()) return;
+    window.location.href = `/api/v1/sso/login/${encodeURIComponent(slug.trim())}`;
+  }
+
+  if (!open) {
+    return (
+      <div style={{ textAlign: "center", marginTop: "var(--space-4)" }}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: "var(--text-sm)", color: "var(--color-info)", padding: 0,
+          }}
+        >
+          Sign in with SSO
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: "var(--space-4)" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <Input
+          label="Organization ID"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+          placeholder="acme-corp"
+          autoComplete="organization"
+        />
+      </div>
+      <Button type="button" variant="secondary" size="lg" onClick={handleSso} style={{ width: "100%", marginTop: "var(--space-2)" }}>
+        Continue with SSO
+      </Button>
+    </div>
+  );
+}
+
 export default function Login({ onLogin, sessionExpired }) {
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
@@ -30,10 +79,20 @@ export default function Login({ onLogin, sessionExpired }) {
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        const detail = Array.isArray(data.detail)
-          ? data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
-          : data.detail;
-        throw new Error(detail || `Login failed (${r.status})`);
+        if (Array.isArray(data.detail)) {
+          // 422 validation errors carry structured {loc, msg} — map loc to the field
+          const fieldErrors = {};
+          for (const d of data.detail) {
+            const field = d.loc?.[d.loc.length - 1];
+            if (field === "email" || field === "password") fieldErrors[field] = d.msg;
+            else fieldErrors.form = d.msg || JSON.stringify(d);
+          }
+          setErrors(fieldErrors);
+          return;
+        }
+        // 401 invalid-credential errors deliberately don't disclose which field is
+        // wrong (avoids account enumeration) — surface as a form-level error only.
+        throw new Error(data.detail || `Login failed (${r.status})`);
       }
       const { access_token } = await r.json();
 
@@ -48,13 +107,7 @@ export default function Login({ onLogin, sessionExpired }) {
       }
       onLogin(access_token, userProfile);
     } catch (err) {
-      if (err.message.toLowerCase().includes("email") || err.message.toLowerCase().includes("account")) {
-        setErrors({ email: err.message });
-      } else if (err.message.toLowerCase().includes("password") || err.message.toLowerCase().includes("credential")) {
-        setErrors({ password: err.message });
-      } else {
-        setErrors({ form: err.message });
-      }
+      setErrors({ form: err.message });
     } finally {
       setLoading(false);
     }
@@ -96,7 +149,7 @@ export default function Login({ onLogin, sessionExpired }) {
 
         {/* Session expired banner */}
         {sessionExpired && (
-          <div role="alert" style={{
+          <div role="alert" aria-live="assertive" style={{
             background: "var(--color-medium-bg)",
             border: "1px solid var(--color-medium-border)",
             borderRadius: "var(--radius-md)",
@@ -130,7 +183,7 @@ export default function Login({ onLogin, sessionExpired }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoFocus
+            autoFocus={!sessionExpired}
             autoComplete="email"
             placeholder="you@company.com"
             disabled={loading}
@@ -139,7 +192,7 @@ export default function Login({ onLogin, sessionExpired }) {
         </div>
 
         {/* Password */}
-        <div style={{ marginBottom: "var(--space-2)" }}>
+        <div style={{ marginBottom: "var(--space-6)" }}>
           <div style={{ position: "relative" }}>
             <Input
               label="Password"
@@ -168,20 +221,15 @@ export default function Login({ onLogin, sessionExpired }) {
           </div>
         </div>
 
-        {/* Forgot password — immediately below password field */}
-        <div style={{ textAlign: "right", marginBottom: "var(--space-6)" }}>
-          <a href="/forgot-password" style={{ fontSize: "var(--text-sm)", color: "var(--color-info)" }}>
-            Forgot password?
-          </a>
-        </div>
-
         <Button type="submit" loading={loading} size="lg" style={{ width: "100%" }}>
           Sign in
         </Button>
 
+        <SsoEntry />
+
         <div style={{ textAlign: "center", marginTop: "var(--space-5)" }}>
-          <a href="/demo" style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
-            View public demo →
+          <a href="/demo" style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
+            View public demo
           </a>
         </div>
       </form>
