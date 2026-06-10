@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 
 from sqlalchemy.orm import Session
 
+from config import settings
 from models import Notification
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def dispatch_notification(db: Session, notification: Notification) -> None:
 
 def _send_email(recipient: str, notification: Notification) -> None:
     """Send an alert email via SendGrid. Skips silently if no API key configured."""
-    api_key = os.environ.get("SENDGRID_API_KEY")
+    api_key = settings.sendgrid_api_key
     if not api_key:
         logger.info(
             "Email dispatch skipped: no SENDGRID_API_KEY (would send to %s)", recipient

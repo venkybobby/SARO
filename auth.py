@@ -8,7 +8,6 @@ Roles:
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -20,17 +19,18 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from config import settings
 from database import get_db
 from models import User
 
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-# Lazy helpers — read env vars at call time, not import time.
+# Lazy helpers — read settings at call time, not import time.
 # This prevents KeyError crashes during Koyeb startup before secrets are injected.
 
 def _secret_key() -> str:
-    key = os.environ.get("JWT_SECRET_KEY")
+    key = settings.jwt_secret_key
     if not key:
         raise RuntimeError(
             "JWT_SECRET_KEY environment variable is not set. "
@@ -40,11 +40,11 @@ def _secret_key() -> str:
 
 
 def _algorithm() -> str:
-    return os.environ.get("JWT_ALGORITHM", "HS256")
+    return settings.jwt_algorithm
 
 
 def _expire_minutes() -> int:
-    return int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+    return settings.access_token_expire_minutes
 
 
 # ── Password hashing (Argon2id) ───────────────────────────────────────────────

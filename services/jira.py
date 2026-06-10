@@ -4,14 +4,20 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-import os
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
 
 def _get_fernet():
     from cryptography.fernet import Fernet
-    secret = os.environ.get("JWT_SECRET_KEY", "saro-default-secret-key-change-in-prod")
+    secret = settings.jwt_secret_key
+    if not secret:
+        raise RuntimeError(
+            "JWT_SECRET_KEY is not set. Jira token encryption requires this variable. "
+            "Set it in Railway/Fly.io environment variables."
+        )
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
     return Fernet(key)
 

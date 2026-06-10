@@ -82,9 +82,13 @@ class TestCIPipeline:
         migration = ROOT / 'migrations' / '002_add_tenant_id_columns.sql'
         assert migration.exists(), "Tenant ID migration SQL must exist"
 
-    def test_tenant_middleware_exists(self):
-        middleware = ROOT / 'middleware' / 'tenant_context.py'
-        assert middleware.exists(), "Tenant context middleware must exist"
+    def test_tenant_isolation_gate_exists(self):
+        # SARO-H06: middleware/tenant_context.py was dead code (never
+        # registered, broken in 3 ways) and was removed. Tenant isolation
+        # is enforced app-layer via .filter(Model.tenant_id == ...), with
+        # tests/test_tenant_isolation.py as the CI backstop.
+        gate = ROOT / 'tests' / 'test_tenant_isolation.py'
+        assert gate.exists(), "Tenant isolation CI gate must exist"
 
 
 # ── SEC-003 Tests ──────────────────────────────────────────────────────────
@@ -111,10 +115,18 @@ class TestRLSPolicies:
         content = migration.read_text(encoding='utf-8')
         assert 'app.current_tenant' in content, "RLS must use app.current_tenant setting"
 
-    def test_tenant_context_middleware_sets_rls_variable(self):
+    def test_tenant_context_middleware_removed(self):
+        # SARO-H06: the broken RLS middleware (async-with on a sync
+        # generator, read request.state.tenant_id which nothing set, and
+        # SET LOCAL evaporating under NullPool) was removed rather than
+        # fixed. App-layer .filter(tenant_id == ...) is the enforced
+        # mechanism; see tests/test_tenant_isolation.py.
         middleware = ROOT / 'middleware' / 'tenant_context.py'
-        content = middleware.read_text(encoding='utf-8')
-        assert 'app.current_tenant' in content, "Middleware must set app.current_tenant"
+        assert not middleware.exists(), (
+            "middleware/tenant_context.py was removed (SARO-H06) and must "
+            "not be reintroduced without proper SET LOCAL session binding "
+            "and policies on all tenant-scoped tables."
+        )
 
     def test_pre_commit_config_exists(self):
         precommit = ROOT / '.pre-commit-config.yaml'
