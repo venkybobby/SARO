@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   ShieldAlert, Clock, AlertTriangle, Sparkles, RefreshCw,
-  Activity, Shield, X,
+  Activity, Shield, X, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Skeleton, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import FlowStrip    from "../components/FlowStrip";
@@ -26,6 +26,7 @@ import EngineScores from "../components/EngineScores";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const _RAG_TO_POSTURE = { RED: "CRITICAL", AMBER: "HIGH", GREEN: "LOW", "No data": "LOW" };
+const _DEFAULT_POSTURE = "LOW";
 
 function _isToday(isoStr) {
   if (!isoStr) return false;
@@ -285,7 +286,7 @@ function derivePosture(data) {
   const changed = data?.changed  || {};
 
   const rag         = summary.rag_status || "No data";
-  const postureLevel = _RAG_TO_POSTURE[rag] || "HIGH";
+  const postureLevel = _RAG_TO_POSTURE[rag] || _DEFAULT_POSTURE;
   const openRisks   = risks.filter(_isOpen).length;
   const overdue     = risks.filter(_isOpen).filter((r) => _isOverdue(r.dueDate)).length;
   const genAt       = summary.generated_at;
@@ -477,15 +478,15 @@ function DriftAlertsBanner({ token, onNavigate }) {
 
   return (
     <div style={{
-      background: "#fffbeb", border: "1px solid #fde68a",
+      background: "var(--color-medium-bg)", border: "1px solid var(--color-medium-border)",
       borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
       marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: 10,
     }}>
-      <Activity size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
+      <Activity size={16} color="var(--color-medium)" style={{ marginTop: 2, flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
         <div style={{
           fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-          color: "#92400e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+          color: "var(--color-medium)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
         }}>
           {visible.length} Drift Alert{visible.length > 1 ? "s" : ""} Detected
         </div>
@@ -494,11 +495,11 @@ function DriftAlertsBanner({ token, onNavigate }) {
             const id    = a.id || a.alert_id || a.name || String(i);
             const label = a.framework_name || a.name || a.alert_type || `Alert ${i + 1}`;
             const sev   = a.severity || "medium";
-            const sevColor = sev === "critical" || sev === "high" ? "#dc2626" : "#b45309";
+            const sevColor = sev === "critical" || sev === "high" ? "var(--color-critical)" : "var(--color-medium)";
             return (
               <span key={id} style={{
                 display: "inline-flex", alignItems: "center", gap: 4,
-                background: "#fef3c7", border: "1px solid #fcd34d",
+                background: "var(--color-medium-bg)", border: "1px solid var(--color-medium-border)",
                 borderRadius: 6, padding: "3px 8px",
                 fontSize: "var(--text-xs)", color: sevColor, fontWeight: "var(--weight-medium)",
               }}>
@@ -506,7 +507,7 @@ function DriftAlertsBanner({ token, onNavigate }) {
                 <button
                   onClick={() => dismiss(id)}
                   aria-label={`Dismiss ${label}`}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0, lineHeight: 1, marginLeft: 2 }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0, lineHeight: 1, marginLeft: 2 }}
                 >
                   <X size={10} />
                 </button>
@@ -514,7 +515,7 @@ function DriftAlertsBanner({ token, onNavigate }) {
             );
           })}
           {visible.length > 5 && (
-            <span style={{ fontSize: "var(--text-xs)", color: "#92400e", alignSelf: "center" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-medium)", alignSelf: "center" }}>
               +{visible.length - 5} more
             </span>
           )}
@@ -523,9 +524,9 @@ function DriftAlertsBanner({ token, onNavigate }) {
       <button
         onClick={() => onNavigate?.("drift_alerts")}
         style={{
-          padding: "4px 10px", background: "#fef3c7", border: "1px solid #fcd34d",
+          padding: "4px 10px", background: "var(--color-medium-bg)", border: "1px solid var(--color-medium-border)",
           borderRadius: 5, cursor: "pointer", fontSize: "var(--text-xs)",
-          color: "#92400e", fontWeight: "var(--weight-semibold)", flexShrink: 0,
+          color: "var(--color-medium)", fontWeight: "var(--weight-semibold)", flexShrink: 0,
           fontFamily: "var(--font-body)",
         }}
       >
@@ -537,6 +538,29 @@ function DriftAlertsBanner({ token, onNavigate }) {
 
 const VERTICALS = ["finance", "healthcare", "legal", "government"];
 const WINDOWS   = ["7d", "30d", "90d"];
+
+/** GAP-009: per-panel vertical filter — scoped to the panel it's rendered in
+ *  (currently Regulation Coverage and Engine Scores), not a global dashboard filter. */
+function VerticalSelector({ vertical, onChange }) {
+  return (
+    <select
+      value={vertical}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Filter by vertical"
+      style={{
+        padding: "2px 6px", borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--color-border-default)",
+        background: "var(--color-bg-elevated)", color: "var(--color-text-muted)",
+        fontSize: "var(--text-xs)", fontFamily: "var(--font-display)",
+        cursor: "pointer",
+      }}
+    >
+      {VERTICALS.map((v) => (
+        <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+      ))}
+    </select>
+  );
+}
 
 const qaBtn = (bg) => ({
   padding: "6px 14px", background: bg, color: "#fff", border: "none",
@@ -555,13 +579,20 @@ const PERSONA_SUBTITLE = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function Dashboard({ token, tenantId, user, onNavigate }) {
+export default function Dashboard({ token, tenantId, user, onNavigate, toast }) {
   const persona = user?.persona_role || user?.role || "operator";
   const [vertical,   setVertical]   = useState("finance");
   const [timeWindow, setTimeWindow] = useState("7d");
   const [degraded,   setDegraded]   = useState(false);
+  const [showOperationalDetail, setShowOperationalDetail] = useState(
+    !["risk_officer", "compliance_lead"].includes(user?.persona_role || user?.role)
+  );
 
   const { data, loading, refetch } = useDashboardData(token);
+
+  function handleRefresh() {
+    refetch().then(() => toast?.success("Dashboard updated"));
+  }
 
   const kpis    = data ? deriveKpis(data, persona)    : [];
   const posture = data ? derivePosture(data)           : { postureLevel: "HIGH", openRisks: "—", overdue: "—", lastUpdated: "—" };
@@ -591,26 +622,6 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
         subtitle={PERSONA_SUBTITLE[persona] || "Operational risk posture overview"}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            {/* Vertical selector */}
-            <div style={{ display: "flex", gap: "var(--space-1)" }}>
-              {VERTICALS.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVertical(v)}
-                  style={{
-                    padding: "4px 10px", borderRadius: 999,
-                    border: `1px solid ${vertical === v ? "var(--color-info)" : "var(--color-border-default)"}`,
-                    background: vertical === v ? "var(--color-info-bg)" : "transparent",
-                    color: vertical === v ? "var(--color-info)" : "var(--color-text-muted)",
-                    cursor: "pointer", fontSize: "var(--text-xs)",
-                    fontFamily: "var(--font-display)", fontWeight: "var(--weight-medium)",
-                    transition: "all var(--transition-fast)",
-                  }}
-                >
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
-                </button>
-              ))}
-            </div>
             {/* Window selector */}
             <select
               value={timeWindow}
@@ -629,7 +640,7 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
             </select>
             {/* Manual refresh */}
             <button
-              onClick={refetch}
+              onClick={handleRefresh}
               disabled={loading}
               aria-label="Refresh dashboard"
               style={{
@@ -658,12 +669,7 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           </div>
         )}
 
-        {/* Drift alerts inline — STORY-015 */}
-        {["ai_auditor","admin","super_admin","compliance_lead"].includes(persona) && (
-          <DriftAlertsBanner token={token} onNavigate={onNavigate} />
-        )}
-
-        {/* Risk posture banner */}
+        {/* Risk posture banner — always first, regardless of drift alerts */}
         <RiskPostureBanner
           level={posture.postureLevel}
           openRisks={posture.openRisks}
@@ -671,6 +677,11 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           lastUpdated={posture.lastUpdated}
           loading={loading}
         />
+
+        {/* Drift alerts inline — STORY-015 */}
+        {["ai_auditor","admin","super_admin","compliance_lead"].includes(persona) && (
+          <DriftAlertsBanner token={token} onNavigate={onNavigate} />
+        )}
 
         {/* KPI cards — live data, persona-specific */}
         <div style={{
@@ -726,54 +737,82 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           </button>
         </div>
 
-        {/* Pipeline status */}
+        {/* Operational detail — collapsed by default for risk_officer/compliance_lead,
+            who care more about posture/KPIs than pipeline internals */}
         <div style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={{
-            fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-            color: "var(--color-text-muted)", textTransform: "uppercase",
-            letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-            fontFamily: "var(--font-display)",
-          }}>
-            Pipeline Status
-          </h2>
-          <FlowStrip token={token} />
-        </div>
+          <button
+            onClick={() => setShowOperationalDetail((v) => !v)}
+            aria-expanded={showOperationalDetail}
+            style={{
+              display: "flex", alignItems: "center", gap: "var(--space-2)",
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+              color: "var(--color-text-muted)", textTransform: "uppercase",
+              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+              fontFamily: "var(--font-display)",
+            }}
+          >
+            {showOperationalDetail ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Operational Detail
+          </button>
 
-        {/* Lower panels */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-5)", flexWrap: "wrap" }}>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Live Audit Feed
-            </h2>
-            <LiveFeed token={token} tenantId={tenantId} />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Regulation Coverage
-            </h2>
-            <RegCoverage token={token} tenantId={tenantId} window={timeWindow} vertical={vertical} />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-              color: "var(--color-text-muted)", textTransform: "uppercase",
-              letterSpacing: "0.08em", marginBottom: "var(--space-3)",
-              fontFamily: "var(--font-display)",
-            }}>
-              Engine Scores
-            </h2>
-            <EngineScores token={token} tenantId={tenantId} vertical={vertical} />
-          </div>
+          {showOperationalDetail && (
+            <>
+              {/* Pipeline status */}
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h2 style={{
+                  fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                  color: "var(--color-text-muted)", textTransform: "uppercase",
+                  letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  Pipeline Status
+                </h2>
+                <FlowStrip token={token} />
+              </div>
+
+              {/* Lower panels */}
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-5)", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={{
+                    fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                    color: "var(--color-text-muted)", textTransform: "uppercase",
+                    letterSpacing: "0.08em", marginBottom: "var(--space-3)",
+                    fontFamily: "var(--font-display)",
+                  }}>
+                    Live Audit Feed
+                  </h2>
+                  <LiveFeed token={token} tenantId={tenantId} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                    <h2 style={{
+                      fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                      color: "var(--color-text-muted)", textTransform: "uppercase",
+                      letterSpacing: "0.08em", fontFamily: "var(--font-display)",
+                    }}>
+                      Regulation Coverage
+                    </h2>
+                    <VerticalSelector vertical={vertical} onChange={setVertical} />
+                  </div>
+                  <RegCoverage token={token} tenantId={tenantId} window={timeWindow} vertical={vertical} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                    <h2 style={{
+                      fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
+                      color: "var(--color-text-muted)", textTransform: "uppercase",
+                      letterSpacing: "0.08em", fontFamily: "var(--font-display)",
+                    }}>
+                      Engine Scores
+                    </h2>
+                    <VerticalSelector vertical={vertical} onChange={setVertical} />
+                  </div>
+                  <EngineScores token={token} tenantId={tenantId} vertical={vertical} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
