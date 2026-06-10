@@ -108,3 +108,8 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 - API prefix: `/api/v1/`
 - Port: `$PORT` (Railway injects)
 - Health endpoint: `GET /health` → `{"app":"SARO","version":"<app.version>","db_ok":true}`
+
+## Story Workflow — never paste prompts
+- New work: create `specs/stories/STORY-###.md` from `_TEMPLATE.md`, then run `/story STORY-###`.
+- New bug/review finding: run `/finding <description>` — it logs an FND, writes a pinning regression test (red→green), and updates `tests/regression/manifest.yaml`.
+- Standards live in `docs/engineering-standards.md`. Core invariants: quality ratchet (`quality/baseline.json`) never goes backward; every bug fix ships a regression test; independent `reviewer`/`security-auditor` agents must approve before merge; max 3 gate cycles then escalate — never weaken a test to get green.
