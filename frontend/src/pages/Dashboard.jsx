@@ -1,113 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { ShieldAlert, Clock, AlertTriangle, Sparkles, RefreshCw, Activity, Shield, X } from "lucide-react";
+import { ShieldAlert, Clock, AlertTriangle, Sparkles, RefreshCw, Activity, Shield, X, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge, Skeleton, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import FlowStrip    from "../components/FlowStrip";
 import LiveFeed     from "../components/LiveFeed";
 import MetricsRow   from "../components/MetricsRow";
 import RegCoverage  from "../components/RegCoverage";
 import EngineScores from "../components/EngineScores";
-
-/**
- * STORY-015: Inline drift alert notifications on the Dashboard.
- * Fetches /api/v1/drift/alerts and surfaces triggered alerts as
- * dismissible chips — replaces the need to navigate to the drift_alerts
- * tab for routine monitoring.
- */
-function DriftAlertsBanner({ token, onNavigate }) {
-  const [alerts, setAlerts]   = useState([]);
-  const [dismissed, setDismissed] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("saro_dismissed_drift") || "[]"); } catch { return []; }
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    fetch("/api/v1/drift/alerts", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.ok ? r.json() : [])
-      .then((d) => {
-        const raw = Array.isArray(d) ? d : d.alerts || d.items || [];
-        setAlerts(raw);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  function dismiss(id) {
-    const next = [...dismissed, id];
-    setDismissed(next);
-    localStorage.setItem("saro_dismissed_drift", JSON.stringify(next));
-  }
-
-  const visible = alerts.filter((a) => {
-    const id = a.id || a.alert_id || a.name || JSON.stringify(a);
-    // Show if not dismissed and has any sign of being active
-    const active = a.triggered || a.status === "triggered" || a.drift_detected
-      || a.has_drift || a.severity === "high" || a.severity === "critical"
-      || (typeof a === "object" && Object.keys(a).length > 0);
-    return !dismissed.includes(id) && active;
-  });
-
-  if (loading || visible.length === 0) return null;
-
-  return (
-    <div style={{
-      background: "#fffbeb", border: "1px solid #fde68a",
-      borderRadius: "var(--radius-lg)", padding: "var(--space-3) var(--space-4)",
-      marginBottom: "var(--space-4)", display: "flex", alignItems: "flex-start", gap: 10,
-    }}>
-      <Activity size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
-      <div style={{ flex: 1 }}>
-        <div style={{
-          fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
-          color: "#92400e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
-        }}>
-          {visible.length} Drift Alert{visible.length > 1 ? "s" : ""} Detected
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {visible.slice(0, 5).map((a, i) => {
-            const id = a.id || a.alert_id || a.name || String(i);
-            const label = a.framework_name || a.name || a.alert_type || `Alert ${i + 1}`;
-            const severity = a.severity || "medium";
-            const sevColor = severity === "critical" || severity === "high" ? "#dc2626" : "#b45309";
-            return (
-              <span key={id} style={{
-                display: "inline-flex", alignItems: "center", gap: 4,
-                background: "#fef3c7", border: "1px solid #fcd34d",
-                borderRadius: 6, padding: "3px 8px",
-                fontSize: "var(--text-xs)", color: sevColor, fontWeight: "var(--weight-medium)",
-              }}>
-                ⚠ {label}
-                <button
-                  onClick={() => dismiss(id)}
-                  aria-label={`Dismiss alert ${label}`}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 0, lineHeight: 1, marginLeft: 2 }}
-                >
-                  <X size={10} />
-                </button>
-              </span>
-            );
-          })}
-          {visible.length > 5 && (
-            <span style={{ fontSize: "var(--text-xs)", color: "#92400e", alignSelf: "center" }}>
-              +{visible.length - 5} more
-            </span>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={() => onNavigate?.("drift_alerts")}
-        style={{
-          padding: "4px 10px", background: "#fef3c7", border: "1px solid #fcd34d",
-          borderRadius: 5, cursor: "pointer", fontSize: "var(--text-xs)",
-          color: "#92400e", fontWeight: "var(--weight-semibold)", flexShrink: 0,
-          fontFamily: "var(--font-body)",
-        }}
-      >
-        View All →
-      </button>
-    </div>
-  );
-}
 
 const POSTURE_STYLES = {
   CRITICAL: { bg: "var(--color-critical-bg)", border: "var(--color-critical-border)", color: "var(--color-critical)" },
@@ -395,13 +293,83 @@ const PERSONA_SUBTITLE = {
   super_admin:     "Risk posture & open findings",
 };
 
+const RAG_TO_POSTURE = { GREEN: "LOW", AMBER: "MEDIUM", RED: "CRITICAL" };
+
+/** Fetches /api/v1/risk/summary — backs the posture banner and KPI cards. */
+function useDashboardData(token) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    fetch("/api/v1/risk/summary", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, reloadKey]);
+
+  return { data, loading, refetch: () => setReloadKey((k) => k + 1) };
+}
+
+/** Maps the live risk summary onto the persona's KPI card template. */
+function deriveKpis(data, persona) {
+  const base = (PERSONA_KPIS[persona] || PERSONA_KPIS.operator).map((kpi) => ({ ...kpi }));
+  const findingsCount = data.top_findings?.length;
+  const remediationPct = data.remediation_pct;
+  const auditCount = data.audit_count;
+
+  if (persona === "risk_officer" || persona === "admin" || persona === "super_admin") {
+    if (findingsCount != null) base[0].value = findingsCount;
+    if (remediationPct != null) base[3].value = `${remediationPct}%`;
+  } else if (persona === "compliance_lead") {
+    if (auditCount != null) base[2].value = auditCount;
+  } else {
+    if (auditCount != null) base[0].value = auditCount;
+  }
+  return base;
+}
+
+/** Maps the live risk summary onto the risk posture banner's props. */
+function derivePosture(data) {
+  return {
+    postureLevel: RAG_TO_POSTURE[data.rag_status] || "HIGH",
+    openRisks: data.audit_count ?? "—",
+    overdue: data.top_findings?.length ?? "—",
+    lastUpdated: data.generated_at ? new Date(data.generated_at).toLocaleString() : "—",
+  };
+}
+
+function VerticalSelector({ vertical, onChange }) {
+  return (
+    <select
+      value={vertical}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        padding: "3px 6px", borderRadius: "var(--radius-md)",
+        border: "1px solid var(--color-border-default)",
+        background: "var(--color-bg-elevated)", color: "var(--color-text-primary)",
+        fontSize: "var(--text-xs)", fontFamily: "var(--font-body)",
+        cursor: "pointer",
+      }}
+    >
+      {VERTICALS.map((v) => (
+        <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+      ))}
+    </select>
+  );
+}
+
 export default function Dashboard({ token, tenantId, user, onNavigate }) {
   const persona = user?.persona_role || user?.role || "operator";
   const [vertical,   setVertical]   = useState("finance");
   const [timeWindow, setTimeWindow] = useState("7d");
   const [degraded,   setDegraded]   = useState(false);
-
-  const kpis = PERSONA_KPIS[persona] || PERSONA_KPIS.operator;
+  const [showOperationalDetail, setShowOperationalDetail] = useState(false);
 
   const { data, loading, refetch } = useDashboardData(token);
 
@@ -510,36 +478,9 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
               delta={kpi.delta}
               severity={kpi.severity}
               icon={kpi.icon}
-              loading={kpiLoading}
+              loading={loading}
             />
           ))}
-        </div>
-
-        {/* Quick actions — persona-specific */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
-          {persona === "operator" && (
-            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
-              + New Scan
-            </button>
-          )}
-          {["risk_officer","admin","super_admin"].includes(persona) && (
-            <button onClick={() => onNavigate?.("risk_register")} style={qaBtn("#0d9488")}>
-              Open Risk Register
-            </button>
-          )}
-          {persona === "compliance_lead" && (
-            <button onClick={() => onNavigate?.("compliance_hub")} style={qaBtn("#0d9488")}>
-              Compliance Hub
-            </button>
-          )}
-          {persona === "ai_auditor" && (
-            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
-              + New Scan
-            </button>
-          )}
-          <button onClick={() => onNavigate?.("trace_view")} style={qaBtn("#6b7280")}>
-            View Recent TRACE
-          </button>
         </div>
 
         {/* Quick actions — persona-specific */}
