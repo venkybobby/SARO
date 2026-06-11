@@ -20,7 +20,7 @@ function isOverdue(dueDate) {
   return new Date(dueDate) < new Date();
 }
 
-export default function RiskRegister({ token, onNavigate }) {
+export default function RiskRegister({ token, onNavigate, toast }) {
   const [risks,       setRisks]       = useState([]);
   const [search,      setSearch]      = useState("");
   const [sortKey,     setSortKey]     = useState("severity");

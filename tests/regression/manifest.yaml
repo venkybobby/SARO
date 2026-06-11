@@ -17,3 +17,13 @@ findings:
     test: tests/regression/test_fnd_003_jwt_secret_from_env.py
     status: open
     quarantine_expires: null
+  - id: FND-004
+    title: "TraceView: undefined `h` causes ReferenceError on audit-meta fetch"
+    test: frontend/src/pages/TraceView.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-005
+    title: "RiskRegister: undefined `toast` causes ReferenceError on bulk/delete actions"
+    test: frontend/src/pages/RiskRegister.test.jsx
+    status: pinned
+    quarantine_expires: null
