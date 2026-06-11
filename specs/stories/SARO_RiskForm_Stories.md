@@ -148,11 +148,19 @@ Warn users before navigating away from an unsaved Risk Form (via Cancel button, 
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E: edit form, click Cancel → confirmation modal | RiskForm.jsx, E2E test suite |
-| AC-2 | E2E: edit form, navigate sidebar → confirmation modal | Router/Navigation, E2E test suite |
-| AC-3 | E2E: confirm discard → navigate away | RiskForm.jsx, E2E test suite |
-| AC-4 | E2E: dismiss confirmation → stay on form | RiskForm.jsx, E2E test suite |
-| AC-5 | E2E: save form → no confirmation on next nav | RiskForm.jsx, E2E test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: dirty form + Cancel shows 'Discard unsaved changes?' confirmation" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: registers a dirty guard so App-level (sidebar) navigation can be intercepted"; `useDirtyNavGuard.test.js` (5 unit tests covering immediate-navigate, defer+pendingNav, confirmNav, cancelNav, guard-clear). App-level interception implemented via the shared `useDirtyNavGuard` hook (`hooks/useDirtyNavGuard.js`), wired into App.jsx (`AppShell.handleNavigate`/`registerDirtyGuard`) and shown with the same `ConfirmDialog`. Browser back/refresh covered by the `beforeunload` test. | RiskForm.jsx, App.jsx, hooks/useDirtyNavGuard.js, RiskForm.test.jsx, hooks/useDirtyNavGuard.test.js |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: confirming 'Discard changes' navigates away without saving" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | `RiskForm.test.jsx`: "AC-4: choosing 'Keep editing' stays on the form with edits intact" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-5 | `RiskForm.test.jsx`: "AC-5: after a successful save, the dirty flag resets so Cancel no longer prompts" | RiskForm.jsx, RiskForm.test.jsx |
+
+**Edge cases:**
+- Pre-filled edit mode + no changes + Cancel → no confirmation: `RiskForm.test.jsx` "edge case: pre-filled edit mode with no changes + Cancel does NOT prompt".
+- Type-then-revert still counts as dirty: `RiskForm.test.jsx` "edge case: typing then reverting a value still counts as dirty".
+- Modal/drawer close triggers guard: **N/A** — RiskForm is rendered as a full page via `onNavigate` (App.jsx `PAGE_COMPONENTS`), not inside a modal/drawer in this codebase. No modal/drawer host to wire up.
+- Session expiry should not trigger the guard: `RiskForm.test.jsx` "session expiry / unmount: cleans up listeners and the dirty guard without throwing" — App-level token-expiry redirect unmounts RiskForm directly (no `beforeunload`/in-app guard fires for an unmount triggered by the host, only for user-initiated navigation).
+
+**Accessibility (NFR):** `ConfirmDialog` (`components/ui/index.jsx`) traps Tab focus within the dialog while open, moves initial focus to the first focusable element on open, and restores focus to the previously-focused element on close (escape-to-cancel via a stable `onCancelRef` so re-renders of the parent don't re-run the focus trap), in addition to the existing `role="dialog"`/`aria-modal` behavior. Covered by `components/ui/ConfirmDialog.test.jsx` (initial focus + restore-on-close, and no focus-stealing on parent re-render while open).
 
 ---
 
