@@ -307,21 +307,60 @@ export function ToastContainer({ toasts, onDismiss }) {
 }
 
 /* ─── ConfirmDialog ──────────────────────────────────────────────────────── */
-export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", onConfirm, onCancel, requireTyping }) {
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, onCancel, requireTyping }) {
   const [typed, setTyped] = useState("");
   const canConfirm = !requireTyping || typed === requireTyping;
+  const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
 
+  // Run only on the open/close transition (not on every re-render of an
+  // already-open dialog) so focus isn't yanked away while the user is
+  // tabbing through it.
   useEffect(() => {
-    if (!open) setTyped("");
-    const handler = (e) => { if (e.key === "Escape") onCancel?.(); };
-    if (open) document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onCancel]);
+    if (!open) {
+      setTyped("");
+      return;
+    }
+
+    previousFocusRef.current = document.activeElement;
+    const node = dialogRef.current;
+    node?.querySelectorAll(FOCUSABLE_SELECTOR)?.[0]?.focus();
+
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        onCancelRef.current?.();
+        return;
+      }
+      if (e.key !== "Tab" || !node) return;
+      const items = node.querySelectorAll(FOCUSABLE_SELECTOR);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [open]);
 
   if (!open) return null;
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
@@ -373,7 +412,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel = "Confir
           </div>
         )}
         <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
           <Button variant="danger" disabled={!canConfirm} onClick={onConfirm}>
             {confirmLabel}
           </Button>

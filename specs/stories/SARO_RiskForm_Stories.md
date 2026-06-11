@@ -89,10 +89,18 @@ Eliminate hardcoded hex colors (#fca5a5, #d1d5db, #ef4444) in RiskForm.jsx and u
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | Code review: no #[hex] in RiskForm.jsx | RiskForm.jsx |
-| AC-2 | Unit/E2E: error state uses --color-critical | RiskForm.jsx, visual regression test |
-| AC-3 | Unit/E2E: default border uses --color-border-default | RiskForm.jsx, visual regression test |
-| AC-4 | Accessibility audit: WCAG AA contrast verified | axe-core, manual spot-check |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: contains no hardcoded hex color literals" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: error state uses var(--color-critical) for border and error text" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: default (non-error) input border uses var(--color-border-default)" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | Manual contrast audit (see below) | RiskForm.jsx |
+
+**AC-4 contrast audit (computed against `frontend/src/styles/tokens.css`):**
+- `--color-critical` (#E8443A) on `--color-bg-elevated` (#1C2028): **~4.0:1** — just under the 4.5:1 AA threshold for small text (11px error text/asterisks).
+- `--color-border-default` (rgba(255,255,255,0.10)) on `--color-bg-elevated`: **~1.4:1** — under the 3:1 AA threshold for borders.
+
+Both are **existing global design tokens** used elsewhere in the app (e.g. Dashboard posture banners/badges); per this story's Out of Scope ("Modifying the design token definitions themselves" / "Creating new tokens"), the token *values* cannot be changed here. Flagging as a follow-up design-system finding rather than blocking this token-substitution story.
+
+**Edge cases (disabled state, focus ring):** N/A — RiskForm has no `disabled` inputs or focus-ring styling currently; nothing to migrate to a token for those states (consistent with the N/A read-only-mode note in STORY-RISKFORM-001).
 
 ---
 
@@ -140,11 +148,19 @@ Warn users before navigating away from an unsaved Risk Form (via Cancel button, 
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E: edit form, click Cancel → confirmation modal | RiskForm.jsx, E2E test suite |
-| AC-2 | E2E: edit form, navigate sidebar → confirmation modal | Router/Navigation, E2E test suite |
-| AC-3 | E2E: confirm discard → navigate away | RiskForm.jsx, E2E test suite |
-| AC-4 | E2E: dismiss confirmation → stay on form | RiskForm.jsx, E2E test suite |
-| AC-5 | E2E: save form → no confirmation on next nav | RiskForm.jsx, E2E test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: dirty form + Cancel shows 'Discard unsaved changes?' confirmation" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: registers a dirty guard so App-level (sidebar) navigation can be intercepted"; `useDirtyNavGuard.test.js` (5 unit tests covering immediate-navigate, defer+pendingNav, confirmNav, cancelNav, guard-clear). App-level interception implemented via the shared `useDirtyNavGuard` hook (`hooks/useDirtyNavGuard.js`), wired into App.jsx (`AppShell.handleNavigate`/`registerDirtyGuard`) and shown with the same `ConfirmDialog`. Browser back/refresh covered by the `beforeunload` test. | RiskForm.jsx, App.jsx, hooks/useDirtyNavGuard.js, RiskForm.test.jsx, hooks/useDirtyNavGuard.test.js |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: confirming 'Discard changes' navigates away without saving" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | `RiskForm.test.jsx`: "AC-4: choosing 'Keep editing' stays on the form with edits intact" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-5 | `RiskForm.test.jsx`: "AC-5: after a successful save, the dirty flag resets so Cancel no longer prompts" | RiskForm.jsx, RiskForm.test.jsx |
+
+**Edge cases:**
+- Pre-filled edit mode + no changes + Cancel → no confirmation: `RiskForm.test.jsx` "edge case: pre-filled edit mode with no changes + Cancel does NOT prompt".
+- Type-then-revert still counts as dirty: `RiskForm.test.jsx` "edge case: typing then reverting a value still counts as dirty".
+- Modal/drawer close triggers guard: **N/A** — RiskForm is rendered as a full page via `onNavigate` (App.jsx `PAGE_COMPONENTS`), not inside a modal/drawer in this codebase. No modal/drawer host to wire up.
+- Session expiry should not trigger the guard: `RiskForm.test.jsx` "session expiry / unmount: cleans up listeners and the dirty guard without throwing" — App-level token-expiry redirect unmounts RiskForm directly (no `beforeunload`/in-app guard fires for an unmount triggered by the host, only for user-initiated navigation).
+
+**Accessibility (NFR):** `ConfirmDialog` (`components/ui/index.jsx`) traps Tab focus within the dialog while open, moves initial focus to the first focusable element on open, and restores focus to the previously-focused element on close (escape-to-cancel via a stable `onCancelRef` so re-renders of the parent don't re-run the focus trap), in addition to the existing `role="dialog"`/`aria-modal` behavior. Covered by `components/ui/ConfirmDialog.test.jsx` (initial focus + restore-on-close, and no focus-stealing on parent re-render while open).
 
 ---
 
@@ -191,10 +207,15 @@ Resolve the cramped action row layout where the "Human review required..." discl
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E/Visual: narrow viewport action row wraps | RiskForm.jsx, responsive test suite |
-| AC-2 | E2E/Visual: desktop action row stays on one line | RiskForm.jsx, responsive test suite |
-| AC-3 | E2E/Visual: viewport resize reflow test | RiskForm.jsx, responsive test suite |
-| AC-4 | E2E/Visual: modal/drawer constrained width | RiskForm.jsx, modal test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1/AC-3/AC-4: action row uses flex-wrap so it reflows on narrow/constrained widths" — action row container now has `flexWrap: "wrap"`, allowing the disclaimer to drop to its own line on narrow viewports without pushing the Save/Cancel buttons off-screen. | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: Save and Cancel buttons sit in the same row container as the disclaimer" — on wide viewports all three elements remain on one row (`marginLeft: "auto"` keeps the disclaimer right-aligned with adequate `gap`). | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | Covered by the same `flexWrap: "wrap"` + `gap` CSS as AC-1/AC-4 (jsdom does not compute responsive layout/resize, so behavior is verified via the static style assertions above; full viewport-resize visual verification is a manual/Playwright follow-up, consistent with this story's "Out of Scope"/manual-test notes). | RiskForm.jsx |
+| AC-4 | Same `flexWrap: "wrap"` CSS handles arbitrary container widths generically (modal/drawer constrained width); see AC-3 note re: jsdom layout limitations. | RiskForm.jsx |
+
+**Edge cases:**
+- Disabled Save button doesn't break layout: `RiskForm.test.jsx` "edge case: a disabled Save button does not break the action row layout".
+- Long/wrapping disclaimer text: `RiskForm.test.jsx` "disclaimer text is allowed to wrap onto multiple lines (no forced single line)" — `whiteSpace` is not set to `nowrap`, and `minWidth: 200` on the disclaimer `<span>` ensures it moves to its own line as a unit (rather than being squeezed) once the row can't fit it alongside the buttons.
+- Extremely narrow (<320px) / RTL: not separately tested — `flexWrap: "wrap"` and `gap`-based spacing degrade gracefully and are direction-agnostic, but pixel-level verification at 320px and RTL layouts is left to manual/Playwright visual QA (out of scope for this unit-test pass, per story's E2E note).
 
 ---
 
