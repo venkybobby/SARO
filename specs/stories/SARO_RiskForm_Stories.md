@@ -38,10 +38,14 @@ Users see validation errors on individual fields as they move through the form (
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E: required field onBlur → error appears | RiskForm.jsx, E2E test suite |
-| AC-2 | E2E: correct field → error clears | RiskForm.jsx, E2E test suite |
-| AC-3 | E2E: submit with remaining errors | RiskForm.jsx, E2E test suite |
-| AC-4 | E2E: fix one error, form does not submit | RiskForm.jsx, E2E test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: shows an inline error when a required field is left empty on blur", "AC-1/NFR: error messages are associated with their field via aria-describedby" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: clears the error immediately when the field is corrected (onChange)" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: submit still validates all required fields at once" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | `RiskForm.test.jsx`: "AC-4: correcting one error leaves remaining errors and does not submit" | RiskForm.jsx, RiskForm.test.jsx |
+
+**Edge cases covered:** rapid tab-through, clear-after-correction stays errored, pre-filled edit-mode does not error on initial render — all in `RiskForm.test.jsx`.
+
+**Note:** "Read-only mode" edge case is N/A — RiskForm has no read-only/view mode in this codebase.
 
 ---
 
@@ -85,10 +89,18 @@ Eliminate hardcoded hex colors (#fca5a5, #d1d5db, #ef4444) in RiskForm.jsx and u
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | Code review: no #[hex] in RiskForm.jsx | RiskForm.jsx |
-| AC-2 | Unit/E2E: error state uses --color-critical | RiskForm.jsx, visual regression test |
-| AC-3 | Unit/E2E: default border uses --color-border-default | RiskForm.jsx, visual regression test |
-| AC-4 | Accessibility audit: WCAG AA contrast verified | axe-core, manual spot-check |
+| AC-1 | `RiskForm.test.jsx`: "AC-1: contains no hardcoded hex color literals" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: error state uses var(--color-critical) for border and error text" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | `RiskForm.test.jsx`: "AC-3: default (non-error) input border uses var(--color-border-default)" | RiskForm.jsx, RiskForm.test.jsx |
+| AC-4 | Manual contrast audit (see below) | RiskForm.jsx |
+
+**AC-4 contrast audit (computed against `frontend/src/styles/tokens.css`):**
+- `--color-critical` (#E8443A) on `--color-bg-elevated` (#1C2028): **~4.0:1** — just under the 4.5:1 AA threshold for small text (11px error text/asterisks).
+- `--color-border-default` (rgba(255,255,255,0.10)) on `--color-bg-elevated`: **~1.4:1** — under the 3:1 AA threshold for borders.
+
+Both are **existing global design tokens** used elsewhere in the app (e.g. Dashboard posture banners/badges); per this story's Out of Scope ("Modifying the design token definitions themselves" / "Creating new tokens"), the token *values* cannot be changed here. Flagging as a follow-up design-system finding rather than blocking this token-substitution story.
+
+**Edge cases (disabled state, focus ring):** N/A — RiskForm has no `disabled` inputs or focus-ring styling currently; nothing to migrate to a token for those states (consistent with the N/A read-only-mode note in STORY-RISKFORM-001).
 
 ---
 

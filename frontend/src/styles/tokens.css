@@ -24,8 +24,8 @@
   --color-bg-elevated: #1C2028;
   --color-bg-overlay: #242932;
   --color-border-subtle: rgba(255,255,255,0.06);
-  --color-border-default: rgba(255,255,255,0.10);
-  --color-border-strong: rgba(255,255,255,0.18);
+  --color-border-default: rgba(255,255,255,0.33);
+  --color-border-strong: rgba(255,255,255,0.45);
 
   /* Text Colors */
   --color-text-primary: #F0F2F5;
@@ -34,9 +34,9 @@
   --color-text-inverse: #0D0F12;
 
   /* Semantic Colors */
-  --color-critical: #E8443A;
-  --color-critical-bg: rgba(232,68,58,0.10);
-  --color-critical-border: rgba(232,68,58,0.25);
+  --color-critical: #FF5449;
+  --color-critical-bg: rgba(255,84,73,0.10);
+  --color-critical-border: rgba(255,84,73,0.25);
 
   --color-high: #F0832A;
   --color-high-bg: rgba(240,131,42,0.10);

@@ -83,7 +83,7 @@ export default function TraceView({ token, initialAuditId }) {
       setTrace(await r.json());
 
       // Also fetch audit report for rule_pack_hash + created_at (non-blocking)
-      fetch(`/api/v1/audits/${target}`, { headers: h })
+      fetch(`/api/v1/audits/${target}`, { headers: { Authorization: `Bearer ${token}` } })
         .then((ar) => ar.ok ? ar.json() : null)
         .then((ad) => { if (ad) setAuditMeta(ad); })
         .catch(() => {});
