@@ -1,0 +1,7 @@
+{
+  "measured_on": "2026-06-11",
+  "coverage_pct": 65.06,
+  "ruff_errors": 25,
+  "mypy_errors": 4,
+  "ratchet_policy": "metrics may only improve or hold; lowering requires a human-reviewed commit"
+}
