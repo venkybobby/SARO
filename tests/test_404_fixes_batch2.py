@@ -21,13 +21,13 @@ if _REPO_ROOT not in sys.path:
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-batch2")
 
-import pytest
-from fastapi.testclient import TestClient
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
-from auth import get_current_user
-from database import get_db
-from main import app
-from models import AIMSDocument, Audit, ClientConfig, User
+from auth import get_current_user  # noqa: E402
+from database import get_db  # noqa: E402
+from main import app  # noqa: E402
+from models import AIMSDocument, User  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared helpers

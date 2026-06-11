@@ -23,11 +23,11 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 # ── SQLite setup ────────────────────────────────────────────────────────────
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSON as PG_JSON
-import sqlalchemy.types as sa_types
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSON as PG_JSON  # noqa: E402
+import sqlalchemy.types as sa_types  # noqa: E402
 
 engine = create_engine(
     "sqlite:///:memory:",
@@ -44,14 +44,13 @@ PG_UUID.__init__ = _sqlite_uuid_init  # type: ignore[method-assign]
 PG_JSON.__init__ = lambda self, *a, **kw: sa_types.Text.__init__(self)  # type: ignore[method-assign]
 PG_JSON.none_as_null = False
 
-from database import Base, get_db
-import models  # noqa: E402
-from models import Audit, ScanReport, Tenant, User
+from database import Base, get_db  # noqa: E402
+from models import Audit, ScanReport, Tenant, User  # noqa: E402
 Base.metadata.create_all(engine)
 
-from fastapi.testclient import TestClient
-from main import app
-from auth import get_current_user
+from fastapi.testclient import TestClient  # noqa: E402
+from main import app  # noqa: E402
+from auth import get_current_user  # noqa: E402
 
 TENANT_ID = uuid.uuid4()
 USER_ID = uuid.uuid4()
