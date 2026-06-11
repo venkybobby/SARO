@@ -19,7 +19,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-live005-006")
 from fastapi.testclient import TestClient  # noqa: E402
 from database import get_db  # noqa: E402
 from main import app  # noqa: E402
-from models import ClientConfig, DemoRequest, Tenant, User  # noqa: E402
+from models import ClientConfig, DemoRequest, User  # noqa: E402
 
 client = TestClient(app, raise_server_exceptions=False)
 

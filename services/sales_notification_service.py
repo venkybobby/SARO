@@ -69,7 +69,7 @@ def _build_slack_payload(record: DemoRequest) -> dict:
                         "type": "button",
                         "text": {"type": "plain_text", "text": "View in SARO Admin"},
                         "style": "primary",
-                        "url": f"https://sarofrontend.fly.dev/app",
+                        "url": "https://sarofrontend.fly.dev/app",
                     }
                 ],
             },

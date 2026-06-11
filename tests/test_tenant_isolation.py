@@ -20,8 +20,6 @@ Background (SARO-H06):
 """
 from __future__ import annotations
 
-import ast
-import os
 import pathlib
 import textwrap
 import uuid
@@ -282,7 +280,6 @@ class TestCrossTenantAccessBlocked:
     def test_notification_list_scoped_to_current_tenant(self, user_a, tenant_a_id):
         """list_notifications() issues a .filter(Notification.tenant_id == ...) query."""
         from routers.notifications import list_notifications
-        from models import Notification
 
         mock_db = MagicMock()
         # Simulate count(), unread, and paginated .all() returning empty

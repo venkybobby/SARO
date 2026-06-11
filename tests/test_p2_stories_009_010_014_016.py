@@ -236,7 +236,6 @@ class TestDemoRequestsRemoved:
 
     def test_demo_requests_not_in_page_registry(self):
         """demo_requests must not appear in the active PAGE_COMPONENTS map."""
-        import importlib
         import sys
         # Reload App to pick up latest module state
         if "frontend" in sys.modules:
