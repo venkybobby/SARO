@@ -4,13 +4,14 @@
  * Auth token is persisted in localStorage so page refresh doesn't log out.
  * Sidebar navigation matches the Streamlit persona-based tab list exactly.
  */
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login    from "./pages/Login";
 import DemoEntry from "./pages/DemoEntry";
 import Sidebar  from "./components/Sidebar";
-import { ToastContainer } from "./components/ui/index.jsx";
+import { ToastContainer, ConfirmDialog } from "./components/ui/index.jsx";
 import { useToast } from "./hooks/useToast.js";
+import { useDirtyNavGuard } from "./hooks/useDirtyNavGuard.js";
 
 // Lazy-load pages
 const Dashboard     = lazy(() => import("./pages/Dashboard"));
@@ -231,10 +232,12 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
 
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
 
-  function handleNavigate(page, payload) {
+  const navigateNow = useCallback((page, payload) => {
     setActivePage(page);
     setNavPayload(payload || null);
-  }
+  }, []);
+
+  const { pendingNav, registerDirtyGuard, handleNavigate, confirmNav, cancelNav } = useDirtyNavGuard(navigateNow);
 
   function dismissOnboarding() {
     localStorage.setItem(LS_ONBOARDING_DISMISSED, "1");
@@ -270,12 +273,23 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             user={user}
             toast={toast}
             onNavigate={handleNavigate}
+            onRegisterDirtyGuard={registerDirtyGuard}
             onSave={() => toast.success("Settings saved")}
             initialAuditId={activePage === "trace_view" ? navPayload : undefined}
             initialRiskId={activePage === "ai_insights" ? navPayload : undefined}
           />
         </Suspense>
       </main>
+
+      <ConfirmDialog
+        open={!!pendingNav}
+        title="Discard unsaved changes?"
+        description="You have unsaved changes. If you leave now, your edits will be lost."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        onConfirm={confirmNav}
+        onCancel={cancelNav}
+      />
     </div>
   );
 }
