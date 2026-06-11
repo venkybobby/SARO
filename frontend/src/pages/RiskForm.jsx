@@ -50,13 +50,35 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
       .finally(() => setLoading(false));
   }, [token, riskId, isEdit]);
 
-  function validate() {
+  function validate(field) {
+    const checks = {
+      title:   () => !form.title.trim()   ? "Title is required"    : null,
+      owner:   () => !form.owner.trim()   ? "Owner is required"     : null,
+      dueDate: () => !form.dueDate        ? "Due date is required"  : null,
+    };
+
+    if (field) {
+      if (!checks[field]) return true;
+      const message = checks[field]();
+      setErrors((prev) => {
+        const next = { ...prev };
+        if (message) next[field] = message; else delete next[field];
+        return next;
+      });
+      return !message;
+    }
+
     const e = {};
-    if (!form.title.trim())   e.title = "Title is required";
-    if (!form.owner.trim())   e.owner = "Owner is required";
-    if (!form.dueDate)        e.dueDate = "Due date is required";
+    for (const key of Object.keys(checks)) {
+      const message = checks[key]();
+      if (message) e[key] = message;
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
+  }
+
+  function handleFieldBlur(field) {
+    return () => validate(field);
   }
 
   async function handleSubmit(e) {
@@ -132,8 +154,14 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
                 Title <span style={{ color: "var(--color-critical)" }}>*</span>
               </label>
-              <input {...field("title")} placeholder="Describe the risk…" style={inputStyle(errors.title)} />
-              {errors.title && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.title}</div>}
+              <input
+                {...field("title")}
+                onBlur={handleFieldBlur("title")}
+                placeholder="Describe the risk…"
+                style={inputStyle(errors.title)}
+                aria-describedby={errors.title ? "title-error" : undefined}
+              />
+              {errors.title && <div id="title-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.title}</div>}
             </div>
 
             {/* Description */}
@@ -171,15 +199,27 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
                   Owner <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
-                <input {...field("owner")} placeholder="Name or email…" style={inputStyle(errors.owner)} />
-                {errors.owner && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.owner}</div>}
+                <input
+                  {...field("owner")}
+                  onBlur={handleFieldBlur("owner")}
+                  placeholder="Name or email…"
+                  style={inputStyle(errors.owner)}
+                  aria-describedby={errors.owner ? "owner-error" : undefined}
+                />
+                {errors.owner && <div id="owner-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.owner}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
                   Due Date <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
-                <input type="date" {...field("dueDate")} style={inputStyle(errors.dueDate)} />
-                {errors.dueDate && <div style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.dueDate}</div>}
+                <input
+                  type="date"
+                  {...field("dueDate")}
+                  onBlur={handleFieldBlur("dueDate")}
+                  style={inputStyle(errors.dueDate)}
+                  aria-describedby={errors.dueDate ? "dueDate-error" : undefined}
+                />
+                {errors.dueDate && <div id="dueDate-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.dueDate}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 140 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>Status</label>
