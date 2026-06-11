@@ -16,13 +16,13 @@ const MATRIX_ROWS = [
 ];
 
 const EVF_STATUS = [
-  { framework: "EU AI Act",      scope: "Arts. 9, 13, 17 evidence support only", status: "Internal Review Only", tier: "tier_3" },
-  { framework: "NIST AI RMF 1.0",scope: "Govern, Map, Measure subcategory coverage", status: "Internal Review Only", tier: "tier_3" },
-  { framework: "AIGP",           scope: "Principles evaluation framework only", status: "Internal Review Only", tier: "tier_3" },
-  { framework: "ISO 42001",      scope: "Document lifecycle linking and control objective support", status: "Internal Review Only", tier: "tier_3" },
+  { framework: "EU AI Act",      section: "eu-ai-act",   scope: "Arts. 9, 13, 17 evidence support only", status: "Internal Review Only", tier: "tier_3" },
+  { framework: "NIST AI RMF 1.0",section: "nist-ai-rmf", scope: "Govern, Map, Measure subcategory coverage", status: "Internal Review Only", tier: "tier_3" },
+  { framework: "AIGP",           section: "aigp",        scope: "Principles evaluation framework only", status: "Internal Review Only", tier: "tier_3" },
+  { framework: "ISO 42001",      section: "iso-42001",   scope: "Document lifecycle linking and control objective support", status: "Internal Review Only", tier: "tier_3" },
 ];
 
-export default function ClaimsMatrix({ token }) {
+export default function ClaimsMatrix({ token, initialSection }) {
   const [liveData, setLiveData] = useState(null);
 
   useEffect(() => {
@@ -32,6 +32,12 @@ export default function ClaimsMatrix({ token }) {
       .then((d) => { if (d) setLiveData(d); })
       .catch(() => {});
   }, [token]);
+
+  // STORY-003 AC-2: deep-link from an AI insight to the framework's row.
+  useEffect(() => {
+    if (!initialSection) return;
+    document.getElementById(`framework-${initialSection}`)?.scrollIntoView?.({ block: "center" });
+  }, [initialSection]);
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1100 }}>
@@ -86,7 +92,15 @@ export default function ClaimsMatrix({ token }) {
           </thead>
           <tbody>
             {EVF_STATUS.map((row, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+              <tr
+                key={i}
+                id={`framework-${row.section}`}
+                data-highlighted={initialSection === row.section ? "true" : undefined}
+                style={{
+                  borderBottom: "1px solid #f3f4f6",
+                  background: initialSection === row.section ? "#eff6ff" : undefined,
+                }}
+              >
                 <td style={{ padding: "10px 12px", fontWeight: 600 }}>{row.framework}</td>
                 <td style={{ padding: "10px 12px", color: "#6b7280" }}>{row.scope}</td>
                 <td style={{ padding: "10px 12px" }}>

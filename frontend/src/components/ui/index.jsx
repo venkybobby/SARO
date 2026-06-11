@@ -62,7 +62,7 @@ const BTN_SIZES = {
   lg: { padding: "10px 20px", fontSize: "var(--text-md)" },
 };
 
-export function Button({ variant = "primary", size = "md", loading, disabled, children, onClick, type = "button", style, className }) {
+export function Button({ variant = "primary", size = "md", loading, disabled, children, onClick, type = "button", style, className, ariaLabel }) {
   const v = BTN_VARIANTS[variant] || BTN_VARIANTS.primary;
   const sz = BTN_SIZES[size] || BTN_SIZES.md;
   const [hovered, setHovered] = useState(false);
@@ -71,6 +71,7 @@ export function Button({ variant = "primary", size = "md", loading, disabled, ch
   return (
     <button
       type={type}
+      aria-label={ariaLabel}
       className={`btn ${className || ""}`}
       disabled={isDisabled}
       onClick={onClick}
