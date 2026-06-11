@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, Save } from "lucide-react";
-import { Button, PageHeader } from "../components/ui/index.jsx";
+import { Button, PageHeader, ConfirmDialog } from "../components/ui/index.jsx";
 
 const CATEGORIES = ["Data Security", "AI Quality", "Compliance", "Governance", "AI Ethics"];
 const SEVERITIES = ["critical", "high", "medium", "low"];
@@ -20,12 +20,14 @@ const EMPTY_FORM = {
   description: "",
 };
 
-export default function RiskForm({ token, riskId, onNavigate, toast }) {
+export default function RiskForm({ token, riskId, onNavigate, onRegisterDirtyGuard, toast }) {
   const isEdit = !!riskId;
   const [form,    setForm]    = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(isEdit);
   const [saving,  setSaving]  = useState(false);
   const [errors,  setErrors]  = useState({});
+  const [isDirty, setIsDirty] = useState(false);
+  const [pendingNav, setPendingNav] = useState(null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -49,6 +51,36 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token, riskId, isEdit]);
+
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  // Register a guard so App-level navigation (e.g. sidebar links) can
+  // confirm before discarding unsaved changes (AC-2).
+  useEffect(() => {
+    onRegisterDirtyGuard?.(() => isDirty);
+    return () => onRegisterDirtyGuard?.(null);
+  }, [isDirty, onRegisterDirtyGuard]);
+
+  function navigateTo(page, payload) {
+    if (payload === undefined) onNavigate?.(page);
+    else onNavigate?.(page, payload);
+  }
+
+  function guardedNavigate(page, payload) {
+    if (isDirty) {
+      setPendingNav({ page, payload });
+    } else {
+      navigateTo(page, payload);
+    }
+  }
 
   function validate(field) {
     const checks = {
@@ -96,6 +128,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
       // Accept 200/201 or graceful degradation if endpoint not yet implemented
       if (r.ok || r.status === 404 || r.status === 405) {
         toast?.success(isEdit ? "Risk updated" : "Risk created — human review required before any action");
+        setIsDirty(false);
         onNavigate?.("risk_register");
       } else {
         const d = await r.json().catch(() => ({}));
@@ -111,13 +144,18 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
   function field(key) {
     return {
       value: form[key],
-      onChange: (e) => { setForm((p) => ({ ...p, [key]: e.target.value })); setErrors((p) => { const n = {...p}; delete n[key]; return n; }); },
+      onChange: (e) => {
+        const value = e.target.value;
+        setForm((p) => ({ ...p, [key]: value }));
+        setErrors((p) => { const n = {...p}; delete n[key]; return n; });
+        setIsDirty(true);
+      },
     };
   }
 
   const inputStyle = (hasErr) => ({
     width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 13,
-    border: `1px solid ${hasErr ? "#fca5a5" : "#d1d5db"}`,
+    border: `1px solid ${hasErr ? "var(--color-critical)" : "var(--color-border-default)"}`,
     background: "var(--color-bg-elevated)", color: "var(--color-text-primary)",
     fontFamily: "var(--font-body)", boxSizing: "border-box",
   });
@@ -131,7 +169,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
         subtitle={isEdit ? "Update risk details" : "Add a new risk to the register"}
         breadcrumb={
           <>
-            <span style={{ cursor: "pointer", color: "var(--color-info)" }} onClick={() => onNavigate?.("risk_register")}>
+            <span style={{ cursor: "pointer", color: "var(--color-info)" }} onClick={() => guardedNavigate("risk_register")}>
               Risk Register
             </span>
             <span style={{ color: "var(--color-text-muted)" }}> › </span>
@@ -139,7 +177,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
           </>
         }
         actions={
-          <Button variant="ghost" size="sm" onClick={() => onNavigate?.("risk_register")}>
+          <Button variant="ghost" size="sm" onClick={() => guardedNavigate("risk_register")}>
             <ArrowLeft size={14} /> Back
           </Button>
         }
@@ -152,7 +190,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
             {/* Title */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                Title <span style={{ color: "#ef4444" }}>*</span>
+                Title <span style={{ color: "var(--color-critical)" }}>*</span>
               </label>
               <input
                 {...field("title")}
@@ -161,7 +199,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
                 style={inputStyle(errors.title)}
                 aria-describedby={errors.title ? "title-error" : undefined}
               />
-              {errors.title && <div id="title-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.title}</div>}
+              {errors.title && <div id="title-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.title}</div>}
             </div>
 
             {/* Description */}
@@ -197,7 +235,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
             <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                  Owner <span style={{ color: "#ef4444" }}>*</span>
+                  Owner <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
                 <input
                   {...field("owner")}
@@ -206,11 +244,11 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
                   style={inputStyle(errors.owner)}
                   aria-describedby={errors.owner ? "owner-error" : undefined}
                 />
-                {errors.owner && <div id="owner-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.owner}</div>}
+                {errors.owner && <div id="owner-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.owner}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>
-                  Due Date <span style={{ color: "#ef4444" }}>*</span>
+                  Due Date <span style={{ color: "var(--color-critical)" }}>*</span>
                 </label>
                 <input
                   type="date"
@@ -219,7 +257,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
                   style={inputStyle(errors.dueDate)}
                   aria-describedby={errors.dueDate ? "dueDate-error" : undefined}
                 />
-                {errors.dueDate && <div id="dueDate-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.dueDate}</div>}
+                {errors.dueDate && <div id="dueDate-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.dueDate}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 140 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--color-text-primary)" }}>Status</label>
@@ -233,7 +271,7 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
               <Button type="submit" variant="primary" size="sm" disabled={saving}>
                 <Save size={13} /> {saving ? "Saving…" : isEdit ? "Update Risk" : "Create Risk"}
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => onNavigate?.("risk_register")}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => guardedNavigate("risk_register")}>
                 Cancel
               </Button>
               <span style={{ fontSize: 11, color: "var(--color-text-muted)", marginLeft: "auto", minWidth: 200, flexShrink: 0 }}>
@@ -243,6 +281,21 @@ export default function RiskForm({ token, riskId, onNavigate, toast }) {
           </div>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingNav}
+        title="Discard unsaved changes?"
+        description="You have unsaved changes. If you leave now, your edits will be lost."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          const nav = pendingNav;
+          setPendingNav(null);
+          setIsDirty(false);
+          navigateTo(nav.page, nav.payload);
+        }}
+        onCancel={() => setPendingNav(null)}
+      />
     </div>
   );
 }
