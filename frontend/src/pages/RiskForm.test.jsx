@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -6,8 +5,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RiskForm from "./RiskForm";
 
-beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })));
 const SOURCE_PATH = path.resolve(__dirname, "./RiskForm.jsx");
 
 const EXISTING_RISK = {
@@ -232,6 +229,9 @@ describe("RiskForm action row layout (STORY-RISKFORM-004)", () => {
 
     expect(row.style.flexWrap).toBe("wrap");
     expect(row.contains(saveButton)).toBe(true);
+  });
+});
+
 describe("RiskForm — unsaved changes guard (STORY-RISKFORM-003)", () => {
   it("AC-1: dirty form + Cancel shows 'Discard unsaved changes?' confirmation", async () => {
     const user = userEvent.setup();
