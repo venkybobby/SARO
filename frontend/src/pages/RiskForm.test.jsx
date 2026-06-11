@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -5,6 +6,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RiskForm from "./RiskForm";
 
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]) })));
 const SOURCE_PATH = path.resolve(__dirname, "./RiskForm.jsx");
 
 const EXISTING_RISK = {
