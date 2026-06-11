@@ -187,6 +187,48 @@ describe("RiskForm — onBlur field validation (STORY-RISKFORM-001)", () => {
   });
 });
 
+function getActionRow() {
+  const disclaimer = screen.getByText(/Human review required before any action is taken on this risk\./i);
+  return { disclaimer, row: disclaimer.parentElement };
+}
+
+describe("RiskForm action row layout (STORY-RISKFORM-004)", () => {
+  it("AC-1/AC-3/AC-4: action row uses flex-wrap so it reflows on narrow/constrained widths", () => {
+    render(<RiskForm token="t" onNavigate={() => {}} toast={{}} />);
+
+    const { row } = getActionRow();
+    expect(row.style.display).toBe("flex");
+    expect(row.style.flexWrap).toBe("wrap");
+    expect(row.style.gap).toBeTruthy();
+  });
+
+  it("AC-2: Save and Cancel buttons sit in the same row container as the disclaimer", () => {
+    render(<RiskForm token="t" onNavigate={() => {}} toast={{}} />);
+
+    const { row, disclaimer } = getActionRow();
+    const saveButton = screen.getByRole("button", { name: /Create Risk/i });
+    const cancelButton = screen.getByRole("button", { name: /Cancel/i });
+
+    expect(row.contains(saveButton)).toBe(true);
+    expect(row.contains(cancelButton)).toBe(true);
+    expect(row.contains(disclaimer)).toBe(true);
+  });
+
+  it("disclaimer text is allowed to wrap onto multiple lines (no forced single line)", () => {
+    render(<RiskForm token="t" onNavigate={() => {}} toast={{}} />);
+
+    const { disclaimer } = getActionRow();
+    expect(disclaimer.style.whiteSpace).not.toBe("nowrap");
+  });
+
+  it("edge case: a disabled Save button does not break the action row layout", () => {
+    render(<RiskForm token="t" onNavigate={() => {}} toast={{}} />);
+
+    const { row } = getActionRow();
+    const saveButton = screen.getByRole("button", { name: /Create Risk/i });
+
+    expect(row.style.flexWrap).toBe("wrap");
+    expect(row.contains(saveButton)).toBe(true);
 describe("RiskForm — unsaved changes guard (STORY-RISKFORM-003)", () => {
   it("AC-1: dirty form + Cancel shows 'Discard unsaved changes?' confirmation", async () => {
     const user = userEvent.setup();

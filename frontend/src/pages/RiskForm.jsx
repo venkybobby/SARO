@@ -267,14 +267,14 @@ export default function RiskForm({ token, riskId, onNavigate, onRegisterDirtyGua
               </div>
             </div>
 
-            <div style={{ paddingTop: 8, borderTop: "1px solid var(--color-border-subtle)", display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ paddingTop: 8, borderTop: "1px solid var(--color-border-subtle)", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <Button type="submit" variant="primary" size="sm" disabled={saving}>
                 <Save size={13} /> {saving ? "Saving…" : isEdit ? "Update Risk" : "Create Risk"}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => guardedNavigate("risk_register")}>
                 Cancel
               </Button>
-              <span style={{ fontSize: 11, color: "var(--color-text-muted)", marginLeft: "auto" }}>
+              <span style={{ fontSize: 11, color: "var(--color-text-muted)", marginLeft: "auto", minWidth: 200, flexShrink: 0 }}>
                 Human review required before any action is taken on this risk.
               </span>
             </div>

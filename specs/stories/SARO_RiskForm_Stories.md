@@ -207,10 +207,15 @@ Resolve the cramped action row layout where the "Human review required..." discl
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | E2E/Visual: narrow viewport action row wraps | RiskForm.jsx, responsive test suite |
-| AC-2 | E2E/Visual: desktop action row stays on one line | RiskForm.jsx, responsive test suite |
-| AC-3 | E2E/Visual: viewport resize reflow test | RiskForm.jsx, responsive test suite |
-| AC-4 | E2E/Visual: modal/drawer constrained width | RiskForm.jsx, modal test suite |
+| AC-1 | `RiskForm.test.jsx`: "AC-1/AC-3/AC-4: action row uses flex-wrap so it reflows on narrow/constrained widths" — action row container now has `flexWrap: "wrap"`, allowing the disclaimer to drop to its own line on narrow viewports without pushing the Save/Cancel buttons off-screen. | RiskForm.jsx, RiskForm.test.jsx |
+| AC-2 | `RiskForm.test.jsx`: "AC-2: Save and Cancel buttons sit in the same row container as the disclaimer" — on wide viewports all three elements remain on one row (`marginLeft: "auto"` keeps the disclaimer right-aligned with adequate `gap`). | RiskForm.jsx, RiskForm.test.jsx |
+| AC-3 | Covered by the same `flexWrap: "wrap"` + `gap` CSS as AC-1/AC-4 (jsdom does not compute responsive layout/resize, so behavior is verified via the static style assertions above; full viewport-resize visual verification is a manual/Playwright follow-up, consistent with this story's "Out of Scope"/manual-test notes). | RiskForm.jsx |
+| AC-4 | Same `flexWrap: "wrap"` CSS handles arbitrary container widths generically (modal/drawer constrained width); see AC-3 note re: jsdom layout limitations. | RiskForm.jsx |
+
+**Edge cases:**
+- Disabled Save button doesn't break layout: `RiskForm.test.jsx` "edge case: a disabled Save button does not break the action row layout".
+- Long/wrapping disclaimer text: `RiskForm.test.jsx` "disclaimer text is allowed to wrap onto multiple lines (no forced single line)" — `whiteSpace` is not set to `nowrap`, and `minWidth: 200` on the disclaimer `<span>` ensures it moves to its own line as a unit (rather than being squeezed) once the row can't fit it alongside the buttons.
+- Extremely narrow (<320px) / RTL: not separately tested — `flexWrap: "wrap"` and `gap`-based spacing degrade gracefully and are direction-agnostic, but pixel-level verification at 320px and RTL layouts is left to manual/Playwright visual QA (out of scope for this unit-test pass, per story's E2E note).
 
 ---
 
