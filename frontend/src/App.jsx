@@ -62,6 +62,9 @@ const PAGE_COMPONENTS = {
   evf_admin:        EvfAdmin,
   admin_settings:   AdminSettings,
   // demo_requests removed — STORY-016
+  // FND-007: risk_detail was navigated to (RiskRegister, AIInsights) but never
+  // registered here, so it silently fell through to Dashboard.
+  risk_detail:      RiskDetail,
   ai_insights:      AIInsights,
   reports:          Reports,
   settings:         Settings,
@@ -277,6 +280,21 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             onSave={() => toast.success("Settings saved")}
             initialAuditId={activePage === "trace_view" ? navPayload : undefined}
             initialRiskId={activePage === "ai_insights" ? navPayload : undefined}
+            riskId={
+              activePage === "risk_detail"
+                ? (typeof navPayload === "object" && navPayload !== null ? navPayload.riskId : navPayload)
+                : undefined
+            }
+            suggestedRemediation={
+              activePage === "risk_detail" && typeof navPayload === "object" && navPayload !== null
+                ? navPayload.suggestedRemediation
+                : undefined
+            }
+            initialSection={
+              activePage === "claims_matrix" && typeof navPayload === "object" && navPayload !== null
+                ? navPayload.section
+                : undefined
+            }
           />
         </Suspense>
       </main>

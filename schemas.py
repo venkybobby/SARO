@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -958,3 +958,28 @@ class RiskBulkActionIn(BaseModel):
         if any(not item.strip() for item in v):
             raise ValueError("ids must not contain blank values")
         return v
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Insights
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class InsightActionIn(BaseModel):
+    """User decision on an AI insight (accept / snooze / dismiss).
+
+    Accepting a suggestion requires an explicit human-review acknowledgement
+    (confirm_human_review=True) — SARO suggestions are advisory only and
+    never auto-applied (COMPLIANCE_CLAIMS_MATRIX: human validation required).
+    """
+    action: Literal["accepted", "snoozed", "dismissed"]
+    confirm_human_review: bool = False
+
+    @model_validator(mode="after")
+    def _accept_requires_ack(self) -> "InsightActionIn":
+        if self.action == "accepted" and not self.confirm_human_review:
+            raise ValueError(
+                "Applying a suggestion requires confirm_human_review=true "
+                "(recommended remediation — human validation required)"
+            )
+        return self

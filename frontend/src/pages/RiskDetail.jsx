@@ -15,12 +15,13 @@ const SCORE_BANDS = [
   { max: 101, label: "Critical", color: "#dc2626" },
 ];
 
-export default function RiskDetail({ token, riskId, onNavigate }) {
+export default function RiskDetail({ token, riskId, onNavigate, suggestedRemediation }) {
   const [risk,       setRisk]       = useState(null);
   const [traces,     setTraces]     = useState([]);
   const [remediation,setRemediation]= useState([]);
   const [loading,    setLoading]    = useState(true);
-  const [activeTab,  setActiveTab]  = useState("Details");
+  // STORY-002 AC-2: arriving with a suggested remediation opens that tab directly.
+  const [activeTab,  setActiveTab]  = useState(suggestedRemediation ? "Remediation" : "Details");
 
   useEffect(() => {
     if (!riskId) return;
@@ -224,6 +225,30 @@ export default function RiskDetail({ token, riskId, onNavigate }) {
         {/* ── Remediation tab ── */}
         {activeTab === "Remediation" && (
           <div>
+            {/* STORY-002 AC-2: remediation suggested by an AI insight is
+                highlighted for the human reviewer to validate */}
+            {suggestedRemediation && (
+              <div
+                data-testid="suggested-remediation"
+                style={{
+                  background: "var(--color-ai-bg)", border: "1px solid var(--color-ai-border)",
+                  borderRadius: 8, padding: 16, marginBottom: 14,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Sparkles size={14} style={{ color: "var(--color-ai)" }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-ai)" }}>
+                    Suggested by SARO
+                  </span>
+                </div>
+                <p style={{ fontSize: 13, color: "var(--color-text-primary)", margin: 0 }}>
+                  {suggestedRemediation}
+                </p>
+                <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 6 }}>
+                  Recommended remediation — human validation required
+                </div>
+              </div>
+            )}
             {remediation.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 0", color: "var(--color-text-muted)", fontSize: 14 }}>
                 <CheckCircle size={32} style={{ opacity: 0.3, marginBottom: 8 }} />

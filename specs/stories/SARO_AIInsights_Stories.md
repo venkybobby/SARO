@@ -1,6 +1,6 @@
 # STORY-001: Wire AI Insights to Backend Data Service
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Data Wiring
 
 ## Goal
@@ -31,16 +31,18 @@ AI Insights screen fetches real compliance-scoring insights from the backend API
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_insights_api_fetch_on_mount | AIInsights.jsx, api/insightsService.ts |
-| AC-2 | test_insights_render_api_data | AIInsights.jsx, InsightCard.jsx |
-| AC-3 | test_insights_error_state, test_insights_timeout | AIInsights.jsx, ErrorBoundary |
-| AC-4 | test_insights_data_refresh_on_unmount | AIInsights.jsx, useEffect hook |
+| AC-1 | "AC-1: fetches insights on mount with the current risk context" (AIInsights.test.jsx); "calls /api/v1/insights with bearer token" (insightsService.test.js); TestListInsights.test_risk_id_filter (tests/test_insights_api.py) | frontend/src/pages/AIInsights.jsx, frontend/src/api/insightsService.js, routers/insights.py, services/insights_service.py |
+| AC-2 | "AC-2: renders real API fields on the card"; "AC-2: no hardcoded mock data remains"; TestListInsights.test_returns_derived_insights_with_required_fields | frontend/src/pages/AIInsights.jsx, routers/insights.py |
+| AC-3 | "AC-3: API error shows an error state with retry"; "AC-3: timeout shows a timeout message"; "aborts after the timeout and flags timedOut" (insightsService.test.js) | frontend/src/pages/AIInsights.jsx, frontend/src/api/insightsService.js |
+| AC-4 | "AC-4: a fresh fetch happens on every mount" | frontend/src/pages/AIInsights.jsx |
+
+Edge/NFR: empty-array → "edge: empty array shows the empty state"; no-confidence insights dropped server-side (TestListInsights.test_insight_without_confidence_excluded) and client-side ("drops insights missing confidence context and logs"); `_traceability` metadata (TestListInsights.test_traceability_metadata_present). Backend: `GET /api/v1/insights` (routers/insights.py, migration 021).
 
 ---
 
 # STORY-002: Implement Apply Suggestion Action
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Suggestion Actions
 
 ## Goal
@@ -72,16 +74,18 @@ User can apply an AI suggestion to a risk, triggering a clear, trackable action 
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_apply_suggestion_navigation | AIInsights.jsx, InsightCard.jsx |
-| AC-2 | test_risk_detail_prefill_remediation | RiskDetail.jsx, useQueryParams hook |
-| AC-3 | test_audit_event_apply_suggestion | api/auditService.ts, backend logs |
-| AC-4 | test_insight_status_update_after_apply | AIInsights.jsx, useEffect / data refresh |
+| AC-1 | "AC-1: confirming navigates to risk detail with the suggested remediation" | frontend/src/pages/AIInsights.jsx, frontend/src/App.jsx (risk_detail wiring, FND-007) |
+| AC-2 | "opens the Remediation tab and highlights the suggestion" (RiskDetail.test.jsx) | frontend/src/pages/RiskDetail.jsx |
+| AC-3 | TestInsightAction.test_apply_records_audit_event (tests/test_insights_api.py); "AC-3: the action posts with human-review acknowledgement" | routers/insights.py (AuditEvent row), frontend/src/api/insightsService.js |
+| AC-4 | "AC-4: status flips to accepted and a confirmation message shows"; TestInsightAction.test_status_persists_into_listing | frontend/src/pages/AIInsights.jsx, routers/insights.py, models.py (InsightAction), migrations/021_create_insight_actions.sql |
+
+Edge: deleted risk → TestInsightAction.test_unknown_insight_404 + "edge: deleted risk (404)…"; permission → TestInsightAction.test_read_only_persona_403 + "edge: permission denied (403)…"; parallel applies → TestInsightAction.test_repeat_action_last_write_wins (last write wins). Navigation adapted to the app's state-based `onNavigate("risk_detail", payload)` — no URL routing exists for pages.
 
 ---
 
 # STORY-003: Link Framework Reference to Actual Documentation
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Navigation / Framework Reference
 
 ## Goal
@@ -113,16 +117,18 @@ User can apply an AI suggestion to a risk, triggering a clear, trackable action 
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_framework_reference_navigation | AIInsights.jsx, InsightCard.jsx, onNavigate handler |
-| AC-2 | test_framework_deep_link_generation | utils/frameworkLinks.ts, InsightCard.jsx |
-| AC-3 | test_framework_reference_hidden_when_no_target | InsightCard.jsx, conditional render |
-| AC-4 | test_ai_insights_state_preserved_after_nav | AIInsights.jsx, useContext / state persistence |
+| AC-1 | "AC-1/AC-2: clicking the link navigates to the claims matrix section" (AIInsights.test.jsx) | frontend/src/pages/AIInsights.jsx, frontend/src/utils/frameworkLinks.js |
+| AC-2 | frameworkLinks.test.js (all mappings, "maps %s to a claims_matrix section") | frontend/src/utils/frameworkLinks.js, frontend/src/pages/ClaimsMatrix.jsx (row anchors + highlight), frontend/src/App.jsx (initialSection) |
+| AC-3 | "AC-3: no framework → no reference link rendered"; "AC-3: unmapped framework → disabled link with explanatory tooltip" | frontend/src/pages/AIInsights.jsx |
+| AC-4 | Statuses persist server-side (TestInsightAction.test_status_persists_into_listing) and a fresh fetch restores them on return; scroll position restored via module-scoped save (handleViewFramework/load) | frontend/src/pages/AIInsights.jsx, routers/insights.py |
+
+NFR: explicit "View [Framework] reference" labels ("labels use explicit action text", frameworkLinks.test.js); clicks logged with user/insight/framework/timestamp (handleViewFramework). Insights only ever link to the Claims Matrix (validated claims), never internal reasoning (SME validation requirement).
 
 ---
 
 # STORY-004: Add Human Review Framing to AI Suggestions
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Compliance Messaging
 
 ## Goal
@@ -155,16 +161,18 @@ Each AI suggestion carries a compliance-required disclaimer ("Recommended remedi
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_disclaimer_visible_on_insight_card | InsightCard.jsx, render test |
-| AC-2 | test_disclaimer_tooltip_on_hover | InsightCard.jsx, Tooltip component test |
-| AC-3 | test_apply_confirmation_shows_disclaimer | ApplyConfirmation.jsx / modal test |
-| AC-4 | test_disclaimer_visible_at_high_confidence | InsightCard.jsx, confidence > 90 test |
+| AC-1 | "AC-1: the exact ClaimsMatrix disclaimer appears on every card with remediation" | frontend/src/pages/AIInsights.jsx (HumanReviewDisclaimer) |
+| AC-2 | "AC-2: the explainer is available on interaction" | frontend/src/pages/AIInsights.jsx |
+| AC-3 | "AC-3: applying opens a confirmation restating the requirement"; backend enforcement TestInsightAction.test_apply_without_human_review_ack_rejected | frontend/src/pages/AIInsights.jsx (ConfirmDialog), schemas.py (InsightActionIn) |
+| AC-4 | "AC-4: disclaimer is equally present at >90% confidence" | frontend/src/pages/AIInsights.jsx |
+
+Edge: no-remediation reframe ("edge: insights without remediation reframe the disclaimer"); read-only auditor ("edge: read-only auditor persona sees the disclaimer but cannot act" + TestInsightAction.test_read_only_persona_403). NFR: exact COMPLIANCE_CLAIMS_MATRIX wording (DISCLAIMER_TEXT constant), warning color (var(--color-medium), never green), audit trail records human_review_acknowledged (TestInsightAction.test_apply_records_audit_event). i18n out of scope — no i18n infrastructure exists.
 
 ---
 
 # STORY-005: Tie AI Loading State to Real Data Fetch
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Loading State / UX
 
 ## Goal
@@ -197,17 +205,19 @@ The "AI is thinking" loading indicator reflects actual backend response time, st
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_loading_state_starts_with_fetch | AIInsights.jsx, useEffect test |
-| AC-2 | test_loading_state_ends_on_data_arrival | AIInsights.jsx, promise resolution test |
-| AC-3 | test_loading_duration_matches_network_time | integration test with mock server delay |
-| AC-4 | test_fast_response_clears_loading_quickly | AIInsights.jsx, <100ms response test |
-| AC-5 | test_loading_cleared_on_fetch_error | AIInsights.jsx, error handling test |
+| AC-1 | "AC-1: loading shows immediately when the fetch starts" | frontend/src/pages/AIInsights.jsx |
+| AC-2 | "AC-2/AC-4: loading clears the moment data arrives — no fixed delay" | frontend/src/pages/AIInsights.jsx |
+| AC-3 | "AC-3: loading persists exactly while the request is in flight" (deferred-promise test) | frontend/src/pages/AIInsights.jsx |
+| AC-4 | covered by the AC-2/AC-4 test (promise resolution clears loading with no timer) | frontend/src/pages/AIInsights.jsx |
+| AC-5 | "AC-5: loading clears on fetch error" | frontend/src/pages/AIInsights.jsx |
+
+Edge/NFR: 10s timeout ("aborts after the timeout and flags timedOut", insightsService.test.js); in-flight abort on unmount/refetch (AbortController in load()); honest label + no artificial delay pinned by source assertion ("NFR: no artificial setTimeout delay remains and the label is honest"); empty-but-valid response shows empty state, not error.
 
 ---
 
 # STORY-006: Optimize Filter Tab Discoverability
 
-**Status:** ready
+**Status:** done — implemented on `story/SARO_AIInsights_Stories` (2026-06-11)
 **Screen/Area:** AI Insights / Filter Tabs
 
 ## Goal
@@ -239,7 +249,9 @@ Filter tabs with zero insights (0 count) are visually de-emphasized or hidden so
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
-| AC-1 | test_empty_tabs_styled_with_reduced_opacity | AIInsights.jsx, CSS test |
-| AC-2 | test_active_tab_emphasized_visually | AIInsights.jsx, active tab styling |
-| AC-3 | test_empty_tab_tooltip_on_hover | FilterTabs.jsx, Tooltip test |
-| AC-4 | test_tab_styling_updates_when_insights_change | AIInsights.jsx, state update test |
+| AC-1 | "AC-1: zero-count tabs are de-emphasized" (opacity 0.55 + muted color + aria-label) | frontend/src/pages/AIInsights.jsx |
+| AC-2 | "AC-2: the populated active tab stands out" (aria-current, full opacity, semibold) | frontend/src/pages/AIInsights.jsx |
+| AC-3 | "AC-3: empty tabs carry the tooltip" (title="No items in this category") | frontend/src/pages/AIInsights.jsx |
+| AC-4 | "AC-4: styling updates when an insight changes state" | frontend/src/pages/AIInsights.jsx |
+
+Edge/NFR: all-tabs-empty renders normally ("edge: when everything is empty, tabs render normally"); 44px touch targets kept when de-emphasized ("NFR: touch targets keep a 44px minimum height"); de-emphasis is never opacity alone (aria-label carries the state for screen readers).

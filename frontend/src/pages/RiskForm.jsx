@@ -199,7 +199,6 @@ export default function RiskForm({ token, riskId, onNavigate, onRegisterDirtyGua
                 style={inputStyle(errors.title)}
                 aria-describedby={errors.title ? "title-error" : undefined}
               />
-              {errors.title && <div id="title-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.title}</div>}
               {errors.title && <div id="title-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.title}</div>}
             </div>
 
@@ -245,7 +244,6 @@ export default function RiskForm({ token, riskId, onNavigate, onRegisterDirtyGua
                   style={inputStyle(errors.owner)}
                   aria-describedby={errors.owner ? "owner-error" : undefined}
                 />
-                {errors.owner && <div id="owner-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.owner}</div>}
                 {errors.owner && <div id="owner-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.owner}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
@@ -259,7 +257,6 @@ export default function RiskForm({ token, riskId, onNavigate, onRegisterDirtyGua
                   style={inputStyle(errors.dueDate)}
                   aria-describedby={errors.dueDate ? "dueDate-error" : undefined}
                 />
-                {errors.dueDate && <div id="dueDate-error" style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{errors.dueDate}</div>}
                 {errors.dueDate && <div id="dueDate-error" style={{ fontSize: 11, color: "var(--color-critical)", marginTop: 4 }}>{errors.dueDate}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 140 }}>

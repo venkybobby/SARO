@@ -202,6 +202,35 @@ class RiskMetadata(Base):
     )
 
 
+class InsightAction(Base):
+    """
+    1:1 extension of Audit persisting the user's decision on an AI insight.
+
+    Insights themselves are derived read-only from Audit + ScanReport +
+    AuditTrace at request time (see routers/insights.py) and are never stored;
+    only the reviewer's accept / snooze / dismiss decision lives here.
+    Every status change also appends an immutable AuditEvent row.
+    """
+    __tablename__ = "insight_actions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # status: "accepted" | "snoozed" | "dismissed" (absence of a row = "active")
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    acted_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AuditTrace(Base):
     """
     Granular trace record for each check performed during an audit.
