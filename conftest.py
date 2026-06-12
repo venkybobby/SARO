@@ -16,6 +16,14 @@ run after this fixture's setup); nothing leaks out (restore runs after theirs).
 """
 from __future__ import annotations
 
+import os
+
+# Self-contained test defaults — set BEFORE config.Settings() is instantiated so the
+# settings singleton captures them. setdefault means a real env var (CI) always wins.
+# The suite must pass with no external secrets configured (e.g. the Stop-hook runner).
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-conftest-local-only-0123456789abcdef")
+os.environ.setdefault("SARO_ENV", "test")
+
 import sqlalchemy.types as sa_types
 from sqlalchemy.dialects.postgresql import JSON as PG_JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -79,8 +87,11 @@ def _isolate_dependency_overrides():
         yield
         return
     snapshot = dict(app.dependency_overrides)
-    # Guarantee get_db never falls through to the real (unconfigured) database.
-    app.dependency_overrides.setdefault(get_db, _default_get_db)
+    # Only install the SQLite default when no real database is configured. In CI
+    # (DATABASE_URL set), tests that don't override get_db must exercise real Postgres,
+    # not a masked in-memory SQLite — see reviewer Should-fix.
+    if not settings.database_url:
+        app.dependency_overrides.setdefault(get_db, _default_get_db)
     try:
         yield
     finally:

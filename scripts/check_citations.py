@@ -29,8 +29,13 @@ _FORBIDDEN_SAMPLE_CITATION = re.compile(
     r"|(EU AI Act Art\.?\s*10|NIST MAP 2\.3|MAP 2\.3).{0,80}(sample|minimum)",
     re.IGNORECASE,
 )
-# A disclaimer explicitly *denies* the attribution — that is the corrected language we want.
-_DISCLAIMER = re.compile(r"\b(not|no|never|isn't|set no|internal SARO methodology)\b", re.IGNORECASE)
+# A disclaimer explicitly *denies* the attribution with a corrective phrase — that is the
+# language we want. Requiring the corrective phrase (not a bare "no"/"not") avoids exempting
+# a real misattribution that merely happens to contain an unrelated negation.
+_DISCLAIMER = re.compile(
+    r"set[s]? no|no batch|NOT\b|not a regulatory|internal SARO methodology|internal statistical",
+    re.IGNORECASE,
+)
 
 
 def _rule_ids() -> list[tuple[str, str]]:
