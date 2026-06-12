@@ -945,6 +945,10 @@ class IncidentCorpusStatsOut(BaseModel):
     pct_fixed: float
     last_corpus_update: datetime | None
     minimum_similarity_threshold: float = 0.15
+    # PT-011: source composition + staleness so corpus quality is visible, not assumed.
+    count_by_source: dict[str, int] = Field(default_factory=dict)
+    corpus_stale: bool = False
+    staleness_message: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

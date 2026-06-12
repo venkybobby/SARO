@@ -14,7 +14,7 @@ import hashlib
 import logging
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,7 +23,13 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
 from database import get_db
-from engine import COMPLIANCE_MATRIX_VERSION, SARO_ENGINE_VERSION, _COMPLIANCE_TRIGGERS, _RISK_SIGNALS
+from engine import (
+    COMPLIANCE_MATRIX_VERSION,
+    SARO_ENGINE_VERSION,
+    SARoEngine,
+    _COMPLIANCE_TRIGGERS,
+    _RISK_SIGNALS,
+)
 from models import AIIncident, Audit, Iso42001Document, NISTControl, ScanReport, User
 from services.evf_validation_status_service import get_all_framework_statuses
 from schemas import (
@@ -616,6 +622,7 @@ def get_incident_corpus_stats(
 
     category_counts = Counter(r.category for r in rows if r.category)
     harm_type_counts = Counter(r.harm_type for r in rows if r.harm_type)
+    source_counts = Counter(r.source for r in rows if r.source)
 
     dates = [r.date for r in rows if r.date]
     dates_sorted = sorted(dates) if dates else []
@@ -623,13 +630,31 @@ def get_incident_corpus_stats(
     corpus_datetimes = [r.created_at for r in rows if r.created_at]
     last_update = max(corpus_datetimes) if corpus_datetimes else None
 
+    # PT-011: flag a stale (or empty) corpus instead of silently matching against it.
+    stale = False
+    staleness_message: str | None = None
+    if total == 0:
+        stale = True
+        staleness_message = "Incident corpus is empty — similarity matches are not meaningful."
+    elif last_update is not None:
+        age = datetime.now(tz=timezone.utc) - last_update
+        if age > timedelta(days=365):
+            stale = True
+            staleness_message = (
+                f"Incident corpus has not been refreshed in {age.days} days (>12 months) — "
+                "treat similarity matches with caution."
+            )
+
     return IncidentCorpusStatsOut(
         total_incidents=total,
         count_by_category=dict(category_counts),
         count_by_harm_type=dict(harm_type_counts),
+        count_by_source=dict(source_counts),
         date_range_earliest=dates_sorted[0] if dates_sorted else None,
         date_range_latest=dates_sorted[-1] if dates_sorted else None,
         pct_fixed=pct_fixed,
         last_corpus_update=last_update,
-        minimum_similarity_threshold=0.15,
+        minimum_similarity_threshold=SARoEngine.SIMILARITY_THRESHOLD,
+        corpus_stale=stale,
+        staleness_message=staleness_message,
     )

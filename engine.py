@@ -1849,13 +1849,17 @@ class SARoEngine:
     SIMILARITY_THRESHOLD: float = float(os.environ.get("INCIDENT_SIMILARITY_THRESHOLD", "0.15"))
 
     def _find_similar_incidents(
-        self, batch_text: str, top_k: int = INCIDENT_TOP_K
+        self, batch_text: str, top_k: int = INCIDENT_TOP_K, include_below_floor: bool = False
     ) -> list[SimilarIncidentOut]:
         """
         Return the top-K incidents most similar to the batch text,
         ranked by TF-IDF cosine similarity.
 
-        SARO-007: results below SIMILARITY_THRESHOLD are returned with low_confidence=True.
+        PT-011: matches below SIMILARITY_THRESHOLD (the floor) are SUPPRESSED from
+        reports so noise is never presented as signal. Pass include_below_floor=True
+        for a debug view that also returns below-floor matches (flagged low_confidence).
+        Every returned match carries its similarity_score and the active floor so a
+        0.85 and a 0.31 are never visually equivalent.
         """
         if self._tfidf_vectorizer is None or self._incident_matrix is None:
             return []
@@ -1870,6 +1874,8 @@ class SARoEngine:
             sim = float(sims[idx])
             if sim < 0.01:
                 continue  # Skip effectively zero-similarity results
+            if sim < self.SIMILARITY_THRESHOLD and not include_below_floor:
+                continue  # PT-011: suppress below-floor matches from reports
             results.append(
                 SimilarIncidentOut(
                     incident_id=inc["incident_id"],
