@@ -9,6 +9,7 @@ POST   /api/v1/risks/bulk     — apply a bulk action (assign owner / change sta
 """
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Annotated
 
@@ -16,12 +17,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import String, cast
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_write_persona
 from database import get_db
 from models import Audit, RiskMetadata, ScanReport, User
 from schemas import RiskBulkActionIn, RiskUpdateIn
 
 router = APIRouter(prefix="/api/v1/risks", tags=["risks"])
+
+# PT-009 (FND-010): audit UUID prefixes are hex only. Validating the stripped
+# prefix prevents LIKE wildcard injection (%, _ match arbitrary same-tenant rows).
+_HEX_PREFIX = re.compile(r"[0-9a-f]{1,32}")
 
 _SEV_THRESHOLDS = [(70, "critical"), (50, "high"), (30, "medium"), (0, "low")]
 
@@ -66,7 +71,7 @@ def _find_audit_with_meta(
     db: Session, tenant_id, risk_id: str
 ) -> tuple[Audit, ScanReport | None, RiskMetadata | None] | None:
     prefix = risk_id.removeprefix("R-").removeprefix("r-").lower()
-    if not prefix:
+    if not _HEX_PREFIX.fullmatch(prefix):
         return None
     row = (
         db.query(Audit, ScanReport, RiskMetadata)
@@ -136,10 +141,13 @@ def get_risk(
 def update_risk(
     risk_id: str,
     payload: RiskUpdateIn,
-    current: Annotated[User, Depends(get_current_user)],
+    current: Annotated[User, Depends(require_write_persona)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    """Update the owner and/or status override for a risk register item."""
+    """Update the owner and/or status override for a risk register item.
+
+    PT-009 (FND-009): mutation requires a write persona (allowlist); ai_auditor 403.
+    """
     found = _find_audit_with_meta(db, current.tenant_id, risk_id)
     if found is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Risk not found")
@@ -159,7 +167,7 @@ def update_risk(
 @router.delete("/{risk_id}")
 def delete_risk(
     risk_id: str,
-    current: Annotated[User, Depends(get_current_user)],
+    current: Annotated[User, Depends(require_write_persona)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """
@@ -183,10 +191,13 @@ def delete_risk(
 @router.post("/bulk")
 def bulk_action(
     payload: RiskBulkActionIn,
-    current: Annotated[User, Depends(get_current_user)],
+    current: Annotated[User, Depends(require_write_persona)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    """Apply a bulk action (assign owner / change status / delete) to multiple risks."""
+    """Apply a bulk action (assign owner / change status / delete) to multiple risks.
+
+    PT-009 (FND-009): mutation requires a write persona (allowlist); ai_auditor 403.
+    """
     if payload.action == "assign_owner" and not payload.owner:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="owner is required for assign_owner")
     if payload.action == "change_status" and not payload.status:

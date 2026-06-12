@@ -21,7 +21,7 @@ from sqlalchemy import String, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
+from auth import get_current_user, require_write_persona
 from database import get_db
 from models import (
     Audit,
@@ -42,9 +42,6 @@ from services.insights_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/insights", tags=["insights"])
-
-# Personas with read-only posture: may view insights, never act on them.
-_READ_ONLY_PERSONAS = frozenset({"ai_auditor"})
 
 _ACTION_EVENT_TYPES = {
     "accepted": "insight_suggestion_applied",
@@ -188,19 +185,16 @@ async def list_insights(
 async def record_insight_action(
     insight_id: str,
     payload: InsightActionIn,
-    current: Annotated[User, Depends(get_current_user)],
+    current: Annotated[User, Depends(require_write_persona)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """
     Persist the reviewer's decision on an insight and append an immutable
     audit event. Repeated actions are last-write-wins.
-    """
-    if current.persona_role in _READ_ONLY_PERSONAS:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Read-only persona: auditors can view insights but cannot apply, snooze, or dismiss them.",
-        )
 
+    PT-009 (FND-009): write access is an allowlist (``require_write_persona``);
+    ai_auditor and any NULL/unknown persona are denied 403 server-side.
+    """
     prefix = _safe_prefix(insight_id, strip=("INS-", "ins-"))
     if prefix is None:
         raise HTTPException(
