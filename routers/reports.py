@@ -242,9 +242,29 @@ def get_similar_incidents(
 # SARO-004: NIST AI RMF coverage report
 # ─────────────────────────────────────────────────────────────────────────────
 
-# All 72 NIST AI RMF 1.0 subcategory IDs with their automated coverage status.
-# "mapped" = SARO actively generates evidence, "partial" = limited automated evidence,
-# "requires_human_assessment" = no automated signal possible from text analysis.
+# PT-007: version of the curated coverage map. Bump on any curated-status change.
+NIST_COVERAGE_MAP_VERSION = "v1.0"
+
+
+def _engine_mapped_subcategories() -> set[str]:
+    """PT-007: the subcategories SARO *actually* generates automated evidence for,
+    derived mechanically from _COMPLIANCE_TRIGGERS (not asserted in a static table).
+
+    A subcategory is 'mapped' iff at least one active compliance trigger carries its
+    nist_subcategory_id. Counted once per subcategory even if multiple triggers map to it.
+    """
+    return {
+        t["nist_subcategory_id"].strip()
+        for triggers in _COMPLIANCE_TRIGGERS.values()
+        for t in triggers
+        if t.get("nist_subcategory_id")
+    }
+
+
+# Curated baseline status for all 68 NIST AI RMF 1.0 subcategory IDs. The "mapped"
+# rows are kept in lock-step with _engine_mapped_subcategories() (pinned by
+# tests/test_pt007_nist_coverage.py); "partial"/"requires_human_assessment" follow
+# the rubric in docs/nist-coverage-rubric.md.
 _NIST_COVERAGE_MAP: dict[str, str] = {
     # GOVERN function
     "GOVERN 1.1": "partial", "GOVERN 1.2": "requires_human_assessment",
@@ -316,12 +336,15 @@ def get_nist_coverage(
     except Exception:
         pass
 
+    # PT-007: "mapped" is derived mechanically from the engine's triggers, not asserted.
+    derived_mapped = _engine_mapped_subcategories()
+
     subcategories: list[NistSubcategoryOut] = []
-    for sub_id, engine_status in _NIST_COVERAGE_MAP.items():
+    for sub_id, curated_status in _NIST_COVERAGE_MAP.items():
         row = nist_rows.get(sub_id)
         function_name = sub_id.split(" ")[0] if " " in sub_id else sub_id
         version = (row.version or "AI RMF 1.0") if row else "AI RMF 1.0"
-        status = engine_status if row else "not_covered"
+        status = "mapped" if sub_id in derived_mapped else curated_status
         subcategories.append(NistSubcategoryOut(
             subcategory_id=sub_id,
             function_name=function_name,
@@ -331,10 +354,14 @@ def get_nist_coverage(
         ))
 
     counts = Counter(s.status for s in subcategories)
+    mapped_count = counts.get("mapped", 0)
+    total = len(subcategories)
     return NistCoverageReportOut(
         engine_version=SARO_ENGINE_VERSION,
-        total_subcategories=len(subcategories),
-        mapped_count=counts.get("mapped", 0),
+        coverage_map_version=NIST_COVERAGE_MAP_VERSION,
+        automated_summary=f"{mapped_count} of {total} subcategories automated, map {NIST_COVERAGE_MAP_VERSION}",
+        total_subcategories=total,
+        mapped_count=mapped_count,
         partial_count=counts.get("partial", 0),
         not_covered_count=counts.get("not_covered", 0),
         requires_human_assessment_count=counts.get("requires_human_assessment", 0),

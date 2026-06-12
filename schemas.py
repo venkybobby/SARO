@@ -871,8 +871,12 @@ class NistSubcategoryOut(BaseModel):
 
 
 class NistCoverageReportOut(BaseModel):
-    """Full NIST AI RMF coverage report across all 72 subcategory outcomes."""
+    """Full NIST AI RMF coverage report across all 68 subcategory outcomes."""
     engine_version: str
+    # PT-007: version of the coverage map + a mechanically-derived "N of M" headline,
+    # so any report claiming NIST alignment carries the count, never an unqualified claim.
+    coverage_map_version: str = "v1.0"
+    automated_summary: str | None = None
     total_subcategories: int
     mapped_count: int
     partial_count: int
