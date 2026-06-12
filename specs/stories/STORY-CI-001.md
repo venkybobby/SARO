@@ -75,3 +75,18 @@ moving the quality ratchet backward.
 | AC-1, AC-2 | `ruff check .`, `python scripts/check_quality_ratchet.py` | `services/sales_notification_service.py`, `tests/test_404_fixes_batch2.py`, `tests/test_live005_live006.py`, `tests/test_p2_stories_009_010_014_016.py`, `tests/test_risk_register_audit_fixes.py`, `tests/test_tenant_isolation.py`, `quality/baseline.json` |
 | AC-3 | manual `psql -f` chain against fresh `postgres:16` container | `migrations/000_create_core_tables.sql` |
 | AC-4, AC-5 | `pytest tests/test_404_fixes_batch2.py tests/test_live005_live006.py tests/test_p2_stories_009_010_014_016.py tests/test_risk_register_audit_fixes.py tests/test_tenant_isolation.py -q`, `pytest tests/regression -q` | (all files above) |
+
+## App-startup migration path (2026-06-12 — extends AC-3)
+AC-3 (pure `psql`) passed, but the **app-startup path** (`main.py` lifespan runs
+`create_all_tables()` BEFORE `apply_pending_migrations()`) still crashed on a fresh DB
+because the ORM pre-creates tables whose shape diverged from later migrations. Two
+findings fixed; both paths now verified (pure-`psql` chain exit 0 ×26, and a real
+`uvicorn` boot on a fresh DB reaches `/health` `database:ok`, demo seed completes,
+login + insights work):
+| Finding | Test | Files |
+|---|---|---|
+| FND-011 — `AuditTrace` model missing `tenant_id` (+ `gate_id` NOT NULL drift) → migration 000 index fails | `tests/regression/test_fnd_011_audit_trace_tenant_id.py` | `models.py` (AuditTrace) |
+| FND-012 — migration 004 `persona_permissions` seed fails against ORM-shaped table | `tests/regression/test_fnd_012_persona_permissions_seed_guard.py` | `migrations/004_add_persona_permissions.sql` |
+| FND-013 — `AuditTrace(...)` insert sites omit `tenant_id` (security follow-up, fail-closed) | `tests/regression/test_fnd_013_audit_trace_constructors_set_tenant_id.py` | `routers/scan.py`, `scripts/seed_demo.py` |
+
+Local bring-up automated by `scripts/run_local.ps1` (no migration bypass needed).

@@ -212,6 +212,7 @@ def audit_single_output(
 
         scan_report = ScanReport(
             audit_id=audit_id,
+            tenant_id=current_user.tenant_id,
             mit_coverage_score=report.mit_coverage.score,
             fixed_delta=report.fixed_delta.delta,
             overall_risk_score=report.bayesian_scores.overall,
