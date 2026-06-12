@@ -194,7 +194,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         seed_persona_permissions()
         # 4b. SAR-010: seed unified control library (idempotent — skips existing controls)
         try:
-            from scripts.seed_control_library import seed_controls
+            from scripts.seed_control_library import seed_controls  # type: ignore[attr-defined]
             seeded = seed_controls()
             if seeded:
                 logger.info("Control library seeded: %d controls added", seeded)

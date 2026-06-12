@@ -252,7 +252,7 @@ def require_role(*roles: str):
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
-        request: Request = None,  # injected by FastAPI; None on direct calls
+        request: Request = None,  # type: ignore[assignment]  # injected by FastAPI; None on direct calls
     ) -> User:
         if current_user.role not in roles:
             _log_authz_denial(current_user, request, required=f"role:{roles}")
@@ -277,7 +277,7 @@ def persona_required(*personas: str):
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
-        request: Request = None,  # injected by FastAPI; None on direct calls
+        request: Request = None,  # type: ignore[assignment]  # injected by FastAPI; None on direct calls
     ) -> User:
         persona_role = getattr(current_user, "persona_role", None) or ""
         if persona_role not in personas:
@@ -294,7 +294,7 @@ def persona_required(*personas: str):
 
 async def require_write_persona(
     current_user: Annotated[User, Depends(get_current_user)],
-    request: Request = None,  # injected by FastAPI; None on direct calls
+    request: Request = None,  # type: ignore[assignment]  # injected by FastAPI; None on direct calls
 ) -> User:
     """
     PT-009 (FND-009): allowlist write-guard for risk-register / insight mutations.
@@ -329,7 +329,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     if user is None:
         logger.warning("Login attempt for unknown email: %s", email)
         return None
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user.hashed_password or ""):
         # Log the hash prefix (first 7 chars) to help diagnose hash-format issues
         # without exposing sensitive data.
         prefix = user.hashed_password[:7] if user.hashed_password else "(empty)"

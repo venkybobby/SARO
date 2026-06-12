@@ -81,7 +81,7 @@ def _find_audit_with_meta(
         .filter(cast(Audit.id, String).like(f"{prefix}%"))
         .first()
     )
-    return row
+    return row  # type: ignore[return-value]
 
 
 def _get_or_create_meta(db: Session, audit_id) -> RiskMetadata:
