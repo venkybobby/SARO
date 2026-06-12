@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -r requirements.txt pytest pytest-cov pytest-asyncio pyyaml ruff
+      - name: Citation inventory lint (PT-003)
+        run: python scripts/check_citations.py
       - name: Manifest integrity (the policy is itself a test)
         run: pytest tests/regression/test_manifest_integrity.py -q
       - name: Full regression suite (never sampled)

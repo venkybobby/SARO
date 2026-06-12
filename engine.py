@@ -1112,8 +1112,12 @@ class SARoEngine:
 
     def _gate1_data_quality(self, batch: BatchIn) -> _GateResult:
         """
-        Enforce minimum 50 samples (EU AI Act Art. 10, NIST MAP 2.3) and
-        check basic data hygiene.
+        Enforce the minimum sample size and check basic data hygiene.
+
+        The 50-sample floor is an internal SARO statistical-methodology
+        requirement (CLT convergence / parity-test power), NOT a regulatory
+        mandate. EU AI Act Art. 10 and NIST MAP 2.3 set no batch-audit sample
+        threshold — see docs/CITATION_INVENTORY.md (entry SARO-METHOD-001).
         """
         n = len(batch.samples)
         if n < MIN_SAMPLES:
