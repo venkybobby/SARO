@@ -90,6 +90,7 @@ def _process_single_row(row: HFSampleQueue, db: Session) -> None:
         # Persist scan report
         scan_report = ScanReport(
             audit_id=audit_id,
+            tenant_id=row.tenant_id,
             mit_coverage_score=report.mit_coverage.score,
             fixed_delta=report.fixed_delta.delta,
             overall_risk_score=report.bayesian_scores.overall,

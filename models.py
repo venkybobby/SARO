@@ -135,6 +135,12 @@ class ScanReport(Base):
         ForeignKey("audits.id", ondelete="CASCADE"),
         unique=True,
     )
+    # FND-006: tenant_id for RLS (tenant_isolation_scan_reports policy).
+    # Must be set on insert — see migrations/020_backfill_scan_reports_tenant_id.sql
+    # for the backfill of pre-existing rows.
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
+    )
     # Top-level scalar metrics (indexed for dashboarding)
     mit_coverage_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     fixed_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -244,7 +250,17 @@ class AuditTrace(Base):
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
-    gate_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    # FND-011: tenant_id mirrors migrations/000_create_core_tables.sql
+    # (audit_traces.tenant_id UUID, FK tenants) and the migration 002 backfill.
+    # Without it, create_all_tables() builds audit_traces without the column and
+    # migration 000's idx_audit_traces_tenant_id index fails at startup on a
+    # fresh database (the app boots create_all_tables() before the SQL migrations).
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True
+    )
+    # gate_id is NULL for post-gate "explain"/"remediate" summary rows
+    # (migrations/015_audit_traces_gate_id_nullable.sql).
+    gate_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gate_name: Mapped[str] = mapped_column(String(100), nullable=False)
     # check_type: "gate_result" | "risk_domain" | "compliance_rule"
     check_type: Mapped[str] = mapped_column(String(50), nullable=False)

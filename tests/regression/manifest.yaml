@@ -27,6 +27,11 @@ findings:
     test: frontend/src/pages/RiskRegister.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-006
+    title: "scan_reports.tenant_id never backfilled / never set on insert — invisible under RLS"
+    test: tests/regression/test_fnd_006_scan_report_tenant_id.py
+    status: pinned
+    quarantine_expires: null
   - id: FND-007
     title: "risk_detail navigation silently falls through to Dashboard (PAGE_COMPONENTS missing key)"
     test: frontend/src/App.test.jsx
@@ -46,4 +51,19 @@ findings:
     title: "LIKE wildcard injection in routers/risks.py risk-id prefix lookup"
     test: tests/regression/test_fnd_010_risks_like_wildcard.py
     status: open
+    quarantine_expires: null
+  - id: FND-011
+    title: "AuditTrace ORM model missing tenant_id (+ gate_id NOT NULL) breaks app-startup migration on fresh Postgres"
+    test: tests/regression/test_fnd_011_audit_trace_tenant_id.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-012
+    title: "persona_permissions migration 004 seed fails against ORM-shaped table on app-startup path"
+    test: tests/regression/test_fnd_012_persona_permissions_seed_guard.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-013
+    title: "AuditTrace(...) insert sites omit tenant_id — new trace rows written with NULL tenant_id"
+    test: tests/regression/test_fnd_013_audit_trace_constructors_set_tenant_id.py
+    status: pinned
     quarantine_expires: null
