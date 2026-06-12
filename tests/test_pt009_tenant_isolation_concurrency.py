@@ -4,11 +4,17 @@ Spins up >=50 concurrent worker sessions, half acting as tenant A and half as
 tenant B, each running the tenant-scoped risk-register query at the ORM (query)
 layer. Asserts zero cross-tenant reads: no worker ever sees the other tenant's
 audit ids.
+
+Uses a temp-file SQLite DB with normal pooling so each worker thread gets its
+own connection — a shared single in-memory connection (StaticPool) is not safe
+under true concurrency and corrupts reads.
 """
 from __future__ import annotations
 
+import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 import sqlalchemy.types as sa_types
@@ -16,7 +22,6 @@ from sqlalchemy import String, cast, create_engine
 from sqlalchemy.dialects.postgresql import JSON as PG_JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 pytestmark = [pytest.mark.regression, pytest.mark.integration]
 
@@ -36,10 +41,11 @@ PG_JSON.none_as_null = False
 from database import Base  # noqa: E402
 from models import Audit, Tenant  # noqa: E402
 
+# File-based SQLite so concurrent worker threads each get their own connection.
+_DB_PATH = Path(tempfile.gettempdir()) / f"saro_pt009_{uuid.uuid4().hex}.db"
 _engine = create_engine(
-    "sqlite:///:memory:",
+    f"sqlite:///{_DB_PATH}",
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
 )
 Session = sessionmaker(bind=_engine)
 Base.metadata.create_all(_engine)

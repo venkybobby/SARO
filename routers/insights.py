@@ -276,7 +276,7 @@ async def record_insight_action(
             raise
         # The concurrent writer's status is the true prior state for the trail.
         event_kwargs["event_data"] = {
-            **event_kwargs["event_data"],
+            **event_kwargs["event_data"],  # type: ignore[dict-item]
             "previous_status": existing.status,
         }
         existing.status = payload.action

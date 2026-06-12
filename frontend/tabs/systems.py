@@ -74,7 +74,7 @@ def render(token: str) -> None:
 
     # ── KPIs ──────────────────────────────────────────────────────────────────
     total = len(systems)
-    tier_counts = {}
+    tier_counts: dict[str, int] = {}
     for s in systems:
         t = s.get("eu_ai_act_risk_tier") or "unclassified"
         tier_counts[t] = tier_counts.get(t, 0) + 1
