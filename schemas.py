@@ -840,6 +840,19 @@ class RiskConfigIn(BaseModel):
         for domain, w in v.items():
             if not (0.0 <= w <= 1.0):
                 raise ValueError(f"Weight for '{domain}' must be between 0.0 and 1.0, got {w}")
+        # PT-010: reject degenerate weight sets. All-zero zeroes every score (the
+        # engine can never flag risk); all-one removes all domain discrimination.
+        values = list(v.values())
+        if len(values) >= 2 and all(w == 0.0 for w in values):
+            raise ValueError(
+                "Degenerate weight set: all domain weights are 0.0, which makes every "
+                "risk score zero. Set at least one domain weight above 0.0."
+            )
+        if len(values) >= 2 and all(w == 1.0 for w in values):
+            raise ValueError(
+                "Degenerate weight set: all domain weights are 1.0, which removes all "
+                "domain discrimination. Use distinct weights to preserve relative risk."
+            )
         return v
 
 
