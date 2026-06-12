@@ -130,11 +130,14 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
     if not traces and not findings:
         return
 
-    # Lock the parent audit row to serialise concurrent writes for this audit.
-    db.execute(
-        _sql_text("SELECT id FROM audits WHERE id = :aid FOR UPDATE"),
+    # Lock the parent audit row to serialise concurrent writes for this audit,
+    # and read its tenant_id so each trace inherits it (FND-013: traces must carry
+    # tenant_id for RLS — NULL rows are invisible under tenant_isolation_audit_traces).
+    parent_audit = db.execute(
+        _sql_text("SELECT tenant_id FROM audits WHERE id = :aid FOR UPDATE"),
         {"aid": str(audit_id)},
-    )
+    ).first()
+    parent_tenant_id = parent_audit[0] if parent_audit else None
 
     # Seed prev_hash from the last chain-enabled event for this audit.
     last = (
@@ -170,6 +173,7 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
             id=event_id,
             created_at=created_at,
             audit_id=audit_id,
+            tenant_id=parent_tenant_id,
             gate_id=t["gate_id"],
             gate_name=t["gate_name"],
             check_type=t["check_type"],
@@ -262,6 +266,7 @@ def scan_batch(
         # Persist the report
         scan_report = ScanReport(
             audit_id=audit_id,
+            tenant_id=current_user.tenant_id,
             mit_coverage_score=report.mit_coverage.score,
             fixed_delta=report.fixed_delta.delta,
             overall_risk_score=report.bayesian_scores.overall,
@@ -437,6 +442,7 @@ def scan_data_batch(
 
         scan_report = ScanReport(
             audit_id=audit_id,
+            tenant_id=current_user.tenant_id,
             mit_coverage_score=report.mit_coverage.score,
             fixed_delta=report.fixed_delta.delta,
             overall_risk_score=report.bayesian_scores.overall,

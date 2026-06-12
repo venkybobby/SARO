@@ -80,6 +80,7 @@ def _run_audit_and_persist(
     overall_risk = report.bayesian_scores.overall * 100
     db.add(ScanReport(
         audit_id=audit_obj.id,
+        tenant_id=audit_obj.tenant_id,
         mit_coverage_score=report.mit_coverage.score,
         fixed_delta=report.fixed_delta.delta,
         overall_risk_score=round(overall_risk, 2),
@@ -91,6 +92,7 @@ def _run_audit_and_persist(
     for trace in eng.get_traces():
         db.add(AuditTrace(
             audit_id=audit_obj.id,
+            tenant_id=audit_obj.tenant_id,  # FND-013: traces inherit the audit's tenant
             gate_id=trace["gate_id"],
             gate_name=trace["gate_name"],
             check_type=trace["check_type"],

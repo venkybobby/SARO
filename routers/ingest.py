@@ -124,6 +124,7 @@ def _run_audit_background(
         # Persist ScanReport
         scan_report = ScanReport(
             audit_id=audit_id,
+            tenant_id=audit.tenant_id,
             mit_coverage_score=report.mit_coverage.score,
             fixed_delta=report.fixed_delta.delta,
             overall_risk_score=report.bayesian_scores.overall,
