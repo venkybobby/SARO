@@ -435,6 +435,23 @@ _ISO_ANNEX_TEMPLATE = """\
 [HUMAN REVIEW REQUIRED] Post-market monitoring plan
 [HUMAN REVIEW REQUIRED] Certification authority sign-off
 
+## NOT COVERED BY SARO — Manual Evidence Required
+SARO produces output-level risk evidence only. The following ISO/IEC 42001 clauses are
+**NOT COVERED BY SARO** and require manual evidence collected by the organisation; SARO
+*supports* but does *not replace* this work:
+- Clause 4 — Context of the organisation (AIMS scope, interested parties)
+- Clause 5 — Leadership and AI policy
+- Clause 6 — Planning (AI risk & impact assessment process, objectives)
+- Clause 7 — Support (resources, competence, awareness, documented information control)
+- Clause 8 — Operational planning beyond output evaluation
+- Clause 9 — Performance evaluation (internal audit, management review)
+- Clause 10 — Improvement (nonconformity, corrective action)
+
+## Provenance
+[AUTO] Engine version: {engine_version}
+[AUTO] Rule-pack hash (SHA-256): {rule_pack_hash}
+[AUTO] Document content hash is recorded on the immutable Iso42001Document record.
+
 ## Evidence References
 [AUTO] SARO Audit ID: {audit_id}
 [AUTO] TRACE record endpoint: /api/v1/traces/{audit_id}
@@ -487,6 +504,17 @@ def generate_iso42001_annex(
 
     report_data = _get_report_or_404(audit_id, current_user.tenant_id, db)
 
+    # PT-006 edge: refuse to emit a thin document from an audit with no evaluated
+    # gates — better a minimum-evidence error than a hollow Annex doc.
+    if not report_data.get("gates"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Insufficient audit evidence to generate ISO 42001 Annex documentation — "
+                "this audit has no evaluated gates. Run a complete audit first."
+            ),
+        )
+
     # Determine next version number for this audit
     existing_versions = (
         db.query(Iso42001Document)
@@ -527,6 +555,7 @@ def generate_iso42001_annex(
         applied_rules=applied_rules_text,
         open_remediations=len(report_data.get("remediations", [])),
         remediated_count=0,
+        rule_pack_hash=report_data.get("rule_pack_hash") or SARoEngine._compute_rule_pack_hash(),
     )
 
     content_hash = hashlib.sha256(content.encode()).hexdigest()
