@@ -47,3 +47,8 @@ findings:
     test: tests/regression/test_fnd_010_risks_like_wildcard.py
     status: pinned
     quarantine_expires: null
+  - id: FND-011
+    title: "FastAPI dependency_overrides leak across tests (order-dependent auth failures)"
+    test: tests/regression/test_fnd_011_override_isolation.py
+    status: pinned
+    quarantine_expires: null
