@@ -894,6 +894,12 @@ class QCORegistry(Base):
     # Access-controlled signed URL; SHA-256 of the document for integrity
     document_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     document_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # PT-001: provenance pinning + SME findings. Informational (NOT part of the
+    # record_hash payload, so existing chains stay valid). A QCO is pinned to the
+    # rule-pack hash it was reviewed against; a different current hash means the
+    # review no longer covers the active rule packs (see qco_rule_pack_is_current).
+    rule_pack_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    findings_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     engagement_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="SET NULL"), nullable=True
     )
