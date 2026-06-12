@@ -840,6 +840,21 @@ class RiskConfigIn(BaseModel):
         for domain, w in v.items():
             if not (0.0 <= w <= 1.0):
                 raise ValueError(f"Weight for '{domain}' must be between 0.0 and 1.0, got {w}")
+        # PT-010: reject degenerate weight sets. All-zero zeroes every score (the
+        # engine can never flag risk); all-one removes all domain discrimination.
+        # A single domain set to 0.0 is a legitimate suppression (other domains keep
+        # their defaults); only an all-zero / all-one set of >=2 weights is degenerate.
+        values = list(v.values())
+        if len(values) >= 2 and all(w == 0.0 for w in values):
+            raise ValueError(
+                "Degenerate weight set: all domain weights are 0.0, which makes every "
+                "risk score zero. Set at least one domain weight above 0.0."
+            )
+        if len(values) >= 2 and all(w == 1.0 for w in values):
+            raise ValueError(
+                "Degenerate weight set: all domain weights are 1.0, which removes all "
+                "domain discrimination. Use distinct weights to preserve relative risk."
+            )
         return v
 
 
@@ -871,8 +886,12 @@ class NistSubcategoryOut(BaseModel):
 
 
 class NistCoverageReportOut(BaseModel):
-    """Full NIST AI RMF coverage report across all 72 subcategory outcomes."""
+    """Full NIST AI RMF coverage report across all 68 subcategory outcomes."""
     engine_version: str
+    # PT-007: version of the coverage map + a mechanically-derived "N of M" headline,
+    # so any report claiming NIST alignment carries the count, never an unqualified claim.
+    coverage_map_version: str = "v1.0"
+    automated_summary: str | None = None
     total_subcategories: int
     mapped_count: int
     partial_count: int
@@ -928,6 +947,10 @@ class IncidentCorpusStatsOut(BaseModel):
     pct_fixed: float
     last_corpus_update: datetime | None
     minimum_similarity_threshold: float = 0.15
+    # PT-011: source composition + staleness so corpus quality is visible, not assumed.
+    count_by_source: dict[str, int] = Field(default_factory=dict)
+    corpus_stale: bool = False
+    staleness_message: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

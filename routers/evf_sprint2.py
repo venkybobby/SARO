@@ -116,6 +116,8 @@ class QCOOut(BaseModel):
     expiry_date: Optional[date]
     scope_boundary_summary: Optional[str]
     document_sha256: Optional[str]
+    rule_pack_hash: Optional[str] = None
+    findings_summary: Optional[str] = None
     engagement_id: Optional[uuid.UUID]
     published: bool
     published_at: Optional[datetime]

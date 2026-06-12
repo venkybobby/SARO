@@ -72,6 +72,25 @@ Confidence in SARO refers to the width of the Bayesian credible interval:
 - **Medium confidence (0.65–0.85):** Some rules produced ambiguous signals. Human review recommended.
 - **Low confidence (<0.65):** Insufficient data or high ambiguity. The score should be treated as indicative only.
 
+### The 0.80 single-output confidence cap (PT-010)
+
+When an audit scores a **single** AI output (rather than a batch), SARO caps reported confidence at
+**0.80**. Rationale: a single output gives one observation, so the Bayesian posterior has far less
+statistical power than a batch — the credible interval is wide regardless of how cleanly the rules
+fire. Capping at 0.80 prevents a single clean output from being presented as near-certain, which
+would overstate the evidence. The cap applies only to single-output mode; batch audits (≥50 samples,
+per SARO-METHOD-001) report uncapped confidence derived from the full posterior. The cap value lives
+in `engine.py` and is documented here so it survives audit-committee questioning; it is intentionally
+fixed (not tenant-configurable) because it encodes a statistical-power floor, not a business preference.
+
+### Domain weights
+
+Each MIT-domain risk weight (e.g. Privacy & Security 0.85, Socioeconomic 0.50) reflects relative
+severity. Defaults ship in `engine.py`; tenants may override them within `[0.0, 1.0]` via
+`PUT /api/v1/risk-config` (Risk Officer / super_admin only). Degenerate sets — all-0 (no score ever)
+or all-1 (no discrimination) — are rejected. The weight set used by a run is recorded with the report
+so historical scores never retro-change when weights are later adjusted.
+
 ---
 
 ## Limitations && What SARO Does NOT Do

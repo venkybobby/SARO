@@ -24,6 +24,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/risk-config", tags=["risk-config"])
 
 
+async def _require_risk_config_writer(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """PT-010 (AC-2): risk-config writes require super_admin role OR the risk_officer persona."""
+    if current_user.role == "super_admin" or getattr(current_user, "persona_role", None) == "risk_officer":
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Risk configuration may only be changed by a super_admin or the Risk Officer persona.",
+    )
+
+
 @router.get(
     "",
     response_model=TenantRiskConfigOut,
@@ -49,8 +61,8 @@ def get_risk_config(
 @router.put(
     "",
     response_model=TenantRiskConfigOut,
-    dependencies=[Depends(require_role("super_admin"))],
-    summary="Upsert tenant risk configuration (super_admin only)",
+    dependencies=[Depends(_require_risk_config_writer)],
+    summary="Upsert tenant risk configuration (super_admin or Risk Officer)",
 )
 def upsert_risk_config(
     payload: RiskConfigIn,
@@ -98,8 +110,8 @@ def upsert_risk_config(
 @router.delete(
     "",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role("super_admin"))],
-    summary="Reset tenant risk configuration to defaults (super_admin only)",
+    dependencies=[Depends(_require_risk_config_writer)],
+    summary="Reset tenant risk configuration to defaults (super_admin or Risk Officer)",
 )
 def delete_risk_config(
     current_user: Annotated[User, Depends(get_current_user)],

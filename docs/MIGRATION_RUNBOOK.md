@@ -1,3 +1,5 @@
+> **[ARCHIVED]** — Migration completed 2026-05-08. Canonical stack is `docs/ARCHITECTURE.md` (Fly.io + Supabase). Koyeb→Railway is itself superseded: Railway was interim; the current backend host is Fly.io. See `docs/DOCUMENT_REGISTER.md`.
+
 # SARO v8.0.0 — Migration Runbook
 
 **Migration:** Neon PostgreSQL → Supabase · Koyeb → Railway

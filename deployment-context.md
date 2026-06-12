@@ -1,3 +1,5 @@
+> **[SUPERSEDED]** — Canonical infrastructure is now `docs/ARCHITECTURE.md` (Fly.io + Supabase + Postgres staging). This file is retained for history only; do not treat its Koyeb/Railway references as current. See `docs/DOCUMENT_REGISTER.md`.
+
 # Skill: SARO Deployment Context
 
 ## Infrastructure

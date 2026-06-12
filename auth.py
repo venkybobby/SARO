@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import bcrypt as _bcrypt_lib
 from argon2 import PasswordHasher
@@ -217,6 +217,31 @@ async def require_write_access(
     return current_user
 
 
+# PT-009: personas/roles permitted to MUTATE risk-register and insight state.
+# This is an allowlist (not a denylist): any persona not listed — including a
+# NULL persona on a non-system role and any future buyer persona — is denied
+# write access by default. ai_auditor is a read-only persona and is excluded.
+_WRITE_PERSONAS = frozenset({"compliance_lead", "risk_officer", "admin"})
+_SYSTEM_WRITE_ROLES = frozenset({"super_admin", "operator"})
+_READ_ONLY_PERSONAS = frozenset({"ai_auditor"})
+
+
+def _log_authz_denial(current_user: User, request: Request | None, *, required: str) -> None:
+    """PT-009 NFR: every authz denial is logged with tenant/user/role/persona/endpoint."""
+    endpoint = request.url.path if request is not None else "?"
+    logger.warning(
+        "authz_denied",
+        extra={
+            "tenant_id": str(getattr(current_user, "tenant_id", "") or ""),
+            "user_id": str(getattr(current_user, "id", "") or ""),
+            "role": getattr(current_user, "role", None),
+            "persona_role": getattr(current_user, "persona_role", None),
+            "endpoint": endpoint,
+            "required": required,
+        },
+    )
+
+
 def require_role(*roles: str):
     """
     Factory that returns a FastAPI dependency enforcing one of the given roles.
@@ -227,8 +252,10 @@ def require_role(*roles: str):
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
+        request: Request = None,  # injected by FastAPI; None on direct calls
     ) -> User:
         if current_user.role not in roles:
+            _log_authz_denial(current_user, request, required=f"role:{roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Role '{current_user.role}' is not authorised for this action. "
@@ -250,9 +277,11 @@ def persona_required(*personas: str):
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
+        request: Request = None,  # injected by FastAPI; None on direct calls
     ) -> User:
         persona_role = getattr(current_user, "persona_role", None) or ""
         if persona_role not in personas:
+            _log_authz_denial(current_user, request, required=f"persona:{list(personas)}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Persona {persona_role!r} is not authorised for this endpoint. "
@@ -261,6 +290,37 @@ def persona_required(*personas: str):
         return current_user
 
     return _check
+
+
+async def require_write_persona(
+    current_user: Annotated[User, Depends(get_current_user)],
+    request: Request = None,  # injected by FastAPI; None on direct calls
+) -> User:
+    """
+    PT-009 (FND-009): allowlist write-guard for risk-register / insight mutations.
+
+    Denies read-only demo tokens, the read-only ``ai_auditor`` persona, and any
+    persona not explicitly granted write access (NULL or future personas default
+    to deny). System roles (super_admin / operator) without a buyer persona are
+    permitted because they legitimately operate the platform. Every denial is logged.
+    """
+    if getattr(current_user, "read_only", False):
+        _log_authz_denial(current_user, request, required="write:not-read-only")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Read-only access — write operations not permitted",
+        )
+    persona = getattr(current_user, "persona_role", None) or ""
+    role = getattr(current_user, "role", None) or ""
+    if persona in _WRITE_PERSONAS or role in _SYSTEM_WRITE_ROLES:
+        return current_user
+    _log_authz_denial(current_user, request, required=f"write-persona:{sorted(_WRITE_PERSONAS)}")
+    detail = (
+        "Read-only persona: this account may view but not modify this resource."
+        if persona in _READ_ONLY_PERSONAS
+        else f"Persona {persona!r} is not authorised to modify this resource."
+    )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:

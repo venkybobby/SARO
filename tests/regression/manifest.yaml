@@ -45,12 +45,17 @@ findings:
   - id: FND-009
     title: "Insights action authz is a persona denylist, not an allowlist"
     test: tests/regression/test_fnd_009_insights_persona_allowlist.py
-    status: open
+    status: pinned
     quarantine_expires: null
   - id: FND-010
     title: "LIKE wildcard injection in routers/risks.py risk-id prefix lookup"
     test: tests/regression/test_fnd_010_risks_like_wildcard.py
-    status: open
+    status: pinned
+    quarantine_expires: null
+  - id: FND-011
+    title: "FastAPI dependency_overrides leak across tests (order-dependent auth failures)"
+    test: tests/regression/test_fnd_011_override_isolation.py
+    status: pinned
     quarantine_expires: null
   - id: FND-011
     title: "AuditTrace ORM model missing tenant_id (+ gate_id NOT NULL) breaks app-startup migration on fresh Postgres"
