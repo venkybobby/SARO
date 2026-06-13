@@ -8,6 +8,7 @@ PATCH /api/v1/demo/requests/{id}   — super_admin only: update status
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated
@@ -22,6 +23,20 @@ from schemas import DemoRequestIn, DemoRequestOut, DemoRequestStatusUpdateIn
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
+
+
+def _demo_requests_enabled() -> bool:
+    """STORY-114: demo-request intake is deferred behind a flag (default OFF).
+
+    Read at call time so the deferral can be toggled without a redeploy and is
+    easy to exercise in tests. Enabling restores the original behavior exactly.
+    """
+    return os.environ.get("DEMO_REQUESTS_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 @router.post(
@@ -41,6 +56,13 @@ async def demo_signup(
     db: Annotated[Session, Depends(get_db)],
 ) -> DemoRequestOut:
     """Accept a demo signup request from a prospective customer."""
+    if not _demo_requests_enabled():
+        # STORY-114: deferred — fail closed BEFORE any DB write or Slack notify.
+        # Existing demo-request data and the management endpoints are untouched.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Demo requests are temporarily unavailable.",
+        )
     # Prevent duplicate active submissions from the same email
     existing = (
         db.query(DemoRequest)

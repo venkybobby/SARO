@@ -25,7 +25,7 @@ const PERSONA_TABS = {
     "trust_center",
     "rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","onboarding","upload",
-    "admin_settings","evaluations","evf_admin","demo_requests",
+    "admin_settings","evaluations","evf_admin",
     "risk_register","ai_insights","reports","settings","knowledge_portal",
   ],
   super_admin: [
@@ -55,7 +55,8 @@ const TAB_REGISTRY = {
   aims:             { label: "AIMS",               icon: ClipboardList,   page: "aims" },
   evaluations:      { label: "Evaluations",        icon: BookOpen,        page: "evaluations" },
   evf_admin:        { label: "EVF Status",         icon: Lock,            page: "evf_admin" },
-  demo_requests:    { label: "Demo Requests",      icon: Users,           page: "demo_requests" },
+  // STORY-114: Demo Requests admin tab deferred (page already removed in STORY-016;
+  // demo-request intake is feature-flagged off by default — see routers/demo.py).
   risk_register:    { label: "Risk Register",      icon: ShieldAlert,     page: "risk_register" },
   ai_insights:      { label: "AI Insights",        icon: Sparkles,        page: "ai_insights" },
   reports:          { label: "Reports",            icon: LineChart,       page: "reports" },
