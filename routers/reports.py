@@ -242,7 +242,9 @@ def get_similar_incidents(
 # SARO-004: NIST AI RMF coverage report
 # ─────────────────────────────────────────────────────────────────────────────
 
-# All 72 NIST AI RMF 1.0 subcategory IDs with their automated coverage status.
+# The 68 NIST AI RMF 1.0 subcategory IDs that SARO maps, with their automated
+# coverage status. This is SARO's mapped subset of the framework's subcategories —
+# not a claim of full RMF coverage.
 # "mapped" = SARO actively generates evidence, "partial" = limited automated evidence,
 # "requires_human_assessment" = no automated signal possible from text analysis.
 _NIST_COVERAGE_MAP: dict[str, str] = {
@@ -299,7 +301,8 @@ def get_nist_coverage(
     db: Annotated[Session, Depends(get_db)],
 ) -> NistCoverageReportOut:
     """
-    Returns coverage status for all 72 NIST AI RMF 1.0 subcategory outcomes.
+    Returns coverage status for the 68 NIST AI RMF 1.0 subcategories that SARO maps
+    (its mapped subset of the framework — not a claim of full RMF coverage).
 
     Status values:
       mapped                   — SARO generates automated evidence for this subcategory
