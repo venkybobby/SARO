@@ -11,7 +11,7 @@ export default function RulePacks({ token }) {
 
   useEffect(() => {
     if (!token) return;
-    fetch("/api/v1/rule-packs", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/v1/rules/packs", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((d) => { setPacks(Array.isArray(d) ? d : d.packs || []); setLoading(false); })
       .catch((e) => { setError(`${e}`); setLoading(false); });

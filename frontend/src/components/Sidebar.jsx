@@ -42,7 +42,7 @@ const TAB_REGISTRY = {
   dashboard:        { label: "Dashboard",         icon: LayoutDashboard, page: "dashboard" },
   compliance_hub:   { label: "Compliance Hub",    icon: Shield,          page: "compliance_hub" },
   trace_view:       { label: "TRACE View",         icon: Search,          page: "trace_view" },
-  evidence_export:  { label: "Evidence Export",    icon: Package,         page: "trace_view" },
+  // STORY-111: removed the duplicate Evidence Export nav entry (it rendered the same TraceView page).
   // STORY-113: Risk Summary (and its Vendor Risk alias) merged into Risk Register.
   trust_center:     { label: "Trust Center",       icon: ShieldCheck,     page: "trust_center" },
   rule_packs:       { label: "Rule Packs",         icon: Package,         page: "rule_packs" },

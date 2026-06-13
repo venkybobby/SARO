@@ -10,7 +10,7 @@ export default function DriftAlerts({ token }) {
 
   useEffect(() => {
     if (!token) return;
-    fetch("/api/v1/drift/alerts", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/v1/rules/drift-alerts", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((d) => { setData(d); setLoading(false); })
       .catch((e) => { setError(`${e}`); setLoading(false); });
