@@ -672,36 +672,41 @@ def health_check() -> dict:
 
 # ── Persona Permission Seeding (CF-06) ────────────────────────────────────────
 
-_PERSONA_SEEDS = [
-    {
-        "persona_role": "compliance_lead",
-        "allowed_tabs": ["dashboard", "audit", "trace", "remediate", "aims", "governance"],
-        "allowed_actions": ["create_aims_document", "link_audit", "export_pdf", "view_trace"],
-    },
-    {
-        "persona_role": "risk_officer",
-        "allowed_tabs": ["dashboard", "trace", "notifications"],
-        "allowed_actions": ["view_trace", "view_dashboard"],
-    },
-    {
-        "persona_role": "ai_auditor",
-        "allowed_tabs": ["dashboard", "audit", "trace", "rule_packs", "remediate"],
-        "allowed_actions": ["view_trace", "view_rule_packs", "remediate_trace"],
-    },
-]
+def _build_persona_seeds() -> list[dict]:
+    """Derive ORM PersonaPermission seeds from the single source of truth
+    (services.persona_service.PERSONA_PERMISSIONS), so the fresh-deploy fallback
+    seed can never drift from the authoritative persona definitions (STORY-109).
+
+    The ORM PersonaPermission table stores only persona_role/allowed_tabs/
+    allowed_actions; the source's `denied_actions` and `trace_mode` are enforced
+    at the service layer (persona_service) and are intentionally not persisted
+    here — a documented gap, not a regression.
+    """
+    from services.persona_service import PERSONA_PERMISSIONS
+
+    return [
+        {
+            "persona_role": role,
+            "allowed_tabs": list(perm.get("tabs", [])),
+            "allowed_actions": list(perm.get("allowed_actions", [])),
+        }
+        for role, perm in PERSONA_PERMISSIONS.items()
+    ]
 
 
 def seed_persona_permissions() -> None:
     """
-    Idempotently insert PersonaPermission rows for the three standard personas.
-    Skips rows that already exist (upsert by persona_role uniqueness).
+    Idempotently insert PersonaPermission rows for every standard persona
+    (compliance_lead, risk_officer, ai_auditor, admin), derived from the
+    persona_service source of truth. Skips rows that already exist (upsert by
+    persona_role uniqueness) — never overwrites migration-applied values.
     """
     from models import PersonaPermission  # local import — avoids circular at module load
 
     factory = _get_session_factory()
     db: Session = factory()
     try:
-        for seed in _PERSONA_SEEDS:
+        for seed in _build_persona_seeds():
             existing = (
                 db.query(PersonaPermission)
                 .filter(PersonaPermission.persona_role == seed["persona_role"])
