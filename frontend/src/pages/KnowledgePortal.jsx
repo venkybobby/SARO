@@ -46,7 +46,7 @@ const ARTICLES = [
       },
       {
         heading: "Non-Negotiables",
-        body: "SARO (1) accepts only prompt + raw_output — never calls external AI models. (2) Returns only risk score, TRACE timeline, remediation guidance. (3) Never writes to client systems. (4) Never certifies compliance — evidence support only. (5) Human-in-the-loop always required.",
+        body: "SARO (1) accepts only prompt + raw_output — core scoring never calls external AI models (the one exception is the optional, off-by-default Gate-3 LLM-judge, enabled only when its API key is set). (2) Returns only risk score, TRACE timeline, remediation guidance. (3) Never writes to client systems. (4) Never certifies compliance — evidence support only. (5) Human-in-the-loop always required.",
       },
     ],
   },

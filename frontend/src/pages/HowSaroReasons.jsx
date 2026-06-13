@@ -34,7 +34,7 @@ export default function HowSaroReasons() {
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>💡 How SARO Reasons</h1>
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 24 }}>
         SARO uses a 4-gate pipeline with SHAP-based explainability to compute a 0–100 risk score from AI prompt + output pairs.
-        It never calls external AI models — it only accepts <code>prompt</code> + <code>raw_output</code>.
+        Core scoring never calls external AI models — it only accepts <code>prompt</code> + <code>raw_output</code>. An optional Gate-3 verification pass calls a configured LLM only if you enable it (off by default).
       </p>
 
       {/* DIR Formula */}
@@ -79,7 +79,7 @@ export default function HowSaroReasons() {
       <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: 16 }}>
         <h3 style={{ fontSize: 14, marginBottom: 8, color: "#92400e" }}>SARO Non-Negotiables</h3>
         <ul style={{ margin: 0, padding: "0 0 0 20px", fontSize: 13, color: "#374151" }}>
-          <li>Accepts only <code>prompt</code> + <code>raw_output</code> — never calls external AI models</li>
+          <li>Accepts only <code>prompt</code> + <code>raw_output</code> — core scoring never calls external AI models (optional Gate-3 judge off by default)</li>
           <li>Returns only risk score (0–100), TRACE timeline, and remediation guidance</li>
           <li>Never writes to client systems</li>
           <li>Never certifies compliance — evidence support only</li>

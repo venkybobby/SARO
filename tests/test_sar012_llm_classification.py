@@ -32,11 +32,13 @@ def _build_llm_classification(verdicts: list[dict]) -> dict | None:
     """
     if not verdicts:
         return None
+    from engine import LLM_JUDGE_MODEL
+
     confirmed_count = sum(1 for v in verdicts if v.get("confirmed"))
     confidences = [v["confidence"] for v in verdicts if v.get("confidence") is not None]
     avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
     return {
-        "model": "claude-sonnet-4-20250514",
+        "model": LLM_JUDGE_MODEL,
         "verdicts_count": len(verdicts),
         "confirmed_count": confirmed_count,
         "confidence_avg": avg_confidence,
@@ -147,6 +149,51 @@ def test_gate3_judge_receives_sample_text_not_signal_label(monkeypatch):
 
 
 @pytest.mark.unit
+def test_gate3_judge_model_is_configurable(monkeypatch):
+    """STORY-102 AC-3/AC-4: the Gate-3 judge model is resolved from config, not hardcoded.
+
+    The create() call reads engine.LLM_JUDGE_MODEL at call time, so overriding the
+    module attribute (what reading SARO_LLM_JUDGE_MODEL at import produces) proves the
+    model is swappable without touching the call site.
+    """
+    captured: dict = {}
+
+    class _FakeMsg:
+        def __init__(self, txt: str):
+            self.content = [type("C", (), {"text": txt})()]
+
+    class _FakeMessages:
+        def create(self, **kw):
+            captured["model"] = kw["model"]
+            return _FakeMsg(
+                '{"domain": "Discrimination & Toxicity", "confirmed": true, '
+                '"confidence": 0.9, "reasoning": "ok"}'
+            )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.messages = _FakeMessages()
+
+    import anthropic
+    import engine as _engine
+
+    monkeypatch.setattr(anthropic, "Anthropic", _FakeClient)
+    monkeypatch.setattr(_engine, "LLM_JUDGE_MODEL", "some-cheaper-model-v2")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    eng = _engine.SARoEngine.__new__(_engine.SARoEngine)
+    eng._compliance_triggers = {}
+    samples = [_engine.SampleIn(sample_id=f"s{i}", text="benign") for i in range(49)]
+    samples.append(_engine.SampleIn(sample_id="f1", text="toxic hate speech here"))
+    batch = _engine.BatchIn(samples=samples, config=_engine.AuditConfigIn())
+    eng._gate3_risk_classification(batch)
+
+    assert captured.get("model") == "some-cheaper-model-v2", (
+        "judge must use the configured model, not a hardcoded one"
+    )
+
+
+@pytest.mark.unit
 def test_engine_source_has_no_false_positive_reduction():
     """STORY-107 AC-1: no live reference to the dead symbol remains in engine.py."""
     engine_src = (_REPO_ROOT / "engine.py").read_text(encoding="utf-8")
@@ -156,12 +203,17 @@ def test_engine_source_has_no_false_positive_reduction():
 
 
 def test_llm_classification_model_name():
-    """Model field must be exactly 'claude-sonnet-4-20250514'."""
+    """Model field must default to claude-sonnet-4 (the configured default — STORY-102)."""
+    from engine import LLM_JUDGE_MODEL
+
+    assert LLM_JUDGE_MODEL == "claude-sonnet-4-20250514", (
+        "default Gate-3 judge model must remain claude-sonnet-4 unless overridden by env"
+    )
     lc = _build_llm_classification([
         {"domain": "d", "confirmed": True, "confidence": 0.9, "reasoning_summary": "ok"},
     ])
     assert lc is not None
-    assert lc["model"] == "claude-sonnet-4-20250514"
+    assert lc["model"] == LLM_JUDGE_MODEL
 
 
 def test_llm_classification_required_fields_present():
@@ -214,8 +266,9 @@ def test_engine_gate3_details_include_llm_classification_key_structure():
     assert 'gate3_details["llm_classification"] = llm_classification' in engine_src, (
         "engine.py must assign llm_classification to gate3_details"
     )
-    assert '"model": "claude-sonnet-4-20250514"' in engine_src, (
-        "engine.py must set model to claude-sonnet-4-20250514 in llm_classification"
+    # STORY-102: model is config-driven now, not a hardcoded literal.
+    assert '"model": LLM_JUDGE_MODEL' in engine_src, (
+        "engine.py must record the configured LLM_JUDGE_MODEL in llm_classification"
     )
     assert '"reasoning_summary"' in engine_src, (
         "engine.py must include reasoning_summary in llm_classification verdicts"

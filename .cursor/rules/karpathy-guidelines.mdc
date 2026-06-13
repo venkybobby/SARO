@@ -80,7 +80,7 @@ For multi-step tasks, state a plan with explicit verification:
 
 ## SARO Non-Negotiables (immutable — no PR may weaken these)
 
-1. Accepts only `prompt` + `raw_output` — never calls external AI models.
+1. Accepts only `prompt` + `raw_output` — core scoring never calls external AI models (one disclosed exception: the optional, off-by-default Gate-3 LLM-judge — see docs/COMPLIANCE_CLAIMS_MATRIX.md "External Model Usage").
 2. Returns only risk score (0–100 int), TRACE timeline, remediation guidance.
 3. Never writes to client systems.
 4. Never certifies compliance (evidence support only).

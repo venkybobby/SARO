@@ -121,4 +121,31 @@ All Gate 1 error messages, schema docstrings, and remediation hints reference "i
 
 ---
 
-*Last updated: 2026-06-02 | Owner: Venky (Lead) | Review: Jordan Lee (Backend) | EVF section added per SARO-RISK-001*
+## External Model Usage — Optional Gate-3 LLM Judge (SARO-102)
+
+> **Scope of the "never calls external AI models" posture.** SARO's **core risk
+> scoring** never calls an external AI model: the 4-gate pipeline computes scores
+> from the `prompt` + `raw_output` the caller provides, and SARO never generates
+> the output it audits. There is exactly **one disclosed, off-by-default
+> exception**, documented here so the posture statement and the code cannot
+> contradict each other.
+
+| Aspect | Detail |
+|---|---|
+| What it is | An **optional** Gate-3 "LLM-as-judge" verification pass that re-checks keyword/regex-flagged samples to reduce false positives. It does **not** compute or change the risk score's core math; it only confirms or drops individual flags. |
+| When it runs | **Only** when a tenant explicitly sets the provider API key (`ANTHROPIC_API_KEY`). With no key set, SARO is keyword-only and makes **zero** external calls — the default. |
+| What is sent | The **PII-redacted** sample fragment (`_redact_pii` applied before egress) and the domain definition — never raw PII, never client system data. |
+| Provider/model | Configurable: `SARO_LLM_JUDGE_PROVIDER` (default `anthropic`) and `SARO_LLM_JUDGE_MODEL` (default `claude-sonnet-4-20250514`). The model may be changed to a cheaper one without code changes. |
+| What it never does | Write to client systems · generate the audited output · issue any compliance verdict · alter SARO's read-only, evidence-only posture. |
+
+**Approved language:** "SARO's core scoring never calls external AI models. An
+optional Gate-3 verification pass calls a configured LLM provider only when you
+enable it by setting its API key (off by default)."
+
+**Owner decision (2026-06-12):** retain the optional judge with Anthropic as the
+default provider; keep the model swappable via `SARO_LLM_JUDGE_MODEL`. This is a
+disclosure of existing behavior, not a broadening of any compliance claim.
+
+---
+
+*Last updated: 2026-06-12 | Owner: Venky (Lead) | Review: Jordan Lee (Backend) | EVF section per SARO-RISK-001 · External-model disclosure per SARO-102*

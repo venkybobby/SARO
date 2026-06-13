@@ -21,7 +21,7 @@ Perform a structured review of the current diff or named PR. Report findings by 
 - Overly broad CORS or permissive headers
 
 ### SARO Non-Negotiables
-- No calls to external AI models
+- No calls to external AI models in core scoring (the optional, off-by-default Gate-3 LLM-judge is the one disclosed exception — see docs/COMPLIANCE_CLAIMS_MATRIX.md "External Model Usage")
 - No writes to client systems
 - No compliance certification language (check against COMPLIANCE_CLAIMS_MATRIX.md)
 - Human-in-the-loop preserved for certification paths

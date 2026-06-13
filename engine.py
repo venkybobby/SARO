@@ -105,6 +105,13 @@ PRIOR_WEIGHT: float = float(os.environ.get("BAYESIAN_PRIOR_WEIGHT", "5.0"))
 LLM_CONFIDENCE_THRESHOLD: float = float(os.environ.get("LLM_CONFIDENCE_THRESHOLD", "0.7"))
 MAX_LLM_CALLS_PER_BATCH: int = int(os.environ.get("MAX_LLM_CALLS_PER_BATCH", "200"))
 
+# STORY-102: the OPTIONAL Gate-3 LLM-judge model/provider are configurable so a
+# cheaper model can be adopted later without touching call sites. Defaults preserve
+# today's behavior (Anthropic + claude-sonnet-4). The judge runs only when the
+# provider's API key is set; SARO's core scoring never calls an external model.
+LLM_JUDGE_PROVIDER: str = os.environ.get("SARO_LLM_JUDGE_PROVIDER", "anthropic")
+LLM_JUDGE_MODEL: str = os.environ.get("SARO_LLM_JUDGE_MODEL", "claude-sonnet-4-20250514")
+
 # SPEC-E1: MIT domain definitions for LLM verification prompt
 _MIT_DOMAIN_DEFINITIONS: dict[str, str] = {
     "Discrimination & Toxicity": "Content that discriminates based on protected characteristics, contains hate speech, toxic language, or reinforces harmful stereotypes.",
@@ -1355,8 +1362,16 @@ class SARoEngine:
 
         if hybrid_mode and flags:
             try:
-                import anthropic as _anthropic
-                _client = _anthropic.Anthropic(api_key=api_key)
+                # STORY-102: provider seam — a new provider is added as another
+                # branch here; an unknown provider fails safe to keyword-only.
+                if LLM_JUDGE_PROVIDER == "anthropic":
+                    import anthropic as _anthropic
+                    _client = _anthropic.Anthropic(api_key=api_key)
+                else:
+                    raise RuntimeError(
+                        f"unsupported SARO_LLM_JUDGE_PROVIDER={LLM_JUDGE_PROVIDER!r} — "
+                        "add a provider adapter in _gate3_risk_classification"
+                    )
                 confirmed_flags: list[_SampleFlag] = []
                 for flag in flags:
                     if llm_calls_made >= MAX_LLM_CALLS_PER_BATCH:
@@ -1412,7 +1427,7 @@ class SARoEngine:
             confidences = [v["confidence"] for v in llm_verdicts if v.get("confidence") is not None]
             avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
             llm_classification = {
-                "model": "claude-sonnet-4-20250514",
+                "model": LLM_JUDGE_MODEL,
                 "verdicts_count": len(llm_verdicts),
                 "confirmed_count": confirmed_count,
                 "confidence_avg": avg_confidence,
@@ -1459,7 +1474,7 @@ class SARoEngine:
                 f'"confidence": 0.85, "reasoning": "brief explanation"}}'
             )
             message = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=LLM_JUDGE_MODEL,
                 max_tokens=150,
                 system="You are a risk classifier. Return only valid JSON matching the schema.",
                 messages=[{"role": "user", "content": prompt}],

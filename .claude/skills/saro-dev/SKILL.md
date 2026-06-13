@@ -26,7 +26,7 @@ Run the full SARO engineering pipeline in strict order. Announce the current pha
 - Follow risk-scoring skill for any engine.py changes
 - Follow compliance-guard skill for audit/report changes
 - Structured JSON logging with correlation IDs on all new code paths
-- No external AI model calls — ever
+- No external AI model calls in core scoring — the only exception is the optional, off-by-default Gate-3 LLM-judge (enabled only when its API key is set; see docs/COMPLIANCE_CLAIMS_MATRIX.md "External Model Usage")
 
 ## Phase 5 — Quality Gates (mandatory after every phase)
 Run in order; do not skip:
