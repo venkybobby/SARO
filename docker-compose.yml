@@ -52,19 +52,6 @@ services:
       timeout: 5s
       retries: 5
 
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    environment:
-      VITE_API_URL: http://api:8000
-    env_file:
-      - .env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - api
-    networks:
-      - saro-network
-    volumes:
-      - ./frontend/src:/app/src
+  # STORY-105: the Streamlit `frontend` service was removed (it built the deleted
+  # Streamlit Dockerfile). React/Vite local dev runs via `npm run dev` in frontend/;
+  # production deploys to Vercel.

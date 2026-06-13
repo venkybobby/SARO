@@ -71,7 +71,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -r requirements.txt -r frontend/requirements.txt playwright pytest-playwright
+      - run: pip install -r requirements.txt playwright pytest-playwright
       - run: playwright install --with-deps chromium
       - run: pytest tests/ -m "e2e" --tb=short -q
 
