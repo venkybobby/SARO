@@ -17,7 +17,8 @@ import { useDirtyNavGuard } from "./hooks/useDirtyNavGuard.js";
 const Dashboard     = lazy(() => import("./pages/Dashboard"));
 const ComplianceHub = lazy(() => import("./pages/ComplianceHub"));
 const TraceView     = lazy(() => import("./pages/TraceView"));
-const RiskSummary   = lazy(() => import("./pages/RiskSummary"));
+// STORY-113: RiskSummary is no longer a standalone page — it is rendered as a
+// collapsible band inside RiskRegister, which imports it directly.
 const ClaimsMatrix  = lazy(() => import("./pages/ClaimsMatrix"));
 const HowSaroReasons= lazy(() => import("./pages/HowSaroReasons"));
 const GovernanceDocs= lazy(() => import("./pages/GovernanceDocs"));
@@ -45,7 +46,9 @@ const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
   compliance_hub:   ComplianceHub,
   trace_view:       TraceView,
-  risk_summary:     RiskSummary,
+  // STORY-113: risk_summary merged into Risk Register; redirect any lingering
+  // nav/deep-link here so it never falls through to Dashboard (FND-007).
+  risk_summary:     RiskRegister,
   risk_register:    RiskRegister,
   claims_matrix:    ClaimsMatrix,
   how_saro_reasons: HowSaroReasons,

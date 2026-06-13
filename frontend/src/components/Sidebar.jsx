@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard, Shield, Search, Package, BarChart2,
+  LayoutDashboard, Shield, Search, Package,
   Map, Wrench, Activity, Building2, Upload, Settings,
   ClipboardList, BookOpen, Users, Lightbulb, FileText,
   AlertTriangle, Lock, ShieldCheck, LogOut, ChevronRight,
@@ -14,7 +14,7 @@ const PERSONA_TABS = {
     "claims_matrix","how_saro_reasons","dpa_governance",
     "aims","governance","onboarding","upload","evaluations","reports",
   ],
-  risk_officer: ["dashboard","risk_register","risk_summary","trace_view","ai_insights","reports"],
+  risk_officer: ["dashboard","risk_register","trace_view","ai_insights","reports"],
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","coverage_gap","remediation","drift_alerts","upload",
@@ -22,7 +22,7 @@ const PERSONA_TABS = {
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
+    "claims_matrix","how_saro_reasons",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","evf_admin","demo_requests",
@@ -30,7 +30,7 @@ const PERSONA_TABS = {
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
+    "claims_matrix","how_saro_reasons",
     "dpa_governance","rule_packs","coverage_gap","remediation",
     "drift_alerts","aims","governance","onboarding","upload",
     "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
@@ -43,8 +43,7 @@ const TAB_REGISTRY = {
   compliance_hub:   { label: "Compliance Hub",    icon: Shield,          page: "compliance_hub" },
   trace_view:       { label: "TRACE View",         icon: Search,          page: "trace_view" },
   evidence_export:  { label: "Evidence Export",    icon: Package,         page: "trace_view" },
-  risk_summary:     { label: "Risk Summary",       icon: BarChart2,       page: "risk_summary" },
-  vendor_risk:      { label: "Vendor Risk",        icon: Building2,       page: "risk_summary" },
+  // STORY-113: Risk Summary (and its Vendor Risk alias) merged into Risk Register.
   claims_matrix:    { label: "Claims Matrix",      icon: ClipboardList,   page: "claims_matrix" },
   how_saro_reasons: { label: "How SARO Reasons",  icon: Lightbulb,       page: "how_saro_reasons" },
   dpa_governance:   { label: "DPA & Governance",   icon: FileText,        page: "governance_docs" },
