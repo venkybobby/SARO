@@ -23,3 +23,9 @@ Workflow: log here → root-cause → fix → write `tests/regression/test_fnd_#
 
 **`verify-pinned`** = fix believed shipped, but no regression test confirms it stays fixed.
 First task of any auth story: convert these to `pinned` by writing the tests.
+
+**Cross-file status mapping (ledger ↔ `tests/regression/manifest.yaml`):** a finding
+that is `pinned` here appears as `status: pinned` in the manifest; a finding that is
+`verify-pinned` or `open` here (no regression test yet) appears as `status: open` in
+the manifest. The two records track the same FND IDs and must never contradict each
+other — `tests/test_story103_findings_ledger_consistency.py` enforces this.
