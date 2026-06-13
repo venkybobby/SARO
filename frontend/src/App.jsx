@@ -19,15 +19,14 @@ const ComplianceHub = lazy(() => import("./pages/ComplianceHub"));
 const TraceView     = lazy(() => import("./pages/TraceView"));
 // STORY-113: RiskSummary is no longer a standalone page — it is rendered as a
 // collapsible band inside RiskRegister, which imports it directly.
-const ClaimsMatrix  = lazy(() => import("./pages/ClaimsMatrix"));
-const HowSaroReasons= lazy(() => import("./pages/HowSaroReasons"));
-const GovernanceDocs= lazy(() => import("./pages/GovernanceDocs"));
+// STORY-112: Governance, HowSaroReasons, ClaimsMatrix and GovernanceDocs are
+// consolidated into the Trust Center, which imports them as tabbed sections.
+const TrustCenter   = lazy(() => import("./pages/TrustCenter"));
 const RulePacks     = lazy(() => import("./pages/RulePacks"));
 const CoverageGap   = lazy(() => import("./pages/CoverageGap"));
 const Remediation   = lazy(() => import("./pages/Remediation"));
 const DriftAlerts   = lazy(() => import("./pages/DriftAlerts"));
 const Aims          = lazy(() => import("./pages/Aims"));
-const Governance    = lazy(() => import("./pages/Governance"));
 const Onboarding    = lazy(() => import("./pages/Onboarding"));
 const Upload        = lazy(() => import("./pages/Upload"));
 const Evaluations   = lazy(() => import("./pages/Evaluations"));
@@ -50,15 +49,20 @@ const PAGE_COMPONENTS = {
   // nav/deep-link here so it never falls through to Dashboard (FND-007).
   risk_summary:     RiskRegister,
   risk_register:    RiskRegister,
-  claims_matrix:    ClaimsMatrix,
-  how_saro_reasons: HowSaroReasons,
-  dpa_governance:   GovernanceDocs,
+  // STORY-112: the four governance pages now resolve to the Trust Center. The
+  // old keys are kept as redirects (with initialTab) so deep-links/aliases don't
+  // fall through to Dashboard (FND-007).
+  trust_center:     TrustCenter,
+  claims_matrix:    TrustCenter,
+  how_saro_reasons: TrustCenter,
+  dpa_governance:   TrustCenter,
+  governance_docs:  TrustCenter,
   rule_packs:       RulePacks,
   coverage_gap:     CoverageGap,
   remediation:      Remediation,
   drift_alerts:     DriftAlerts,
   aims:             Aims,
-  governance:       Governance,
+  governance:       TrustCenter,
   onboarding:       Onboarding,
   upload:           Upload,
   evaluations:      Evaluations,
@@ -297,6 +301,13 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
               activePage === "claims_matrix" && typeof navPayload === "object" && navPayload !== null
                 ? navPayload.section
                 : undefined
+            }
+            initialTab={
+              ["governance", "how_saro_reasons", "claims_matrix", "dpa_governance"].includes(activePage)
+                ? activePage
+                : activePage === "governance_docs"
+                  ? "dpa_governance"
+                  : undefined
             }
           />
         </Suspense>
