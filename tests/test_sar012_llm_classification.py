@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -64,6 +66,41 @@ def test_llm_classification_absent_without_api_key():
         assert "llm_classification" not in gate3.details, (
             "llm_classification must not appear when ANTHROPIC_API_KEY is absent"
         )
+
+
+@pytest.mark.unit
+def test_gate3_details_has_no_false_positive_reduction_rate():
+    """STORY-107: the dead false_positive_reduction_rate metric is removed from gate3 details.
+
+    It was computed but never read by any consumer; the non-hybrid branch was a
+    no-op identity. Pin its absence so it cannot creep back.
+    """
+    env_without_key = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    with patch.dict(os.environ, env_without_key, clear=True):
+        from engine import SARoEngine, BatchIn, SampleIn, AuditConfigIn
+
+        engine = SARoEngine.__new__(SARoEngine)
+        engine._compliance_triggers = {}
+        batch = BatchIn(
+            samples=[SampleIn(sample_id=str(i), text="safe text here") for i in range(50)],
+            config=AuditConfigIn(),
+        )
+        _, gate3 = engine._gate3_risk_classification(batch)
+        assert "false_positive_reduction_rate" not in gate3.details, (
+            "false_positive_reduction_rate is dead and must not appear in gate3 details"
+        )
+        # The legitimate hybrid telemetry keys remain.
+        for kept in ("hybrid_mode", "llm_calls_made", "llm_parse_failures"):
+            assert kept in gate3.details, f"expected gate3 detail key {kept!r} to remain"
+
+
+@pytest.mark.unit
+def test_engine_source_has_no_false_positive_reduction():
+    """STORY-107 AC-1: no live reference to the dead symbol remains in engine.py."""
+    engine_src = (_REPO_ROOT / "engine.py").read_text(encoding="utf-8")
+    assert "false_positive_reduction" not in engine_src, (
+        "dead false_positive_reduction computation must be removed from engine.py"
+    )
 
 
 def test_llm_classification_model_name():

@@ -1386,11 +1386,6 @@ class SARoEngine:
         n = len(batch.samples)
         total_flagged = len({f.sample_id for f in flags})
         flag_rate = total_flagged / n if n else 0.0
-        false_positive_reduction = round(
-            (len({f.sample_id for f in flags}) / max(1, len({f.sample_id for f in flags}))) if not hybrid_mode else
-            max(0.0, 1.0 - total_flagged / max(1, len(flags) + llm_calls_made - total_flagged)),
-            3,
-        )
 
         # Score: fraction of samples with no flags (inverse risk exposure)
         score = 1.0 - flag_rate
@@ -1428,7 +1423,6 @@ class SARoEngine:
             "hybrid_mode": hybrid_mode,
             "llm_calls_made": llm_calls_made,
             "llm_parse_failures": llm_parse_failures,
-            "false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0,
         }
         if llm_classification:
             gate3_details["llm_classification"] = llm_classification
