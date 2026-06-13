@@ -72,3 +72,8 @@ findings:
     test: tests/test_sar012_llm_classification.py
     status: pinned
     quarantine_expires: null
+  - id: FND-015
+    title: "Reports iso42001-annex write endpoint lacks require_write_access"
+    test: tests/regression/test_fnd_015_iso_annex_write_access.py
+    status: open
+    quarantine_expires: null

@@ -12,7 +12,7 @@ const PERSONA_TABS = {
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
     "claims_matrix","how_saro_reasons","dpa_governance",
-    "aims","governance","onboarding","upload","evaluations",
+    "aims","governance","onboarding","upload","evaluations","reports",
   ],
   risk_officer: ["dashboard","risk_register","risk_summary","trace_view","ai_insights","reports"],
   ai_auditor: [
