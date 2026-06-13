@@ -505,6 +505,7 @@ class _SampleFlag:
     domain: str
     signal: str  # keyword or pattern that matched
     weight: float
+    text: str = ""  # PII-redacted sample fragment, for the Gate-3 LLM judge (STORY-101)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1320,19 +1321,22 @@ class SARoEngine:
                         override = risk_config.domain_weights[domain]
                         weight = max(0.0, min(1.0, override))
 
+                    # PII-redacted fragment of the sample; reused by the Gate-3
+                    # LLM judge (STORY-101) and the persisted sample finding.
+                    fragment = self._redact_pii(sample.text[:200])
+
                     flags.append(
                         _SampleFlag(
                             sample_id=sample.sample_id,
                             domain=domain,
                             signal=matched_signal,
                             weight=weight,
+                            text=fragment,
                         )
                     )
                     domain_counts[domain] += 1
 
                     # SARO-001: accumulate sample finding for persistence
-                    fragment = sample.text[:200]
-                    fragment = self._redact_pii(fragment)
                     self._sample_findings.append({
                         "sample_id": sample.sample_id,
                         "domain": domain,
@@ -1358,7 +1362,12 @@ class SARoEngine:
                     if llm_calls_made >= MAX_LLM_CALLS_PER_BATCH:
                         confirmed_flags.append(flag)
                         continue
-                    verdict = self._gate3_llm_verify_sync(_client, flag.signal, flag.domain)
+                    # STORY-101: fail safe — without the sample text the judge
+                    # cannot verify; keep the flag rather than send a label.
+                    if not flag.text:
+                        confirmed_flags.append(flag)
+                        continue
+                    verdict = self._gate3_llm_verify_sync(_client, flag.text, flag.domain)
                     llm_calls_made += 1
                     if verdict is not None:
                         # Store the verdict for trace detail_json

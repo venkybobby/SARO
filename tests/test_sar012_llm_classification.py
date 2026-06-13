@@ -95,6 +95,58 @@ def test_gate3_details_has_no_false_positive_reduction_rate():
 
 
 @pytest.mark.unit
+def test_gate3_judge_receives_sample_text_not_signal_label(monkeypatch):
+    """STORY-101: the Gate-3 LLM judge must reason over the sample's (redacted) text,
+    not the matched-signal label (e.g. 'keyword:toxic')."""
+    captured: dict = {}
+
+    class _FakeMsg:
+        def __init__(self, txt: str):
+            self.content = [type("C", (), {"text": txt})()]
+
+    class _FakeMessages:
+        def create(self, **kw):
+            captured["prompt"] = kw["messages"][0]["content"]
+            return _FakeMsg(
+                '{"domain": "Discrimination & Toxicity", "confirmed": true, '
+                '"confidence": 0.9, "reasoning": "ok"}'
+            )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.messages = _FakeMessages()
+
+    import anthropic
+
+    monkeypatch.setattr(anthropic, "Anthropic", _FakeClient)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    from engine import SARoEngine, BatchIn, SampleIn, AuditConfigIn
+
+    engine = SARoEngine.__new__(SARoEngine)
+    engine._compliance_triggers = {}
+    # Sample triggers a domain (toxic/hate) AND embeds an SSN, so we can pin both
+    # that the real text reaches the judge and that PII is redacted before egress.
+    sample_text = "this message is clearly toxic hate speech, my ssn is 123-45-6789"
+    samples = [SampleIn(sample_id=f"safe{i}", text="benign neutral content") for i in range(49)]
+    samples.append(SampleIn(sample_id="flagged1", text=sample_text))
+    batch = BatchIn(samples=samples, config=AuditConfigIn())
+    engine._gate3_risk_classification(batch)
+
+    assert "prompt" in captured, "LLM judge was never called"
+    assert "toxic hate speech" in captured["prompt"], (
+        "judge prompt must contain the actual sample text"
+    )
+    assert "keyword:" not in captured["prompt"], (
+        "judge must not be handed the matched-signal label"
+    )
+    assert "pattern:" not in captured["prompt"]
+    # PII must be redacted before it egresses to the external judge (STORY-101 security guarantee).
+    assert "123-45-6789" not in captured["prompt"], "raw SSN must not reach the external judge"
+    assert "***-**-****" in captured["prompt"], "SSN must be redacted in the judge prompt"
+
+
+@pytest.mark.unit
 def test_engine_source_has_no_false_positive_reduction():
     """STORY-107 AC-1: no live reference to the dead symbol remains in engine.py."""
     engine_src = (_REPO_ROOT / "engine.py").read_text(encoding="utf-8")

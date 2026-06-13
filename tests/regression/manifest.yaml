@@ -67,3 +67,8 @@ findings:
     test: tests/regression/test_fnd_013_audit_trace_constructors_set_tenant_id.py
     status: pinned
     quarantine_expires: null
+  - id: FND-014
+    title: "Gate-3 LLM judge received matched-signal label instead of sample text"
+    test: tests/test_sar012_llm_classification.py
+    status: pinned
+    quarantine_expires: null
