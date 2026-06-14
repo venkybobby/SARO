@@ -194,7 +194,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         seed_persona_permissions()
         # 4b. SAR-010: seed unified control library (idempotent — skips existing controls)
         try:
-            from scripts.seed_control_library import seed_controls
+            from scripts.seed_control_library import seed_controls  # type: ignore[attr-defined]
             seeded = seed_controls()
             if seeded:
                 logger.info("Control library seeded: %d controls added", seeded)
@@ -443,17 +443,19 @@ def health() -> JSONResponse:
 
     Returns HTTP 200 when healthy, HTTP 503 when:
       - The database is unreachable, OR
-      - schema_version is behind the highest migration file on disk
-        (schema mismatch — Railway will restart the container).
+      - a migration shipped in this image is not applied (schema mismatch —
+        Railway will restart the container).  Orphan/extra rows in
+        schema_migrations (from migrations removed/renamed in a later image)
+        are harmless and do NOT trip the gate.
 
     Fields:
       status                "ok" | "degraded" | "schema_mismatch"
       database              "ok" | "unreachable"
       db_error              null | "auth_failure" | "network_unreachable" | "ssl_error" | "unknown"
       schema_version        highest applied migration version in schema_migrations
-      schema_ok             true when schema_version == highest file on disk
+      schema_ok             true when every migration on disk is applied
       highest_migration     highest *.sql filename stem found under migrations/
-      bootstrap_needed      true when users table is empty (first-run prompt)
+      missing_migrations    on-disk migration stems not yet applied (empty when schema_ok)
       version               app version string
     """
     from database import get_db
@@ -467,10 +469,12 @@ def health() -> JSONResponse:
     schema_version: str | None = None
     schema_ok: bool | None = None
 
-    # Highest migration file on disk (stem of last sorted .sql file)
+    # Migrations this image ships: the full set of stems, plus the highest one.
     _mdir = pathlib.Path(__file__).parent / "migrations"
-    _disk = sorted(p.stem for p in _mdir.glob("*.sql"))
+    _disk_stems = [p.stem for p in _mdir.glob("*.sql")]
+    _disk = sorted(_disk_stems)
     highest_on_disk: str | None = _disk[-1] if _disk else None
+    missing_migrations: list[str] | None = None
 
     if db_ok:
         try:
@@ -478,17 +482,30 @@ def health() -> JSONResponse:
             try:
                 bootstrap_needed = db.query(User).count() == 0
                 try:
-                    row = db.execute(
-                        _t("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1")
-                    ).fetchone()
-                    schema_version = row[0] if row else None
-                    # schema_ok=None (unknown) when schema_migrations is empty —
-                    # migrations may still be running on first boot.  Only flag
-                    # mismatch when we have a concrete version that differs.
-                    if schema_version is None:
+                    _applied = {
+                        r[0]
+                        for r in db.execute(
+                            _t("SELECT version FROM schema_migrations")
+                        ).fetchall()
+                    }
+                    if not _applied:
+                        # schema_migrations empty — migrations may still be running
+                        # on first boot.  Unknown, not a mismatch.
+                        schema_version = None
                         schema_ok = None
                     else:
-                        schema_ok = schema_version == highest_on_disk
+                        # Report the highest applied version for visibility only.
+                        schema_version = max(_applied)
+                        # Schema is healthy when every migration shipped in THIS
+                        # image has been applied.  Do NOT require max(db)==max(disk):
+                        # an orphan row left by a migration that was renamed/removed
+                        # in a later image sorts above the highest file on disk and
+                        # would otherwise brick the deploy with a silent 503 even
+                        # though the schema is fully migrated.  Extra/orphan rows are
+                        # harmless; only a genuinely *missing* migration is a mismatch.
+                        _missing = [s for s in _disk_stems if s not in _applied]
+                        missing_migrations = sorted(_missing)
+                        schema_ok = not _missing
                 except Exception:
                     # schema_migrations table not yet created (first boot before migrations run)
                     schema_version = None
@@ -507,7 +524,9 @@ def health() -> JSONResponse:
         http_status = 200 if db_error == "auth_failure" else 503
         status = "degraded"
     elif schema_ok is False:
-        # Only hard-503 when we have a definite mismatch (known version ≠ highest on disk).
+        # Only hard-503 when a migration this image ships is genuinely *not* applied
+        # (see missing_migrations).  Orphan/extra rows in schema_migrations do NOT
+        # trip this — they are harmless leftovers from removed/renamed migrations.
         # schema_ok=None means migrations haven't recorded yet — return degraded/200 so
         # Railway doesn't restart-loop during the first-boot migration window.
         status, http_status = "schema_mismatch", 503
@@ -525,6 +544,7 @@ def health() -> JSONResponse:
             "schema_version": schema_version,
             "schema_ok": schema_ok,
             "highest_migration": highest_on_disk,
+            "missing_migrations": missing_migrations,
             "bootstrap_needed": bootstrap_needed,
             "version": app.version,
         },

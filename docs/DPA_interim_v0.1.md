@@ -1,3 +1,5 @@
+> **[SUPERSEDED]** by `docs/legal/saro-dpa-template-v1.0.md` (canonical DPA). Retained for history. Infrastructure references (Neon) are superseded by `docs/ARCHITECTURE.md`. See `docs/DOCUMENT_REGISTER.md`.
+
 # SARO Interim Data Processing Agreement — v0.1
 
 **Classification:** CONFIDENTIAL  

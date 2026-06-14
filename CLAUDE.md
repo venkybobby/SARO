@@ -27,15 +27,15 @@ SARO/
 └── docs/                # COMPLIANCE_CLAIMS_MATRIX.md
 ```
 
-**Infrastructure (target)**
+**Infrastructure** — canonical source of truth: [@docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Stack is frozen on Fly.io + Supabase (PT-012); Railway/Koyeb/Neon are SUPERSEDED.
 | Layer | Service |
 |---|---|
-| Backend API | Railway Pro — FastAPI + uvicorn |
-| Frontend | Vercel Pro — React/Vite (migration in progress) |
+| Backend API | Fly.io — FastAPI + uvicorn (`saro-backend`) |
+| Frontend | Fly.io — React/Vite (`sarofrontend`) |
 | Database | Supabase PostgreSQL Pro |
-| Cache | Railway Redis |
-| CI/CD | GitHub Actions + `anthropics/claude-code-action@v1` |
-| Monitoring | Railway Observability · Sentry · Prometheus/Grafana |
+| Cache | Redis (optional; non-evidence paths) |
+| CI/CD | GitHub Actions → `flyctl deploy` (`deploy.yml`) |
+| Monitoring | Sentry · Prometheus/Grafana |
 
 ## SARO Positioning — Non-Negotiables
 

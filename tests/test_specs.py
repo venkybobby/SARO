@@ -437,8 +437,8 @@ class TestLocalDevSetup:
             config = yaml.safe_load(f)
         services = config.get("services", {})
         assert "api" in services, "docker-compose.yml must have 'api' service"
-        assert "frontend" in services, "docker-compose.yml must have 'frontend' service"
         assert "db" in services, "docker-compose.yml must have 'db' service"
+        # STORY-105: the Streamlit 'frontend' service was removed (React deploys to Vercel).
 
     def test_docker_compose_api_port(self):
         import yaml
@@ -448,13 +448,15 @@ class TestLocalDevSetup:
         api_ports = config["services"]["api"].get("ports", [])
         assert any("8000" in str(p) for p in api_ports), "API service must expose port 8000"
 
-    def test_docker_compose_frontend_port(self):
+    def test_docker_compose_no_streamlit_frontend_service(self):
+        # STORY-105: the Streamlit 'frontend' service was removed from docker-compose.
         import yaml
         compose_path = Path(_REPO_ROOT) / "docker-compose.yml"
         with open(compose_path) as f:
             config = yaml.safe_load(f)
-        fe_ports = config["services"]["frontend"].get("ports", [])
-        assert any("3000" in str(p) for p in fe_ports), "Frontend service must expose port 3000"
+        assert "frontend" not in config.get("services", {}), (
+            "the Streamlit 'frontend' compose service should be removed (STORY-105)"
+        )
 
     def test_docker_compose_db_healthcheck(self):
         import yaml

@@ -93,6 +93,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
 
+def _dedupe_findings(findings: list[dict]) -> list[dict]:
+    """PT-002: collapse sample findings to one row per (sample_id, domain, matched_signal).
+
+    Identical re-matches are dropped; distinct samples are preserved. First-seen order
+    is retained so the persisted set is deterministic.
+    """
+    seen: set[tuple] = set()
+    out: list[dict] = []
+    for f in findings:
+        key = (f["sample_id"], f["domain"], f["matched_signal"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f)
+    return out
+
+
 def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> None:
     """Persist trace records and sample findings accumulated by the engine.
 
@@ -173,16 +190,21 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
         prev_hash = event_hash
 
     # Sample findings are non-critical — failures are logged but not propagated.
+    # PT-002: dedupe at the signal level — one row per (sample_id, domain,
+    # matched_signal). Identical re-matches collapse; distinct samples are kept.
     try:
-        for f in findings:
-            db.add(SampleFinding(
+        deduped = _dedupe_findings(findings)
+        db.bulk_save_objects([
+            SampleFinding(
                 audit_id=audit_id,
                 sample_id=f["sample_id"],
                 domain=f["domain"],
                 matched_signal=f["matched_signal"],
                 matched_text_fragment=f.get("matched_text_fragment"),
                 weight=f["weight"],
-            ))
+            )
+            for f in deduped
+        ])
     except Exception as finding_exc:
         logger.warning(
             "Could not persist sample findings for audit %s: %s", audit_id, finding_exc
@@ -192,8 +214,8 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
 
     db.commit()
     logger.info(
-        "Persisted %d trace records and %d sample findings for audit %s",
-        len(traces), len(findings), audit_id,
+        "Persisted %d trace records and %d sample findings (%d after signal-level dedupe) for audit %s",
+        len(traces), len(findings), len(deduped), audit_id,
     )
 
 

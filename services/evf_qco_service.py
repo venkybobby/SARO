@@ -124,6 +124,28 @@ def _get_registry_chain_head(db: Session) -> Optional[str]:
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
+def current_rule_pack_hash() -> str | None:
+    """PT-001: the SHA-256 of the active rule-pack set (engine config of record)."""
+    try:
+        from engine import SARoEngine
+        return SARoEngine._compute_rule_pack_hash()
+    except Exception:
+        return None
+
+
+def qco_rule_pack_is_current(qco: QCORegistry) -> bool:
+    """PT-001: True if the QCO was reviewed against the currently-active rule packs.
+
+    A QCO with no pinned hash is treated as not-current (cannot assert coverage of
+    the present rule packs). A mismatch means the rule packs changed after issuance,
+    so the QCO no longer validates the current configuration.
+    """
+    pinned = getattr(qco, "rule_pack_hash", None)
+    if not pinned:
+        return False
+    return pinned == current_rule_pack_hash()
+
+
 def create_qco_draft(
     db: Session,
     *,
@@ -136,8 +158,14 @@ def create_qco_draft(
     document_url: Optional[str],
     document_sha256: Optional[str],
     created_by_user_id: uuid.UUID,
+    rule_pack_hash: Optional[str] = None,
+    findings_summary: Optional[str] = None,
 ) -> QCORegistry:
-    """Create a draft QCO. Requires the engagement gate to be locked (FR-EVF-08)."""
+    """Create a draft QCO. Requires the engagement gate to be locked (FR-EVF-08).
+
+    PT-001: pins the QCO to the rule-pack hash it was reviewed against (defaults to
+    the current engine hash) and stores the SME findings summary.
+    """
     if not gate_is_locked(db, engagement_id):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -157,6 +185,8 @@ def create_qco_draft(
         scope_boundary_summary=scope_boundary_summary,
         document_url=document_url,
         document_sha256=document_sha256,
+        rule_pack_hash=rule_pack_hash or current_rule_pack_hash(),
+        findings_summary=findings_summary,
         engagement_id=engagement_id,
         published=False,
         created_by_user_id=created_by_user_id,

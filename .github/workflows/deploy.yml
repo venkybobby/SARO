@@ -60,72 +60,6 @@ jobs:
           SARO_DEMO_TENANT_ID: ${{ secrets.SARO_DEMO_TENANT_ID }}
         run: pytest tests/ -v --tb=short -x --ignore=tests/test_frontend_login.py
 
-  migrate:
-    # Apply pending SQL migrations BEFORE the new app revision goes live.
-    # Pattern: migrate-first → deploy-second guarantees additive DDL (ADD COLUMN)
-    # is present in the DB before any code that references the new columns starts
-    # serving traffic.  For destructive DDL (DROP/RENAME) a separate backward-
-    # compatible alias strategy is required.
-    #
-    # IMPORTANT — IPv4 requirement: GitHub Actions runners cannot reach Supabase
-    # direct (IPv6) hosts.  SUPABASE_DB_HOST *must* be set to the Session-mode
-    # pooler hostname from Supabase → Project Settings → Database → Connection
-    # string → "Session" tab (e.g. aws-0-us-east-1.pooler.supabase.com).
-    # The pooler listens on port 6543 and is IPv4-reachable.
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    env:
-      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      PGHOST:     ${{ secrets.SUPABASE_DB_HOST }}
-      PGPORT:     "6543"
-      PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
-      PGUSER:     ${{ secrets.SUPABASE_DB_USER }}
-      PGSSLMODE:  "require"
-      DB_SSLMODE: "require"
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install psql client
-        run: sudo apt-get install -y --no-install-recommends postgresql-client
-
-      - name: Bootstrap schema_migrations tracking table
-        run: |
-          psql "sslmode=${DB_SSLMODE}" -c "
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-              version     VARCHAR(255) PRIMARY KEY,
-              applied_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-              checksum    VARCHAR(64)  NOT NULL,
-              applied_by  VARCHAR(255) NOT NULL DEFAULT 'ci'
-            );
-          "
-
-      - name: Apply pending SQL migrations (idempotent)
-        run: |
-          set -euo pipefail
-          for f in $(ls migrations/*.sql | sort); do
-            version=$(basename "$f" .sql)
-            already=$(psql "sslmode=${DB_SSLMODE}" -tAc \
-              "SELECT COUNT(*) FROM schema_migrations WHERE version = '${version}'")
-            if [ "$already" = "0" ]; then
-              echo "Applying migration: $version"
-              psql "sslmode=${DB_SSLMODE}" -f "$f"
-              checksum=$(sha256sum "$f" | cut -d' ' -f1)
-              psql "sslmode=${DB_SSLMODE}" -c \
-                "INSERT INTO schema_migrations(version, checksum, applied_by)
-                 VALUES ('${version}', '${checksum}', 'ci/${GITHUB_SHA:0:7}')"
-              echo "Migration applied: $version"
-            else
-              echo "Already applied, skipping: $version"
-            fi
-          done
-
-      - name: Log migration state
-        run: |
-          psql "sslmode=${DB_SSLMODE}" -c \
-            "SELECT version, applied_at, applied_by FROM schema_migrations ORDER BY version;"
-
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -150,7 +84,13 @@ jobs:
         run: npm run build
 
   deploy:
-    needs: [test, migrate, frontend]   # all three gates required before deploy
+    # Migrations are applied by the app itself at startup, BEFORE it serves
+    # traffic (main.lifespan -> apply_pending_migrations(), idempotent and
+    # advisory-locked; a migration failure crashes the boot so a bad schema is
+    # never served).  A separate CI migrate job duplicated that and could only
+    # reach Supabase via the pooler — which it was misconfigured for — so it
+    # blocked every deploy.  Deploy gates on test + frontend only.
+    needs: [test, frontend]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
@@ -172,9 +112,9 @@ jobs:
       - name: Wait for Fly health (schema_ok must be true)
         run: |
           for i in $(seq 1 12); do
-            BODY=$(curl -s https://saro-platform.fly.dev/health)
+            BODY=$(curl -s https://saro-backend.fly.dev/health)
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                     https://saro-platform.fly.dev/health)
+                     https://saro-backend.fly.dev/health)
             echo "Attempt $i: HTTP $STATUS — $BODY"
             [ "$STATUS" = "200" ] && echo "Health OK" && exit 0
             sleep 10

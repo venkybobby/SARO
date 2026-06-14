@@ -14,7 +14,7 @@ import hashlib
 import logging
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,7 +23,13 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from engine import COMPLIANCE_MATRIX_VERSION, SARO_ENGINE_VERSION, _COMPLIANCE_TRIGGERS, _RISK_SIGNALS
+from engine import (
+    COMPLIANCE_MATRIX_VERSION,
+    SARO_ENGINE_VERSION,
+    SARoEngine,
+    _COMPLIANCE_TRIGGERS,
+    _RISK_SIGNALS,
+)
 from models import AIIncident, Audit, Iso42001Document, NISTControl, ScanReport, User
 from services.evf_validation_status_service import get_all_framework_statuses
 from schemas import (
@@ -269,11 +275,29 @@ def get_similar_incidents(
 # SARO-004: NIST AI RMF coverage report
 # ─────────────────────────────────────────────────────────────────────────────
 
-# The 68 NIST AI RMF 1.0 subcategory IDs that SARO maps, with their automated
-# coverage status. This is SARO's mapped subset of the framework's subcategories —
-# not a claim of full RMF coverage.
-# "mapped" = SARO actively generates evidence, "partial" = limited automated evidence,
-# "requires_human_assessment" = no automated signal possible from text analysis.
+# PT-007: version of the curated coverage map. Bump on any curated-status change.
+NIST_COVERAGE_MAP_VERSION = "v1.0"
+
+
+def _engine_mapped_subcategories() -> set[str]:
+    """PT-007: the subcategories SARO *actually* generates automated evidence for,
+    derived mechanically from _COMPLIANCE_TRIGGERS (not asserted in a static table).
+
+    A subcategory is 'mapped' iff at least one active compliance trigger carries its
+    nist_subcategory_id. Counted once per subcategory even if multiple triggers map to it.
+    """
+    return {
+        t["nist_subcategory_id"].strip()
+        for triggers in _COMPLIANCE_TRIGGERS.values()
+        for t in triggers
+        if t.get("nist_subcategory_id")
+    }
+
+
+# Curated baseline status for all 68 NIST AI RMF 1.0 subcategory IDs. The "mapped"
+# rows are kept in lock-step with _engine_mapped_subcategories() (pinned by
+# tests/test_pt007_nist_coverage.py); "partial"/"requires_human_assessment" follow
+# the rubric in docs/nist-coverage-rubric.md.
 _NIST_COVERAGE_MAP: dict[str, str] = {
     # GOVERN function
     "GOVERN 1.1": "partial", "GOVERN 1.2": "requires_human_assessment",
@@ -346,12 +370,15 @@ def get_nist_coverage(
     except Exception:
         pass
 
+    # PT-007: "mapped" is derived mechanically from the engine's triggers, not asserted.
+    derived_mapped = _engine_mapped_subcategories()
+
     subcategories: list[NistSubcategoryOut] = []
-    for sub_id, engine_status in _NIST_COVERAGE_MAP.items():
+    for sub_id, curated_status in _NIST_COVERAGE_MAP.items():
         row = nist_rows.get(sub_id)
         function_name = sub_id.split(" ")[0] if " " in sub_id else sub_id
         version = (row.version or "AI RMF 1.0") if row else "AI RMF 1.0"
-        status = engine_status if row else "not_covered"
+        status = "mapped" if sub_id in derived_mapped else curated_status
         subcategories.append(NistSubcategoryOut(
             subcategory_id=sub_id,
             function_name=function_name,
@@ -361,10 +388,14 @@ def get_nist_coverage(
         ))
 
     counts = Counter(s.status for s in subcategories)
+    mapped_count = counts.get("mapped", 0)
+    total = len(subcategories)
     return NistCoverageReportOut(
         engine_version=SARO_ENGINE_VERSION,
-        total_subcategories=len(subcategories),
-        mapped_count=counts.get("mapped", 0),
+        coverage_map_version=NIST_COVERAGE_MAP_VERSION,
+        automated_summary=f"{mapped_count} of {total} subcategories automated, map {NIST_COVERAGE_MAP_VERSION}",
+        total_subcategories=total,
+        mapped_count=mapped_count,
         partial_count=counts.get("partial", 0),
         not_covered_count=counts.get("not_covered", 0),
         requires_human_assessment_count=counts.get("requires_human_assessment", 0),
@@ -432,6 +463,23 @@ _ISO_ANNEX_TEMPLATE = """\
 [HUMAN REVIEW REQUIRED] Post-market monitoring plan
 [HUMAN REVIEW REQUIRED] Certification authority sign-off
 
+## NOT COVERED BY SARO — Manual Evidence Required
+SARO produces output-level risk evidence only. The following ISO/IEC 42001 clauses are
+**NOT COVERED BY SARO** and require manual evidence collected by the organisation; SARO
+*supports* but does *not replace* this work:
+- Clause 4 — Context of the organisation (AIMS scope, interested parties)
+- Clause 5 — Leadership and AI policy
+- Clause 6 — Planning (AI risk & impact assessment process, objectives)
+- Clause 7 — Support (resources, competence, awareness, documented information control)
+- Clause 8 — Operational planning beyond output evaluation
+- Clause 9 — Performance evaluation (internal audit, management review)
+- Clause 10 — Improvement (nonconformity, corrective action)
+
+## Provenance
+[AUTO] Engine version: {engine_version}
+[AUTO] Rule-pack hash (SHA-256): {rule_pack_hash}
+[AUTO] Document content hash is recorded on the immutable Iso42001Document record.
+
 ## Evidence References
 [AUTO] SARO Audit ID: {audit_id}
 [AUTO] TRACE record endpoint: /api/v1/traces/{audit_id}
@@ -484,6 +532,17 @@ def generate_iso42001_annex(
 
     report_data = _get_report_or_404(audit_id, current_user.tenant_id, db)
 
+    # PT-006 edge: refuse to emit a thin document from an audit with no evaluated
+    # gates — better a minimum-evidence error than a hollow Annex doc.
+    if not report_data.get("gates"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Insufficient audit evidence to generate ISO 42001 Annex documentation — "
+                "this audit has no evaluated gates. Run a complete audit first."
+            ),
+        )
+
     # Determine next version number for this audit
     existing_versions = (
         db.query(Iso42001Document)
@@ -524,6 +583,7 @@ def generate_iso42001_annex(
         applied_rules=applied_rules_text,
         open_remediations=len(report_data.get("remediations", [])),
         remediated_count=0,
+        rule_pack_hash=report_data.get("rule_pack_hash") or SARoEngine._compute_rule_pack_hash(),
     )
 
     content_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -619,6 +679,7 @@ def get_incident_corpus_stats(
 
     category_counts = Counter(r.category for r in rows if r.category)
     harm_type_counts = Counter(r.harm_type for r in rows if r.harm_type)
+    source_counts = Counter(r.source for r in rows if r.source)
 
     dates = [r.date for r in rows if r.date]
     dates_sorted = sorted(dates) if dates else []
@@ -626,13 +687,31 @@ def get_incident_corpus_stats(
     corpus_datetimes = [r.created_at for r in rows if r.created_at]
     last_update = max(corpus_datetimes) if corpus_datetimes else None
 
+    # PT-011: flag a stale (or empty) corpus instead of silently matching against it.
+    stale = False
+    staleness_message: str | None = None
+    if total == 0:
+        stale = True
+        staleness_message = "Incident corpus is empty — similarity matches are not meaningful."
+    elif last_update is not None:
+        age = datetime.now(tz=timezone.utc) - last_update
+        if age > timedelta(days=365):
+            stale = True
+            staleness_message = (
+                f"Incident corpus has not been refreshed in {age.days} days (>12 months) — "
+                "treat similarity matches with caution."
+            )
+
     return IncidentCorpusStatsOut(
         total_incidents=total,
         count_by_category=dict(category_counts),
         count_by_harm_type=dict(harm_type_counts),
+        count_by_source=dict(source_counts),
         date_range_earliest=dates_sorted[0] if dates_sorted else None,
         date_range_latest=dates_sorted[-1] if dates_sorted else None,
         pct_fixed=pct_fixed,
         last_corpus_update=last_update,
-        minimum_similarity_threshold=0.15,
+        minimum_similarity_threshold=SARoEngine.SIMILARITY_THRESHOLD,
+        corpus_stale=stale,
+        staleness_message=staleness_message,
     )
