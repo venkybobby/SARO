@@ -41,7 +41,7 @@ SARO/
 
 These six constraints are **immutable**. No PR may weaken them.
 
-1. **Accepts only** `prompt` + `raw_output` — never calls external AI models.
+1. **Accepts only** `prompt` + `raw_output` — SARO's core scoring never calls external AI models, and never generates the output it audits. *One disclosed, off-by-default exception:* the optional Gate-3 LLM-judge verification pass calls a configured provider (default Anthropic; model via `SARO_LLM_JUDGE_MODEL`) **only** when a tenant sets its API key — see the "External Model Usage" section of @docs/COMPLIANCE_CLAIMS_MATRIX.md.
 2. **Returns only** risk score (0–100 int), TRACE timeline, remediation guidance.
 3. **Never writes** to client systems.
 4. **Never certifies** compliance (evidence support only — see @docs/COMPLIANCE_CLAIMS_MATRIX.md).

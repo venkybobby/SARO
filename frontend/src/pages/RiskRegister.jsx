@@ -4,6 +4,7 @@ import {
   ChevronsUpDown, User, Tag, ShieldOff, ArrowLeft, ArrowRight, X,
 } from "lucide-react";
 import { Badge, Button, EmptyState, IconButton, Skeleton, ConfirmDialog, PageHeader } from "../components/ui/index.jsx";
+import RiskSummary from "./RiskSummary";
 
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
@@ -190,6 +191,16 @@ export default function RiskRegister({ token, onNavigate, toast }) {
         breadcrumb={<><span>Dashboard</span><span style={{ color: "var(--color-text-muted)" }}> › </span><span>Risk Register</span></>}
         actions={<Button variant="primary" size="sm" onClick={() => onNavigate?.("risk_form")}><Plus size={14} /> New Risk</Button>}
       />
+
+      {/* STORY-113: board-level Risk Summary merged in as a collapsible band */}
+      <details style={{ borderBottom: "1px solid var(--color-border-subtle)", background: "var(--color-bg-surface)" }}>
+        <summary style={{ cursor: "pointer", padding: "var(--space-3) var(--space-6)", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary, #374151)" }}>
+          📊 Risk Summary — board view (RAG, 90-day trend, top findings, vendor risk)
+        </summary>
+        <div style={{ padding: "0 var(--space-6) var(--space-3)" }}>
+          <RiskSummary token={token} embedded />
+        </div>
+      </details>
 
       {/* Toolbar */}
       <div style={{

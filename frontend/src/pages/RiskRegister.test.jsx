@@ -20,6 +20,20 @@ beforeEach(() => {
   }));
 });
 
+describe("STORY-113: Risk Summary merged into Risk Register", () => {
+  it("renders the board-level Risk Summary band (with its Export Board PDF action) inside the Register", async () => {
+    render(<RiskRegister token="t" onNavigate={() => {}} toast={{ success: vi.fn(), error: vi.fn() }} />);
+
+    // the collapsible summary band header
+    expect(
+      await screen.findByText(/Risk Summary — board view/i)
+    ).toBeInTheDocument();
+    // content that previously lived only on the standalone Risk Summary page
+    expect(await screen.findByText(/Export Board PDF/i)).toBeInTheDocument();
+    expect(screen.getByText(/Overall RAG/i)).toBeInTheDocument();
+  });
+});
+
 describe("RiskRegister delete action notifies via toast (regression: ESLint flat-config no-undef)", () => {
   it("calls toast.success after a successful delete without throwing ReferenceError", async () => {
     const user = userEvent.setup();

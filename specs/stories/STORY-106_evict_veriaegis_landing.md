@@ -1,29 +1,46 @@
-# STORY-106: Move `veriaegis-landing/` Out of the SARO Repo (G-6)
-Status: ready
-Screen/Area: Repo Structure / `veriaegis-landing/` (Next.js marketing site)
+# STORY-106: Evict the legacy "VeriAegis" landing site
+
+**Status:** ready (⚠ destructive — removes the veriaegis-landing/ Next.js app)
+**Screen/Area:** veriaegis-landing/ (standalone Next.js marketing site), .dockerignore, audit docs
 
 ## Goal
-A separate-brand marketing site lives inside the product repo and carries a `railway.toml` — a deployment config for the platform formally abandoned in ARCHITECTURE.md. This splits brand identity (VeriAegis vs SARO) inside the audited codebase and contradicts the canonical infrastructure-of-record. Relocate it to its own repository and purge the contradiction.
+The repo carries a legacy `veriaegis-landing/` Next.js marketing site branded "SARO by Veriaegis" — a product name SARO no longer uses. It is not imported by the backend or referenced in CI. Remove the VeriAegis-branded landing site (and its stray references) so the repo carries no foreign-brand artifact.
 
-GRC mapping: ISO/IEC 42001 A.6.2.6 (configuration management); audit-scope minimization — every directory in the product repo is in scope for escrow and auditor review.
+## Decision Required (resolve at Definition-of-Ready)
+- **Default: delete the whole `veriaegis-landing/` directory** and clean up references. The slug ("evict") implies removal.
+- Alternative (only if the user says the marketing site is still needed): rebrand in place — replace every "Veriaegis"/"veriaegis.ai" with SARO equivalents instead of deleting. `/story` will confirm which before deleting.
+
+## Context (file:line)
+- `veriaegis-landing/package.json:2`, `veriaegis-landing/railway.toml:13` — name `veriaegis-landing`.
+- `veriaegis-landing/app/layout.tsx:5,10,12,15,16,19,24` — "Veriaegis" in title/keywords/authors/OG/Twitter/url `https://veriaegis.ai`.
+- `veriaegis-landing/app/components/Navbar.tsx:41`, `Footer.tsx:33` — "SARO by Veriaegis".
+- `veriaegis-landing/app/components/CTABanner.tsx:42` — `mailto:hello@veriaegis.ai`.
+- `veriaegis-landing/app/components/FAQ.tsx:9` — a copy of the "never calls external AI models" claim (coordinate with STORY-102).
+- `.dockerignore` — multiple `veriaegis-landing/` paths (main + worktree mirrors).
+- `docs/evf/evf_retrospective_audit_2026-06-02.json:238` — references the FAQ component path (historical audit record — do not rewrite history; see edge cases).
 
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given the landing site, When migration completes, Then it exists in its own repo (history preserved via subtree split or fresh init per owner's choice) and `veriaegis-landing/` is deleted from SARO.
-- AC-2: Given the SARO repo post-merge, When searched, Then no `railway.toml` exists anywhere, and ARCHITECTURE.md remains the unchallenged infrastructure-of-record.
-- AC-3: Given CI workflows, When inspected, Then no SARO workflow builds or references the landing site.
-- AC-4: Given the landing site's content, When reviewed during migration, Then any compliance claims it makes are inventoried against the Claims Matrix (handoff to STORY-102 if contradictions found).
+- **AC-1:** Given the default decision, When this story completes, Then the `veriaegis-landing/` directory is removed and a case-insensitive repo grep for `veriaegis` returns no hits in live source/config (excluding immutable historical audit JSON and `.claude/worktrees`).
+- **AC-2:** Given `.dockerignore`, When inspected, Then stale `veriaegis-landing/` entries are removed (or left only as harmless ignore patterns that match nothing), with no dangling build reference.
+- **AC-3:** Given the backend and CI, When `pytest tests/ -q` and the CI config are checked, Then nothing referenced the landing site and nothing breaks.
+- **AC-4 (rebrand alt):** Given the rebrand alternative instead, Then every "Veriaegis"/`veriaegis.ai` token is replaced with the approved SARO brand/contact and the directory is renamed away from `veriaegis-landing`.
 
 ## Edge Cases
-- Landing site sharing assets (logos, CSS tokens) with the React SPA → copy, don't symlink across repos.
-- DNS/deploy config pointing at the monorepo path → re-point before deletion to avoid taking the marketing site down.
+- `docs/evf/evf_retrospective_audit_2026-06-02.json` is an audit-evidence artifact; per compliance-guard, do not mutate historical audit records to erase a path reference — leave it as the historical fact it is.
+- If `veriaegis-landing` has a live Railway/Vercel deployment, deleting source does not undeploy it — note as a follow-up; do not action infra without confirmation.
 
 ## Out of Scope
-- Brand-consolidation decision (VeriAegis vs SARO naming) — product decision, separate track.
+- Streamlit removal (STORY-105).
+- Building a replacement SARO landing page.
 
 ## Non-Functional Requirements
-- Destructive action: confirm before deletion commit. Standard project rules.
+- Follow `.claude/skills/compliance-guard` re: not rewriting audit history. Confirm delete-vs-rebrand before acting.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
-|----|---------|-------|
-| | | |
+|---|---|---|
+| AC-1 | `test_veriaegis_landing_dir_removed`, `test_no_veriaegis_brand_in_live_source` | veriaegis-landing/ (removed) |
+| AC-2 | `.dockerignore` is untracked (flyctl-generated, not in repo); its veriaegis patterns now match nothing | .dockerignore |
+| AC-3 | unit + regression green; dir was imported by no backend/CI | tests/ |
+
+**Status:** done (default: delete). Removed the `veriaegis-landing/` Next.js app (22 files) including the "SARO by Veriaegis" branding and `hello@veriaegis.ai`. Preserved `docs/evf/evf_retrospective_audit_2026-06-02.json` (audit history — not rewritten, per compliance-guard). `.dockerignore` left untouched (untracked local flyctl artifact; patterns harmlessly match nothing post-deletion). Branch `story/STORY-106_evict_veriaegis_landing` (stacked on 105).

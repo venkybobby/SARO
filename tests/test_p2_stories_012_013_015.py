@@ -84,12 +84,12 @@ def _clear():
 # ─── STORY-015: Drift alerts endpoint ─────────────────────────────────────────
 
 class TestDriftAlertsEndpoint:
-    """GET /api/v1/drift/alerts — response shape for dashboard banner."""
+    """GET /api/v1/rules/drift-alerts — response shape for dashboard banner."""
 
     def test_drift_alerts_ai_auditor_no_crash(self):
         client, _ = _with_overrides("ai_auditor")
         try:
-            r = client.get("/api/v1/drift/alerts", headers={"Authorization": "Bearer test"})
+            r = client.get("/api/v1/rules/drift-alerts", headers={"Authorization": "Bearer test"})
             # 200 or 404 (endpoint optional) — never 500
             assert r.status_code != 500, f"drift/alerts crashed: {r.text[:200]}"
             assert r.status_code in (200, 404, 403, 422), f"Unexpected {r.status_code}"
@@ -99,7 +99,7 @@ class TestDriftAlertsEndpoint:
     def test_drift_alerts_admin_no_crash(self):
         client, _ = _with_overrides("admin")
         try:
-            r = client.get("/api/v1/drift/alerts", headers={"Authorization": "Bearer test"})
+            r = client.get("/api/v1/rules/drift-alerts", headers={"Authorization": "Bearer test"})
             assert r.status_code != 500, f"drift/alerts crashed: {r.text[:200]}"
             if r.status_code == 200:
                 body = r.json()
@@ -113,7 +113,7 @@ class TestDriftAlertsEndpoint:
     def test_drift_alerts_unauthenticated_no_200(self):
         """Unauthenticated request must not return 200."""
         _clear()
-        r = TestClient(app).get("/api/v1/drift/alerts")
+        r = TestClient(app).get("/api/v1/rules/drift-alerts")
         assert r.status_code not in (200,), \
             f"Unauthenticated drift/alerts should not return 200: {r.status_code}"
 

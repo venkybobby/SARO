@@ -52,9 +52,9 @@ findings:
     test: tests/regression/test_fnd_010_risks_like_wildcard.py
     status: pinned
     quarantine_expires: null
-  - id: FND-011
+  - id: FND-016
     title: "FastAPI dependency_overrides leak across tests (order-dependent auth failures)"
-    test: tests/regression/test_fnd_011_override_isolation.py
+    test: tests/regression/test_fnd_016_override_isolation.py
     status: pinned
     quarantine_expires: null
   - id: FND-011
@@ -71,4 +71,14 @@ findings:
     title: "AuditTrace(...) insert sites omit tenant_id — new trace rows written with NULL tenant_id"
     test: tests/regression/test_fnd_013_audit_trace_constructors_set_tenant_id.py
     status: pinned
+    quarantine_expires: null
+  - id: FND-014
+    title: "Gate-3 LLM judge received matched-signal label instead of sample text"
+    test: tests/test_sar012_llm_classification.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-015
+    title: "Reports iso42001-annex write endpoint lacks require_write_access"
+    test: tests/regression/test_fnd_015_iso_annex_write_access.py
+    status: open
     quarantine_expires: null

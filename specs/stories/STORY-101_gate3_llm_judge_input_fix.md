@@ -1,37 +1,44 @@
-# STORY-101: Fix Gate-3 LLM-Judge Input — Send Redacted Sample Text, Not Signal Name (G-1)
-Status: ready
-Screen/Area: Scoring Engine / Hybrid Gate-3 (`engine.py`) + DPA Sub-Processor Annex
+# STORY-101: Gate 3 LLM-judge receives matched-signal label instead of sample text
+
+**Status:** ready
+**Screen/Area:** engine.py — Gate 3 Risk Classification (SPEC-E1 LLM-as-judge hybrid pass)
 
 ## Goal
-The LLM-as-judge currently receives `flag.signal` (the matched keyword/pattern name, `_SampleFlag` def engine.py:503–507) instead of the customer's AI output sample (engine.py:1365). The judge must evaluate **redacted, truncated sample text** so that (a) contextual false-positive reduction is real, (b) `false_positive_reduction_rate` persisted to `AuditTrace.detail_json` is methodologically founded, and (c) the data flow matches the DPA sub-processor annex disclosure ("AI model output samples, truncated to 500 characters" — saro-dpa-template-v1.0.md:205).
+When the optional Gate-3 hybrid verification pass runs (only when `ANTHROPIC_API_KEY` is set), the LLM judge must reason over the **actual flagged sample text**, not the meta-label of the rule that matched. Today it is handed `flag.signal` (e.g. `"keyword:ssn"` or `"pattern:[0-9]{3}-..."`), so the judge can never meaningfully confirm or reject a flag, defeating the entire false-positive-reduction purpose of the pass.
 
-GRC mapping: EU AI Act Art. 10 (data governance) & Art. 13 (transparency); ISO/IEC 42001 A.7 (data for AI systems) & A.6.2.4 (verification/validation); NIST AI RMF MEASURE 2.5 / MANAGE 2.2. A persisted accuracy metric with no methodological basis is a misrepresentation risk in any audit or contract claim.
+## Context (file:line)
+- `engine.py:1361` — `verdict = self._gate3_llm_verify_sync(_client, flag.signal, flag.domain)` passes `flag.signal` into a param named `sample_text`.
+- `engine.py:1445-1456` — `_gate3_llm_verify_sync(self, client, sample_text, domain)` builds the prompt `"Sample text: {truncated}\n\n..."` — expects real text.
+- `engine.py` `_SampleFlag` dataclass (≈502-507) — fields `sample_id, domain, signal, weight`; **no field carries the matched sample text**.
+- `engine.py:1336-1342` — `self._sample_findings` already stores `{sample_id, domain, matched_signal, matched_text_fragment, weight}` (PII-redacted fragment) — a source for the real text.
 
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given hybrid mode is active (`ANTHROPIC_API_KEY` set, tenant opted in), When `_gate3_llm_verify_sync` is invoked for a flagged sample, Then the API payload contains the **redacted sample text truncated to ≤500 characters**, and the matched signal name is passed only as structured context (e.g., `matched_pattern` field), never as the text under judgment.
-- AC-2: Given a sample containing PII (email, SSN, phone patterns), When the payload is constructed, Then PII is redacted **before** egress to the sub-processor, and a unit test proves no raw PII leaves the boundary.
-- AC-3: Given hybrid mode did NOT run for a scan (no key, opt-out, or API failure), When the scan completes, Then `false_positive_reduction_rate` is **absent/null** in `AuditTrace.detail_json` — never a fabricated value.
-- AC-4: Given the fix is merged, When the DPA annex (saro-dpa-template-v1.0.md §sub-processors) is compared to the actual payload schema, Then the disclosure matches the implemented data flow word-for-word on: what is sent, truncation limit, redaction step, and purpose.
-- AC-5: Given a regression test fixture with a known false positive (e.g., medical-context "vaccine" in legitimate clinical text), When Gate-3 runs against the fixed payload, Then the judge can downgrade the flag — demonstrating contextual FP reduction is now functionally possible.
+- **AC-1:** Given a batch where a sample is flagged for a domain and `ANTHROPIC_API_KEY` is set, When Gate 3's hybrid pass verifies that flag, Then `_gate3_llm_verify_sync` receives the flagged **sample's text** (the redacted `matched_text_fragment` or the originating `sample.text`), not the `flag.signal` label.
+- **AC-2:** Given the judge confirms a flag (confirmed=true, confidence ≥ `LLM_CONFIDENCE_THRESHOLD`), When the pass completes, Then that flag is retained; given the judge rejects it, Then it is dropped — identical control flow to today (`engine.py:1374-1377`), only the input is corrected.
+- **AC-3:** Given `ANTHROPIC_API_KEY` is **unset** (keyword-only mode), When Gate 3 runs, Then behavior, scoring, and `gate3_details` are byte-for-byte unchanged from before this story (no external call, no new fields).
+- **AC-4:** Given a flag whose sample text is unavailable for any reason, When the judge is invoked, Then the pass fails safe (keeps the flag, as the existing `verdict is None` path does) rather than sending a label string.
 
 ## Edge Cases
-- Sample text is empty/whitespace → skip Gate-3, log skip reason, no metric persisted.
-- Sample shorter than 500 chars → send as-is post-redaction.
-- Anthropic API timeout/error → fall back to deterministic Gate-1/2 score; flag retains pre-judge state; failure logged to audit trail with no metric.
-- Redaction removes the very token that triggered the flag → pass `matched_pattern` context so the judge still has signal provenance.
-- Multi-flag samples → one judge call per sample (not per flag) to bound cost and sub-processor exposure; aggregate verdicts.
+- Multiple flags on the same `sample_id` across different domains — each judge call must get that sample's text for the correct domain.
+- PII redaction must still be applied to whatever text is sent (never send raw unredacted PII to the external judge).
+- `MAX_LLM_CALLS_PER_BATCH` cap and `llm_parse_failures` accounting must be preserved.
 
 ## Out of Scope
-- Removing or redesigning hybrid mode (kill-switch decision is STORY-102's claims work; this story fixes the implementation).
-- Changing the judge model or prompt-engineering optimization beyond what AC-5 requires.
-- DPA re-execution with existing tenants (legal process, tracked under GRC gap "Data Retention/DPA Policy").
+- Removing/keeping the external-model call as a compliance matter — that is **STORY-102**.
+- Removing the dead `false_positive_reduction_rate` math — that is **STORY-107**.
+- Changing the DIR/score formula, thresholds, or any other gate.
 
 ## Non-Functional Requirements
-- Redaction must execute in-process before any network egress (no external redaction service).
-- Payload schema versioned; version recorded in audit trace for evidentiary reproducibility.
-- Standard project rules: changed code only, FILES CHANGED summary, no destructive ops without confirmation.
+- risk-scoring invariants: scoring math, gate status thresholds, and SHAP unchanged. Follow `.claude/skills/risk-scoring`.
+- No new PII egress; redaction preserved. Deterministic keyword-only path must stay deterministic.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
-|----|---------|-------|
-| | | |
+|---|---|---|
+| AC-1 | `test_gate3_judge_receives_sample_text_not_signal_label` (real text reaches judge, label does not) | engine.py |
+| AC-2 | full gate3 suite (88 passed) — confirm/reject control flow unchanged | engine.py |
+| AC-3 | `test_llm_classification_absent_without_api_key` (keyword-only path unchanged) | engine.py |
+| AC-4 | fail-safe guard `if not flag.text` keeps flag with no judge call | engine.py:1367 |
+| PII | same test asserts SSN `123-45-6789` redacted to `***-**-****` before egress | engine.py (`_redact_pii`) |
+
+**Status:** done. Independent `reviewer` agent: APPROVE (PII egress provably safe — `flag.text` only ever holds `_redact_pii` output). Logged FND-014, pinned in `tests/regression/manifest.yaml`. Branch `story/STORY-101_gate3_llm_judge_input_fix` (stacked on 107).

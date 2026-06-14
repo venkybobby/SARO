@@ -51,7 +51,7 @@ export default function Upload({ token, tenantId, onNavigate }) {
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>📤 Upload & Scan</h1>
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Submit an AI prompt + output for SARO risk scoring. SARO accepts only <code>prompt</code> + <code>raw_output</code> — it never calls external AI models.
+        Submit an AI prompt + output for SARO risk scoring. SARO accepts only <code>prompt</code> + <code>raw_output</code> — core scoring never calls external AI models (an optional Gate-3 verification pass runs only if you enable it).
       </p>
 
       <form onSubmit={handleSubmit}>

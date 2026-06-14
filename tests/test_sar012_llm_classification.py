@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -30,11 +32,13 @@ def _build_llm_classification(verdicts: list[dict]) -> dict | None:
     """
     if not verdicts:
         return None
+    from engine import LLM_JUDGE_MODEL
+
     confirmed_count = sum(1 for v in verdicts if v.get("confirmed"))
     confidences = [v["confidence"] for v in verdicts if v.get("confidence") is not None]
     avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
     return {
-        "model": "claude-sonnet-4-20250514",
+        "model": LLM_JUDGE_MODEL,
         "verdicts_count": len(verdicts),
         "confirmed_count": confirmed_count,
         "confidence_avg": avg_confidence,
@@ -66,13 +70,150 @@ def test_llm_classification_absent_without_api_key():
         )
 
 
+@pytest.mark.unit
+def test_gate3_details_has_no_false_positive_reduction_rate():
+    """STORY-107: the dead false_positive_reduction_rate metric is removed from gate3 details.
+
+    It was computed but never read by any consumer; the non-hybrid branch was a
+    no-op identity. Pin its absence so it cannot creep back.
+    """
+    env_without_key = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    with patch.dict(os.environ, env_without_key, clear=True):
+        from engine import SARoEngine, BatchIn, SampleIn, AuditConfigIn
+
+        engine = SARoEngine.__new__(SARoEngine)
+        engine._compliance_triggers = {}
+        batch = BatchIn(
+            samples=[SampleIn(sample_id=str(i), text="safe text here") for i in range(50)],
+            config=AuditConfigIn(),
+        )
+        _, gate3 = engine._gate3_risk_classification(batch)
+        assert "false_positive_reduction_rate" not in gate3.details, (
+            "false_positive_reduction_rate is dead and must not appear in gate3 details"
+        )
+        # The legitimate hybrid telemetry keys remain.
+        for kept in ("hybrid_mode", "llm_calls_made", "llm_parse_failures"):
+            assert kept in gate3.details, f"expected gate3 detail key {kept!r} to remain"
+
+
+@pytest.mark.unit
+def test_gate3_judge_receives_sample_text_not_signal_label(monkeypatch):
+    """STORY-101: the Gate-3 LLM judge must reason over the sample's (redacted) text,
+    not the matched-signal label (e.g. 'keyword:toxic')."""
+    captured: dict = {}
+
+    class _FakeMsg:
+        def __init__(self, txt: str):
+            self.content = [type("C", (), {"text": txt})()]
+
+    class _FakeMessages:
+        def create(self, **kw):
+            captured["prompt"] = kw["messages"][0]["content"]
+            return _FakeMsg(
+                '{"domain": "Discrimination & Toxicity", "confirmed": true, '
+                '"confidence": 0.9, "reasoning": "ok"}'
+            )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.messages = _FakeMessages()
+
+    import anthropic
+
+    monkeypatch.setattr(anthropic, "Anthropic", _FakeClient)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    from engine import SARoEngine, BatchIn, SampleIn, AuditConfigIn
+
+    engine = SARoEngine.__new__(SARoEngine)
+    engine._compliance_triggers = {}
+    # Sample triggers a domain (toxic/hate) AND embeds an SSN, so we can pin both
+    # that the real text reaches the judge and that PII is redacted before egress.
+    sample_text = "this message is clearly toxic hate speech, my ssn is 123-45-6789"
+    samples = [SampleIn(sample_id=f"safe{i}", text="benign neutral content") for i in range(49)]
+    samples.append(SampleIn(sample_id="flagged1", text=sample_text))
+    batch = BatchIn(samples=samples, config=AuditConfigIn())
+    engine._gate3_risk_classification(batch)
+
+    assert "prompt" in captured, "LLM judge was never called"
+    assert "toxic hate speech" in captured["prompt"], (
+        "judge prompt must contain the actual sample text"
+    )
+    assert "keyword:" not in captured["prompt"], (
+        "judge must not be handed the matched-signal label"
+    )
+    assert "pattern:" not in captured["prompt"]
+    # PII must be redacted before it egresses to the external judge (STORY-101 security guarantee).
+    assert "123-45-6789" not in captured["prompt"], "raw SSN must not reach the external judge"
+    assert "***-**-****" in captured["prompt"], "SSN must be redacted in the judge prompt"
+
+
+@pytest.mark.unit
+def test_gate3_judge_model_is_configurable(monkeypatch):
+    """STORY-102 AC-3/AC-4: the Gate-3 judge model is resolved from config, not hardcoded.
+
+    The create() call reads engine.LLM_JUDGE_MODEL at call time, so overriding the
+    module attribute (what reading SARO_LLM_JUDGE_MODEL at import produces) proves the
+    model is swappable without touching the call site.
+    """
+    captured: dict = {}
+
+    class _FakeMsg:
+        def __init__(self, txt: str):
+            self.content = [type("C", (), {"text": txt})()]
+
+    class _FakeMessages:
+        def create(self, **kw):
+            captured["model"] = kw["model"]
+            return _FakeMsg(
+                '{"domain": "Discrimination & Toxicity", "confirmed": true, '
+                '"confidence": 0.9, "reasoning": "ok"}'
+            )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.messages = _FakeMessages()
+
+    import anthropic
+    import engine as _engine
+
+    monkeypatch.setattr(anthropic, "Anthropic", _FakeClient)
+    monkeypatch.setattr(_engine, "LLM_JUDGE_MODEL", "some-cheaper-model-v2")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    eng = _engine.SARoEngine.__new__(_engine.SARoEngine)
+    eng._compliance_triggers = {}
+    samples = [_engine.SampleIn(sample_id=f"s{i}", text="benign") for i in range(49)]
+    samples.append(_engine.SampleIn(sample_id="f1", text="toxic hate speech here"))
+    batch = _engine.BatchIn(samples=samples, config=_engine.AuditConfigIn())
+    eng._gate3_risk_classification(batch)
+
+    assert captured.get("model") == "some-cheaper-model-v2", (
+        "judge must use the configured model, not a hardcoded one"
+    )
+
+
+@pytest.mark.unit
+def test_engine_source_has_no_false_positive_reduction():
+    """STORY-107 AC-1: no live reference to the dead symbol remains in engine.py."""
+    engine_src = (_REPO_ROOT / "engine.py").read_text(encoding="utf-8")
+    assert "false_positive_reduction" not in engine_src, (
+        "dead false_positive_reduction computation must be removed from engine.py"
+    )
+
+
 def test_llm_classification_model_name():
-    """Model field must be exactly 'claude-sonnet-4-20250514'."""
+    """Model field must default to claude-sonnet-4 (the configured default — STORY-102)."""
+    from engine import LLM_JUDGE_MODEL
+
+    assert LLM_JUDGE_MODEL == "claude-sonnet-4-20250514", (
+        "default Gate-3 judge model must remain claude-sonnet-4 unless overridden by env"
+    )
     lc = _build_llm_classification([
         {"domain": "d", "confirmed": True, "confidence": 0.9, "reasoning_summary": "ok"},
     ])
     assert lc is not None
-    assert lc["model"] == "claude-sonnet-4-20250514"
+    assert lc["model"] == LLM_JUDGE_MODEL
 
 
 def test_llm_classification_required_fields_present():
@@ -125,8 +266,9 @@ def test_engine_gate3_details_include_llm_classification_key_structure():
     assert 'gate3_details["llm_classification"] = llm_classification' in engine_src, (
         "engine.py must assign llm_classification to gate3_details"
     )
-    assert '"model": "claude-sonnet-4-20250514"' in engine_src, (
-        "engine.py must set model to claude-sonnet-4-20250514 in llm_classification"
+    # STORY-102: model is config-driven now, not a hardcoded literal.
+    assert '"model": LLM_JUDGE_MODEL' in engine_src, (
+        "engine.py must record the configured LLM_JUDGE_MODEL in llm_classification"
     )
     assert '"reasoning_summary"' in engine_src, (
         "engine.py must include reasoning_summary in llm_classification verdicts"

@@ -146,7 +146,7 @@ function KpiCard({ label, value, delta, severity, size, icon: Icon, loading, sub
 
 /**
  * STORY-015: Inline drift alert notifications.
- * Fetches /api/v1/drift/alerts (shared with DriftAlerts page).
+ * Fetches /api/v1/rules/drift-alerts (shared with DriftAlerts page).
  * Renders triggered alerts as dismissible amber chips.
  */
 function DriftAlertsBanner({ token, onNavigate }) {
@@ -158,7 +158,7 @@ function DriftAlertsBanner({ token, onNavigate }) {
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }
-    fetch("/api/v1/drift/alerts", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/v1/rules/drift-alerts", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         const raw = Array.isArray(d) ? d : (d?.alerts || []);

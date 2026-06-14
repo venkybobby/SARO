@@ -1,27 +1,36 @@
-# STORY-107: Remove Dead/Misleading False-Positive-Reduction Math in Non-Hybrid Branch (G-7)
-Status: ready
-Screen/Area: Scoring Engine / `engine.py:1393–1397`
+# STORY-107: Remove dead false-positive-reduction computation in Gate 3
+
+**Status:** ready
+**Screen/Area:** engine.py — Gate 3 Risk Classification
 
 ## Goal
-The non-hybrid branch computes `x/max(1,x)` — always 1.0 when flags exist — then discards it. Harmless functionally, but it is exactly the line a code-level auditor screenshots as evidence of fabricated-looking metrics. Delete the dead computation; ensure the metric simply does not exist outside hybrid mode (aligns with STORY-101 AC-3).
+Gate 3 computes `false_positive_reduction` and stores it as `false_positive_reduction_rate` in `gate3_details`, but the value is never read anywhere (routers, services, frontend, reports, tests). The non-hybrid branch is a no-op identity (`len(set)/max(1,len(set))` ≡ 1.0). Remove the dead computation and its unused detail field.
 
-GRC mapping: code-as-evidence hygiene; NIST AI RMF MEASURE function credibility.
+## Context (file:line)
+- `engine.py:1389-1393` — `false_positive_reduction = round(...)` computation (nonsense non-hybrid branch).
+- `engine.py:1431` — `"false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0` in `gate3_details`.
+- Grep proof: `false_positive_reduction_rate` appears only at the definition site; no consumer in routers/services/frontend/tests.
 
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given hybrid mode is off, When a scan executes, Then no `false_positive_reduction` value is computed, logged, or persisted anywhere in the code path.
-- AC-2: Given the diff, When reviewed, Then only the dead branch is touched — no orthogonal refactoring of `engine.py` (scope discipline).
-- AC-3: Given the test suite, When run, Then a test asserts the metric is absent from `AuditTrace.detail_json` for non-hybrid scans and present only for genuine hybrid runs.
+- **AC-1:** Given Gate 3, When this story completes, Then the `false_positive_reduction` computation (`engine.py:1389-1393`) and the `false_positive_reduction_rate` key (`engine.py:1431`) are removed, and a repo grep for `false_positive_reduction` returns no live hits.
+- **AC-2:** Given any code/test/schema that reads `gate3_details`, When inspected, Then none depended on `false_positive_reduction_rate` (verified before removal); all gate gates stay green.
+- **AC-3:** Given identical inputs, When Gate 3 runs before vs after the change, Then `status`, `score`, and every other `gate3_details` field are unchanged (only the dead key is gone).
 
 ## Edge Cases
-- Downstream report templates or dashboards referencing the metric unconditionally → render "N/A (hybrid disabled)" rather than erroring on a missing key.
+- A snapshot/contract test that asserts the exact shape of `gate3_details` — update it to the reduced shape if one exists.
+- Keep `llm_calls_made`, `llm_parse_failures`, `hybrid_mode`, and `llm_classification` intact.
 
 ## Out of Scope
-- The Gate-3 input fix (STORY-101); metric redefinition.
+- Fixing the LLM judge input (STORY-101) or the external-model claim (STORY-102) — though all three touch the same Gate-3 block; coordinate ordering.
 
 ## Non-Functional Requirements
-- Standard project rules; minimal diff.
+- Follow `.claude/skills/risk-scoring`: no change to score/status math.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
-|----|---------|-------|
-| | | |
+|---|---|---|
+| AC-1 | `test_engine_source_has_no_false_positive_reduction` | engine.py |
+| AC-2 | (grep-verified no consumers; full gate3 suite green) | engine.py |
+| AC-3 | `test_gate3_details_has_no_false_positive_reduction_rate` (asserts kept keys remain) | tests/test_sar012_llm_classification.py |
+
+**Status:** done — engine.py 6-line deletion + 2 unit pins. Gates green (ruff/mypy/unit/regression/ratchet 66.01%≥65.08%/bandit). Branch `story/STORY-107_remove_dead_fp_reduction_math` (stacked on `story/SARO_AIInsights_Stories`).

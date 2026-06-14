@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard, Shield, Search, Package, BarChart2,
+  LayoutDashboard, Shield, Search, Package,
   Map, Wrench, Activity, Building2, Upload, Settings,
   ClipboardList, BookOpen, Users, Lightbulb, FileText,
   AlertTriangle, Lock, ShieldCheck, LogOut, ChevronRight,
@@ -11,10 +11,10 @@ import { StatusDot } from "./ui/index.jsx";
 const PERSONA_TABS = {
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
-    "claims_matrix","how_saro_reasons","dpa_governance",
-    "aims","governance","onboarding","upload","evaluations",
+    "trust_center",
+    "aims","onboarding","upload","evaluations","reports",
   ],
-  risk_officer: ["dashboard","risk_register","risk_summary","trace_view","ai_insights","reports"],
+  risk_officer: ["dashboard","risk_register","trace_view","ai_insights","reports"],
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","coverage_gap","remediation","drift_alerts","upload",
@@ -22,17 +22,17 @@ const PERSONA_TABS = {
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
-    "dpa_governance","rule_packs","coverage_gap","remediation",
-    "drift_alerts","aims","governance","onboarding","upload",
-    "admin_settings","evaluations","evf_admin","demo_requests",
+    "trust_center",
+    "rule_packs","coverage_gap","remediation",
+    "drift_alerts","aims","onboarding","upload",
+    "admin_settings","evaluations","evf_admin",
     "risk_register","ai_insights","reports","settings","knowledge_portal",
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
-    "risk_summary","claims_matrix","how_saro_reasons",
-    "dpa_governance","rule_packs","coverage_gap","remediation",
-    "drift_alerts","aims","governance","onboarding","upload",
+    "trust_center",
+    "rule_packs","coverage_gap","remediation",
+    "drift_alerts","aims","onboarding","upload",
     "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
   ],
   operator: ["dashboard","upload","trace_view","remediation","knowledge_portal"],
@@ -42,13 +42,9 @@ const TAB_REGISTRY = {
   dashboard:        { label: "Dashboard",         icon: LayoutDashboard, page: "dashboard" },
   compliance_hub:   { label: "Compliance Hub",    icon: Shield,          page: "compliance_hub" },
   trace_view:       { label: "TRACE View",         icon: Search,          page: "trace_view" },
-  evidence_export:  { label: "Evidence Export",    icon: Package,         page: "trace_view" },
-  risk_summary:     { label: "Risk Summary",       icon: BarChart2,       page: "risk_summary" },
-  vendor_risk:      { label: "Vendor Risk",        icon: Building2,       page: "risk_summary" },
-  claims_matrix:    { label: "Claims Matrix",      icon: ClipboardList,   page: "claims_matrix" },
-  how_saro_reasons: { label: "How SARO Reasons",  icon: Lightbulb,       page: "how_saro_reasons" },
-  dpa_governance:   { label: "DPA & Governance",   icon: FileText,        page: "governance_docs" },
-  ir_plan:          { label: "IR Plan",            icon: AlertTriangle,   page: "governance_docs" },
+  // STORY-111: removed the duplicate Evidence Export nav entry (it rendered the same TraceView page).
+  // STORY-113: Risk Summary (and its Vendor Risk alias) merged into Risk Register.
+  trust_center:     { label: "Trust Center",       icon: ShieldCheck,     page: "trust_center" },
   rule_packs:       { label: "Rule Packs",         icon: Package,         page: "rule_packs" },
   coverage_gap:     { label: "Coverage Gap",       icon: Map,             page: "coverage_gap" },
   remediation:      { label: "Remediation",        icon: Wrench,          page: "remediation" },
@@ -57,10 +53,10 @@ const TAB_REGISTRY = {
   upload:           { label: "Upload & Scan",      icon: Upload,          page: "upload" },
   admin_settings:   { label: "Admin Settings",     icon: Settings,        page: "admin_settings" },
   aims:             { label: "AIMS",               icon: ClipboardList,   page: "aims" },
-  governance:       { label: "Governance Trust",   icon: ShieldCheck,     page: "governance" },
   evaluations:      { label: "Evaluations",        icon: BookOpen,        page: "evaluations" },
   evf_admin:        { label: "EVF Status",         icon: Lock,            page: "evf_admin" },
-  demo_requests:    { label: "Demo Requests",      icon: Users,           page: "demo_requests" },
+  // STORY-114: Demo Requests admin tab deferred (page already removed in STORY-016;
+  // demo-request intake is feature-flagged off by default — see routers/demo.py).
   risk_register:    { label: "Risk Register",      icon: ShieldAlert,     page: "risk_register" },
   ai_insights:      { label: "AI Insights",        icon: Sparkles,        page: "ai_insights" },
   reports:          { label: "Reports",            icon: LineChart,       page: "reports" },

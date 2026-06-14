@@ -1,29 +1,39 @@
-# STORY-104: Reconcile NIST Subcategory Count — 72 vs 68 Single Source of Truth (G-4)
-Status: ready
-Screen/Area: Reports API (`reports.py:328`) / `docs/nist-coverage-rubric.md`
+# STORY-104: Reconcile NIST AI RMF subcategory count claim (code says 72, defines 68)
+
+**Status:** ready
+**Screen/Area:** routers/reports.py — NIST AI RMF coverage map; docs/COMPLIANCE_CLAIMS_MATRIX.md
 
 ## Goal
-The coverage endpoint docstring and response claim "all 72 subcategories" while the rubric states "12 of 68" and "the map is complete (68/68)." One number is wrong, inside the artifact pair built specifically to prevent citation discrepancies. Establish a single authoritative count derived from the actual NIST AI RMF subcategory map, referenced by both code and docs, with a parity test.
+The NIST coverage endpoint claims it returns "all 72 NIST AI RMF 1.0 subcategory IDs," but the backing map (`_NIST_COVERAGE_MAP`) defines only 68. The asserted count and the actual data must agree so SARO never overstates framework coverage.
 
-GRC mapping: NIST AI RMF self-assessment integrity (the prior 38-subcategory self-assessment doc must also be checked for consistency); ISO/IEC 42001 A.6.2.2 (documentation accuracy).
+## Context (file:line)
+- `routers/reports.py:245` — comment "All 72 NIST AI RMF 1.0 subcategory IDs with their automated coverage status."
+- `routers/reports.py:248-288` — `_NIST_COVERAGE_MAP` with 68 entries (GOVERN 17, MAP 18, MEASURE 21, MANAGE 12).
+- `routers/reports.py:302` — docstring "Returns coverage status for all 72 NIST AI RMF 1.0 subcategory outcomes."
+- `docs/COMPLIANCE_CLAIMS_MATRIX.md:55` — accurate *subset* descriptor (no count claim) — leave as-is.
 
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given the canonical subcategory map data structure, When its length is computed, Then a single module-level constant (e.g., `NIST_SUBCATEGORY_COUNT`) is derived from it — never hard-coded in prose strings.
-- AC-2: Given `reports.py` coverage endpoint, When the response and docstring are generated, Then both interpolate the constant.
-- AC-3: Given `docs/nist-coverage-rubric.md`, When read, Then every count cited matches the constant, and a doc-parity test fails CI if a numeric drift is introduced.
-- AC-4: Given the discrepancy investigation, When the correct count is determined (against the published NIST AI RMF 1.0 categories/subcategories actually mapped), Then a finding (`/finding`) records which artifact was wrong and why, closing the loop in the ledger.
+- **AC-1:** Given the NIST coverage endpoint, When its response and code comments/docstrings are inspected, Then the stated total subcategory count exactly equals the number of entries actually present in `_NIST_COVERAGE_MAP` (no "72" claim over a 68-entry map).
+- **AC-2:** Given the chosen reconciliation, When implemented, Then EITHER (a) the comment/docstring/response state 68 and describe it as SARO's mapped subset, OR (b) the map is completed to the full official 72 with the 4 missing subcategories added and correctly statused — **default: (a)**, the lower-risk, no-overclaim option, unless the user wants full 72 coverage.
+- **AC-3:** Given a regression test, When it counts `_NIST_COVERAGE_MAP` entries and parses the asserted number in the endpoint response/docstring, Then they are equal (pins the reconciliation).
+- **AC-4:** Given compliance-guard rules, When reviewed, Then no statement implies certified/complete NIST conformance.
 
 ## Edge Cases
-- The map intentionally excludes some subcategories → rubric must say "X of Y mapped" with both numbers from the same source.
-- Cached/archived report PDFs already issued with the wrong number → list them; no silent retro-editing of issued evidence.
+- If option (b) is chosen, the 4 added subcategories must carry an honest status (likely "requires human assessment"), never a fabricated "mapped".
+- Any UI surface that renders the count (e.g. coverage page) must reflect the corrected number.
 
 ## Out of Scope
-- Expanding actual NIST coverage; this is a citation-integrity fix only.
+- Changing how individual subcategories are statused (mapped/partial/human).
+- EU AI Act / ISO / AIGP counts (not flagged).
 
 ## Non-Functional Requirements
-- Parity test runs in CI quality gate; standard project rules.
+- Follow `.claude/skills/compliance-guard`. Evidence-support language only.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
-|----|---------|-------|
-| | | |
+|---|---|---|
+| AC-1/AC-2 | `test_reports_source_does_not_overclaim_72`, `test_nist_coverage_map_has_68_entries` | routers/reports.py |
+| AC-3 | same (count map size == asserted 68) | routers/reports.py |
+| AC-4 | endpoint already returns `total_subcategories=len(map)`; no certified-conformance language | routers/reports.py |
+
+**Status:** done. The endpoint response was already honest (`total_subcategories=len(_NIST_COVERAGE_MAP)`=68); only the comment (245) + docstring (302) overclaimed "all 72". Chose default: state 68 as SARO's mapped subset. Branch `story/STORY-104_nist_subcategory_count_reconciliation` (stacked on 102).

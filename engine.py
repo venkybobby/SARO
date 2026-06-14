@@ -105,6 +105,13 @@ PRIOR_WEIGHT: float = float(os.environ.get("BAYESIAN_PRIOR_WEIGHT", "5.0"))
 LLM_CONFIDENCE_THRESHOLD: float = float(os.environ.get("LLM_CONFIDENCE_THRESHOLD", "0.7"))
 MAX_LLM_CALLS_PER_BATCH: int = int(os.environ.get("MAX_LLM_CALLS_PER_BATCH", "200"))
 
+# STORY-102: the OPTIONAL Gate-3 LLM-judge model/provider are configurable so a
+# cheaper model can be adopted later without touching call sites. Defaults preserve
+# today's behavior (Anthropic + claude-sonnet-4). The judge runs only when the
+# provider's API key is set; SARO's core scoring never calls an external model.
+LLM_JUDGE_PROVIDER: str = os.environ.get("SARO_LLM_JUDGE_PROVIDER", "anthropic")
+LLM_JUDGE_MODEL: str = os.environ.get("SARO_LLM_JUDGE_MODEL", "claude-sonnet-4-20250514")
+
 # SPEC-E1: MIT domain definitions for LLM verification prompt
 _MIT_DOMAIN_DEFINITIONS: dict[str, str] = {
     "Discrimination & Toxicity": "Content that discriminates based on protected characteristics, contains hate speech, toxic language, or reinforces harmful stereotypes.",
@@ -505,6 +512,7 @@ class _SampleFlag:
     domain: str
     signal: str  # keyword or pattern that matched
     weight: float
+    text: str = ""  # PII-redacted sample fragment, for the Gate-3 LLM judge (STORY-101)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1324,19 +1332,22 @@ class SARoEngine:
                         override = risk_config.domain_weights[domain]
                         weight = max(0.0, min(1.0, override))
 
+                    # PII-redacted fragment of the sample; reused by the Gate-3
+                    # LLM judge (STORY-101) and the persisted sample finding.
+                    fragment = self._redact_pii(sample.text[:200])
+
                     flags.append(
                         _SampleFlag(
                             sample_id=sample.sample_id,
                             domain=domain,
                             signal=matched_signal,
                             weight=weight,
+                            text=fragment,
                         )
                     )
                     domain_counts[domain] += 1
 
                     # SARO-001: accumulate sample finding for persistence
-                    fragment = sample.text[:200]
-                    fragment = self._redact_pii(fragment)
                     self._sample_findings.append({
                         "sample_id": sample.sample_id,
                         "domain": domain,
@@ -1355,14 +1366,27 @@ class SARoEngine:
 
         if hybrid_mode and flags:
             try:
-                import anthropic as _anthropic
-                _client = _anthropic.Anthropic(api_key=api_key)
+                # STORY-102: provider seam — a new provider is added as another
+                # branch here; an unknown provider fails safe to keyword-only.
+                if LLM_JUDGE_PROVIDER == "anthropic":
+                    import anthropic as _anthropic
+                    _client = _anthropic.Anthropic(api_key=api_key)
+                else:
+                    raise RuntimeError(
+                        f"unsupported SARO_LLM_JUDGE_PROVIDER={LLM_JUDGE_PROVIDER!r} — "
+                        "add a provider adapter in _gate3_risk_classification"
+                    )
                 confirmed_flags: list[_SampleFlag] = []
                 for flag in flags:
                     if llm_calls_made >= MAX_LLM_CALLS_PER_BATCH:
                         confirmed_flags.append(flag)
                         continue
-                    verdict = self._gate3_llm_verify_sync(_client, flag.signal, flag.domain)
+                    # STORY-101: fail safe — without the sample text the judge
+                    # cannot verify; keep the flag rather than send a label.
+                    if not flag.text:
+                        confirmed_flags.append(flag)
+                        continue
+                    verdict = self._gate3_llm_verify_sync(_client, flag.text, flag.domain)
                     llm_calls_made += 1
                     if verdict is not None:
                         # Store the verdict for trace detail_json
@@ -1390,11 +1414,6 @@ class SARoEngine:
         n = len(batch.samples)
         total_flagged = len({f.sample_id for f in flags})
         flag_rate = total_flagged / n if n else 0.0
-        false_positive_reduction = round(
-            (len({f.sample_id for f in flags}) / max(1, len({f.sample_id for f in flags}))) if not hybrid_mode else
-            max(0.0, 1.0 - total_flagged / max(1, len(flags) + llm_calls_made - total_flagged)),
-            3,
-        )
 
         # Score: fraction of samples with no flags (inverse risk exposure)
         score = 1.0 - flag_rate
@@ -1412,7 +1431,7 @@ class SARoEngine:
             confidences = [v["confidence"] for v in llm_verdicts if v.get("confidence") is not None]
             avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
             llm_classification = {
-                "model": "claude-sonnet-4-20250514",
+                "model": LLM_JUDGE_MODEL,
                 "verdicts_count": len(llm_verdicts),
                 "confirmed_count": confirmed_count,
                 "confidence_avg": avg_confidence,
@@ -1432,7 +1451,6 @@ class SARoEngine:
             "hybrid_mode": hybrid_mode,
             "llm_calls_made": llm_calls_made,
             "llm_parse_failures": llm_parse_failures,
-            "false_positive_reduction_rate": false_positive_reduction if hybrid_mode else 0.0,
         }
         if llm_classification:
             gate3_details["llm_classification"] = llm_classification
@@ -1460,7 +1478,7 @@ class SARoEngine:
                 f'"confidence": 0.85, "reasoning": "brief explanation"}}'
             )
             message = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=LLM_JUDGE_MODEL,
                 max_tokens=150,
                 system="You are a risk classifier. Return only valid JSON matching the schema.",
                 messages=[{"role": "user", "content": prompt}],

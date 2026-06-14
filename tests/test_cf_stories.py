@@ -276,36 +276,38 @@ def test_nist_pdf_starts_with_pdf_magic():
 
 
 def test_persona_permission_seeds_defined():
-    from database import _PERSONA_SEEDS
+    from database import _build_persona_seeds
 
-    roles = {s["persona_role"] for s in _PERSONA_SEEDS}
+    roles = {s["persona_role"] for s in _build_persona_seeds()}
     assert "compliance_lead" in roles
     assert "risk_officer" in roles
     assert "ai_auditor" in roles
 
 
 def test_compliance_lead_tabs():
-    from database import _PERSONA_SEEDS
+    # STORY-109: the ORM seed now derives from persona_service (source of truth),
+    # so assert against its authoritative compliance_lead tabs/actions.
+    from database import _build_persona_seeds
 
-    cl = next(s for s in _PERSONA_SEEDS if s["persona_role"] == "compliance_lead")
-    assert "aims" in cl["allowed_tabs"]
-    assert "governance" in cl["allowed_tabs"]
-    assert "trace" in cl["allowed_tabs"]
-    assert "create_aims_document" in cl["allowed_actions"]
+    cl = next(s for s in _build_persona_seeds() if s["persona_role"] == "compliance_lead")
+    assert "compliance_hub" in cl["allowed_tabs"]
+    assert "trace_view" in cl["allowed_tabs"]
+    assert "claims_matrix" in cl["allowed_tabs"]
+    assert "claims_matrix" in cl["allowed_actions"]
 
 
 def test_risk_officer_no_aims_tab():
-    from database import _PERSONA_SEEDS
+    from database import _build_persona_seeds
 
-    ro = next(s for s in _PERSONA_SEEDS if s["persona_role"] == "risk_officer")
+    ro = next(s for s in _build_persona_seeds() if s["persona_role"] == "risk_officer")
     assert "aims" not in ro["allowed_tabs"]
     assert "rule_packs" not in ro["allowed_tabs"]
 
 
 def test_ai_auditor_has_rule_packs():
-    from database import _PERSONA_SEEDS
+    from database import _build_persona_seeds
 
-    aa = next(s for s in _PERSONA_SEEDS if s["persona_role"] == "ai_auditor")
+    aa = next(s for s in _build_persona_seeds() if s["persona_role"] == "ai_auditor")
     assert "rule_packs" in aa["allowed_tabs"]
 
 

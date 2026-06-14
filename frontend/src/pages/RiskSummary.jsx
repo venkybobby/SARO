@@ -51,7 +51,7 @@ function KpiCard({ label, value, sub, color }) {
   );
 }
 
-export default function RiskSummary({ token, tenantId }) {
+export default function RiskSummary({ token, tenantId, embedded = false }) {
   const [summary, setSummary] = useState(null);
   const [findings, setFindings] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -137,12 +137,14 @@ export default function RiskSummary({ token, tenantId }) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1100 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, marginBottom: 4 }}>📊 Risk Summary</h1>
-          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>Board-level risk officer view — overall RAG status, trends, and top findings.</p>
-        </div>
+    <div style={{ padding: embedded ? "4px 4px 12px" : 24, fontFamily: "system-ui, sans-serif", maxWidth: embedded ? "100%" : 1100 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: embedded ? "flex-end" : "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        {!embedded && (
+          <div>
+            <h1 style={{ fontSize: 22, marginBottom: 4 }}>📊 Risk Summary</h1>
+            <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>Board-level risk officer view — overall RAG status, trends, and top findings.</p>
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
           <button
             onClick={exportPdf}

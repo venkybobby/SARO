@@ -7,7 +7,10 @@ POST /api/v1/insights/{id}/action    — record accept / snooze / dismiss; appen
                                        an immutable AuditEvent row
 
 Insights are evidence with remediation guidance — human validation required.
-SARO never calls external AI models and never writes to client systems.
+Insights are derived read-only — no external AI model is called on the insights
+path — and SARO never writes to client systems. (SARO's only external-model call
+is the optional, off-by-default Gate-3 LLM-judge in the scan pipeline; see
+docs/COMPLIANCE_CLAIMS_MATRIX.md "External Model Usage".)
 """
 
 from __future__ import annotations

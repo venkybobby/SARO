@@ -13,16 +13,6 @@ PYTHONPATH = "/app"
 PYTHONUNBUFFERED = "1"
 SUPABASE_PROJECT_REF = "fktfhtygvwqlmoazmhdf"
 
-[services.frontend.build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile.frontend"
-
-[services.frontend.deploy]
-healthcheckPath = "/_stcore/health"
-healthcheckTimeout = 30
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
-
-[services.frontend.deploy.environmentVariables]
-PYTHONPATH = "/app"
-PYTHONUNBUFFERED = "1"
+# STORY-105: the Streamlit `frontend` Railway service was removed. The React/Vite
+# frontend deploys to Vercel (see CLAUDE.md infrastructure), not Railway. Railway
+# hosts only the FastAPI backend service above (healthcheck /health).

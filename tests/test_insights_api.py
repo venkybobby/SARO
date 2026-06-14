@@ -6,7 +6,9 @@ Covers:
   - POST /api/v1/insights/{id}/action          — accept / snooze / dismiss + audit event
 
 Insights are derived read-only from Audit + ScanReport + AuditTrace + RiskMetadata
-(never calls external AI models — SARO non-negotiable #1). Only the user's
+(no external AI model is called on the insights path — SARO non-negotiable #1; the
+only external-model call anywhere is the optional Gate-3 judge in the scan engine).
+Only the user's
 decision is persisted (InsightAction) plus an immutable AuditEvent row.
 
 All tests use in-memory SQLite — no live DB required.

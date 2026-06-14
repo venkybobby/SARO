@@ -1,31 +1,43 @@
-# STORY-105: Remove Dead Streamlit Frontend from SARO Repo (G-5)
-Status: ready
-Screen/Area: Repo Structure / `frontend/tabs/*.py`, `app.py`, `styles.py`, secondary `requirements.txt`
+# STORY-105: Remove the dead Streamlit frontend and rewire deploy configs to React
+
+**Status:** ready (⚠ destructive — deletes ~24 files + touches Railway/Docker/CI deploy config)
+**Screen/Area:** frontend/ (Streamlit), Dockerfile.frontend, railway.toml, docker-compose.yml, CI
 
 ## Goal
-22 Streamlit files coexist with the deployed React SPA (fly.toml + Dockerfile/nginx confirm React is production). Dead frontend code drifts, doubles the apparent attack/validation surface, and creates a "which frontend is real?" question in any source-code escrow review. Remove the Streamlit frontend with a recoverable archival point.
+The Streamlit UI in `frontend/` (`app.py` + `frontend/tabs/*.py` + `styles.py` + `frontend/requirements.txt`) has been superseded by the React/Vite app in `frontend/src/`. It is not imported by `main.py` or any backend router, but it is still wired into `Dockerfile.frontend`, `railway.toml` (Streamlit healthcheck `/_stcore/health`), `docker-compose.yml`, and CI installs its requirements. Remove the dead Streamlit code and ensure no deploy path still tries to run it.
 
-GRC mapping: ISO/IEC 42001 A.6.2.6 (configuration/change management); SOC 2 change-management evidence hygiene; escrow review readiness (Hale deal condition).
+## Context (file:line)
+- Dead code: `frontend/app.py`, `frontend/tabs/*.py` (~23 files), `frontend/styles.py`, `frontend/requirements.txt:1` (`streamlit>=1.35.0`).
+- `Dockerfile.frontend:20` — `CMD streamlit run frontend/app.py`; exposes 8501.
+- `railway.toml:16-28` — `[services.frontend.build]` → `Dockerfile.frontend`; `healthcheckPath = "/_stcore/health"`.
+- `docker-compose.yml:55-71` — `frontend` service → `Dockerfile.frontend`.
+- `.github/workflows/ci.yml:74` — installs `frontend/requirements.txt`.
+- Active React app: `frontend/src/`, `frontend/package.json`, `frontend/vite.config.js` (CI `npm run build`).
 
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given the current main branch, When the removal begins, Then a git tag (e.g., `archive/streamlit-frontend-2026-06`) is created first so the code is recoverable without keeping it live.
-- AC-2: Given an import scan of the backend and CI scripts, When checked for references to the Streamlit modules (`frontend/tabs`, `app.py`, `styles.py`), Then zero live imports exist before deletion (verified, not assumed).
-- AC-3: Given the deletion PR merges, When the repo is searched, Then no Streamlit files, no second `requirements.txt`, and no `streamlit` dependency remain, and CI is green.
-- AC-4: Given ARCHITECTURE.md and README, When read post-merge, Then they state React SPA as the sole frontend with no Streamlit references outside the changelog/ADR.
-- AC-5: Given the removal, When complete, Then an ADR records the decision, the archive tag, and the rationale (single-frontend source of truth).
+- **AC-1:** Given the Streamlit sources, When this story completes, Then `frontend/app.py`, `frontend/tabs/`, `frontend/styles.py`, and the Streamlit entry in `frontend/requirements.txt` are removed, and a repo-wide grep for `import streamlit` / `st.` Streamlit usage returns nothing under `frontend/` (excluding `.claude/worktrees`).
+- **AC-2:** Given the deploy configs, When inspected after the change, Then no config references `Dockerfile.frontend`, the Streamlit `/_stcore/health` healthcheck, or `frontend/requirements.txt`: `Dockerfile.frontend` is deleted (or repointed to the Vite static build), `railway.toml`'s Streamlit `services.frontend` is removed/repointed, `docker-compose.yml`'s frontend service is removed/repointed, and CI no longer installs Streamlit deps.
+- **AC-3:** Given the backend, When `pytest tests/ -q` and app startup run, Then nothing breaks (the Streamlit frontend was never imported by backend) and `GET /health` is unaffected.
+- **AC-4:** Given the React app, When `npm run build` runs in `frontend/`, Then it still builds (the React app is the surviving frontend).
 
 ## Edge Cases
-- Shared utility modules imported by both Streamlit and backend → relocate to a neutral package before deletion.
-- Demo scripts or runbooks invoking `streamlit run` → update or delete in the same PR.
-- Open branches still touching Streamlit files → enumerate and notify before merge.
+- Any backend code referencing `frontend/tabs/...` (none found, but `/story` must re-verify before deleting).
+- STORY-102 may edit a "never calls external models" copy in `frontend/tabs/dashboard.py` — deleting it here removes that copy; sequence so the two don't collide.
+- STORY-110 reasons about a Streamlit `_TAB_REGISTRY` for Reports — after this deletion, Reports access is purely a React concern (note for 110).
 
 ## Out of Scope
-- Any React feature work; tab consolidation (STORY-112/113).
+- Deleting the separate `veriaegis-landing/` Next.js dir (STORY-106).
+- Any React feature change.
 
 ## Non-Functional Requirements
-- Destructive action: confirm with product owner before the deletion commit (project rule). Standard FILES CHANGED summary.
+- Follow `.claude/skills/deploy-railway`: preserve health-check contract for surviving services, keep service topology coherent. Confirm before any push/deploy.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
-|----|---------|-------|
-| | | |
+|---|---|---|
+| AC-1 | `test_streamlit_sources_removed`, `test_no_streamlit_import_under_frontend` | frontend/ |
+| AC-2 | `test_deploy_config_no_longer_references_streamlit` | railway.toml, docker-compose.yml, .github/workflows/ci.yml |
+| AC-3 | full `pytest tests/ -m unit` + regression green after deletion; backend never imported frontend | tests/ |
+| AC-4 | React app untouched (only frontend/src/* tracked under frontend/) | frontend/src/ |
+
+**Status:** done. Removed `frontend/{app.py,styles.py,requirements.txt,__init__.py,tabs/*}`, `Dockerfile.frontend`, and 2 wholly-Streamlit tests (`test_frontend_login.py`, `test_s201_dashboard.py`). **Repointed** `test_sar006_rbac.py`'s 5 persona-tab tests from the deleted `frontend/app.py` to `persona_service.PERSONA_PERMISSIONS` (kept the backend RBAC tests). Rewired railway.toml (removed Streamlit frontend service), docker-compose.yml (removed frontend service), ci.yml (dropped Streamlit deps). Coverage rose to 80.50% (uncovered Streamlit lines left the denominator). Branch `story/STORY-105_remove_dead_streamlit_frontend` (stacked on 110). NOTE: deploy config edited locally only — not pushed/deployed.

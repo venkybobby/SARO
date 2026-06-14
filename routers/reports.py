@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role
+from auth import get_current_user
 from database import get_db
 from engine import (
     COMPLIANCE_MATRIX_VERSION,
@@ -48,6 +48,33 @@ from schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 
+# STORY-110: Reports access allow-list. Admits the legacy super_admin/operator
+# `role`s (unchanged) AND the personas whose UI nav surfaces the Reports tab, so
+# backend authz and the frontend agree. Additive — no existing access is removed.
+_REPORTS_ROLES = ("super_admin", "operator")
+_REPORTS_PERSONAS = ("compliance_lead", "risk_officer", "admin", "super_admin")
+
+
+async def _require_reports_access(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Allow Reports if the user holds a Reports role OR a Reports persona."""
+    if current_user.role in _REPORTS_ROLES:
+        return current_user
+    if (getattr(current_user, "persona_role", None) or "") in _REPORTS_PERSONAS:
+        return current_user
+    # Log the specifics server-side; return a generic message (avoid echoing
+    # role/persona identifiers to the client — security-auditor Finding B).
+    logger.info(
+        "Reports access denied: role=%s persona=%s",
+        current_user.role,
+        getattr(current_user, "persona_role", None),
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not authorised for Reports.",
+    )
+
 
 def _get_report_or_404(
     audit_id: uuid.UUID, tenant_id: uuid.UUID, db: Session
@@ -65,7 +92,7 @@ def _get_report_or_404(
 
 @router.get(
     "/summary",
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Aggregate reporting statistics for the current tenant",
 )
 def reports_summary(
@@ -161,7 +188,7 @@ def reports_summary(
 @router.get(
     "/{audit_id}",
     response_model=AuditReportOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
 )
 def get_full_report(
     audit_id: uuid.UUID,
@@ -187,7 +214,7 @@ def get_full_report(
 @router.get(
     "/{audit_id}/mit",
     response_model=MITCoverageOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="MIT Risk Coverage detail for one audit",
 )
 def get_mit_coverage(
@@ -202,7 +229,7 @@ def get_mit_coverage(
 @router.get(
     "/{audit_id}/delta",
     response_model=FixedDeltaOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Fixed vs Not-Fixed delta for one audit",
 )
 def get_fixed_delta(
@@ -217,7 +244,7 @@ def get_fixed_delta(
 @router.get(
     "/{audit_id}/rules",
     response_model=list[AppliedRuleOut],
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Applied compliance rules for one audit",
 )
 def get_applied_rules(
@@ -232,7 +259,7 @@ def get_applied_rules(
 @router.get(
     "/{audit_id}/incidents",
     response_model=list[SimilarIncidentOut],
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Similar historical incidents for one audit",
 )
 def get_similar_incidents(
@@ -317,7 +344,7 @@ _NIST_COVERAGE_MAP: dict[str, str] = {
 @router.get(
     "/nist-coverage",
     response_model=NistCoverageReportOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="NIST AI RMF subcategory coverage report (SARO-004)",
 )
 def get_nist_coverage(
@@ -325,7 +352,8 @@ def get_nist_coverage(
     db: Annotated[Session, Depends(get_db)],
 ) -> NistCoverageReportOut:
     """
-    Returns coverage status for all 72 NIST AI RMF 1.0 subcategory outcomes.
+    Returns coverage status for the 68 NIST AI RMF 1.0 subcategories that SARO maps
+    (its mapped subset of the framework — not a claim of full RMF coverage).
 
     Status values:
       mapped                   — SARO generates automated evidence for this subcategory
@@ -473,7 +501,7 @@ def _extract_domain_findings(report_data: dict, domain: str) -> str:
 @router.post(
     "/{audit_id}/iso42001-annex",
     response_model=Iso42001DocumentOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Generate ISO 42001 Annex A technical documentation (SARO-005)",
 )
 def generate_iso42001_annex(
@@ -586,7 +614,7 @@ def generate_iso42001_annex(
 @router.get(
     "/engine/integrity",
     response_model=EngineIntegrityOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="Current engine version and rule pack integrity hash (SARO-006)",
 )
 def get_engine_integrity(
@@ -627,7 +655,7 @@ def get_engine_integrity(
 @router.get(
     "/incident-corpus-stats",
     response_model=IncidentCorpusStatsOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_reports_access)],
     summary="AI incident corpus quality statistics (SARO-007)",
 )
 def get_incident_corpus_stats(

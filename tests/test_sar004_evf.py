@@ -60,17 +60,16 @@ def test_qco_registry_model_has_published_field():
 # ── 5. evf_status_admin.py tab file exists ───────────────────────────────────
 
 def test_evf_status_admin_tab_file_exists():
-    tab_path = Path("frontend/tabs/evf_status_admin.py")
+    # STORY-105: the Streamlit tab was removed; the EVF admin page lives in React.
+    tab_path = Path("frontend/src/pages/EvfAdmin.jsx")
     assert tab_path.exists(), f"Missing: {tab_path}"
 
 
-# ── 6. evf_admin tab is registered in app.py ─────────────────────────────────
+# ── 6. evf_admin tab is registered in the React nav ──────────────────────────
 
 def test_evf_admin_tab_registered_in_app():
-    source = Path("frontend/app.py").read_text(encoding="utf-8")
-    assert "evf_admin" in source or "evf_status_admin" in source, (
-        "frontend/app.py must reference 'evf_admin' or 'evf_status_admin'"
-    )
+    source = Path("frontend/src/components/Sidebar.jsx").read_text(encoding="utf-8")
+    assert "evf_admin" in source, "Sidebar.jsx must register the 'evf_admin' tab"
 
 
 # ── 7. upgrade_to_tier1 has the expected parameters ──────────────────────────

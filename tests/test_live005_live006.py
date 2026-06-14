@@ -164,8 +164,14 @@ class TestLive005TokenExpiry:
 # ── LIVE-006 tests ─────────────────────────────────────────────────────────────
 
 class TestLive006DemoAlert:
+    def setup_method(self, _):
+        # STORY-114: these tests exercise the signup-enabled path; demo intake is
+        # otherwise feature-flagged off by default.
+        os.environ["DEMO_REQUESTS_ENABLED"] = "true"
+
     def teardown_method(self, _):
         app.dependency_overrides.pop(get_db, None)
+        os.environ.pop("DEMO_REQUESTS_ENABLED", None)
 
     def _demo_db_override(self, existing=None, new_record=None):
         """DB override for demo signup — supports returning existing or None."""

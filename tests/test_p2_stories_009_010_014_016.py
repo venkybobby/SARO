@@ -283,7 +283,7 @@ class TestDashboardLiveDataEndpoints:
         "/api/v1/risk/whats-changed",
         "/api/v1/risks",
         "/api/v1/audits",
-        "/api/v1/drift/alerts",
+        "/api/v1/rules/drift-alerts",
         "/api/v1/engine/status",
     ]
 
