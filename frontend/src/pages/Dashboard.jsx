@@ -510,33 +510,6 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
           </button>
         </div>
 
-        {/* Quick actions — persona-specific */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
-          {persona === "operator" && (
-            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
-              + New Scan
-            </button>
-          )}
-          {["risk_officer","admin","super_admin"].includes(persona) && (
-            <button onClick={() => onNavigate?.("risk_register")} style={qaBtn("#0d9488")}>
-              Open Risk Register
-            </button>
-          )}
-          {persona === "compliance_lead" && (
-            <button onClick={() => onNavigate?.("compliance_hub")} style={qaBtn("#0d9488")}>
-              Compliance Hub
-            </button>
-          )}
-          {persona === "ai_auditor" && (
-            <button onClick={() => onNavigate?.("upload")} style={qaBtn("#0d9488")}>
-              + New Scan
-            </button>
-          )}
-          <button onClick={() => onNavigate?.("trace_view")} style={qaBtn("#6b7280")}>
-            View Recent TRACE
-          </button>
-        </div>
-
         {/* Operational detail — collapsed by default for risk_officer/compliance_lead,
             who care more about posture/KPIs than pipeline internals */}
         <div style={{ marginBottom: "var(--space-6)" }}>

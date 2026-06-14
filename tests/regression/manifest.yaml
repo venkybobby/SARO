@@ -82,3 +82,8 @@ findings:
     test: tests/regression/test_fnd_015_iso_annex_write_access.py
     status: open
     quarantine_expires: null
+  - id: FND-017
+    title: "Dashboard renders the persona Quick Actions block twice (duplicate buttons)"
+    test: frontend/src/pages/Dashboard.test.jsx
+    status: pinned
+    quarantine_expires: null
