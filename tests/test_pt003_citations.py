@@ -38,6 +38,18 @@ def test_sample_floor_not_attributed_to_regulation_in_engine():
             pytest.fail(f"engine.py:{i} attributes sample floor to a regulation: {line.strip()}")
 
 
+def test_sample_floor_not_attributed_to_regulation_in_routers():
+    """Regression: the Gate-1 50-sample 422 bodies in routers/scan.py used to cite
+    'EU AI Act Art. 10, NIST MAP 2.3' — an external claims surface the engine-only
+    check never scanned. The lint must cover routers/ repo-wide (PT-003 AC)."""
+    for path in sorted((ROOT / "routers").glob("*.py")):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _FORBIDDEN_SAMPLE_CITATION.search(line) and not _DISCLAIMER.search(line):
+                pytest.fail(
+                    f"routers/{path.name}:{i} attributes sample floor to a regulation: {line.strip()}"
+                )
+
+
 def test_lint_flags_misattribution_but_not_disclaimer():
     bad = "Enforce minimum 50 samples (EU AI Act Art. 10, NIST MAP 2.3)"
     good = "EU AI Act Art. 10 and NIST MAP 2.3 set no batch-audit sample threshold"
