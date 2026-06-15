@@ -105,6 +105,22 @@ def get_governance_meta(
 _DPA_MD = _DOCS_DIR / "legal" / "saro-dpa-template-v1.0.md"
 _SOC2_MD = _DOCS_DIR / "soc2-readiness-roadmap-v1.0.md"
 
+# S-1107: weekly-regenerated tenant-isolation evidence pack.
+_EVIDENCE_DIR = _DOCS_DIR / "evidence"
+_SECURITY_EVIDENCE_LATEST = _EVIDENCE_DIR / "security-isolation-evidence-latest.pdf"
+
+
+@router.get(
+    "/docs/security-evidence",
+    dependencies=[Depends(require_role("super_admin", "operator"))],
+    summary="S-1107: Download the latest tenant-isolation security evidence PDF",
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def get_security_evidence(
+    _current: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    return _serve_pdf(_SECURITY_EVIDENCE_LATEST, "saro-tenant-isolation-evidence-latest.pdf")
+
 
 @router.get(
     "/docs/dpa-template",
@@ -184,6 +200,19 @@ def list_trust_documents(
             "available": _SOC2_MD.exists(),
             "download_url": "/api/v1/governance/docs/soc2-roadmap",
             "media_type": "text/markdown",
+        },
+        {
+            "key": "security-isolation-evidence",
+            "label": "Tenant Isolation Security Evidence",
+            "description": "Automated, commit-stamped proof of tenant isolation (50-concurrent-session "
+                           "and cross-tenant 403 suites). Regenerated weekly. Interim evidence pending a "
+                           "funded third-party penetration test.",
+            "version": "rolling",
+            "reviewed_at": "2026-06-15T00:00:00+00:00",
+            "reviewer": "SARO CI (automated)",
+            "available": _SECURITY_EVIDENCE_LATEST.exists(),
+            "download_url": "/api/v1/governance/docs/security-evidence",
+            "media_type": "application/pdf",
         },
     ]
 
