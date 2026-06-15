@@ -1,158 +1,188 @@
-import React, { useState } from "react";
-import { Download, FileSpreadsheet, Share2, BarChart2, TrendingUp, Target, Grid } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Download, FileSpreadsheet, BarChart2, Target } from "lucide-react";
 import { Button, EmptyState, PageHeader, Skeleton } from "../components/ui/index.jsx";
 
-const DATE_PRESETS = ["Last 7 days", "Last 30 days", "Last quarter", "Year to date", "Custom"];
+// Severity → colour (hex fallbacks so the charts render regardless of theme vars).
+const SEV_COLOR = {
+  critical: "#E24B4A", high: "#BA7517", medium: "#C99A2E", low: "#639922", info: "#0C447C",
+};
+const SEV_ORDER = ["critical", "high", "medium", "low", "info"];
 
-function ExportMenu({ onExportPDF, onExportCSV, onShareLink }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ position: "relative" }}>
-      <Button variant="secondary" size="sm" onClick={() => setOpen((v) => !v)}>
-        <Download size={13} /> Export
-      </Button>
-      {open && (
-        <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position: "absolute", top: "calc(100% + 4px)", right: 0,
-            background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)",
-            borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-md)",
-            zIndex: "var(--z-dropdown)", minWidth: 180, overflow: "hidden",
-          }}>
-            {[
-              { label: "Export as PDF",   icon: <Download size={14} />,       onClick: onExportPDF },
-              { label: "Export as CSV",   icon: <FileSpreadsheet size={14} />, onClick: onExportCSV },
-              { label: "Copy share link", icon: <Share2 size={14} />,          onClick: onShareLink },
-            ].map((item) => (
-              <button key={item.label} onClick={() => { item.onClick?.(); setOpen(false); }} style={{
-                display: "flex", alignItems: "center", gap: "var(--space-3)",
-                width: "100%", padding: "var(--space-3) var(--space-4)",
-                background: "none", border: "none", cursor: "pointer",
-                color: "var(--color-text-primary)", fontSize: "var(--text-sm)",
-                fontFamily: "var(--font-body)", textAlign: "left",
-                transition: "background var(--transition-fast)",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-bg-overlay)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
-              >
-                <span style={{ color: "var(--color-text-muted)" }}>{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
+function countBy(rows, key) {
+  const out = {};
+  for (const r of rows) {
+    const k = (r[key] || "—").toString();
+    out[k] = (out[k] || 0) + 1;
+  }
+  return out;
 }
 
-function ChartPlaceholder({ title, type, icon: Icon, loading }) {
+// Dependency-free horizontal bar chart (div widths, theme-aware).
+function BarChart({ title, icon: Icon, data, colorFor }) {
+  const entries = Object.entries(data);
+  const max = Math.max(1, ...entries.map(([, v]) => v));
   return (
     <div style={{
       background: "var(--color-bg-surface)",
       border: "1px solid var(--color-border-subtle)",
-      borderRadius: "var(--radius-lg)",
-      overflow: "hidden",
+      borderRadius: "var(--radius-lg)", overflow: "hidden",
     }} className="chart-container">
-      {/* Chart header */}
       <div style={{
         padding: "var(--space-4) var(--space-5)",
         borderBottom: "1px solid var(--color-border-subtle)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center", gap: "var(--space-2)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <Icon size={16} color="var(--color-text-muted)" />
-          <h3 style={{
-            fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)",
-            color: "var(--color-text-primary)", fontFamily: "var(--font-display)",
-          }}>
-            {title}
-          </h3>
-        </div>
-        <ExportMenu
-          onExportPDF={() => {}}
-          onExportCSV={() => {}}
-          onShareLink={() => {}}
-        />
+        <Icon size={16} color="var(--color-text-muted)" />
+        <h3 style={{
+          fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)",
+          color: "var(--color-text-primary)", fontFamily: "var(--font-display)",
+        }}>{title}</h3>
       </div>
-      {/* Chart body */}
-      <div style={{ padding: "var(--space-5)", minHeight: 200 }}>
-        {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            <Skeleton height={20} width="60%" />
-            <Skeleton height={120} />
-            <Skeleton height={16} width="40%" />
-          </div>
+      <div style={{ padding: "var(--space-5)", minHeight: 160 }}>
+        {entries.length === 0 ? (
+          <EmptyState icon={<Icon />} title="No data yet"
+            description="Run scans and create risks to populate this chart." />
         ) : (
-          <EmptyState
-            icon={<Icon />}
-            title={`${type} chart`}
-            description="Connect a charting library (Recharts, Chart.js) to render live data here."
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            {entries.map(([label, value]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                <div style={{
+                  width: 110, flexShrink: 0, fontSize: "var(--text-xs)",
+                  color: "var(--color-text-muted)", textTransform: "capitalize",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }} title={label}>{label}</div>
+                <div style={{ flex: 1, background: "var(--color-bg-overlay)", borderRadius: 4, height: 18 }}>
+                  <div style={{
+                    width: `${(value / max) * 100}%`, height: "100%", borderRadius: 4,
+                    background: colorFor ? colorFor(label) : "var(--color-info)",
+                    minWidth: value > 0 ? 4 : 0, transition: "width var(--transition-fast)",
+                  }} />
+                </div>
+                <div style={{
+                  width: 28, textAlign: "right", fontSize: "var(--text-xs)",
+                  fontWeight: "var(--weight-semibold)", color: "var(--color-text-primary)",
+                }}>{value}</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
+function Kpi({ label, value }) {
+  return (
+    <div style={{
+      background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)",
+      borderRadius: "var(--radius-lg)", padding: "var(--space-4) var(--space-5)", flex: 1, minWidth: 130,
+    }}>
+      <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-bold)", color: "var(--color-text-primary)" }}>{value}</div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>{label}</div>
+    </div>
+  );
+}
+
+function toCsv(risks) {
+  const cols = ["id", "title", "category", "severity", "owner", "status"];
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [cols.join(",")];
+  for (const r of risks) lines.push(cols.map((c) => esc(r[c])).join(","));
+  return lines.join("\n");
+}
+
 export default function Reports({ token }) {
-  const [datePreset, setDatePreset] = useState("Last 30 days");
-  const [loading]                   = useState(false);
+  const [risks, setRisks]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const r = await fetch("/api/v1/risks", { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`${r.status}`);
+      setRisks(await r.json());
+    } catch (e) {
+      setError(`Could not load risks from API: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const sevData = useMemo(() => {
+    const c = countBy(risks, "severity");
+    const ordered = {};
+    for (const s of SEV_ORDER) if (c[s]) ordered[s] = c[s];
+    for (const [k, v] of Object.entries(c)) if (!(k in ordered)) ordered[k] = v;
+    return ordered;
+  }, [risks]);
+  const catData    = useMemo(() => countBy(risks, "category"), [risks]);
+  const statusData = useMemo(() => countBy(risks, "status"), [risks]);
+
+  const total    = risks.length;
+  const open     = risks.filter((r) => !["Closed", "Dismissed", "Resolved"].includes(r.status)).length;
+  const critHigh = risks.filter((r) => ["critical", "high"].includes(r.severity)).length;
+  const closedPct = total ? Math.round(((total - open) / total) * 100) : 0;
+
+  const exportCsv = useCallback(() => {
+    const blob = new Blob([toCsv(risks)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "saro-risk-register.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }, [risks]);
 
   return (
     <div style={{ background: "var(--color-bg-base)", minHeight: "100vh" }}>
       <PageHeader
         title="Reports & Analytics"
-        subtitle="Risk trends, control coverage, and compliance posture over time"
+        subtitle="Risk posture across the register — severity, category, and status"
         breadcrumb={<><span>Dashboard</span><span style={{ color: "var(--color-text-muted)" }}> › </span><span>Reports</span></>}
-        actions={<ExportMenu onExportPDF={() => {}} onExportCSV={() => {}} onShareLink={() => {}} />}
+        actions={
+          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={!risks.length}>
+            <FileSpreadsheet size={14} /> Export CSV
+          </Button>
+        }
       />
 
-      {/* Toolbar */}
-      <div className="report-toolbar" style={{
-        padding: "var(--space-4) var(--space-6)",
-        borderBottom: "1px solid var(--color-border-subtle)",
-        background: "var(--color-bg-surface)",
-        display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap",
-      }}>
-        <div style={{ display: "flex", gap: "var(--space-1)", flexWrap: "wrap" }}>
-          {DATE_PRESETS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setDatePreset(p)}
-              style={{
-                padding: "4px 12px", borderRadius: 999,
-                border: `1px solid ${datePreset === p ? "var(--color-info)" : "var(--color-border-default)"}`,
-                background: datePreset === p ? "var(--color-info-bg)" : "transparent",
-                color: datePreset === p ? "var(--color-info)" : "var(--color-text-muted)",
-                fontSize: "var(--text-xs)", cursor: "pointer",
-                fontFamily: "var(--font-display)", fontWeight: "var(--weight-medium)",
-                transition: "all var(--transition-fast)",
-              }}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setDatePreset("Last 30 days")}>
-          Clear filters
-        </Button>
-      </div>
-
       <div style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
-        {/* Top row: Trend + Distribution */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "var(--space-5)" }}>
-          <ChartPlaceholder title="Risk trend over time"    type="Line"             icon={TrendingUp} loading={loading} />
-          <ChartPlaceholder title="Severity distribution"   type="Stacked bar"      icon={BarChart2}  loading={loading} />
-        </div>
-        {/* Bottom row: Category + Coverage */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
-          <ChartPlaceholder title="Risks by category"       type="Horizontal bar"   icon={BarChart2}  loading={loading} />
-          <ChartPlaceholder title="Control coverage"        type="Gauge / progress" icon={Target}     loading={loading} />
-        </div>
-        {/* Risk heatmap full width */}
-        <ChartPlaceholder title="Risk heatmap (likelihood × impact)" type="Matrix / heatmap" icon={Grid} loading={loading} />
+        {error && (
+          <div style={{
+            padding: "var(--space-3) var(--space-4)", borderRadius: "var(--radius-md)",
+            background: "var(--color-danger-bg, #FCEBEB)", color: "var(--color-danger, #791F1F)",
+            fontSize: "var(--text-sm)",
+          }}>{error}</div>
+        )}
+
+        {loading ? (
+          <Skeleton height={120} />
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
+              <Kpi label="Total risks" value={total} />
+              <Kpi label="Open" value={open} />
+              <Kpi label="Critical + High" value={critHigh} />
+              <Kpi label="Closed / resolved" value={`${closedPct}%`} />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
+              <BarChart title="Severity distribution" icon={BarChart2} data={sevData}
+                colorFor={(label) => SEV_COLOR[label] || "var(--color-info)"} />
+              <BarChart title="Risks by status" icon={Target} data={statusData} />
+            </div>
+            <BarChart title="Risks by category" icon={BarChart2} data={catData} />
+
+            {/* Export buttons (header) are wired to a real CSV download; Download icon kept for affordance. */}
+            <div style={{ display: "flex", gap: "var(--space-3)" }}>
+              <Button variant="ghost" size="sm" onClick={exportCsv} disabled={!risks.length}>
+                <Download size={14} /> Download register (CSV)
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Required disclaimer per COMPLIANCE_CLAIMS_MATRIX.md */}
