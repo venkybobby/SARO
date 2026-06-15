@@ -393,6 +393,12 @@ class AIIncident(Base):
     source: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Whether the incident was remediated/resolved
     is_fixed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # S-1106 / FB-019: audit trail for is_fixed changes. Written together with
+    # is_fixed via services.incident_service.set_incident_fixed() — never alone.
+    fixed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fixed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
