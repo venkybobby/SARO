@@ -229,7 +229,8 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
         "Accepts a JSON batch of ≥50 text samples, runs the 4-gate audit pipeline, "
         "and returns the complete report including MIT coverage, similar incidents, "
         "fixed-delta, Bayesian risk scores, applied rules, and remediations.\n\n"
-        "**Minimum 50 samples required** (EU AI Act Art. 10, NIST MAP 2.3)."
+        "**Minimum 50 samples required** (internal SARO statistical methodology — "
+        "see the Sampling Methodology Basis in the Compliance Claims Matrix)."
     ),
 )
 def scan_batch(
@@ -404,7 +405,8 @@ def get_audit(
         "- `output` → `text`\n"
         "- `gender` / `ethnicity` → `group`\n"
         "- `ground_truth` → `label`\n\n"
-        "**Minimum 50 samples required** (EU AI Act Art. 10, NIST MAP 2.3)."
+        "**Minimum 50 samples required** (internal SARO statistical methodology — "
+        "see the Sampling Methodology Basis in the Compliance Claims Matrix)."
     ),
 )
 def scan_data_batch(

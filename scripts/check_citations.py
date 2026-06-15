@@ -22,7 +22,13 @@ INVENTORY = ROOT / "docs" / "CITATION_INVENTORY.md"
 RULE_PACKS = ROOT / "rule_packs"
 
 # Files that must not attribute the sample-size floor to a regulatory article.
-_SAMPLE_THRESHOLD_FILES = [ROOT / "engine.py", ROOT / "schemas.py"]
+# Covers the engine, the batch schemas, AND every router — user-facing error bodies
+# and endpoint descriptions are an external claims surface too (PT-003 repo-wide AC).
+_SAMPLE_THRESHOLD_FILES = [
+    ROOT / "engine.py",
+    ROOT / "schemas.py",
+    *sorted((ROOT / "routers").glob("*.py")),
+]
 # A forbidden line ties a sample/minimum context to Art. 10 or MAP 2.3 on the same line.
 _FORBIDDEN_SAMPLE_CITATION = re.compile(
     r"(sample|minimum|MIN_SAMPLES).{0,80}(EU AI Act Art\.?\s*10|Art\.?\s*10[^_0-9]|NIST MAP 2\.3|MAP 2\.3)"
