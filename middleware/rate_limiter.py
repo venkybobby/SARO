@@ -25,15 +25,33 @@ _RATE_LIMIT_RPM = int(os.environ.get("RATE_LIMIT_RPM", "100"))
 _WINDOW_SECONDS = 60
 _REDIS_TTL = _WINDOW_SECONDS * 2  # 2× window covers edge-of-minute transitions
 
-# Paths that bypass rate limiting entirely
+# Paths that bypass rate limiting entirely.
+# NOTE: "/" must be matched EXACTLY (see _EXACT_ALLOWLIST) — as a startswith()
+# prefix it matched every path and silently disabled the limiter for the whole API.
+# SAML/SSO assertion endpoints stay exempt: they are IdP-initiated single POSTs
+# already guarded by signature + NotOnOrAfter + replay checks (routers/sso.py).
 _ALLOWLIST_PREFIXES = (
     "/health",
     "/metrics",
-    "/api/v1/auth/magic-link",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
     "/api/v1/auth/saml",
     "/api/v1/sso",
-    "/",
 )
+
+# Exact-match (non-prefix) allowlist — the bare root only.
+_EXACT_ALLOWLIST = frozenset({"/"})
+
+# Authentication endpoints get a stricter PER-IP limit to blunt credential
+# brute-forcing and magic-link email enumeration (default 10/min/IP).
+_AUTH_STRICT_PREFIXES = (
+    "/api/v1/auth/token",
+    "/api/v1/auth/login",
+    "/api/v1/auth/bootstrap",
+    "/api/v1/auth/magic-link",
+)
+_AUTH_RATE_LIMIT_RPM = int(os.environ.get("AUTH_RATE_LIMIT_RPM", "10"))
 
 _PROMETHEUS_COUNTER = 0  # module-level fallback counter when prometheus_client absent
 
@@ -137,17 +155,25 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path: str = request.url.path
 
-        # Allowlist — skip rate limiting
-        if any(path.startswith(prefix) for prefix in _ALLOWLIST_PREFIXES):
+        # Allowlist — skip rate limiting (exact root + infra/SSO prefixes)
+        if path in _EXACT_ALLOWLIST or any(
+            path.startswith(prefix) for prefix in _ALLOWLIST_PREFIXES
+        ):
             return await call_next(request)
 
-        # Extract tenant_id from JWT state (set by auth dependency) or fallback to IP
         client_host = request.client.host if request.client else None
-        tenant_id: str = str(
-            getattr(request.state, "tenant_id", None) or client_host or "unknown"
-        )
 
-        result = check_rate_limit(tenant_id, self._limit)
+        # Scope: enforce a strict PER-IP limit on authentication endpoints
+        # (brute-force / enumeration defence). All other endpoints are left
+        # unthrottled here — global per-tenant limiting is a separate change
+        # (it would require load review + test-fixture isolation) and must not
+        # be enabled as a side effect of this auth-hardening fix.
+        if not any(path.startswith(prefix) for prefix in _AUTH_STRICT_PREFIXES):
+            return await call_next(request)
+
+        limit = _AUTH_RATE_LIMIT_RPM
+        rl_key = f"auth-ip:{client_host or 'unknown'}"
+        result = check_rate_limit(rl_key, limit)
 
         # Always attach quota headers to the response
         async def _add_headers(resp: Response) -> Response:
