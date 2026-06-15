@@ -212,10 +212,13 @@ class TestGovernanceTrustDocuments:
         assert "available_count" in body
         assert "disclaimer" in body
 
-    def test_four_documents_returned(self, client_trust: TestClient):
+    def test_all_documents_returned(self, client_trust: TestClient):
+        # 4 governance docs + the S-1107 tenant-isolation security evidence pack.
         resp = client_trust.get("/api/v1/governance/trust-documents")
         body = resp.json()
-        assert body["total"] == 4
+        assert body["total"] == 5
+        keys = {d["key"] for d in body["documents"]}
+        assert "security-isolation-evidence" in keys
 
     def test_document_keys_present(self, client_trust: TestClient):
         resp = client_trust.get("/api/v1/governance/trust-documents")
