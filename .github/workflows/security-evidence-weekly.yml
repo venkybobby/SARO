@@ -1,0 +1,62 @@
+name: SARO — Weekly Tenant-Isolation Security Evidence
+
+# S-1107: regenerate the tenant-isolation evidence PDF weekly so the Trust page
+# always serves a recent, commit-stamped proof. Runs the isolation suites and
+# renders docs/evidence/security-isolation-evidence-*.pdf.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Monday 03:00 UTC every week
+  workflow_dispatch: {}
+
+permissions:
+  contents: write          # commit the regenerated PDF back to the repo
+
+jobs:
+  evidence:
+    name: Generate isolation evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate security evidence PDF
+        id: gen
+        run: |
+          python scripts/generate_security_evidence.py --commit "${GITHUB_SHA::7}" \
+            && echo "evidence_status=pass" >> "$GITHUB_OUTPUT" \
+            || echo "evidence_status=fail" >> "$GITHUB_OUTPUT"
+
+      - name: Upload evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-evidence-${{ github.run_id }}
+          path: docs/evidence/
+          retention-days: 90
+
+      - name: Commit refreshed evidence
+        if: always()
+        run: |
+          git config user.name "saro-ci"
+          git config user.email "ci@saro.local"
+          git add docs/evidence/*.pdf
+          if git diff --cached --quiet; then
+            echo "No evidence change to commit."
+          else
+            git commit -m "chore(security): refresh weekly tenant-isolation evidence [skip ci]"
+            git push
+          fi
+
+      - name: Fail workflow if isolation regressed
+        if: steps.gen.outputs.evidence_status == 'fail'
+        run: |
+          echo "Tenant-isolation evidence FAILED — an isolation control regressed."
+          exit 1

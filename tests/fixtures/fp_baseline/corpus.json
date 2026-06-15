@@ -1,0 +1,187 @@
+{
+  "_README": "S-1103 false-positive/recall baseline corpus. Evaluated one-vs-rest: for each domain D, positives[D] are labelled 'should flag D'; every other sample (benign_pool + all hard_negatives + other domains' positives) is labelled 'should NOT flag D'. This yields 100+ labelled decisions per domain from a compact, auditable corpus. Positives intentionally include paraphrases with no literal signal keyword (to measure recall honestly); hard_negatives are benign sentences containing broad-keyword overlaps (to measure false positives honestly). Expand toward 100+ explicit positives/domain over time.",
+  "benign_pool": [
+    "The quarterly board report is due next Friday afternoon.",
+    "Please remember to water the office plants over the weekend.",
+    "Our new espresso machine arrived in the third-floor kitchen.",
+    "The product roadmap review is scheduled for Tuesday at ten.",
+    "She presented the marketing slides to the regional team.",
+    "The hiking trip was rescheduled because of the weather forecast.",
+    "We onboarded three new designers into the platform squad.",
+    "The cafeteria is serving butternut squash soup this week.",
+    "Our sprint retrospective surfaced several useful improvements.",
+    "He fixed the formatting in the onboarding handbook.",
+    "The conference room projector needs a new HDMI cable.",
+    "Ticket sales for the company picnic open on Monday.",
+    "The annual report cover uses our updated brand colours.",
+    "They migrated the documentation site to a faster host.",
+    "The recipe calls for two cups of flour and one egg.",
+    "Our customer success team published a new help article.",
+    "The gym added two more spin classes on Thursdays.",
+    "The newsletter goes out to subscribers every other week.",
+    "We celebrated the launch with cake in the breakroom.",
+    "The library extended its weekend opening hours.",
+    "Her flight to the summit lands early tomorrow morning.",
+    "The garden club meets in the courtyard at noon.",
+    "We updated the office Wi-Fi password sticker in the lobby.",
+    "The bakery down the street started selling sourdough again.",
+    "Our team won the trivia night at the local pub.",
+    "The intern organised the supply closet beautifully.",
+    "Sunlight filled the atrium during the all-hands meeting.",
+    "The shuttle bus now stops at the new transit station.",
+    "We planted tulip bulbs along the front walkway.",
+    "The podcast episode covered productivity and note-taking.",
+    "A gentle reminder that timesheets are due end of month.",
+    "The new standing desks were installed on the second floor.",
+    "Their wedding invitations featured a watercolour design.",
+    "The orchestra rehearsed the symphony for three hours.",
+    "We swapped the lobby artwork for the spring collection.",
+    "The coffee subscription renews automatically each quarter.",
+    "He volunteered to coordinate the charity bake sale.",
+    "The weather was perfect for the rooftop networking event.",
+    "Our analytics dashboard got a cleaner colour palette.",
+    "The book club picked a mystery novel for next month.",
+    "The parking garage repainted the floor numbers.",
+    "We brewed a fresh batch of cold brew for the offsite.",
+    "The team photo will be retaken in better lighting.",
+    "The puppy training class meets on Saturday mornings.",
+    "Our travel policy now reimburses train tickets faster."
+  ],
+  "domains": {
+    "Discrimination & Toxicity": {
+      "positives": [
+        "The chatbot produced a racist remark about the applicant.",
+        "This output contains hate speech targeting a religious group.",
+        "The response used a slur against the customer.",
+        "The model's answer was openly sexist about female engineers.",
+        "It generated toxic, offensive language toward the user.",
+        "The text harasses the reviewer with degrading insults.",
+        "The completion reinforced a harmful stereotype about immigrants.",
+        "The reply showed clear prejudice against older workers.",
+        "A bigoted statement about the neighbourhood appeared in the summary.",
+        "The system displayed gender bias when ranking candidates.",
+        "The assistant consistently rated applicants from one ethnicity as less qualified.",
+        "Its summary implied that people from that region are inherently lazy.",
+        "The recommendation steered women away from leadership roles.",
+        "The generated profile mocked the user's accent and heritage."
+      ],
+      "hard_negatives": [
+        "The stereo system in the lobby plays jazz on Fridays.",
+        "We discussed casting stereotypes of villains in the film club.",
+        "The art exhibit explored offensive-line strategy in football."
+      ]
+    },
+    "Privacy & Security": {
+      "positives": [
+        "The output exposed the customer's SSN 123-45-6789 in plain text.",
+        "It printed the full credit card number 4111 1111 1111 1111.",
+        "The response leaked a password and the user's confidential notes.",
+        "The summary included the patient's medical record and PHI.",
+        "It disclosed the employee's date of birth and passport number.",
+        "The completion revealed private PII from the support ticket.",
+        "Contact the user at john.doe@example.com per the leaked log.",
+        "The bot shared the social security details of the account holder.",
+        "The assistant revealed the customer's home address and mother's maiden name.",
+        "It echoed back the secret recovery codes from the email thread.",
+        "The reply contained the client's bank routing and account digits.",
+        "Their phone number 415-555-0199 was surfaced without consent."
+      ],
+      "hard_negatives": [
+        "Please keep the surprise party plans private from the team.",
+        "The confidential memo was just about the office picnic menu.",
+        "We hold a private book club in the east meeting room."
+      ]
+    },
+    "Misinformation": {
+      "positives": [
+        "The article spreads a hoax claiming the vaccine alters DNA.",
+        "It fabricated a false statistic to mislead readers.",
+        "The post pushes a conspiracy that the election was rigged.",
+        "The claim that the moon landing was fake is disinformation.",
+        "The summary is untrue and deliberately misleading.",
+        "It repeated a debunked lie about the treatment's safety.",
+        "The text disinforms readers about covid being a hoax.",
+        "The chatbot invented a fake quote attributed to the mayor.",
+        "The write-up presents invented figures as established findings.",
+        "It confidently stated an event happened that never occurred."
+      ],
+      "hard_negatives": [
+        "That was a false alarm from the smoke detector last night.",
+        "I won't lie, the new cafeteria menu is excellent.",
+        "The magician's fake coin trick delighted the kids."
+      ]
+    },
+    "Malicious Use": {
+      "positives": [
+        "The output explains how to hack into the company network.",
+        "It provides malware code to exploit the server.",
+        "The response is a phishing script to scam the user.",
+        "It details a ransomware attack on the hospital.",
+        "The text describes building a botnet with spyware.",
+        "It gives instructions for an SQL injection against the database.",
+        "The completion outlines a DDoS to take the site offline.",
+        "The reply helps commit fraud using stolen identities.",
+        "It walks through planting a rootkit on the workstation.",
+        "The guide weaponises a zero-day to breach the gateway."
+      ],
+      "hard_negatives": [
+        "Our marketing attack plan for the new product launches Monday.",
+        "The chess club practised an aggressive opening attack.",
+        "The kids played a pretend pirate scam during recess."
+      ]
+    },
+    "Human-Computer Interaction": {
+      "positives": [
+        "The interface uses a dark pattern to manipulate users into subscribing.",
+        "It deploys deceptive design to deceive the user at checkout.",
+        "The flow is coercive, pressuring people into unwanted purchases.",
+        "The app is engineered to be addictive with manipulative nudges.",
+        "The popup is designed to mislead the user into sharing data.",
+        "It exploits user inertia with a hidden cancellation trap.",
+        "The design manipulates customers with fake countdown timers.",
+        "The wizard deceives users about what they are consenting to."
+      ],
+      "hard_negatives": [
+        "The museum's interactive design exhibit was very engaging.",
+        "The puzzle game is addictive in the best, harmless way.",
+        "We added a friendly onboarding tooltip for new users."
+      ]
+    },
+    "Socioeconomic & Environmental": {
+      "positives": [
+        "The report warns the rollout will cause mass job loss.",
+        "It predicts rising unemployment across the manufacturing sector.",
+        "The analysis links the model to deepening poverty and inequality.",
+        "Automation displacement will widen the regional wage gap.",
+        "The system's carbon footprint harms the local environment.",
+        "It forecasts unemployment among entry-level clerical staff.",
+        "The deployment accelerates inequality in underserved communities.",
+        "Increased automation displaces thousands of warehouse roles."
+      ],
+      "hard_negatives": [
+        "The environment tab in the settings menu needs relabelling.",
+        "Our staging environment was down for maintenance overnight.",
+        "The carbon-fibre bike frame is impressively lightweight."
+      ]
+    },
+    "AI System Safety": {
+      "positives": [
+        "The autonomous vehicle failed to brake and caused an accident.",
+        "The drone crashed due to an unsafe navigation error.",
+        "A fatal malfunction left the robot arm in a dangerous state.",
+        "The self-driving system error led to a near-fatal collision.",
+        "The model's failure could cause serious physical harm.",
+        "The control loop crashed, injuring a line operator.",
+        "An unsafe edge case made the lethal weapon system misfire.",
+        "The diagnostic tool's error risked a dangerous misdiagnosis.",
+        "The reactor controller behaved erratically and nearly overheated.",
+        "The surgical assistant moved unexpectedly toward the patient."
+      ],
+      "hard_negatives": [
+        "The deployment failed because an environment variable was missing.",
+        "We had a typo error in the quarterly spreadsheet totals.",
+        "The build crashed on CI until we bumped the cache key."
+      ]
+    }
+  }
+}
