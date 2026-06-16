@@ -73,6 +73,7 @@ from routers.controls import router as controls_router
 from routers.onboarding import router as onboarding_router
 from routers.risks import router as risks_router
 from routers.insights import router as insights_router
+from routers.grc_registry import router as grc_registry_router
 from middleware.rate_limiter import RateLimiterMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
@@ -431,6 +432,7 @@ app.include_router(controls_router)
 app.include_router(onboarding_router)
 app.include_router(risks_router)
 app.include_router(insights_router)
+app.include_router(grc_registry_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
