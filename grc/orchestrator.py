@@ -20,6 +20,7 @@ from typing import Any
 
 from grc.checks import CheckContext, CheckFinding, run_all_checks
 from grc.contract import SCHEMA_VERSION, validate_audit_result
+from grc.gate import decide as gate_decide
 from grc.hard_rules import enforce_hard_rules
 from grc.policy import GRCPolicy, get_active_policy
 from grc.provenance import enforce_can_pass, evaluate_provenance
@@ -105,24 +106,6 @@ def _evidence_gap_finding(missing: list[str]) -> dict[str, Any]:
     }
 
 
-def gate_recommendation(findings: list[dict[str, Any]], policy: GRCPolicy) -> str:
-    """Contract-valid gate recommendation.
-
-    Authoritative gate logic (≥N High FAILs, governance gaps) lands in
-    STORY-326; this satisfies the contract's Critical-FAIL⇒NO_GO rule and a safe
-    default in the interim. The lifecycle gate engine supersedes this.
-    """
-    fails = [f for f in findings if f["disposition"] == FAIL]
-    if any(f["risk"]["band"] == "CRITICAL" for f in fails):
-        return "NO_GO"
-    high_fails = sum(1 for f in fails if f["risk"]["band"] == "HIGH")
-    if high_fails >= policy.gate_high_fail_threshold:
-        return "NO_GO"
-    if any(f["disposition"] in (FAIL, CONDITIONAL, EVIDENCE_GAP) for f in findings):
-        return "GO_WITH_CONDITIONS"
-    return "GO"
-
-
 def run_audit(
     output_id: str,
     evidence: Any,
@@ -130,13 +113,15 @@ def run_audit(
     system_id: str | None = None,
     registry_purpose: str | None = None,
     output_text: str | None = None,
+    has_open_gaps: bool = False,
     generated_at: datetime | None = None,
     policy: GRCPolicy | None = None,
 ) -> dict[str, Any]:
     """Audit one output and return a contract-validated result dict.
 
     ``evidence`` is the provenance record (ORM row, mapping, or EvidenceCapture).
-    ``output_text`` defaults to the captured decision.
+    ``output_text`` defaults to the captured decision. ``has_open_gaps`` (from
+    STORY-302) feeds the lifecycle gate so a system with governance gaps cannot GO.
     """
     pol = policy or get_active_policy()
     stamped = (generated_at or datetime.now(tz=timezone.utc)).isoformat()
@@ -167,7 +152,9 @@ def run_audit(
         "system_id": sys_id,
         "generated_at": stamped,
         "findings": findings,
-        "gate_recommendation": gate_recommendation(findings, pol),
+        "gate_recommendation": gate_decide(
+            findings, has_open_gaps=has_open_gaps, policy=pol
+        ).recommendation,
     }
     # STORY-312: hard-rule guards run before the result is finalized (raise, not warn).
     enforce_hard_rules(result)
