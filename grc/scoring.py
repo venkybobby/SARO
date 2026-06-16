@@ -17,7 +17,7 @@ from grc.contract import DISPOSITIONS
 from grc.policy import GRCPolicy, get_active_policy
 
 # Disposition constants (sourced from the contract enum, not redefined).
-PASS = "PASS"
+PASS = "PASS"  # nosec B105 - audit disposition value, not a password
 CONDITIONAL = "CONDITIONAL"
 FAIL = "FAIL"
 EVIDENCE_GAP = "EVIDENCE_GAP"
