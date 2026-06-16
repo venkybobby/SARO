@@ -20,6 +20,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from grc.tiering import apply_tiering, tiering_inputs
 from models import GRCRegistryAudit, GRCRegistryEntry, User
 
 ENTRY_TYPES = ("system", "agent")
@@ -194,6 +195,8 @@ def create_entry(
     )
     db.add(entry)
     db.flush()  # assign entry.id before writing the audit row
+    # STORY-303: classify on create so internal_tier is populated from the start.
+    apply_tiering(entry)
     _write_audit(
         db,
         entry=entry,
@@ -217,6 +220,7 @@ def update_entry(
 ) -> GRCRegistryEntry:
     """Apply a partial update and record an 'update' audit row with the diff."""
     before = _snapshot(entry)
+    tiering_before = tiering_inputs(entry)
     data = payload.model_dump(exclude_unset=True)
     changes: dict[str, Any] = {}
     for field, new in data.items():
@@ -227,6 +231,19 @@ def update_entry(
     if changes:
         entry.updated_by_id = getattr(actor, "id", None)
         entry.updated_at = datetime.now(tz=timezone.utc)
+        # STORY-303: a change to any tiering input re-tiers the system, logging
+        # the new rationale + timestamp. Cosmetic changes do not re-tier.
+        if tiering_inputs(entry) != tiering_before:
+            result = apply_tiering(entry)
+            changes["__retier__"] = {
+                "old": tiering_before,
+                "new": {
+                    "internal_tier": result.internal_tier,
+                    "eu_ai_act_category": result.eu_ai_act_category,
+                    "nist_impact_level": result.nist_impact_level,
+                    "rationale": result.rationale,
+                },
+            }
         _write_audit(db, entry=entry, action="update", actor=actor, changes=changes)
     db.commit()
     db.refresh(entry)
