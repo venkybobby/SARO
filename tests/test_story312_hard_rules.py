@@ -53,6 +53,42 @@ def test_pass_with_linked_evidence_ok() -> None:
     guard_no_unevidenced_pass(_finding())  # must not raise
 
 
+def test_pass_with_empty_evidence_ids_raises() -> None:
+    # LINKED to nothing is not "linked evidence" (reviewer should-fix).
+    bad = _finding(
+        disposition="PASS", evidence={"status": "LINKED", "evidence_ids": []}
+    )
+    with pytest.raises(HardRuleViolation, match="evidence id"):
+        guard_no_unevidenced_pass(bad)
+
+
+def test_reinterpreted_finding_validates_against_contract() -> None:
+    # The sanctioned downgrade path must produce a contract-valid finding.
+    from grc.contract import SCHEMA_VERSION, validate_audit_result
+
+    start = _finding(
+        id="groundedness",
+        check="groundedness",
+        disposition="FAIL",
+        risk={"likelihood": 4, "impact": 4, "score": 16, "band": "HIGH"},
+        evidence={"status": "LINKED", "evidence_ids": ["ev-1"]},
+        remediation="Add a grounding citation.",
+    )
+    softened = reinterpret_severity(
+        start, new_likelihood=1, new_impact=2, reason="scoped to internal test data"
+    )
+    result = {
+        "schema_version": SCHEMA_VERSION,
+        "policy_version": "grc-policy-1.0.0",
+        "audited_output_id": "out-1",
+        "system_id": "sys-1",
+        "generated_at": "2026-06-16T03:00:00Z",
+        "findings": [softened],
+        "gate_recommendation": "GO_WITH_CONDITIONS",
+    }
+    validate_audit_result(result)  # must not raise
+
+
 # ── Rule 2: facts vs assessment separated ──
 def test_conflated_facts_and_assessment_raises() -> None:
     same = "The output is fine."

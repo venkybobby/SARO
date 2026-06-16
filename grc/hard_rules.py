@@ -25,13 +25,22 @@ class HardRuleViolation(ValueError):
 
 
 def guard_no_unevidenced_pass(finding: dict[str, Any]) -> None:
-    """Rule 1: a PASS finding must have LINKED evidence."""
+    """Rule 1: a PASS finding must have LINKED evidence with at least one id.
+
+    Checking only ``status == LINKED`` would let a PASS through with an empty
+    ``evidence_ids`` list — LINKED to nothing — which defeats the rule's intent.
+    """
     if finding.get("disposition") == PASS:
         evidence = finding.get("evidence") or {}
         if evidence.get("status") != "LINKED":
             raise HardRuleViolation(
                 f"finding {finding.get('id')!r}: PASS requires LINKED evidence, "
                 f"got {evidence.get('status')!r}"
+            )
+        if not evidence.get("evidence_ids"):
+            raise HardRuleViolation(
+                f"finding {finding.get('id')!r}: PASS requires at least one linked "
+                f"evidence id, got none"
             )
 
 

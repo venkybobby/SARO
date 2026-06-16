@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from grc.checks import CheckContext, CheckFinding, run_all_checks
+from grc.citation import verify_citation
 from grc.contract import SCHEMA_VERSION, validate_audit_result
 from grc.gate import decide as gate_decide
 from grc.hard_rules import enforce_hard_rules
@@ -46,6 +47,26 @@ def _evidence_block(evidence: Any) -> dict[str, Any]:
     eid = _evidence_field(evidence, "id")
     ids = [str(eid)] if eid is not None else []
     return {"status": "LINKED", "evidence_ids": ids}
+
+
+def _verify_mappings(mappings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Re-derive every framework_mapping status through STORY-317.
+
+    Checks may propose a citation, but the orchestrator is the single place that
+    decides VERIFIED/UNVERIFIED — so no check can hand-stamp ``VERIFIED`` on a
+    clause the crosswalk cannot resolve (the fabricated-citation failure mode).
+    """
+    verified: list[dict[str, Any]] = []
+    for m in mappings:
+        result = verify_citation(m.get("framework", ""), m.get("identifier"))
+        verified.append(
+            {
+                "framework": result.framework,
+                "identifier": result.identifier,
+                "status": result.status,
+            }
+        )
+    return verified
 
 
 def _disposition_for(status: str, band: str) -> str:
@@ -78,7 +99,7 @@ def _finding_from_check(
         "risk": risk.model_dump(),
         "evidence": _evidence_block(evidence),
         "remediation": remediation,
-        "framework_mapping": cf.framework_mapping,
+        "framework_mapping": _verify_mappings(cf.framework_mapping),
         "facts": cf.facts or cf.detail,
         "assessment": cf.assessment or cf.detail,
         "scope_change_flag": cf.scope_change_flag,
@@ -97,9 +118,9 @@ def _evidence_gap_finding(missing: list[str]) -> dict[str, Any]:
             + ", ".join(missing)
             + ") before this output can be audited."
         ),
-        "framework_mapping": [
-            {"framework": "NIST_AI_RMF", "identifier": "GOVERN", "status": "VERIFIED"}
-        ],
+        "framework_mapping": _verify_mappings(
+            [{"framework": "NIST_AI_RMF", "identifier": "GOVERN"}]
+        ),
         "facts": f"Provenance missing required fields: {', '.join(missing)}.",
         "assessment": "Audit cannot proceed to PASS without complete provenance.",
         "scope_change_flag": False,

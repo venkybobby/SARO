@@ -100,12 +100,14 @@ def compute_chain_hash(content_hash: str, prev_chain_hash: str) -> str:
 
 def _chain_tail(db: Session, tenant_id: uuid.UUID) -> tuple[str, int]:
     """Return (last chain_hash, last seq) for a tenant, or (GENESIS, 0)."""
-    row = (
+    q = (
         db.query(GRCEvidenceRecord.chain_hash, GRCEvidenceRecord.seq)
         .filter(GRCEvidenceRecord.tenant_id == tenant_id)
         .order_by(GRCEvidenceRecord.seq.desc())
-        .first()
     )
+    # Serialize concurrent writers on the tenant's chain tail (Postgres). SQLite
+    # ignores FOR UPDATE; the unique (tenant_id, seq) index is the backstop there.
+    row = q.with_for_update().first()
     return (row[0], row[1]) if row else (GENESIS, 0)
 
 

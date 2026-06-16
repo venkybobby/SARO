@@ -141,6 +141,14 @@
         "scope_change_flag": {
           "type": "boolean",
           "description": "STORY-312: set when a reinterpretation downgrades severity; never applied silently."
+        },
+        "original_risk": {
+          "$ref": "#/$defs/risk",
+          "description": "STORY-312: the pre-reinterpretation risk, preserved when severity is downgraded."
+        },
+        "scope_change_reason": {
+          "type": ["string", "null"],
+          "description": "STORY-312: why severity was reinterpreted (required context for a downgrade)."
         }
       },
       "allOf": [

@@ -13,11 +13,12 @@ authenticated user's ``tenant_id``.
 
 from __future__ import annotations
 
-import logging
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_write_access
@@ -30,8 +31,17 @@ from grc.registry import (
 )
 from models import GRCRegistryAudit, User
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/grc/registry", tags=["grc-registry"])
+
+
+class RegistryAuditOut(BaseModel):
+    """One immutable registry audit-trail row (who/what/when)."""
+
+    id: uuid.UUID
+    action: str
+    actor_email: str | None
+    changes: dict | None
+    created_at: datetime | None
 
 
 @router.post("", response_model=RegistryEntryOut, status_code=status.HTTP_201_CREATED)
@@ -102,12 +112,12 @@ async def update_registry_entry(
     return RegistryEntryOut.model_validate(entry)
 
 
-@router.get("/{entry_id}/audit")
+@router.get("/{entry_id}/audit", response_model=list[RegistryAuditOut])
 async def get_registry_entry_audit(
     entry_id: uuid.UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> list[dict]:
+) -> list[RegistryAuditOut]:
     """Return the immutable audit trail for one entry (who/what/when)."""
     rows = (
         db.query(GRCRegistryAudit)
@@ -119,12 +129,12 @@ async def get_registry_entry_audit(
         .all()
     )
     return [
-        {
-            "id": str(r.id),
-            "action": r.action,
-            "actor_email": r.actor_email,
-            "changes": r.changes_json,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
+        RegistryAuditOut(
+            id=r.id,
+            action=r.action,
+            actor_email=r.actor_email,
+            changes=r.changes_json,
+            created_at=r.created_at,
+        )
         for r in rows
     ]
