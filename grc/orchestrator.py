@@ -20,6 +20,7 @@ from typing import Any
 
 from grc.checks import CheckContext, CheckFinding, run_all_checks
 from grc.contract import SCHEMA_VERSION, validate_audit_result
+from grc.hard_rules import enforce_hard_rules
 from grc.policy import GRCPolicy, get_active_policy
 from grc.provenance import enforce_can_pass, evaluate_provenance
 from grc.scoring import (
@@ -168,6 +169,8 @@ def run_audit(
         "findings": findings,
         "gate_recommendation": gate_recommendation(findings, pol),
     }
+    # STORY-312: hard-rule guards run before the result is finalized (raise, not warn).
+    enforce_hard_rules(result)
     return validate_audit_result(result)
 
 
