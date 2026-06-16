@@ -16,6 +16,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
+    JSON as SA_JSON,
     Boolean,
     DateTime,
     Float,
@@ -1183,3 +1184,167 @@ class ControlFrameworkMapping(Base):
     # e.g. "Art.9", "Cl.6.1", "GOVERN-1.7", "Pr.4"
     clause_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRC Epic 1 — AI Asset Registry & Risk Tiering (STORY-301 / 302 / 303)
+#
+# A dedicated, self-contained registry for the AI-GRC audit platform. It is the
+# single source of truth for every AI system and agent the platform governs;
+# completeness enforcement (STORY-302), risk tiering (STORY-303), the audit
+# orchestrator and the lifecycle gate all read from it.
+#
+# This is intentionally distinct from the lighter SAR-013 ``ai_systems``
+# inventory: (1) the GRC registry carries the richer governance metadata the
+# specs require (version, data_sources, model_version, lifecycle_stage,
+# deployment_status) and supports agents as first-class entries; (2) STORY-303
+# *computes* an internal tier + EU/NIST classification, whereas
+# ``AISystem.eu_ai_act_risk_tier`` is a human-decision-only legal field the
+# engine must never set (EU AI Act Art. 14). Keeping them separate preserves
+# that invariant. Reconciling the two inventories is later (out-of-scope) work.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GRCRegistryEntry(Base):
+    """One AI system or agent in the GRC portfolio (STORY-301)."""
+
+    __tablename__ = "grc_registry_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    # "system" | "agent"
+    entry_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="system"
+    )
+
+    # ── Required governance metadata (STORY-301 / completeness STORY-302) ──
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Named human accountable for the system. Required, non-empty (enforced at API).
+    owner: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_sources: Mapped[list | None] = mapped_column(SA_JSON, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    lifecycle_stage: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    deployment_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # ── Tiering inputs (STORY-303 reads these declaratively) ──
+    domain: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    interacts_with_humans: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    makes_autonomous_decisions: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    affects_individuals: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # ── Tiering outputs (set by STORY-303; classification, NOT the legal tier) ──
+    internal_tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    eu_ai_act_category: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    nist_impact_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tiering_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tiered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class GRCRegistryAudit(Base):
+    """Immutable audit-trail row for every registry create/update (STORY-301).
+
+    Append-only: the application never updates or deletes these rows. Records
+    who changed what and when so the registry's provenance is reconstructable.
+    """
+
+    __tablename__ = "grc_registry_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("grc_registry_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # "create" | "update"
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # {field: {"old": ..., "new": ...}, ...}
+    changes_json: Mapped[dict | None] = mapped_column(SA_JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRC Epic 2 — Evidence & Provenance Layer (STORY-305)
+#
+# Append-only, tamper-evident evidence: every consequential output is persisted
+# with full provenance so audit conclusions are reproducible and defensible.
+# Tamper-evidence is a hash chain:
+#   content_hash = SHA256(canonical provenance payload)
+#   chain_hash   = SHA256(content_hash + prev_chain_hash)
+# Append-only is enforced at the DB layer (trigger blocks UPDATE/DELETE — see
+# migration 025) and at the app layer (no update/delete code path exists).
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GRCEvidenceRecord(Base):
+    """One append-only, hash-chained evidence record for an audited output."""
+
+    __tablename__ = "grc_evidence_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    # The audited output this evidence is for, and the registry system it belongs to.
+    output_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    system_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Per-tenant monotonic sequence — the authoritative chain order, independent
+    # of timestamp resolution (CURRENT_TIMESTAMP collisions, txn-constant now()).
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    # ── Provenance payload (hashed into content_hash) ──
+    model_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inputs: Mapped[dict | None] = mapped_column(SA_JSON, nullable=True)
+    retrieved_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    consumer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    captured_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # ── Hash chain ──
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    prev_chain_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    chain_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

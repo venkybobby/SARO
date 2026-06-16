@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saro.app/schema/ai_grc_audit_result.schema.json",
+  "title": "AI GRC Audit Result",
+  "description": "Boundary contract for one audited output (STORY-328). Single source of truth for the disposition / gate / band / evidence enums and the three non-negotiable policy rules: PASS=>evidence LINKED; CONDITIONAL|FAIL=>remediation; Critical FAIL=>NO_GO.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_version",
+    "audited_output_id",
+    "system_id",
+    "generated_at",
+    "findings",
+    "gate_recommendation"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "STORY-331 policy version active when this result was produced."
+    },
+    "audited_output_id": { "type": "string", "minLength": 1 },
+    "system_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "gate_recommendation": { "$ref": "#/$defs/gate_recommendation" }
+  },
+  "allOf": [
+    {
+      "$comment": "Rule 3: any Critical FAIL forces gate_recommendation=NO_GO.",
+      "if": {
+        "properties": {
+          "findings": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["disposition", "risk"],
+              "properties": {
+                "disposition": { "const": "FAIL" },
+                "risk": {
+                  "type": "object",
+                  "required": ["band"],
+                  "properties": { "band": { "const": "CRITICAL" } }
+                }
+              }
+            }
+          }
+        },
+        "required": ["findings"]
+      },
+      "then": {
+        "properties": {
+          "gate_recommendation": { "const": "NO_GO" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "disposition": {
+      "type": "string",
+      "enum": ["PASS", "CONDITIONAL", "FAIL", "EVIDENCE_GAP", "OUT_OF_SCOPE"]
+    },
+    "risk_band": {
+      "type": "string",
+      "enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"]
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": ["LINKED", "MISSING", "NOT_APPLICABLE"]
+    },
+    "gate_recommendation": {
+      "type": "string",
+      "enum": ["GO", "GO_WITH_CONDITIONS", "NO_GO"]
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": ["VERIFIED", "UNVERIFIED"]
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["likelihood", "impact", "score", "band"],
+      "properties": {
+        "likelihood": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "impact": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "score": { "type": "integer", "minimum": 1, "maximum": 25 },
+        "band": { "$ref": "#/$defs/risk_band" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/evidence_status" },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "framework_citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework", "status"],
+      "properties": {
+        "framework": { "type": "string", "minLength": 1 },
+        "identifier": { "type": ["string", "null"] },
+        "description": { "type": "string" },
+        "status": { "$ref": "#/$defs/verification_status" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "check", "disposition", "risk", "evidence", "facts", "assessment"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "check": { "type": "string", "minLength": 1 },
+        "disposition": { "$ref": "#/$defs/disposition" },
+        "risk": { "$ref": "#/$defs/risk" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "remediation": { "type": ["string", "null"] },
+        "framework_mapping": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/framework_citation" }
+        },
+        "facts": {
+          "type": "string",
+          "description": "STORY-312: evidence-derived facts, kept distinct from assessment."
+        },
+        "assessment": {
+          "type": "string",
+          "description": "STORY-312: the auditor's interpretation, kept distinct from facts."
+        },
+        "scope_change_flag": {
+          "type": "boolean",
+          "description": "STORY-312: set when a reinterpretation downgrades severity; never applied silently."
+        },
+        "original_risk": {
+          "$ref": "#/$defs/risk",
+          "description": "STORY-312: the pre-reinterpretation risk, preserved when severity is downgraded."
+        },
+        "scope_change_reason": {
+          "type": ["string", "null"],
+          "description": "STORY-312: why severity was reinterpreted (required context for a downgrade)."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "Rule 1: a PASS finding must have LINKED evidence.",
+          "if": { "properties": { "disposition": { "const": "PASS" } }, "required": ["disposition"] },
+          "then": {
+            "properties": {
+              "evidence": {
+                "properties": { "status": { "const": "LINKED" } },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        {
+          "$comment": "Rule 2: CONDITIONAL or FAIL must carry a non-empty remediation.",
+          "if": {
+            "properties": { "disposition": { "enum": ["CONDITIONAL", "FAIL"] } },
+            "required": ["disposition"]
+          },
+          "then": {
+            "properties": { "remediation": { "type": "string", "minLength": 1 } },
+            "required": ["remediation"]
+          }
+        }
+      ]
+    }
+  }
+}

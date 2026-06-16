@@ -18,6 +18,7 @@ Background (SARO-H06):
   is enforced app-layer only via .filter(Model.tenant_id == current_user.tenant_id).
   This test suite is the CI backstop for that discipline.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -33,6 +34,7 @@ import pytest
 # 1. Dead middleware must not exist
 # ---------------------------------------------------------------------------
 
+
 class TestDeadMiddlewareGone:
     def test_tenant_context_middleware_deleted(self):
         """middleware/tenant_context.py was removed (SARO-H06).
@@ -42,7 +44,9 @@ class TestDeadMiddlewareGone:
         If this file reappears, re-evaluate whether it is properly wired before
         allowing it back.
         """
-        middleware_path = pathlib.Path(__file__).parents[1] / "middleware" / "tenant_context.py"
+        middleware_path = (
+            pathlib.Path(__file__).parents[1] / "middleware" / "tenant_context.py"
+        )
         assert not middleware_path.exists(), (
             "middleware/tenant_context.py must not exist (SARO-H06). "
             "The broken RLS middleware was removed. If you are re-introducing RLS, "
@@ -84,6 +88,10 @@ TENANT_SCOPED_MODELS = {
     "AIMSDocument",
     "TenantRiskConfig",
     "OnboardingProgress",
+    # GRC audit platform (STORY-301 / 305).
+    "GRCRegistryEntry",
+    "GRCRegistryAudit",
+    "GRCEvidenceRecord",
 }
 
 # Patterns that are always safe — they wrap the tenant check internally.
@@ -118,7 +126,9 @@ class _RouterViolation(NamedTuple):
     snippet: str
 
 
-def _scan_router_for_unfiltered_queries(router_path: pathlib.Path) -> list[_RouterViolation]:
+def _scan_router_for_unfiltered_queries(
+    router_path: pathlib.Path,
+) -> list[_RouterViolation]:
     """
     Heuristic static scan: find db.query(TenantScopedModel) calls that are NOT
     within 10 lines of a tenant_id filter or a known-safe helper call.
@@ -155,12 +165,14 @@ def _scan_router_for_unfiltered_queries(router_path: pathlib.Path) -> list[_Rout
         if any(pat in window for pat in SAFE_QUERY_PATTERNS):
             continue
 
-        violations.append(_RouterViolation(
-            file=str(router_path.relative_to(router_path.parents[2])),
-            line=i + 1,
-            model=matched_model,
-            snippet=textwrap.shorten(line.strip(), width=120),
-        ))
+        violations.append(
+            _RouterViolation(
+                file=str(router_path.relative_to(router_path.parents[2])),
+                line=i + 1,
+                model=matched_model,
+                snippet=textwrap.shorten(line.strip(), width=120),
+            )
+        )
 
     return violations
 
@@ -203,9 +215,38 @@ class TestRouterTenantFiltering:
         )
 
 
+class TestGrcPackageTenantFiltering:
+    """The grc/ package does tenant-scoped DB work outside routers/ (registry,
+    evidence, orchestrator). The same static scan must cover it so a future
+    copy-paste omission there is caught (security review FND)."""
+
+    @pytest.fixture(scope="class")
+    def grc_dir(self):
+        return pathlib.Path(__file__).parents[1] / "grc"
+
+    def test_no_unfiltered_tenant_scoped_queries_in_grc(self, grc_dir):
+        violations: list[_RouterViolation] = []
+        for py_file in sorted(grc_dir.rglob("*.py")):
+            if py_file.name == "__init__.py":
+                continue
+            violations.extend(_scan_router_for_unfiltered_queries(py_file))
+
+        if violations:
+            report = "\n".join(
+                f"  {v.file}:{v.line} — {v.model} query lacks tenant_id filter\n"
+                f"    {v.snippet}"
+                for v in violations
+            )
+            pytest.fail(
+                f"TENANT ISOLATION VIOLATION — {len(violations)} unfiltered tenant-scoped "
+                f"queries found in grc/.\n\nViolations:\n{report}"
+            )
+
+
 # ---------------------------------------------------------------------------
 # 3. Integration: cross-tenant access blocked at API level
 # ---------------------------------------------------------------------------
+
 
 class TestCrossTenantAccessBlocked:
     """
@@ -262,10 +303,14 @@ class TestCrossTenantAccessBlocked:
         mock_db.query.return_value.filter.return_value.first.return_value = mock_audit
 
         with (
-            patch.object(app, "dependency_overrides", {
-                get_current_user: lambda: user_a,  # logged in as A
-                get_db: lambda: mock_db,
-            }),
+            patch.object(
+                app,
+                "dependency_overrides",
+                {
+                    get_current_user: lambda: user_a,  # logged in as A
+                    get_db: lambda: mock_db,
+                },
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             resp = client.get(f"/api/v1/traces/{audit_id}")
@@ -288,8 +333,12 @@ class TestCrossTenantAccessBlocked:
         mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
 
         list_notifications(
-            current_user=user_a, db=mock_db,
-            unread_only=False, severity=None, limit=20, offset=0,
+            current_user=user_a,
+            db=mock_db,
+            unread_only=False,
+            severity=None,
+            limit=20,
+            offset=0,
         )
 
         # Verify .filter() was called on the Notification query (proves the
@@ -313,9 +362,11 @@ class TestCrossTenantAccessBlocked:
 # 4. Regression: confirm tenant_context module truly does not load
 # ---------------------------------------------------------------------------
 
+
 class TestTenantContextUnimportable:
     def test_cannot_import_tenant_context(self):
         """Attempting to import the deleted module must raise ImportError."""
         import importlib
+
         with pytest.raises((ImportError, ModuleNotFoundError)):
             importlib.import_module("middleware.tenant_context")

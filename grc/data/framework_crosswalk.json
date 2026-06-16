@@ -1,0 +1,35 @@
+{
+  "version": "grc-crosswalk-1.0.0",
+  "sources": {
+    "NIST_AI_RMF": "NIST AI Risk Management Framework 1.0 (NIST AI 100-1, Jan 2023)",
+    "EU_AI_ACT": "Regulation (EU) 2024/1689 (EU AI Act), Chapter III Section 2 — high-risk obligations",
+    "ISO_42001": "ISO/IEC 42001:2023 — AI management system (clauses 4-10 + Annex A)"
+  },
+  "entries": [
+    {"framework": "NIST_AI_RMF", "identifier": "GOVERN", "description": "Govern — cultivate a culture of risk management."},
+    {"framework": "NIST_AI_RMF", "identifier": "MAP", "description": "Map — establish context to frame AI risks."},
+    {"framework": "NIST_AI_RMF", "identifier": "MEASURE", "description": "Measure — analyze, assess and track AI risks."},
+    {"framework": "NIST_AI_RMF", "identifier": "MANAGE", "description": "Manage — prioritize and act on AI risks."},
+    {"framework": "NIST_AI_RMF", "identifier": "GOVERN-1.1", "description": "Legal and regulatory requirements are understood and managed."},
+    {"framework": "NIST_AI_RMF", "identifier": "MEASURE-2.11", "description": "Fairness and bias are evaluated and results documented."},
+
+    {"framework": "EU_AI_ACT", "identifier": "Art.9", "description": "Risk management system for high-risk AI systems."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.10", "description": "Data and data governance for high-risk AI systems."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.11", "description": "Technical documentation."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.12", "description": "Record-keeping / automatic logging."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.13", "description": "Transparency and provision of information to deployers."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.14", "description": "Human oversight."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.15", "description": "Accuracy, robustness and cybersecurity."},
+    {"framework": "EU_AI_ACT", "identifier": "Art.17", "description": "Quality management system."},
+
+    {"framework": "ISO_42001", "identifier": "Cl.4", "description": "Context of the organization."},
+    {"framework": "ISO_42001", "identifier": "Cl.5", "description": "Leadership."},
+    {"framework": "ISO_42001", "identifier": "Cl.6", "description": "Planning (risk and impact assessment)."},
+    {"framework": "ISO_42001", "identifier": "Cl.7", "description": "Support (resources, competence, documented information)."},
+    {"framework": "ISO_42001", "identifier": "Cl.8", "description": "Operation."},
+    {"framework": "ISO_42001", "identifier": "Cl.9", "description": "Performance evaluation."},
+    {"framework": "ISO_42001", "identifier": "Cl.10", "description": "Improvement."},
+    {"framework": "ISO_42001", "identifier": "A.6", "description": "Annex A control area: AI system life cycle."},
+    {"framework": "ISO_42001", "identifier": "A.7", "description": "Annex A control area: data for AI systems."}
+  ]
+}
