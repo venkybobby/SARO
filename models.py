@@ -1295,3 +1295,56 @@ class GRCRegistryAudit(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRC Epic 2 — Evidence & Provenance Layer (STORY-305)
+#
+# Append-only, tamper-evident evidence: every consequential output is persisted
+# with full provenance so audit conclusions are reproducible and defensible.
+# Tamper-evidence is a hash chain:
+#   content_hash = SHA256(canonical provenance payload)
+#   chain_hash   = SHA256(content_hash + prev_chain_hash)
+# Append-only is enforced at the DB layer (trigger blocks UPDATE/DELETE — see
+# migration 025) and at the app layer (no update/delete code path exists).
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GRCEvidenceRecord(Base):
+    """One append-only, hash-chained evidence record for an audited output."""
+
+    __tablename__ = "grc_evidence_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    # The audited output this evidence is for, and the registry system it belongs to.
+    output_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    system_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Per-tenant monotonic sequence — the authoritative chain order, independent
+    # of timestamp resolution (CURRENT_TIMESTAMP collisions, txn-constant now()).
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    # ── Provenance payload (hashed into content_hash) ──
+    model_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inputs: Mapped[dict | None] = mapped_column(SA_JSON, nullable=True)
+    retrieved_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    consumer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    captured_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # ── Hash chain ──
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    prev_chain_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    chain_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
