@@ -25,7 +25,7 @@ pytestmark = pytest.mark.unit
 
 
 def _finding(**overrides) -> dict:
-    base = {
+    base: dict = {
         "id": "f1",
         "check": "groundedness",
         "disposition": "PASS",

@@ -24,7 +24,7 @@ pytestmark = pytest.mark.unit
 
 
 def _finding(**over) -> dict:
-    base = {
+    base: dict = {
         "id": "f1",
         "check": "groundedness",
         "disposition": "PASS",

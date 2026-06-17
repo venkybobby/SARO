@@ -82,7 +82,9 @@ def test_adjudicated_item_enters_corpus_with_full_provenance() -> None:
     rec = item.to_record()
     # Full provenance: source, LLM suggestion, human decision, labeler, timestamp.
     assert rec["source"] == "anonymized-T3"
-    assert rec["llm_suggestion"]["label"] == "toxic"
+    suggestion = rec["llm_suggestion"]
+    assert isinstance(suggestion, dict)
+    assert suggestion["label"] == "toxic"
     assert rec["human_decision"] == "toxic"
     assert rec["labeler"] == "sam.patel"
     assert rec["timestamp"] == "2026-06-16T10:00:00Z"

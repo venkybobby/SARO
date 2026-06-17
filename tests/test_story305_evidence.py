@@ -57,7 +57,7 @@ Base.metadata.create_all(engine)
 
 
 def _capture(db, tenant_id, **over) -> GRCEvidenceRecord:
-    base = dict(
+    base: dict = dict(
         output_id="out-1",
         system_id="sys-1",
         model_version="claude-sonnet-4",
