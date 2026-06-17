@@ -117,3 +117,8 @@ findings:
     test: frontend/src/pages/Dashboard.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-024
+    title: "risk_dashboard.py handlers are sync def running blocking SQLAlchemy on the event loop (api-conventions)"
+    test: tests/regression/test_fnd_024_async_db_handlers.py
+    status: open
+    quarantine_expires: null
