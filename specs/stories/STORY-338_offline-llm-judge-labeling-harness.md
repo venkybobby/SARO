@@ -43,3 +43,24 @@ allowed to live.
 
 ## Definition of done
 Offline judge aids labeling with mandatory human adjudication and full provenance, isolated from the product path; tests green.
+
+## Traceability (implementation)
+New isolated package `qa_lab/` (top-level, `LAB_PACKAGE` in STORY-336). The judge
+is the sole sanctioned external-model use — offline, off by default (raises if
+`ANTHROPIC_API_KEY` unset), PII-redacted before egress. `LabelingHarness` enforces
+human adjudication before any label enters the corpus; `LabeledItem.to_record()`
+emits full provenance.
+
+| AC | Test(s) |
+|---|---|
+| Runs only in QA/lab; unreachable from product (verified by 336) | `test_product_path_does_not_import_qa_lab`, `test_qa_lab_is_outside_the_336_product_scope` |
+| LLM label cannot enter corpus without recorded human adjudication | `test_unadjudicated_item_cannot_enter_corpus`, `test_pending_record_is_marked_unadjudicated` |
+| Every item carries full provenance (source, suggestion, decision, labeler, time) | `test_adjudicated_item_enters_corpus_with_full_provenance`, `test_human_can_override_the_llm_suggestion`, `test_end_to_end_flow` |
+| Synthetic T1: suggestion vs known label, delta recorded | `test_synthetic_defect_delta_recorded`, `test_synthetic_defect_delta_records_a_miss` |
+| PII redacted before egress (SARO-102) | `test_pii_redacted_before_suggester_sees_sample`, `test_redact_pii_helper`, `test_redact_pii_covers_delimited_ssn_and_ipv4` |
+
+Review: `reviewer` APPROVE; `security-auditor` PASS. Hardened per findings —
+broadened redactor (delimiter SSNs + IPv4), defensive provider-response parsing,
+explicit `adjudicated` flag on records. Residual limits (regex redactor misses
+names/addresses/DOB — needs NER; static-only isolation per 336) documented and
+appropriate for an offline lab over synthetic/anonymized samples.

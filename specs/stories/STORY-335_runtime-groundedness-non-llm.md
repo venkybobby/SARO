@@ -44,3 +44,21 @@ Runtime groundedness scored from non-external-model signals over the output and 
 
 ## Definition of done
 Groundedness operates with no external model call, flags unsupported claims with source traceability, tests green.
+
+## Traceability (implementation)
+Method (owner-approved): retrieval-overlap + **per-span citation matching**, no
+model. `grc/checks/groundedness.py` switched from union-overlap to best-single-
+span matching (stricter: a claim grounded only by stitching words across unrelated
+spans is now correctly unsupported). The superseded STORY-309 LLM-as-judge pass is
+removed from the module. Self-hosted-model AC is vacuous (no model used).
+
+| AC | Test(s) |
+|---|---|
+| Zero calls to any third-party hosted model API | `test_groundedness_path_makes_no_external_model_call` (scans the module via STORY-336 guard), `test_module_no_longer_advertises_llm_judge_pass` |
+| Unsupported claim flagged; supported passes | `test_unsupported_claim_is_flagged`, `test_supported_concrete_claim_passes`, `test_supported_claim_traces_to_supporting_span` |
+| Each flagged claim references the source span it failed to match | `test_unsupported_claim_cites_nearest_span`, `test_zero_overlap_context_still_cites_nearest_span`, `test_empty_context_flags_marked_claim_with_empty_span` |
+| No self-hosted model used (vacuous internal-dependency clause) | module is pure string/overlap; `test_no_concrete_claim_passes` |
+
+Review: `reviewer` APPROVE (verified the union→best-span change is stricter and
+correct; no regression across 402 GRC-suite tests). Minor AC#3 traceability gap
+(zero-overlap citation) addressed.
