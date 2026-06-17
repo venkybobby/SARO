@@ -88,8 +88,9 @@ def test_seed_script_is_idempotent():
 def test_controls_router_registered_in_app():
     """GET /api/v1/controls must be a registered route in the FastAPI app."""
     from main import app
-    # Some entries (e.g. Starlette _IncludedRouter / Mount) have no `.path`; skip them.
-    routes = {getattr(r, "path", None) for r in app.routes}
+    # Some entries (e.g. Starlette _IncludedRouter / Mount) have no `.path`; skip them
+    # (None would also break sorted() in the assert message below).
+    routes = {p for r in app.routes if (p := getattr(r, "path", None)) is not None}
     assert "/api/v1/controls" in routes, (
         f"/api/v1/controls not found in registered routes: {sorted(routes)}"
     )
