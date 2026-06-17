@@ -27,6 +27,8 @@ jobs:
         run: python scripts/check_citations.py
       - name: No-external-model invariant (STORY-336)
         run: python -m grc.guards.external_model
+      - name: Claims-consistency guard (STORY-337)
+        run: python -m grc.guards.claims_registry
       - name: Manifest integrity (the policy is itself a test)
         run: pytest tests/regression/test_manifest_integrity.py -q
       - name: Full regression suite (never sampled)
