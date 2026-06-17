@@ -82,3 +82,43 @@ findings:
     test: tests/regression/test_fnd_015_iso_annex_write_access.py
     status: open
     quarantine_expires: null
+  - id: FND-017
+    title: "GET /risk/board-export PDF lacked board-persona RBAC (_require_board_persona dead code)"
+    test: tests/regression/test_fnd_017_board_export_rbac.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-018
+    title: "/risk/board-export PDF missing the required compliance disclaimer"
+    test: tests/regression/test_fnd_018_report_disclaimer.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-019
+    title: "Board summary emitted hardcoded fake framework-coverage % (EVF Tier-3 overclaim)"
+    test: tests/regression/test_fnd_019_framework_coverage_evf.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-020
+    title: "/risk/summary hardcoded findings=[] — top_findings/remediation/open count always zero"
+    test: tests/regression/test_fnd_020_risk_summary_real_findings.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-021
+    title: "Dashboard duplicate Quick Actions block rendered every action twice"
+    test: frontend/src/pages/Dashboard.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-022
+    title: "Dashboard posture banner labels mismatched data (Open Risks=audit_count, Overdue=findings)"
+    test: frontend/src/pages/Dashboard.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-023
+    title: "Dashboard KPI delta arrows were fabricated literals, not backed by /risk/whats-changed"
+    test: frontend/src/pages/Dashboard.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-024
+    title: "risk_dashboard.py handlers are sync def running blocking SQLAlchemy on the event loop (api-conventions)"
+    test: tests/regression/test_fnd_024_async_db_handlers.py
+    status: open
+    quarantine_expires: null
