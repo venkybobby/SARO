@@ -48,3 +48,26 @@ enforce, CI guarantees" applied to claims integrity.
 
 ## Definition of done
 Locked claims are a versioned, CI-checked registry; mechanical violations are blocked; claim changes are logged; tests green.
+
+## Traceability (implementation)
+`grc/guards/claims_registry.py`: 7 locked claims (versioned, SHA-256 integrity
+lock at `claims_registry.lock.json`). External-model claim delegates to STORY-336
+(Path A wording — the disclosed off-by-default Gate-3 judge remains, so the
+registry never contradicts the matrix). Framing check flags AIGP-as-framework /
+AIGP-as-certification, excluding the matrix-approved "AIGP-certified human
+reviewer" by span. CI gate + required PR checklist.
+
+| AC | Test(s) / mechanism |
+|---|---|
+| Registry exists and is versioned | `test_registry_exists_and_is_versioned`, `REGISTRY_VERSION` + lock file |
+| PR introducing an external-model runtime call is blocked (via 336) | `test_external_model_call_is_blocked`, `test_clean_product_path_satisfies_external_model_claim`; CI `python -m grc.guards.claims_registry` |
+| AIGP-as-certification / -framework flagged | `test_framing_flags_aigp_certification_and_framework`, `test_certification_with_trailing_reviewer_noun_still_flagged`, `test_framing_resists_unicode_and_markdown_evasion`; approved phrase passes (`test_framing_allows_matrix_approved_aigp_language`) |
+| Changing a locked claim cannot happen silently | `test_silent_claim_change_breaks_integrity`; digest mismatch fails CI until lock regenerated + logged in `docs/CLAIMS_AUDIT_LOG.md` |
+
+Review: `reviewer` APPROVE; `security-auditor` PASS. Hardened per their findings —
+F1 (trailing-noun lookahead false-negative → span-based approved-phrase exclusion),
+F3 (unicode-dash/markdown evasion → NFKC + dash normalization), F4 (basename excludes
+→ path-anchored). Documented limitations (pragmatic scope, "checks grow over time"):
+the broad forbidden-phrase repo scan stays owned by `scripts/evf_retrospective_audit.py`;
+frontend UI copy is covered by the frontend gate, not this one; bounded-gap rephrasings
+(e.g. "AIGP compliance framework") and full NLP contradiction detection are out of scope.

@@ -118,6 +118,8 @@ def build_risk_summary(audit_records: list[dict], findings: list[dict]) -> dict:
             "overall_risk_score": 0.0,
             "trend_90_days": [],
             "top_findings": [],
+            "open_findings_count": 0,
+            "critical_findings_count": 0,
             "remediation_pct": 0.0,
             "audit_count": 0,
             "vendor_breakdown": [],
@@ -132,6 +134,17 @@ def build_risk_summary(audit_records: list[dict], findings: list[dict]) -> dict:
         "overall_risk_score": round(overall, 2),
         "trend_90_days": compute_90_day_trend(audit_records),
         "top_findings": aggregate_top_findings(findings),
+        # Uncapped count of open findings — the banner needs the real total, not the
+        # 5-item top_findings slice (FND-022: "Open Risks" must mean open risks).
+        "open_findings_count": sum(
+            1 for f in findings if f.get("status", "open") == "open"
+        ),
+        # Open findings at the top severity rank — backs the "Critical Risks" card
+        # so its value matches its label (severity >= 3 == fail/triggered).
+        "critical_findings_count": sum(
+            1 for f in findings
+            if f.get("status", "open") == "open" and (f.get("severity") or 0) >= 3
+        ),
         "remediation_pct": calculate_remediation_pct(findings),
         "audit_count": len(audit_records),
         "vendor_breakdown": aggregate_vendor_risk(audit_records),

@@ -28,7 +28,7 @@ REQUIRED = tuple(get_active_policy().required_registry_fields)
 
 
 def _complete(**over) -> RegistryEntryData:
-    base = dict(
+    base: dict = dict(
         id=uuid.uuid4(),
         name="Claims Triage",
         version="1.0.0",
