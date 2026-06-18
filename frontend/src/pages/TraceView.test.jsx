@@ -157,6 +157,67 @@ describe("TraceView TRACE-007 Recent Traces (overall_risk_score field)", () => {
   });
 });
 
+describe("TraceView TRACE-006 signed export actions", () => {
+  let clickSpy;
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:mock");
+    URL.revokeObjectURL = vi.fn();
+    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  });
+
+  function stubExport(exportResp) {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (url === "/api/v1/audit/audit-123456789/trace") {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TIMELINE) });
+      }
+      if (url === "/api/v1/audits/audit-123456789") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(AUDIT) });
+      }
+      if (url.includes("/export/")) return Promise.resolve(exportResp);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }));
+  }
+
+  it("downloads signed JSON with a client-derived filename", async () => {
+    stubExport({ ok: true, status: 200, blob: () => Promise.resolve(new Blob(["{}"])), headers: { get: () => null } });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    screen.getByRole("button", { name: /Export JSON/i }).click();
+    await waitFor(() => expect(clickSpy).toHaveBeenCalled());
+    const urls = fetch.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/v1/audit/audit-123456789/export/json");
+  });
+
+  it("downloads signed PDF using the server-provided filename", async () => {
+    stubExport({
+      ok: true, status: 200,
+      blob: () => Promise.resolve(new Blob(["%PDF"])),
+      headers: { get: (h) => (h === "Content-Disposition" ? 'attachment; filename=saro-evidence-abcd1234.pdf' : null) },
+    });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    screen.getByRole("button", { name: /Export PDF/i }).click();
+    await waitFor(() => expect(clickSpy).toHaveBeenCalled());
+    const urls = fetch.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/v1/audit/audit-123456789/export/pdf");
+  });
+
+  it("shows an inline error and saves nothing on a 403/404 export", async () => {
+    stubExport({ ok: false, status: 403, blob: () => Promise.resolve(new Blob([])), headers: { get: () => null } });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    screen.getByRole("button", { name: /Export JSON/i }).click();
+    await waitFor(() => expect(screen.getByText(/don't have access to export/i)).toBeInTheDocument());
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it("disables export actions when no trace is loaded", () => {
+    stubExport({ ok: true, status: 200, blob: () => Promise.resolve(new Blob([])), headers: { get: () => null } });
+    render(<TraceView token="t" />); // no initialAuditId -> no trace loaded
+    expect(screen.queryByRole("button", { name: /Export JSON/i })).toBeNull();
+  });
+});
+
 describe("TraceView TRACE-004 honest integrity banner", () => {
   it("shows a specific verified claim only when the backend confirms a real signature", async () => {
     stubFetch({ ...TIMELINE, integrity: { status: "verified", verified: true, export_hash: "9911aa22bb33", detail: "HMAC-SHA256 signature valid over the canonical export." } });

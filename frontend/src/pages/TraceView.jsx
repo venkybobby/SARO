@@ -131,6 +131,8 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
   const [recent, setRecent]     = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [recentError, setRecentError] = useState(false);
+  const [exporting, setExporting] = useState(null);   // 'json' | 'pdf' | null
+  const [exportError, setExportError] = useState(null);
 
   useEffect(() => {
     async function loadRecent() {
@@ -186,6 +188,46 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       setTrace(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // STORY-TRACE-006: pull the signed evidence bundle (JSON or PDF) for the loaded
+  // audit. Uses the existing auth-header fetch; a non-200 surfaces an inline error
+  // and never saves an empty/corrupt file. Cross-tenant/forbidden audits return
+  // 403/404 (tenant scope + role gate from STORY-TRACE-002/003) and are messaged.
+  async function exportEvidence(fmt) {
+    const target = auditId.trim();
+    if (!target) return;
+    setExportError(null);
+    setExporting(fmt);
+    try {
+      const url = `/api/v1/audit/${target}/export/${fmt === "pdf" ? "pdf" : "json"}`;
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) {
+        throw new Error(
+          r.status === 403 ? "You don't have access to export this audit."
+            : r.status === 404 ? "Audit not found — nothing to export."
+              : `Export failed (${r.status}).`
+        );
+      }
+      const blob = await r.blob();
+      // Prefer the server-provided filename (PDF sets Content-Disposition);
+      // fall back to a client-derived name for the JSON body response.
+      const cd = r.headers.get?.("Content-Disposition") || "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m ? m[1] : `saro-trace-${target.slice(0, 8)}.${fmt === "pdf" ? "pdf" : "json"}`;
+      const objUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objUrl);
+    } catch (e) {
+      setExportError(e.message || "Export failed.");
+    } finally {
+      setExporting(null);
     }
   }
 
@@ -296,7 +338,24 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               </div>
               <StatusBadge status={trace.auditStatus} />
               <RiskChip score={trace.riskScore} />
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+                {/* STORY-TRACE-006: signed evidence export actions */}
+                {["json", "pdf"].map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => exportEvidence(fmt)}
+                    disabled={!trace || exporting === fmt}
+                    style={{
+                      padding: "4px 10px", borderRadius: 6, fontSize: 12,
+                      background: "#fff", color: "#0d9488",
+                      border: "1px solid #0d9488",
+                      cursor: !trace || exporting === fmt ? "not-allowed" : "pointer",
+                      opacity: !trace || exporting === fmt ? 0.6 : 1,
+                    }}
+                  >
+                    {exporting === fmt ? "Exporting…" : `Export ${fmt.toUpperCase()}`}
+                  </button>
+                ))}
                 {["summary", "technical"].map((m) => {
                   // STORY-TRACE-005: technical mode is gated in enterprise/demo
                   // sessions until the transparency doc is published.
@@ -336,6 +395,13 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               <ProvField label="Scanned" value={_fmtScanTime(trace.scannedAt || auditMeta?.created_at)} />
             </div>
           </div>
+
+          {/* STORY-TRACE-006: inline export error — never a silent/corrupt download */}
+          {exportError && (
+            <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>
+              ⚠ {exportError}
+            </div>
+          )}
 
           {/* STORY-TRACE-001: a trace with no records reads all-pending with an
               explicit note — never the old all-green "done" fallback. */}
