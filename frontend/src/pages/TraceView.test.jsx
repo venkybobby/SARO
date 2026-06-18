@@ -18,6 +18,8 @@ const TIMELINE = {
   model_version: "saro-engine-1.0",
   audit_status: "failed",
   risk_score: 0.74,
+  rule_pack_hash: "abcdef0123456789aaaa",
+  scanned_at: "2026-01-01T00:00:00Z",
 };
 const AUDIT = { audit_id: "audit-123456789", rule_pack_hash: "abc123def456", created_at: "2026-01-01T00:00:00Z" };
 
@@ -85,19 +87,44 @@ describe("TraceView TRACE-001 render contract", () => {
     expect(screen.queryAllByText("done")).toHaveLength(0);
   });
 
-  it("renders the audit-meta (rule pack) fetch without throwing a ReferenceError (FND-004 regression)", async () => {
+  it("renders the audit-meta fetch path without throwing a ReferenceError (FND-004 regression)", async () => {
     render(<TraceView token="t" initialAuditId="audit-123456789" />);
-    await waitFor(() => expect(screen.getByText(/Rule Pack/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/rule pack/i)).toBeInTheDocument());
+  });
+});
+
+describe("TraceView TRACE-008 provenance triple", () => {
+  it("renders rule-pack (truncated, full in title), model version and scan time", async () => {
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.getByText(/^Provenance$/i)).toBeInTheDocument();
+    // model version from the TIMELINE (not the audit-report fetch)
+    expect(screen.getByText("saro-engine-1.0")).toBeInTheDocument();
+    // rule-pack hash truncated, full value in title
+    const rp = screen.getByText(/abcdef012345…/);
+    expect(rp).toBeInTheDocument();
+    expect(rp.getAttribute("title")).toBe("abcdef0123456789aaaa");
+    // scan time rendered unambiguously (UTC)
+    expect(screen.getByText(/2026-01-01 00:00:00 UTC/)).toBeInTheDocument();
+  });
+
+  it("shows an explicit 'unavailable' for each missing provenance field (never blank)", async () => {
+    // empty audit-report fallback too, so all three fields are genuinely absent
+    stubFetch({ ...TIMELINE, rule_pack_hash: null, model_version: null, scanned_at: null }, {});
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={{ role: "operator" }} />);
+    await waitFor(() => expect(screen.getByText(/^Provenance$/i)).toBeInTheDocument());
+    // all three fields fall back to the explicit placeholder
+    expect(screen.getAllByText("unavailable").length).toBeGreaterThanOrEqual(3);
   });
 });
 
 describe("TraceView TRACE-004 honest integrity banner", () => {
   it("shows a specific verified claim only when the backend confirms a real signature", async () => {
-    stubFetch({ ...TIMELINE, integrity: { status: "verified", verified: true, export_hash: "abcdef012345", detail: "HMAC-SHA256 signature valid over the canonical export." } });
+    stubFetch({ ...TIMELINE, integrity: { status: "verified", verified: true, export_hash: "9911aa22bb33", detail: "HMAC-SHA256 signature valid over the canonical export." } });
     render(<TraceView token="t" initialAuditId="audit-123456789" />);
     await waitFor(() => expect(screen.getByText(/Integrity verified/i)).toBeInTheDocument());
     expect(screen.getByText(/HMAC-SHA256 signature valid/i)).toBeInTheDocument();
-    expect(screen.getByText(/abcdef012345/)).toBeInTheDocument();
+    expect(screen.getByText(/9911aa22bb33/)).toBeInTheDocument();
   });
 
   it("shows a neutral 'not verified' state (never green 'verified') when unavailable", async () => {

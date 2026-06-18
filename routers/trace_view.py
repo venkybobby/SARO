@@ -168,6 +168,12 @@ async def get_trace(
         timeline["risk_score"] = report.overall_risk_score if report else None
         # STORY-TRACE-004: honest, server-computed integrity verdict.
         timeline["integrity"] = _verify_integrity(audit, traces, enhanced, report)
+        # STORY-TRACE-008: provenance triple sourced from the primary fetch —
+        # rule-pack hash + model version + scan timestamp.
+        timeline["rule_pack_hash"] = report.rule_pack_hash if report else None
+        timeline["scanned_at"] = (
+            audit.created_at.isoformat() if audit.created_at else None
+        )
     return timeline
 
 

@@ -34,7 +34,48 @@ export function normalizeTrace(raw) {
     executiveMode: !!raw?.executive_mode,
     // STORY-TRACE-004: server-computed integrity verdict (null when absent).
     integrity: raw?.integrity ?? null,
+    // STORY-TRACE-008: provenance triple (rule-pack hash + model + scan time).
+    rulePackHash: raw?.rule_pack_hash ?? null,
+    scannedAt: raw?.scanned_at ?? null,
   };
+}
+
+// STORY-TRACE-008: a provenance value the engine never recorded must read as an
+// explicit "unavailable" — never a blank that implies there was no versioning.
+const _PROVENANCE_UNAVAILABLE = "provenance-unavailable";
+
+function _isUnavailable(v) {
+  return v == null || v === "" || v === _PROVENANCE_UNAVAILABLE;
+}
+
+function _fmtScanTime(iso) {
+  if (_isUnavailable(iso)) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  // Stable, unambiguous, timezone-explicit (UTC) format for the audit file.
+  return d.toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC");
+}
+
+// A single read-only provenance field: shows the value or an explicit
+// "unavailable" placeholder, with the full value available on hover (title).
+function ProvField({ label, value, full }) {
+  const unavailable = _isUnavailable(value);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, fontSize: 11 }}>
+      <span style={{ color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</span>
+      <span
+        title={unavailable ? "Not recorded for this audit" : (full || value)}
+        style={{
+          fontFamily: "monospace",
+          color: unavailable ? "#9ca3af" : "#374151",
+          fontStyle: unavailable ? "italic" : "normal",
+          userSelect: "text",
+        }}
+      >
+        {unavailable ? "unavailable" : value}
+      </span>
+    </span>
+  );
 }
 
 const STATUS_STYLES = {
@@ -233,25 +274,6 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               </div>
               <StatusBadge status={trace.auditStatus} />
               <RiskChip score={trace.riskScore} />
-              {/* Rule Pack badge — shows which pack version was active for this scan */}
-              {(auditMeta?.rule_pack_hash || auditMeta?.rule_pack_version) && (
-                <span style={{
-                  background: "#eff6ff", color: "#1d4ed8",
-                  border: "1px solid #bfdbfe", padding: "2px 8px",
-                  borderRadius: 6, fontSize: 11, fontFamily: "monospace",
-                  display: "flex", alignItems: "center", gap: 4,
-                }}>
-                  📦 Rule Pack{" "}
-                  {auditMeta.rule_pack_version
-                    ? `v${auditMeta.rule_pack_version}`
-                    : auditMeta.rule_pack_hash?.slice(0, 8) + "…"}
-                </span>
-              )}
-              {auditMeta?.created_at && (
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                  {new Date(auditMeta.created_at).toLocaleString()}
-                </span>
-              )}
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                 {["summary", "technical"].map((m) => {
                   // STORY-TRACE-005: technical mode is gated in enterprise/demo
@@ -276,6 +298,24 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
                   );
                 })}
               </div>
+            </div>
+
+            {/* STORY-TRACE-008: provenance triple — rule-pack hash + model version
+                + scan timestamp as a first-class, copy-friendly, labeled block.
+                model_version comes from the timeline (not the audit-report fetch);
+                each missing field reads "unavailable", never blank. */}
+            <div style={{
+              marginTop: 12, paddingTop: 12, borderTop: "1px solid #f3f4f6",
+              display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline",
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.6 }}>Provenance</span>
+              <ProvField
+                label="Rule pack"
+                value={(trace.rulePackHash || auditMeta?.rule_pack_hash) ? (trace.rulePackHash || auditMeta?.rule_pack_hash).slice(0, 12) + "…" : null}
+                full={trace.rulePackHash || auditMeta?.rule_pack_hash}
+              />
+              <ProvField label="Model" value={trace.modelVersion} />
+              <ProvField label="Scanned" value={_fmtScanTime(trace.scannedAt || auditMeta?.created_at)} />
             </div>
           </div>
 
