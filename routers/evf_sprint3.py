@@ -45,6 +45,13 @@ _VALID_FRAMEWORKS = {f.value for f in EVFFramework}
 async def get_all_validation_statuses(
     db: Session = Depends(get_db),
 ) -> list[dict]:
+    # CHUB-010: intentionally NOT tenant-scoped. get_all_framework_statuses() reads
+    # QCORegistry (models.py:894), SMEEngagement (models.py:793) and
+    # QCOExpiryNotification (models.py:991) — none declare a tenant_id column. SARO's
+    # external-validation (EVF) tier per framework is a single product-level fact
+    # (docs/COMPLIANCE_CLAIMS_MATRIX.md, EVF section), identical for every tenant;
+    # there is no per-tenant validation row to leak. Pinned by
+    # tests/test_chub010_tenant_scoping.py.
     return get_all_framework_statuses(db)
 
 
