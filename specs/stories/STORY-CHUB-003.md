@@ -30,6 +30,9 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	ComplianceHub.test.jsx "AC-1: legacy a.risk_score fallback still renders"	frontend/src/pages/ComplianceHub.jsx (score = a.overall_risk_score ?? a.risk_score)
+AC-2	ComplianceHub.test.jsx "AC-2: overall_risk_score=0.41 renders 41 (amber)"	frontend/src/pages/ComplianceHub.jsx
+AC-3	ComplianceHub.test.jsx "AC-3: null/absent → '—'" + "edge: genuine 0 → '0' badge"	frontend/src/pages/ComplianceHub.jsx
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—

@@ -31,6 +31,10 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	ComplianceHub.test.jsx "AC-1: renders a PageHeader ... no emoji in headings"	frontend/src/pages/ComplianceHub.jsx (PageHeader)
+AC-2	ComplianceHub.test.jsx "AC-2: no hardcoded hex colors or system-ui literals remain"	frontend/src/pages/ComplianceHub.jsx (all styles → var(--*) tokens)
+AC-3	local token-styled Card retained (no shared Card exists; Out of Scope forbids new shared components); single api helper consolidated	frontend/src/pages/ComplianceHub.jsx (Card, api)
+AC-4	ComplianceHub.test.jsx "AC-4: disclaimer footer wording preserved verbatim" + all 31 prior CHUB section tests still green	frontend/src/pages/ComplianceHub.jsx
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—

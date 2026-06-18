@@ -37,6 +37,11 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	test_chub004 test_route_get_returns_tenant_checklist	routers/readiness.py (GET), services/readiness_service.py (get_readiness)
+AC-2	test_chub004 test_route_put_persists_and_is_tenant_scoped / test_set_readiness_persists_across_fresh_query	routers/readiness.py (PUT), services/readiness_service.py (set_readiness), models.py ComplianceReadinessItem, migrations/026
+AC-3	test_chub004 test_empty_store..._derived_from_source / test_derived_completed_when_aims_records_exist; ComplianceHub.test.jsx "AC-3: derived items are read-only with a source tooltip"	services/readiness_service.py (_resolve_aims_inventory), frontend ComplianceHub.jsx
+AC-4	ComplianceHub.test.jsx "AC-4: checked state hydrates from the endpoint" + "completion counter reflects..."	frontend/src/pages/ComplianceHub.jsx (readiness fetch + render)
+AC-5	test_chub004 test_empty_store_manual_unchecked_derived_from_source (empty store defaults) + test_derived_resolver_unknown_on_source_error	services/readiness_service.py
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—

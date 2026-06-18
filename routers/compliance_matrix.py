@@ -97,7 +97,8 @@ async def get_coverage_summary(
 ) -> dict[str, Any]:
     """
     Returns per-framework compliance coverage percentages computed from
-    the compliance matrix rows for the authenticated tenant.
+    the global compliance matrix rows (shared regulatory reference data —
+    tenant-agnostic by design; see CHUB-010 note below).
 
     Each framework entry includes:
       - framework: framework name
@@ -106,6 +107,12 @@ async def get_coverage_summary(
       - coverage_pct: percentage covered (0–100)
       - last_updated: most recent last_updated date for this framework
     """
+    # CHUB-010: intentionally NOT tenant-scoped. get_matrix_rows() aggregates the
+    # shared text of the regulations themselves — EUAIActRule (models.py:323) and
+    # NISTControl (models.py:340), neither of which declares a tenant_id column —
+    # plus static AIGP/ISO reference rows. Coverage is global-by-design reference
+    # data, identical for every tenant; there is no per-tenant row here to leak.
+    # Pinned by tests/test_chub010_tenant_scoping.py.
     rows = get_matrix_rows(db)
 
     # Group by regulation_name

@@ -37,6 +37,12 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	test_fnd_025 test_guard_grants_compliance_lead_persona	auth.py (require_role_or_persona), routers/scan.py (list_audits gate)
+AC-2	test_fnd_025 test_audits_readable_by_permitted_role_or_persona[viewer/compliance_lead]	routers/scan.py (tenant filter unchanged) → 200 + own-tenant rows
+AC-3	test_fnd_025 test_audits_forbidden_for_unauthorised_persona	auth.py require_role_or_persona (403 path)
+AC-4	ComplianceHub.test.jsx CHUB-002 "a successful empty audits fetch still shows empty state"	frontend/src/pages/ComplianceHub.jsx
+AC-5	ComplianceHub.test.jsx "AC-5: a failed audits fetch (403) shows a visible error"	frontend/src/pages/ComplianceHub.jsx (auditsError state)
+Regression: demo_viewer preserved	test_fnd_025 [demo_viewer/None] case	tests/regression/test_fnd_025_audits_compliance_lead_access.py
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—

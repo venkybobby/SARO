@@ -67,6 +67,7 @@ from routers.fe_dashboard import router as fe_dashboard_router
 from routers.evf import router as evf_router
 from routers.evf_sprint2 import router as evf_sprint2_router
 from routers.evf_sprint3 import router as evf_sprint3_router
+from routers.readiness import router as readiness_router
 from routers.evaluations import router as evaluations_router
 from routers.systems import router as systems_router
 from routers.controls import router as controls_router
@@ -426,6 +427,7 @@ app.include_router(fe_dashboard_router)
 app.include_router(evf_router)
 app.include_router(evf_sprint2_router)
 app.include_router(evf_sprint3_router)
+app.include_router(readiness_router)
 app.include_router(evaluations_router)
 app.include_router(systems_router)
 app.include_router(controls_router)

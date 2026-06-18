@@ -1,23 +1,21 @@
 /**
  * Compliance Hub — landing page for compliance_lead persona.
  * Sections: EVF Validation Status, Recent Audits, Governance Docs, QCO Expiry Alerts, Readiness Checklist.
+ *
+ * CHUB-007: refactored onto the shared design system — PageHeader + design tokens
+ * (no hardcoded hex / system-ui literals; colours come from var(--color-*)).
  */
 import React, { useEffect, useState } from "react";
+import { Button, PageHeader, Skeleton } from "../components/ui/index.jsx";
 
+// Tier badge config — colours are design tokens (paired fg / bg / border).
 const TIER_CONFIG = {
-  tier_1: { color: "#16a34a", icon: "✅", short: "EXTERNALLY REVIEWED" },
-  tier_2: { color: "#ca8a04", icon: "⏳", short: "UNDER REVIEW" },
-  tier_3: { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" },
+  tier_1: { color: "var(--color-low)", bg: "var(--color-low-bg)", border: "var(--color-low-border)", icon: "✅", short: "EXTERNALLY REVIEWED" },
+  tier_2: { color: "var(--color-medium)", bg: "var(--color-medium-bg)", border: "var(--color-medium-border)", icon: "⏳", short: "UNDER REVIEW" },
+  tier_3: { color: "var(--color-text-secondary)", bg: "var(--color-bg-elevated)", border: "var(--color-border-subtle)", icon: "🔒", short: "INTERNAL ONLY" },
 };
 
-const CHECKLIST = [
-  "Data processing agreements in place",
-  "AI systems registered in inventory",
-  "Risk assessments completed for high-risk systems",
-  "Human oversight controls documented",
-  "Incident response plan reviewed",
-  "Annual compliance review scheduled",
-];
+const _TIER_FALLBACK = { color: "var(--color-text-secondary)", bg: "var(--color-bg-elevated)", border: "var(--color-border-subtle)", icon: "🔒", short: "INTERNAL ONLY" };
 
 function api(token, path) {
   return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then((r) => {
@@ -26,35 +24,194 @@ function api(token, path) {
   });
 }
 
+// CHUB-006: stream a file download from an authenticated GET. On any non-200 the
+// caller's onError is invoked with the server's message and NO file is written —
+// a 413/error must never produce an empty/corrupt download.
+export async function downloadFile({ token, path, filename, onError }) {
+  try {
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) {
+      let msg = `Export failed (${r.status})`;
+      try {
+        const j = await r.json();
+        msg = j?.detail?.message || (typeof j?.detail === "string" ? j.detail : msg);
+      } catch {
+        /* non-JSON body */
+      }
+      onError(msg);
+      return false;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    onError(null);
+    return true;
+  } catch {
+    onError("Export failed — network error");
+    return false;
+  }
+}
+
 function Card({ children, style }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, ...style }}>
+    <div style={{
+      background: "var(--color-bg-surface)",
+      border: "1px solid var(--color-border-subtle)",
+      borderRadius: "var(--radius-lg)",
+      padding: "var(--space-4)",
+      ...style,
+    }}>
       {children}
     </div>
   );
 }
 
-function TierBadge({ tier, label, qcoRef }) {
-  const cfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "?", short: "UNKNOWN" };
+// CHUB-008: section-scoped, non-silent error with a retry affordance.
+function SectionError({ message, onRetry }) {
+  return (
+    <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)", display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+      <span>⚠ {message}</span>
+      {onRetry && (
+        <Button variant="ghost" size="sm" onClick={onRetry}>Retry</Button>
+      )}
+    </div>
+  );
+}
+
+function TierBadge({ tier, label, qcoRef, warning }) {
+  const cfg = TIER_CONFIG[tier] || _TIER_FALLBACK;
   return (
     <span
       style={{
-        background: cfg.color + "20", color: cfg.color,
-        border: `1px solid ${cfg.color}40`,
-        padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+        background: cfg.bg, color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+        padding: "2px 8px", borderRadius: "var(--radius-lg)",
+        fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
       }}
       title={label || ""}
     >
-      {cfg.icon} {cfg.short}{qcoRef ? ` · ${qcoRef}` : ""}
+      {cfg.icon} {cfg.short}{warning ? " · EXPIRED" : ""}{qcoRef ? ` · ${qcoRef}` : ""}
     </span>
   );
 }
 
+// ─── STORY-CHUB-001: EVF tier reconciliation ─────────────────────────────────
+// Display strings from /compliance-matrix/coverage (regulation_name) must be
+// reconciled with enum values from /evf/validation-status. A single canonical
+// key drives the join so a coverage % is never shown without its validation tier.
+
+const FW_DISPLAY = {
+  EU_AI_ACT: "EU AI Act",
+  NIST_AI_RMF: "NIST AI RMF",
+  AIGP: "AIGP",
+  ISO_42001: "ISO 42001",
+};
+
+export function canonicalFramework(s) {
+  if (!s) return "";
+  const u = String(s).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (u in FW_DISPLAY) return u;
+  if (u.includes("EU") && u.includes("AI") && u.includes("ACT")) return "EU_AI_ACT";
+  if (u.includes("NIST")) return "NIST_AI_RMF";
+  if (u.includes("ISO") && u.includes("42001")) return "ISO_42001";
+  if (u.includes("AIGP")) return "AIGP";
+  return u;
+}
+
+// CHUB-005: most-recent last_updated across coverage frameworks → provenance line.
+export function mostRecentLastUpdated(frameworks) {
+  const dates = (Array.isArray(frameworks) ? frameworks : [])
+    .map((fw) => fw.last_updated)
+    .filter(Boolean)
+    .map((d) => String(d).slice(0, 10));
+  if (dates.length === 0) return null;
+  return dates.sort().at(-1);
+}
+
+function isExpired(dateStr) {
+  if (!dateStr) return false;
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return false;
+  return t < Date.now();
+}
+
+function makeEvfRow(label, coveragePct, status) {
+  let tier = (status && status.tier) || "tier_3";
+  const qcoRef = (status && status.qco_reference) || null;
+  const tierLabel = (status && status.label) || null;
+  let warning = false;
+  // Anti-overclaiming: an expired Tier 1 QCO must never render as green/validated.
+  if (tier === "tier_1" && isExpired(status && status.qco_expiry_date)) {
+    tier = "tier_2";
+    warning = true;
+  }
+  return {
+    key: label,
+    label,
+    coveragePct: coveragePct == null ? null : coveragePct,
+    tier,
+    qcoRef,
+    tierLabel,
+    warning,
+  };
+}
+
+/**
+ * Single source of truth for the EVF card rows. Guarantees the tier-with-coverage
+ * invariant: every returned row has a non-null `tier` (defaulting to tier_3), so a
+ * coverage % can never be rendered without a validation tier badge.
+ */
+export function buildEvfRows({ coverage, statuses, tierUnavailable }) {
+  const statusList = Array.isArray(statuses) ? statuses : [];
+  const byCanon = new Map();
+  for (const s of statusList) {
+    byCanon.set(canonicalFramework(s.framework || s.name), s);
+  }
+
+  const rows = [];
+  const seen = new Set();
+  const covFrameworks =
+    coverage && Array.isArray(coverage.frameworks) ? coverage.frameworks : [];
+
+  for (const fw of covFrameworks) {
+    const label = fw.framework || fw.name || "Unknown";
+    const canon = canonicalFramework(label);
+    seen.add(canon);
+    const status = tierUnavailable ? null : byCanon.get(canon);
+    rows.push(makeEvfRow(label, fw.coverage_pct, status));
+  }
+
+  // Frameworks present in /validation-status but absent from /coverage must still
+  // surface (tier badge only, no coverage bar) — never silently dropped.
+  if (!tierUnavailable) {
+    for (const s of statusList) {
+      const canon = canonicalFramework(s.framework || s.name);
+      if (seen.has(canon)) continue;
+      seen.add(canon);
+      const label = FW_DISPLAY[canon] || s.framework || s.name || "Unknown";
+      rows.push(makeEvfRow(label, null, s));
+    }
+  }
+
+  return rows;
+}
+
 function RiskBadge({ score }) {
   const s = score * 100;
-  const color = s >= 70 ? "#dc2626" : s >= 40 ? "#ca8a04" : "#16a34a";
+  // Thresholds preserved: RED ≥70, AMBER ≥40, GREEN otherwise (now tokenised).
+  const t = s >= 70
+    ? { c: "var(--color-critical)", bg: "var(--color-critical-bg)", br: "var(--color-critical-border)" }
+    : s >= 40
+    ? { c: "var(--color-medium)", bg: "var(--color-medium-bg)", br: "var(--color-medium-border)" }
+    : { c: "var(--color-low)", bg: "var(--color-low-bg)", br: "var(--color-low-border)" };
   return (
-    <span style={{ background: color + "20", color, border: `1px solid ${color}40`, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+    <span style={{ background: t.bg, color: t.c, border: `1px solid ${t.br}`, padding: "2px 8px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)" }}>
       {s.toFixed(0)}
     </span>
   );
@@ -77,20 +234,31 @@ const FW_LABELS = {
 function ComplianceCalendar({ token }) {
   const [statuses, setStatuses] = useState([]);
   const [expiries, setExpiries] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [status, setStatus] = useState("loading"); // loading|ok|error
+
+  function load() {
+    setStatus("loading");
+    const h = { Authorization: `Bearer ${token}` };
+    // Primary source must surface its failure (CHUB-008); expiry alerts degrade.
+    const reqVs = fetch("/api/v1/evf/validation-status", { headers: h }).then((r) => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    });
+    const reqEx = fetch("/api/v1/evf/qco/expiry-alerts?limit=20", { headers: h })
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => []);
+    reqVs
+      .then((st) => reqEx.then((ex) => {
+        setStatuses(Array.isArray(st) ? st : []);
+        setExpiries(Array.isArray(ex) ? ex : []);
+        setStatus("ok");
+      }))
+      .catch(() => setStatus("error"));
+  }
 
   useEffect(() => {
-    if (!token) return;
-    const h = { Authorization: `Bearer ${token}` };
-    const safe = (url) => fetch(url, { headers: h }).then((r) => r.ok ? r.json() : []).catch(() => []);
-    Promise.all([
-      safe("/api/v1/evf/validation-status"),
-      safe("/api/v1/evf/qco/expiry-alerts?limit=20"),
-    ]).then(([st, ex]) => {
-      setStatuses(Array.isArray(st) ? st : []);
-      setExpiries(Array.isArray(ex) ? ex : []);
-      setLoading(false);
-    });
+    if (token) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   function daysUntil(isoStr) {
@@ -99,7 +267,10 @@ function ComplianceCalendar({ token }) {
     return d;
   }
 
-  if (loading) return <div style={{ color: "#9ca3af", fontSize: 13 }}>Loading calendar…</div>;
+  if (status === "error") return <SectionError message="Could not load the compliance calendar." onRetry={load} />;
+  if (status === "loading") return <div data-testid="calendar-loading"><Skeleton height={140} /></div>;
+
+  const th = { textAlign: "left", padding: "8px 10px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" };
 
   // Build calendar rows: one per framework
   const rows = KNOWN_FRAMEWORKS.map((fw) => {
@@ -115,50 +286,50 @@ function ComplianceCalendar({ token }) {
 
   return (
     <div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
         <thead>
-          <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Framework</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>EVF Tier</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>QCO Expiry</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Next Review</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Status</th>
+          <tr style={{ borderBottom: "2px solid var(--color-border-subtle)" }}>
+            <th style={th}>Framework</th>
+            <th style={th}>EVF Tier</th>
+            <th style={th}>QCO Expiry</th>
+            <th style={th}>Next Review</th>
+            <th style={th}>Status</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(({ fw, label, tier, expDate, revDate, days }) => {
-            const tierCfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" };
-            const urgentColor = days !== null && days < 30 ? "#dc2626" : days !== null && days < 60 ? "#ca8a04" : "#374151";
+            const tierCfg = TIER_CONFIG[tier] || _TIER_FALLBACK;
+            const urgentColor = days !== null && days < 30 ? "var(--color-critical)" : days !== null && days < 60 ? "var(--color-medium)" : "var(--color-text-primary)";
             return (
-              <tr key={fw} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                <td style={{ padding: "10px 10px", fontWeight: 600 }}>{label}</td>
+              <tr key={fw} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                <td style={{ padding: "10px 10px", fontWeight: "var(--weight-semibold)" }}>{label}</td>
                 <td style={{ padding: "10px 10px" }}>
                   <span style={{
-                    background: tierCfg.color + "20", color: tierCfg.color,
-                    border: `1px solid ${tierCfg.color}40`,
-                    padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+                    background: tierCfg.bg, color: tierCfg.color,
+                    border: `1px solid ${tierCfg.border}`,
+                    padding: "2px 7px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
                   }}>
                     {tierCfg.icon} {tierCfg.short}
                   </span>
                 </td>
-                <td style={{ padding: "10px 10px", color: urgentColor, fontFamily: "monospace", fontSize: 12 }}>
+                <td style={{ padding: "10px 10px", color: urgentColor, fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>
                   {expDate
                     ? `${expDate.slice(0, 10)}${days !== null ? ` (${days > 0 ? `${days}d` : "EXPIRED"})` : ""}`
-                    : <span style={{ color: "#9ca3af" }}>—</span>}
+                    : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                 </td>
-                <td style={{ padding: "10px 10px", fontFamily: "monospace", fontSize: 12, color: "#6b7280" }}>
-                  {revDate ? revDate.slice(0, 10) : <span style={{ color: "#9ca3af" }}>—</span>}
+                <td style={{ padding: "10px 10px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+                  {revDate ? revDate.slice(0, 10) : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                 </td>
                 <td style={{ padding: "10px 10px" }}>
                   {days !== null && days < 0
-                    ? <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }}>⚠ EXPIRED</span>
+                    ? <span style={{ color: "var(--color-critical)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>⚠ EXPIRED</span>
                     : days !== null && days < 30
-                    ? <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>🔴 Urgent</span>
+                    ? <span style={{ color: "var(--color-critical)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>🔴 Urgent</span>
                     : days !== null && days < 60
-                    ? <span style={{ color: "#ca8a04", fontWeight: 600, fontSize: 11 }}>🟡 Due soon</span>
+                    ? <span style={{ color: "var(--color-medium)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>🟡 Due soon</span>
                     : tier === "tier_3"
-                    ? <span style={{ color: "#64748b", fontSize: 11 }}>Not assessed</span>
-                    : <span style={{ color: "#16a34a", fontSize: 11 }}>✓ OK</span>}
+                    ? <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-xs)" }}>Not assessed</span>
+                    : <span style={{ color: "var(--color-low)", fontSize: "var(--text-xs)" }}>✓ OK</span>}
                 </td>
               </tr>
             );
@@ -166,11 +337,11 @@ function ComplianceCalendar({ token }) {
         </tbody>
       </table>
       {expiries.length === 0 && statuses.length === 0 && (
-        <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8, fontStyle: "italic" }}>
+        <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", marginTop: 8, fontStyle: "italic" }}>
           No EVF records found — all frameworks are at Tier 3 (Internal Review Only).
         </div>
       )}
-      <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: 10 }}>
         EVF = External Validation Framework · QCO = Qualified Compliance Opinion.
         Expiry data requires a QCO reference number from an approved SME firm.
       </p>
@@ -178,129 +349,340 @@ function ComplianceCalendar({ token }) {
   );
 }
 
-export default function ComplianceHub({ token, tenantId }) {
+export default function ComplianceHub({ token, tenantId, onNavigate }) {
+  // CHUB-008: each section tracks its own status so loading / error / empty /
+  // success are mutually exclusive and individually retryable.
   const [coverage, setCoverage] = useState(null);
+  const [coverageStatus, setCoverageStatus] = useState("loading"); // loading|ok|error
   const [audits, setAudits] = useState([]);
-  const [checks, setChecks] = useState(CHECKLIST.map(() => false));
+  const [auditsStatus, setAuditsStatus] = useState("loading");
+  const [readiness, setReadiness] = useState(null);
+  const [readinessStatus, setReadinessStatus] = useState("loading");
+  const [statuses, setStatuses] = useState([]);
+  const [tierUnavailable, setTierUnavailable] = useState(false);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+
+  function loadCoverage() {
+    setCoverageStatus("loading");
+    // CHUB-009: /coverage takes no query params — tenant derives from the token and
+    // the endpoint ignores window. Dead params removed (no inert affordances).
+    api(token, `/api/v1/compliance-matrix/coverage`)
+      .then((d) => { setCoverage(d); setError(null); setCoverageStatus("ok"); })
+      .catch(() => { setError("Coverage data unavailable"); setCoverageStatus("error"); });
+  }
+
+  function loadStatuses() {
+    // Tier data is sourced from /evf/validation-status, not /coverage. A failure
+    // here degrades every framework to Tier 3 — it never blanks the coverage card.
+    api(token, `/api/v1/evf/validation-status`)
+      .then((d) => { setStatuses(Array.isArray(d) ? d : []); setTierUnavailable(false); })
+      .catch(() => { setStatuses([]); setTierUnavailable(true); });
+  }
+
+  function loadAudits() {
+    setAuditsStatus("loading");
+    // CHUB-009: /audits honors only limit/offset; tenant derives from the token and
+    // ordering is fixed created_at desc server-side. Dead tenant_id/sort removed.
+    api(token, `/api/v1/audits?limit=10`)
+      .then((d) => { setAudits(Array.isArray(d) ? d : d.items || []); setAuditsStatus("ok"); })
+      // CHUB-002 AC-5: surface the failure instead of swallowing it.
+      .catch(() => setAuditsStatus("error"));
+  }
+
+  function loadReadiness() {
+    setReadinessStatus("loading");
+    // CHUB-004: readiness checklist is persisted per tenant, not in-memory.
+    api(token, `/api/v1/compliance/readiness`)
+      .then((d) => { setReadiness(d); setReadinessStatus("ok"); })
+      .catch(() => setReadinessStatus("error"));
+  }
 
   useEffect(() => {
     if (!token || !tenantId) return;
-    api(token, `/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=30d`)
-      .then(setCoverage)
-      .catch(() => setError("Coverage data unavailable"));
-    api(token, `/api/v1/audits?tenant_id=${tenantId}&limit=10&sort=desc`)
-      .then((d) => setAudits(Array.isArray(d) ? d : d.items || []))
-      .catch(() => {});
+    loadCoverage();
+    loadStatuses();
+    loadAudits();
+    loadReadiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, tenantId]);
 
+  const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
+
+  // CHUB-004: persist a manual item toggle; derived (read-only) items are ignored.
+  function toggleReadiness(item) {
+    if (!item.editable) return;
+    const next = !item.completed;
+    fetch(`/api/v1/compliance/readiness/${item.key}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: next }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then(() => {
+        setReadiness((prev) =>
+          prev
+            ? {
+                ...prev,
+                items: prev.items.map((it) =>
+                  it.key === item.key ? { ...it, completed: next } : it
+                ),
+              }
+            : prev
+        );
+        setReadinessStatus("ok");
+      })
+      .catch(() => setReadinessStatus("error"));
+  }
+
+  const actions = (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          downloadFile({
+            token,
+            path: "/api/v1/compliance-matrix/export",
+            filename: "saro-compliance-matrix.csv",
+            onError: setActionError,
+          })
+        }
+      >
+        Export matrix (CSV)
+      </Button>
+      <span title={audits.length === 0 ? "No data to report yet" : undefined}>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={audits.length === 0}
+          onClick={() =>
+            downloadFile({
+              token,
+              path: "/api/v1/risk/board-export",
+              filename: "saro-board-report.pdf",
+              onError: setActionError,
+            })
+          }
+        >
+          Generate board report
+        </Button>
+      </span>
+    </>
+  );
+
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🏛️ Compliance Hub</h1>
-      <p style={{ color: "#6b7280", marginBottom: 24, fontSize: 14 }}>
-        EVF validation status, recent audits, and readiness tracking for compliance leads.
-      </p>
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 1200 }}>
+      <PageHeader
+        title="Compliance Hub"
+        subtitle="EVF validation status, recent audits, and readiness tracking for compliance leads."
+        actions={actions}
+      />
 
-      {/* EVF Validation Status */}
-      <Card style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 15, marginBottom: 16 }}>EVF Validation Status</h2>
-        {error && <div style={{ color: "#dc2626", marginBottom: 12, fontSize: 13 }}>⚠ {error}</div>}
-        {coverage?.frameworks ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-            {coverage.frameworks.map((fw) => (
-              <div key={fw.name} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{fw.name}</span>
-                  <span style={{ fontSize: 13, color: "#0d9488" }}>{fw.coverage_pct?.toFixed(1)}%</span>
-                </div>
-                <div style={{ height: 4, background: "#e5e7eb", borderRadius: 2, marginBottom: 8 }}>
-                  <div style={{ height: 4, width: `${fw.coverage_pct || 0}%`, background: "#0d9488", borderRadius: 2 }} />
-                </div>
-                {fw.evf_tier && (
-                  <TierBadge tier={fw.evf_tier} label={fw.evf_label} qcoRef={fw.evf_qco_reference} />
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ color: "#9ca3af", fontSize: 13 }}>Loading EVF validation data…</div>
+      <div style={{ padding: "var(--space-6)" }}>
+        {actionError && (
+          <div style={{ color: "var(--color-critical)", fontSize: "var(--text-xs)", marginBottom: "var(--space-4)" }}>⚠ {actionError}</div>
         )}
-      </Card>
 
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {/* Recent Audits */}
-        <Card style={{ flex: 2, minWidth: 300 }}>
-          <h2 style={{ fontSize: 15, marginBottom: 12 }}>Recent Audits</h2>
-          {audits.length === 0 ? (
-            <div style={{ color: "#9ca3af", fontSize: 13 }}>No audits yet.</div>
+        {/* CHUB-005: overall matrix-coverage headline + provenance */}
+        <Card style={{ marginBottom: "var(--space-5)" }}>
+          {coverageStatus === "error" ? (
+            <div>
+              <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: "var(--color-text-primary)" }}>—</div>
+              <SectionError message={error || "Coverage data unavailable"} onRetry={loadCoverage} />
+            </div>
+          ) : coverageStatus === "loading" ? (
+            <div data-testid="coverage-headline-loading">
+              <Skeleton width={220} height={34} />
+              <div style={{ marginTop: 8 }}><Skeleton width={320} height={14} /></div>
+            </div>
+          ) : coverage.total_rules === 0 ? (
+            <div style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-md)" }}>No matrix data yet</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Audit ID</th>
-                  <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Status</th>
-                  <th style={{ textAlign: "right", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Risk Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audits.slice(0, 10).map((a) => (
-                  <tr key={a.audit_id || a.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "8px 8px", fontFamily: "monospace", fontSize: 11 }}>
-                      {(a.audit_id || a.id || "").slice(0, 12)}…
-                    </td>
-                    <td style={{ padding: "8px 8px" }}>
-                      <span style={{
-                        padding: "2px 8px", borderRadius: 10, fontSize: 11,
-                        background: a.status === "completed" ? "#d1fae5" : a.status === "failed" ? "#fee2e2" : "#fef3c7",
-                        color: a.status === "completed" ? "#065f46" : a.status === "failed" ? "#991b1b" : "#92400e",
-                      }}>{a.status}</span>
-                    </td>
-                    <td style={{ padding: "8px 8px", textAlign: "right" }}>
-                      {a.risk_score != null ? <RiskBadge score={a.risk_score} /> : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: "var(--color-info)" }}>
+                  {coverage.overall_coverage_pct}%
+                </span>
+                <span style={{ fontSize: "var(--text-base)", color: "var(--color-text-primary)", fontWeight: "var(--weight-semibold)" }}>Matrix coverage</span>
+              </div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginTop: 4 }}>
+                {coverage.framework_count} frameworks · {coverage.total_rules} rules
+              </div>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: 4 }}>
+                as of {mostRecentLastUpdated(coverage.frameworks) || "—"}
+              </div>
+            </div>
           )}
         </Card>
 
-        {/* Readiness Checklist */}
-        <Card style={{ flex: 1, minWidth: 240 }}>
-          <h2 style={{ fontSize: 15, marginBottom: 12 }}>Readiness Checklist</h2>
-          <div style={{ fontSize: 13 }}>
-            {CHECKLIST.map((item, i) => (
-              <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={checks[i]}
-                  onChange={() => setChecks((c) => { const n = [...c]; n[i] = !n[i]; return n; })}
-                  style={{ marginTop: 2, accentColor: "#0d9488" }}
-                />
-                <span style={{ color: checks[i] ? "#9ca3af" : "#374151", textDecoration: checks[i] ? "line-through" : "none" }}>
-                  {item}
-                </span>
-              </label>
-            ))}
-            <div style={{ marginTop: 12, color: "#0d9488", fontWeight: 600, fontSize: 13 }}>
-              {checks.filter(Boolean).length}/{CHECKLIST.length} complete
+        {/* EVF Validation Status */}
+        <Card style={{ marginBottom: "var(--space-5)" }}>
+          <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>EVF Validation Status</h2>
+          {tierUnavailable && coverageStatus === "ok" && (
+            <div style={{ color: "var(--color-medium)", marginBottom: "var(--space-3)", fontSize: "var(--text-xs)" }}>
+              ⚠ Validation status unavailable — treated as internal only.
             </div>
-          </div>
+          )}
+          {coverageStatus === "error" ? (
+            <SectionError message={error || "Coverage data unavailable"} onRetry={loadCoverage} />
+          ) : coverageStatus === "loading" ? (
+            <div data-testid="evf-loading" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
+              <Skeleton height={84} /><Skeleton height={84} /><Skeleton height={84} />
+            </div>
+          ) : coverage?.frameworks || evfRows.length > 0 ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
+              {evfRows.map((row) => (
+                <div
+                  key={row.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onNavigate?.("coverage_gap", { framework: row.label })}
+                  onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("coverage_gap", { framework: row.label }); }}
+                  style={{ border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", cursor: "pointer" }}
+                  title={`View compliance matrix for ${row.label}`}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>{row.label}</span>
+                    {row.coveragePct != null && (
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-info)" }}>{row.coveragePct.toFixed(1)}%</span>
+                    )}
+                  </div>
+                  {row.coveragePct != null && (
+                    <div style={{ height: 4, background: "var(--color-bg-elevated)", borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
+                      <div style={{ height: 4, width: `${row.coveragePct}%`, background: "var(--color-info)", borderRadius: "var(--radius-sm)" }} />
+                    </div>
+                  )}
+                  {/* Invariant: every row renders a tier badge — never a coverage % alone. */}
+                  <TierBadge tier={row.tier} label={row.tierLabel} qcoRef={row.qcoRef} warning={row.warning} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No framework coverage data yet.</div>
+          )}
         </Card>
-      </div>
 
-      {/* Compliance Calendar — STORY-010 */}
-      <Card style={{ marginTop: 20, marginBottom: 0 }}>
-        <h2 style={{ fontSize: 15, marginBottom: 14 }}>📅 Compliance Calendar</h2>
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
-          QCO expiry dates, next review schedules, and EVF validation tier per framework.
-        </p>
-        <ComplianceCalendar token={token} />
-      </Card>
+        <div style={{ display: "flex", gap: "var(--space-5)", flexWrap: "wrap" }}>
+          {/* Recent Audits */}
+          <Card style={{ flex: 2, minWidth: 300 }}>
+            <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Recent Audits</h2>
+            {auditsStatus === "error" ? (
+              <SectionError
+                message="Could not load audits — you may not have access, or the service is unavailable."
+                onRetry={loadAudits}
+              />
+            ) : auditsStatus === "loading" ? (
+              <div data-testid="audits-loading"><Skeleton height={28} /><div style={{ marginTop: 8 }}><Skeleton height={28} /></div></div>
+            ) : audits.length === 0 ? (
+              <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No audits yet.</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Audit ID</th>
+                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Status</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Risk Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audits.slice(0, 10).map((a) => {
+                    // CHUB-003: /api/v1/audits exposes the score as `overall_risk_score`
+                    // (AuditListItemOut); `risk_score` is kept only as a defensive fallback.
+                    const score = a.overall_risk_score ?? a.risk_score;
+                    const auditId = a.audit_id || a.id;
+                    const statusTone = a.status === "completed"
+                      ? { bg: "var(--color-low-bg)", fg: "var(--color-low)" }
+                      : a.status === "failed"
+                      ? { bg: "var(--color-critical-bg)", fg: "var(--color-critical)" }
+                      : { bg: "var(--color-medium-bg)", fg: "var(--color-medium)" };
+                    return (
+                      <tr
+                        key={auditId}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onNavigate?.("trace_view", auditId)}
+                        onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("trace_view", auditId); }}
+                        style={{ borderBottom: "1px solid var(--color-border-subtle)", cursor: "pointer" }}
+                        title="Open TRACE timeline for this audit"
+                      >
+                        <td style={{ padding: "8px 8px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+                          {(a.audit_id || a.id || "").slice(0, 12)}…
+                        </td>
+                        <td style={{ padding: "8px 8px" }}>
+                          <span style={{
+                            padding: "2px 8px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)",
+                            background: statusTone.bg, color: statusTone.fg,
+                          }}>{a.status}</span>
+                        </td>
+                        <td style={{ padding: "8px 8px", textAlign: "right" }}>
+                          {score != null ? <RiskBadge score={score} /> : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </Card>
 
-      {/* Disclaimer */}
-      <div style={{ marginTop: 24, padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#64748b" }}>
-        <strong>Disclaimer:</strong> This report is audit evidence generated by SARO v8.0.0. It does not constitute regulatory certification, legal advice, or compliance approval. Human review and sign-off by qualified personnel is required before any regulatory submission.
+          {/* Readiness Checklist */}
+          <Card style={{ flex: 1, minWidth: 240 }}>
+            <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Readiness Checklist</h2>
+            {readinessStatus === "error" ? (
+              <SectionError message="Could not load readiness checklist." onRetry={loadReadiness} />
+            ) : readinessStatus === "loading" || !readiness || !Array.isArray(readiness.items) ? (
+              <div data-testid="readiness-loading"><Skeleton height={120} /></div>
+            ) : (
+              <div style={{ fontSize: "var(--text-sm)" }}>
+                {readiness.items.map((item) => {
+                  const unknown = item.completed === null;
+                  const checked = item.completed === true;
+                  return (
+                    <label
+                      key={item.key}
+                      title={item.source || undefined}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable ? "pointer" : "default" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!item.editable || unknown}
+                        onChange={() => toggleReadiness(item)}
+                        style={{ marginTop: 2, accentColor: "var(--color-info)" }}
+                      />
+                      <span style={{ color: checked ? "var(--color-text-muted)" : "var(--color-text-primary)", textDecoration: checked ? "line-through" : "none" }}>
+                        {item.label}
+                        {!item.editable && <em style={{ color: "var(--color-text-muted)", fontStyle: "normal" }}> · auto</em>}
+                        {unknown && <span style={{ color: "var(--color-medium)" }}> · unknown</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+                <div style={{ marginTop: "var(--space-3)", color: "var(--color-info)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)" }}>
+                  {readiness.items.filter((i) => i.completed === true).length}/{readiness.items.length} complete
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Compliance Calendar — STORY-010 */}
+        <Card style={{ marginTop: "var(--space-5)", marginBottom: 0 }}>
+          <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>Compliance Calendar</h2>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-4)" }}>
+            QCO expiry dates, next review schedules, and EVF validation tier per framework.
+          </p>
+          <ComplianceCalendar token={token} />
+        </Card>
+
+        {/* Disclaimer */}
+        <div style={{ marginTop: "var(--space-6)", padding: "var(--space-3)", background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+          <strong>Disclaimer:</strong> This report is audit evidence generated by SARO v8.0.0. It does not constitute regulatory certification, legal advice, or compliance approval. Human review and sign-off by qualified personnel is required before any regulatory submission.
+        </div>
       </div>
     </div>
   );

@@ -39,6 +39,11 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	ComplianceHub.test.jsx "AC-1: framework label reads fw.framework"	frontend/src/pages/ComplianceHub.jsx (buildEvfRows + EVF card render)
+AC-2	"AC-2: canonicalFramework normalizes..." + "buildEvfRows: every coverage row carries a tier"	frontend/src/pages/ComplianceHub.jsx (canonicalFramework, buildEvfRows; /evf/validation-status fetch)
+AC-3	"AC-3: ...no resolved tier shows Tier 3 INTERNAL ONLY"	frontend/src/pages/ComplianceHub.jsx (makeEvfRow default tier_3)
+AC-4	"AC-4: validation-status 403 → all Tier 3 + unavailable note"	frontend/src/pages/ComplianceHub.jsx (tierUnavailable fallback + note)
+AC-5	"AC-5: tier_1 status renders EXTERNALLY REVIEWED badge with QCO ref"	frontend/src/pages/ComplianceHub.jsx (shared TIER_CONFIG / TierBadge)
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—

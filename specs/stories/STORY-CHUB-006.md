@@ -35,6 +35,11 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
+AC-1	ComplianceHub.test.jsx "AC-1: Export matrix (CSV) issues GET /compliance-matrix/export"	frontend/src/pages/ComplianceHub.jsx (downloadFile + actions row)
+AC-2	ComplianceHub.test.jsx "AC-2: Generate board report issues GET /risk/board-export"	frontend/src/pages/ComplianceHub.jsx
+AC-3	ComplianceHub.test.jsx "AC-3: clicking a framework card navigates..."	frontend/src/pages/ComplianceHub.jsx (onNavigate coverage_gap + {framework}); destination filtered view out of scope per story
+AC-4	ComplianceHub.test.jsx "AC-4: clicking an audit row navigates to its TRACE view"	frontend/src/pages/ComplianceHub.jsx (onNavigate trace_view, auditId); trace gate enforced by destination
+AC-5	ComplianceHub.test.jsx "AC-5 / 413: export failure shows inline error and downloads nothing"	frontend/src/pages/ComplianceHub.jsx (downloadFile non-200 path); board disabled-on-no-data edge tested
 AC-1	—	—
 AC-2	—	—
 AC-3	—	—
