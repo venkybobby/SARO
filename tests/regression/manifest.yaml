@@ -132,3 +132,8 @@ findings:
     test: tests/regression/test_fnd_028_trace_audit_read_access.py
     status: pinned
     quarantine_expires: null
+  - id: FND-029
+    title: "TRACE View rendered the trace array as an object → failing audits shown as fully passed (STORY-TRACE-001)"
+    test: frontend/src/pages/TraceView.test.jsx
+    status: pinned
+    quarantine_expires: null

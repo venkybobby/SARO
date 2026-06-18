@@ -9,6 +9,31 @@ const STEPS = [
   { key: "remediate", label: "6. Remediate" },
 ];
 
+// STORY-TRACE-001: the timeline endpoint (GET /api/v1/audit/{id}/trace) returns
+// `steps` as an ARRAY of {key, status, detail, executive_summary, rules_fired,
+// confidence}. Normalize it to the render model the screen binds against —
+// keyed by step, with truthful per-step status (NO all-green fallback).
+export function normalizeTrace(raw) {
+  const stepsArr = Array.isArray(raw?.steps) ? raw.steps : [];
+  const byKey = {};
+  for (const s of stepsArr) {
+    if (s && s.key) byKey[String(s.key).toLowerCase()] = s;
+  }
+  // A real result is any step with a concrete pass/warn/fail/done status.
+  const hasResults = stepsArr.some(
+    (s) => s && s.status && s.status !== "pending"
+  );
+  return {
+    byKey,
+    stepCount: stepsArr.length,
+    hasResults,
+    auditStatus: raw?.audit_status ?? null,
+    riskScore: raw?.risk_score ?? null,
+    modelVersion: raw?.model_version ?? null,
+    executiveMode: !!raw?.executive_mode,
+  };
+}
+
 const STATUS_STYLES = {
   done:    { bg: "#d1fae5", color: "#065f46", icon: "✓" },
   pass:    { bg: "#d1fae5", color: "#065f46", icon: "✓" },
@@ -76,11 +101,13 @@ export default function TraceView({ token, initialAuditId }) {
     setError(null);
     setAuditMeta(null);
     try {
-      const r = await fetch(`/api/v1/traces/${target}`, {
+      // STORY-TRACE-001: the timeline endpoint returns the true 6-step pipeline
+      // (steps as an array with real per-gate status), not the raw trace rows.
+      const r = await fetch(`/api/v1/audit/${target}/trace`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error(`${r.status} — audit not found`);
-      setTrace(await r.json());
+      setTrace(normalizeTrace(await r.json()));
 
       // Also fetch audit report for rule_pack_hash + created_at (non-blocking)
       fetch(`/api/v1/audits/${target}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -167,10 +194,10 @@ export default function TraceView({ token, initialAuditId }) {
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div style={{ fontFamily: "monospace", fontSize: 13, color: "#6b7280" }}>
-                {(trace.audit_id || auditId).slice(0, 16)}…
+                {(auditMeta?.audit_id || auditId).slice(0, 16)}…
               </div>
-              <StatusBadge status={trace.status} />
-              <RiskChip score={trace.risk_score} />
+              <StatusBadge status={trace.auditStatus} />
+              <RiskChip score={trace.riskScore} />
               {/* Rule Pack badge — shows which pack version was active for this scan */}
               {(auditMeta?.rule_pack_hash || auditMeta?.rule_pack_version) && (
                 <span style={{
@@ -209,11 +236,19 @@ export default function TraceView({ token, initialAuditId }) {
             </div>
           </div>
 
+          {/* STORY-TRACE-001: a trace with no records reads all-pending with an
+              explicit note — never the old all-green "done" fallback. */}
+          {!trace.hasResults && (
+            <div style={{ background: "#f9fafb", border: "1px dashed #d1d5db", borderRadius: 8, padding: "10px 14px", color: "#6b7280", fontSize: 13, marginBottom: 12 }}>
+              No trace records for this audit yet — all pipeline steps are pending.
+            </div>
+          )}
+
           {/* Pipeline timeline */}
           <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", paddingBottom: 4 }}>
             {STEPS.map((step, i) => {
-              const stepData = trace.steps?.[step.key] || trace[step.key] || {};
-              const status = stepData.status || (i < (trace.steps_completed || 6) ? "done" : "pending");
+              const stepData = trace.byKey[step.key] || {};
+              const status = stepData.status || "pending";
               const ss = STATUS_STYLES[status] || STATUS_STYLES.pending;
               return (
                 <React.Fragment key={step.key}>
@@ -234,21 +269,24 @@ export default function TraceView({ token, initialAuditId }) {
 
           {/* Detail panels */}
           {STEPS.map((step) => {
-            const stepData = trace.steps?.[step.key] || trace[step.key];
+            const stepData = trace.byKey[step.key];
             if (!stepData) return null;
+            const summaryText = stepData.detail || stepData.executive_summary;
             return (
               <div key={step.key} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontWeight: 700, fontSize: 14 }}>{step.label}</span>
                   <StatusBadge status={stepData.status} />
-                  {stepData.confidence_score != null && (
+                  {stepData.confidence != null && (
                     <span style={{ fontSize: 12, color: "#6b7280" }}>
-                      Confidence: {(stepData.confidence_score * 100).toFixed(0)}%
+                      Confidence: {(stepData.confidence * 100).toFixed(0)}%
                     </span>
                   )}
                 </div>
-                {mode === "summary" && stepData.summary && (
-                  <p style={{ fontSize: 13, color: "#374151", margin: 0 }}>{stepData.summary}</p>
+                {mode === "summary" && (
+                  summaryText
+                    ? <p style={{ fontSize: 13, color: "#374151", margin: 0 }}>{summaryText}</p>
+                    : <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, fontStyle: "italic" }}>No detail for this step.</p>
                 )}
                 {mode === "technical" && (
                   <pre style={{ fontSize: 11, background: "#f8fafc", padding: 10, borderRadius: 6, overflow: "auto", margin: 0 }}>

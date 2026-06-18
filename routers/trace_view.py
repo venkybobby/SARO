@@ -111,10 +111,15 @@ async def get_trace(
         cot = enhanced.chain_of_thought or {}
         chain_of_thought = cot.get("steps", []) if isinstance(cot, dict) else []
 
+    # STORY-TRACE-001: surface the real risk score on the timeline so the TRACE
+    # View header binds a real value (not a blank chip) from the primary fetch.
+    report = db.query(ScanReport).filter(ScanReport.audit_id == audit_uuid).first()
+
     if isinstance(timeline, dict):
         timeline["model_version"] = model_version
         timeline["chain_of_thought"] = chain_of_thought
         timeline["audit_status"] = audit.status
+        timeline["risk_score"] = report.overall_risk_score if report else None
     return timeline
 
 

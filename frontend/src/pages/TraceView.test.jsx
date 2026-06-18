@@ -1,27 +1,92 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import TraceView from "./TraceView";
+import TraceView, { normalizeTrace } from "./TraceView";
 
-const TRACE = { audit_id: "audit-123456789", status: "pass", risk_score: 0.42, steps: [] };
-const AUDIT = { rule_pack_version: "3", created_at: "2026-01-01T00:00:00Z" };
+// STORY-TRACE-001: the timeline endpoint returns `steps` as an ARRAY with real
+// per-gate status. A failing audit must never render as fully passed.
+const TIMELINE = {
+  steps: [
+    { key: "ingest", step: "Ingest", status: "pass", detail: "Data ingested cleanly.", rules_fired: ["1", "data_quality"], confidence: 0.9 },
+    { key: "classify", step: "Classify", status: "warn", detail: "Fairness gap flagged.", rules_fired: ["2"], confidence: 0.7 },
+    { key: "match", step: "Match", status: "fail", detail: "MIT risk matched.", rules_fired: ["3"], confidence: 0.8 },
+    { key: "score", step: "Score", status: "pass", detail: "Scored.", rules_fired: ["4"], confidence: 0.85 },
+    { key: "explain", step: "Explain", status: "pending", detail: "", rules_fired: [], confidence: null },
+    { key: "remediate", step: "Remediate", status: "pending", detail: "", rules_fired: [], confidence: null },
+  ],
+  step_count: 6,
+  executive_mode: false,
+  model_version: "saro-engine-1.0",
+  audit_status: "failed",
+  risk_score: 0.74,
+};
+const AUDIT = { audit_id: "audit-123456789", rule_pack_hash: "abc123def456", created_at: "2026-01-01T00:00:00Z" };
 
-beforeEach(() => {
+function stubFetch(timeline = TIMELINE, audit = AUDIT, traceOk = true) {
   vi.stubGlobal("fetch", vi.fn((url) => {
-    if (url === "/api/v1/traces/audit-123456789") {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(TRACE) });
+    if (url === "/api/v1/audit/audit-123456789/trace") {
+      return Promise.resolve({ ok: traceOk, status: traceOk ? 200 : 404, json: () => Promise.resolve(timeline) });
     }
     if (url === "/api/v1/audits/audit-123456789") {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(AUDIT) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(audit) });
     }
-    return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve([]) }); // recent list
   }));
+}
+
+beforeEach(() => stubFetch());
+
+describe("normalizeTrace (render-contract helper)", () => {
+  it("keys the steps array by step key and detects real results", () => {
+    const m = normalizeTrace(TIMELINE);
+    expect(Object.keys(m.byKey)).toHaveLength(6);
+    expect(m.byKey.match.status).toBe("fail");
+    expect(m.hasResults).toBe(true);
+    expect(m.auditStatus).toBe("failed");
+    expect(m.riskScore).toBe(0.74);
+  });
+
+  it("treats an empty/absent steps array as all-pending with no results", () => {
+    expect(normalizeTrace({ steps: [], audit_status: "completed" }).hasResults).toBe(false);
+    expect(normalizeTrace({}).stepCount).toBe(0);
+    expect(normalizeTrace(undefined).byKey).toEqual({});
+  });
 });
 
-describe("TraceView audit metadata enrichment (regression: ESLint flat-config no-undef)", () => {
-  it("loads the trace and the audit report (rule pack badge) without throwing ReferenceError", async () => {
+describe("TraceView TRACE-001 render contract", () => {
+  it("fetches the timeline endpoint (not /traces/{id})", async () => {
     render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    const urls = fetch.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/v1/audit/audit-123456789/trace");
+    expect(urls).not.toContain("/api/v1/traces/audit-123456789");
+  });
 
+  it("binds the real audit status and risk score in the header", async () => {
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.getByText(/FAILED/)).toBeInTheDocument();
+  });
+
+  it("never shows a failing audit as fully passed (no all-green fallback)", async () => {
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    // No step is rendered as "done" (statuses are pass/warn/fail/pending only).
+    expect(screen.queryAllByText(/\bdone\b/i)).toHaveLength(0);
+    // The failing Match step surfaces a fail status (\bfail\b excludes "FAILED").
+    expect(screen.getAllByText(/\bfail\b/i).length).toBeGreaterThanOrEqual(1);
+    // Explain + Remediate stay pending (not "done").
+    expect(screen.getAllByText(/\bpending\b/i).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows an explicit no-records note (not all-green) for a trace with no steps", async () => {
+    stubFetch({ steps: [], step_count: 0, audit_status: "completed", risk_score: null });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/No trace records/i)).toBeInTheDocument());
+    expect(screen.queryAllByText("done")).toHaveLength(0);
+  });
+
+  it("renders the audit-meta (rule pack) fetch without throwing a ReferenceError (FND-004 regression)", async () => {
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
     await waitFor(() => expect(screen.getByText(/Rule Pack/)).toBeInTheDocument());
-    expect(screen.getByText(/Rule Pack/).textContent).toContain("v3");
   });
 });
