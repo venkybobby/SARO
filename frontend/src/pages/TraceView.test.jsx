@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "fs";
 import { render, screen, waitFor } from "@testing-library/react";
 import TraceView, { normalizeTrace } from "./TraceView";
 
@@ -124,7 +125,7 @@ describe("TraceView TRACE-007 Recent Traces (overall_risk_score field)", () => {
     stubFetch(TIMELINE, AUDIT, true, { ok: true, items: [{ audit_id: "rrrr1111aaaa", overall_risk_score: 0.55 }] });
     render(<TraceView token="t" />);
     await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument());
-    expect(screen.getByText("55")).toHaveStyle({ color: "rgb(202, 138, 4)" }); // amber (>=40)
+    expect(screen.getByText("55")).toHaveStyle({ color: "var(--color-medium)" }); // amber (>=40)
   });
 
   it("falls back to legacy risk_score and omits the number when score is null", async () => {
@@ -215,6 +216,27 @@ describe("TraceView TRACE-006 signed export actions", () => {
     stubExport({ ok: true, status: 200, blob: () => Promise.resolve(new Blob([])), headers: { get: () => null } });
     render(<TraceView token="t" />); // no initialAuditId -> no trace loaded
     expect(screen.queryByRole("button", { name: /Export JSON/i })).toBeNull();
+  });
+});
+
+describe("TraceView TRACE-009 shared design system", () => {
+  it("renders a shared PageHeader titled 'TRACE View'", () => {
+    render(<TraceView token="t" />);
+    expect(screen.getByRole("heading", { name: "TRACE View" })).toBeInTheDocument();
+  });
+
+  it("uses design tokens — no hardcoded hex or system-ui literals remain in style props", () => {
+    const src = readFileSync("src/pages/TraceView.jsx", "utf8");
+    const hexMatches = src.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+    expect(hexMatches, `hardcoded hex remains: ${hexMatches.join(", ")}`).toHaveLength(0);
+    expect(src.includes("system-ui")).toBe(false);
+  });
+
+  it("preserves badge semantics + thresholds (failing audit shows fail, not done)", async () => {
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.queryAllByText(/\bdone\b/i)).toHaveLength(0);
+    expect(screen.getAllByText(/\bfail\b/i).length).toBeGreaterThanOrEqual(1);
   });
 });
 

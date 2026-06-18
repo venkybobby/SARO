@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { PageHeader, Skeleton } from "../components/ui/index.jsx";
 import { TRACE_METHODOLOGY_READY } from "../config/traceGate";
 
 const STEPS = [
@@ -67,13 +68,13 @@ function ProvField({ label, value, truncate }) {
       ? `${value.slice(0, 12)}…`
       : value;
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, fontSize: 11 }}>
-      <span style={{ color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</span>
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, fontSize: "var(--text-xs)" }}>
+      <span style={{ color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</span>
       <span
         title={unavailable ? "Not recorded for this audit" : value}
         style={{
-          fontFamily: "monospace",
-          color: unavailable ? "#9ca3af" : "#374151",
+          fontFamily: "var(--font-mono)",
+          color: unavailable ? "var(--color-text-muted)" : "var(--color-text-primary)",
           fontStyle: unavailable ? "italic" : "normal",
           userSelect: "text",
         }}
@@ -84,18 +85,26 @@ function ProvField({ label, value, truncate }) {
   );
 }
 
+// STORY-TRACE-009: status palette mapped onto the shared design tokens.
+// Semantics preserved: pass/done = low (green), warn = medium (amber),
+// fail = critical (red), pending = neutral.
 const STATUS_STYLES = {
-  done:    { bg: "#d1fae5", color: "#065f46", icon: "✓" },
-  pass:    { bg: "#d1fae5", color: "#065f46", icon: "✓" },
-  warn:    { bg: "#fef3c7", color: "#92400e", icon: "⚠" },
-  fail:    { bg: "#fee2e2", color: "#991b1b", icon: "✗" },
-  pending: { bg: "#f3f4f6", color: "#6b7280", icon: "…" },
+  done:    { bg: "var(--color-low-bg)",      color: "var(--color-low)",        border: "var(--color-low-border)",      icon: "✓" },
+  pass:    { bg: "var(--color-low-bg)",      color: "var(--color-low)",        border: "var(--color-low-border)",      icon: "✓" },
+  warn:    { bg: "var(--color-medium-bg)",   color: "var(--color-medium)",     border: "var(--color-medium-border)",   icon: "⚠" },
+  fail:    { bg: "var(--color-critical-bg)", color: "var(--color-critical)",   border: "var(--color-critical-border)", icon: "✗" },
+  pending: { bg: "var(--color-bg-overlay)",  color: "var(--color-text-muted)", border: "var(--color-border-subtle)",   icon: "…" },
 };
+
+// Risk thresholds preserved: ≥70 critical, ≥40 medium, else low.
+function _riskTone(score) {
+  return score >= 70 ? "critical" : score >= 40 ? "medium" : "low";
+}
 
 function StatusBadge({ status }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES.pending;
   return (
-    <span style={{ background: s.bg, color: s.color, padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
+    <span style={{ background: s.bg, color: s.color, padding: "2px 8px", borderRadius: "var(--radius-sm)", fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)" }}>
       {s.icon} {(status || "pending").toUpperCase()}
     </span>
   );
@@ -104,9 +113,14 @@ function StatusBadge({ status }) {
 function RiskChip({ score }) {
   if (score == null) return null;
   const s = Math.round(score * 100);
-  const color = s >= 70 ? "#dc2626" : s >= 40 ? "#ca8a04" : "#16a34a";
+  const tone = _riskTone(s);
   return (
-    <span style={{ background: color + "20", color, border: `1px solid ${color}40`, padding: "2px 10px", borderRadius: 12, fontWeight: 700, fontSize: 14 }}>
+    <span style={{
+      background: `var(--color-${tone}-bg)`, color: `var(--color-${tone})`,
+      border: `1px solid var(--color-${tone}-border)`,
+      padding: "2px 10px", borderRadius: "var(--radius-lg)",
+      fontWeight: "var(--weight-semibold)", fontSize: "var(--text-base)",
+    }}>
       {s}/100
     </span>
   );
@@ -231,30 +245,39 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
     }
   }
 
-  return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, marginBottom: 4 }}>TRACE View</h1>
-        {/* STORY-TRACE-005 / ADR-004: methodology transparency affordance, always visible */}
-        <button
-          type="button"
-          onClick={() => onNavigate?.("how_saro_reasons")}
-          style={{ background: "none", border: "none", padding: 0, color: "#0d9488", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}
-        >
-          How SARO Reasons ↗
-        </button>
-      </div>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Select a recent trace or enter an Audit ID to view its 6-step TRACE pipeline timeline.
-      </p>
+  const pillStyle = (active, disabled) => ({
+    padding: "4px 12px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-sm)",
+    background: active ? "var(--color-info)" : "var(--color-bg-overlay)",
+    color: active ? "var(--color-text-inverse)" : "var(--color-text-primary)",
+    border: "none", cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+  });
 
+  return (
+    <div>
+      <PageHeader
+        title="TRACE View"
+        subtitle="Inspect an audit's 6-step TRACE pipeline timeline and pull signed evidence for the audit file."
+        actions={
+          /* STORY-TRACE-005 / ADR-004: methodology transparency affordance, always visible */
+          <button
+            type="button"
+            onClick={() => onNavigate?.("how_saro_reasons")}
+            style={{ background: "none", border: "none", padding: 0, color: "var(--color-info)", cursor: "pointer", fontSize: "var(--text-sm)", textDecoration: "underline" }}
+          >
+            How SARO Reasons ↗
+          </button>
+        }
+      />
+
+      <div style={{ padding: "var(--space-6)", maxWidth: 1000 }}>
       {/* STORY-TRACE-005: ADR-004 gate notice for enterprise/demo sessions when the
           transparency document is not yet published. */}
       {methodologyGated && (
-        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", color: "#92400e", fontSize: 13, marginBottom: 20 }}>
+        <div style={{ background: "var(--color-medium-bg)", border: "1px solid var(--color-medium-border)", borderRadius: "var(--radius-md)", padding: "10px 14px", color: "var(--color-medium)", fontSize: "var(--text-sm)", marginBottom: "var(--space-5)" }}>
           ⓘ Full TRACE reasoning (technical mode) is unavailable in this demo until the
           {" "}
-          <button type="button" onClick={() => onNavigate?.("how_saro_reasons")} style={{ background: "none", border: "none", padding: 0, color: "#92400e", cursor: "pointer", textDecoration: "underline", font: "inherit" }}>
+          <button type="button" onClick={() => onNavigate?.("how_saro_reasons")} style={{ background: "none", border: "none", padding: 0, color: "var(--color-medium)", cursor: "pointer", textDecoration: "underline", font: "inherit" }}>
             “How SARO Reasons”
           </button>
           {" "}transparency document is published (ADR-004 TRACE View Gate).
@@ -262,14 +285,16 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       )}
 
       {/* Recent traces */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Recent Traces</div>
+      <div style={{ marginBottom: "var(--space-5)" }}>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: "var(--weight-semibold)", color: "var(--color-text-primary)", marginBottom: "var(--space-2)" }}>Recent Traces</div>
         {recentLoading ? (
-          <div style={{ fontSize: 13, color: "#9ca3af" }}>Loading recent traces…</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Skeleton width={90} height={28} /><Skeleton width={90} height={28} /><Skeleton width={90} height={28} />
+          </div>
         ) : recentError ? (
-          <div style={{ fontSize: 13, color: "#9ca3af" }}>Recent traces are unavailable right now.</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>Recent traces are unavailable right now.</div>
         ) : recent.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#9ca3af" }}>No recent traces for this tenant yet.</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>No recent traces for this tenant yet.</div>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {recent.map((a) => {
@@ -280,22 +305,22 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               const raw = a.overall_risk_score ?? a.risk_score;
               const score = raw != null ? Math.round(raw * 100) : null;
               const color = score == null
-                ? "#9ca3af"
-                : score >= 70 ? "#dc2626" : score >= 40 ? "#ca8a04" : "#16a34a";
+                ? "var(--color-text-muted)"
+                : `var(--color-${_riskTone(score)})`;
               return (
                 <button
                   key={id}
                   onClick={() => load(id)}
                   style={{
-                    padding: "5px 10px", borderRadius: 6, border: "1px solid #e5e7eb",
-                    background: auditId === id ? "#f0fdf4" : "#f8fafc",
-                    cursor: "pointer", fontSize: 12, fontFamily: "monospace",
-                    color: "#374151", display: "flex", alignItems: "center", gap: 6,
+                    padding: "5px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border-default)",
+                    background: auditId === id ? "var(--color-info-bg)" : "var(--color-bg-overlay)",
+                    cursor: "pointer", fontSize: "var(--text-xs)", fontFamily: "var(--font-mono)",
+                    color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 6,
                   }}
                 >
                   {id.slice(0, 8)}…
                   {score != null && (
-                    <span style={{ fontWeight: 700, color }}>{score}</span>
+                    <span style={{ fontWeight: "var(--weight-semibold)", color }}>{score}</span>
                   )}
                 </button>
               );
@@ -305,25 +330,25 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       </div>
 
       {/* Search bar */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-6)" }}>
         <input
           value={auditId}
           onChange={(e) => setAuditId(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && load()}
           placeholder="Audit ID (UUID)…"
-          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14 }}
+          style={{ flex: 1, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border-default)", fontSize: "var(--text-base)", background: "var(--color-bg-elevated)", color: "var(--color-text-primary)" }}
         />
         <button
           onClick={() => load()}
           disabled={loading}
-          style={{ padding: "10px 20px", background: "#0d9488", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
+          style={{ padding: "10px 20px", background: "var(--color-info)", color: "var(--color-text-inverse)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: "var(--text-base)" }}
         >
           {loading ? "Loading…" : "Load TRACE"}
         </button>
       </div>
 
       {error && (
-        <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#b91c1c", fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: "var(--color-critical-bg)", border: "1px solid var(--color-critical-border)", borderRadius: "var(--radius-md)", padding: "10px 14px", color: "var(--color-critical)", fontSize: "var(--text-sm)", marginBottom: "var(--space-4)" }}>
           ⚠ {error}
         </div>
       )}
@@ -331,9 +356,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       {trace && (
         <>
           {/* Header */}
-          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+          <div style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-default)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 13, color: "#6b7280" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
                 {(auditMeta?.audit_id || auditId).slice(0, 16)}…
               </div>
               <StatusBadge status={trace.auditStatus} />
@@ -346,9 +371,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
                     onClick={() => exportEvidence(fmt)}
                     disabled={!trace || exporting === fmt}
                     style={{
-                      padding: "4px 10px", borderRadius: 6, fontSize: 12,
-                      background: "#fff", color: "#0d9488",
-                      border: "1px solid #0d9488",
+                      padding: "4px 10px", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)",
+                      background: "var(--color-bg-surface)", color: "var(--color-info)",
+                      border: "1px solid var(--color-info)",
                       cursor: !trace || exporting === fmt ? "not-allowed" : "pointer",
                       opacity: !trace || exporting === fmt ? 0.6 : 1,
                     }}
@@ -366,13 +391,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
                       disabled={disabled}
                       title={disabled ? "Gated until the “How SARO Reasons” doc is published (ADR-004)" : undefined}
                       onClick={() => !disabled && setMode(m)}
-                      style={{
-                        padding: "4px 12px", borderRadius: 20, fontSize: 12,
-                        background: mode === m ? "#0d9488" : "#f3f4f6",
-                        color: mode === m ? "#fff" : "#374151",
-                        border: "none", cursor: disabled ? "not-allowed" : "pointer",
-                        opacity: disabled ? 0.5 : 1,
-                      }}
+                      style={pillStyle(mode === m, disabled)}
                     >
                       {m.charAt(0).toUpperCase() + m.slice(1)}
                     </button>
@@ -386,10 +405,10 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
                 model_version comes from the timeline (not the audit-report fetch);
                 each missing field reads "unavailable", never blank. */}
             <div style={{
-              marginTop: 12, paddingTop: 12, borderTop: "1px solid #f3f4f6",
+              marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--color-border-subtle)",
               display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline",
             }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.6 }}>Provenance</span>
+              <span style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: 0.6 }}>Provenance</span>
               <ProvField label="Rule pack" value={trace.rulePackHash || auditMeta?.rule_pack_hash} truncate />
               <ProvField label="Model" value={trace.modelVersion} />
               <ProvField label="Scanned" value={_fmtScanTime(trace.scannedAt || auditMeta?.created_at)} />
@@ -398,7 +417,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
 
           {/* STORY-TRACE-006: inline export error — never a silent/corrupt download */}
           {exportError && (
-            <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>
+            <div style={{ background: "var(--color-critical-bg)", border: "1px solid var(--color-critical-border)", borderRadius: "var(--radius-md)", padding: "8px 12px", color: "var(--color-critical)", fontSize: "var(--text-sm)", marginBottom: "var(--space-3)" }}>
               ⚠ {exportError}
             </div>
           )}
@@ -406,13 +425,13 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
           {/* STORY-TRACE-001: a trace with no records reads all-pending with an
               explicit note — never the old all-green "done" fallback. */}
           {!trace.hasResults && (
-            <div style={{ background: "#f9fafb", border: "1px dashed #d1d5db", borderRadius: 8, padding: "10px 14px", color: "#6b7280", fontSize: 13, marginBottom: 12 }}>
+            <div style={{ background: "var(--color-bg-overlay)", border: "1px dashed var(--color-border-default)", borderRadius: "var(--radius-md)", padding: "10px 14px", color: "var(--color-text-secondary)", fontSize: "var(--text-sm)", marginBottom: "var(--space-3)" }}>
               No trace records for this audit yet — all pipeline steps are pending.
             </div>
           )}
 
-          {/* Pipeline timeline */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", paddingBottom: 4 }}>
+          {/* Pipeline timeline (horizontally scrollable on narrow viewports) */}
+          <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-5)", overflowX: "auto", paddingBottom: 4 }}>
             {STEPS.map((step, i) => {
               const stepData = trace.byKey[step.key] || {};
               const status = stepData.status || "pending";
@@ -420,14 +439,14 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               return (
                 <React.Fragment key={step.key}>
                   <div style={{
-                    padding: "10px 14px", borderRadius: 8, background: ss.bg, color: ss.color,
-                    minWidth: 100, textAlign: "center", border: `1px solid ${ss.color}30`,
+                    padding: "10px 14px", borderRadius: "var(--radius-md)", background: ss.bg, color: ss.color,
+                    minWidth: 100, textAlign: "center", border: `1px solid ${ss.border}`,
                   }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{step.label}</div>
-                    <div style={{ fontSize: 11, marginTop: 2 }}>{ss.icon} {status}</div>
+                    <div style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)" }}>{step.label}</div>
+                    <div style={{ fontSize: "var(--text-xs)", marginTop: 2 }}>{ss.icon} {status}</div>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div style={{ color: "#9ca3af", fontSize: 18, display: "flex", alignItems: "center" }}>→</div>
+                    <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-lg)", display: "flex", alignItems: "center" }}>→</div>
                   )}
                 </React.Fragment>
               );
@@ -440,23 +459,23 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
             if (!stepData) return null;
             const summaryText = stepData.detail || stepData.executive_summary;
             return (
-              <div key={step.key} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{step.label}</span>
+              <div key={step.key} style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-default)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", marginBottom: "var(--space-3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "var(--space-2)" }}>
+                  <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-base)" }}>{step.label}</span>
                   <StatusBadge status={stepData.status} />
                   {stepData.confidence != null && (
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
                       Confidence: {(stepData.confidence * 100).toFixed(0)}%
                     </span>
                   )}
                 </div>
                 {mode === "summary" && (
                   summaryText
-                    ? <p style={{ fontSize: 13, color: "#374151", margin: 0 }}>{summaryText}</p>
-                    : <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, fontStyle: "italic" }}>No detail for this step.</p>
+                    ? <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-primary)", margin: 0 }}>{summaryText}</p>
+                    : <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)", margin: 0, fontStyle: "italic" }}>No detail for this step.</p>
                 )}
                 {mode === "technical" && !methodologyGated && (
-                  <pre style={{ fontSize: 11, background: "#f8fafc", padding: 10, borderRadius: 6, overflow: "auto", margin: 0 }}>
+                  <pre style={{ fontSize: "var(--text-xs)", background: "var(--color-bg-overlay)", padding: 10, borderRadius: "var(--radius-md)", overflow: "auto", margin: 0 }}>
                     {JSON.stringify(stepData, null, 2)}
                   </pre>
                 )}
@@ -470,9 +489,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
           {trace.integrity && (
             trace.integrity.verified ? (
               <div style={{
-                padding: "10px 14px", borderRadius: 8, marginTop: 8,
-                background: "#d1fae5", border: "1px solid #6ee7b7",
-                fontSize: 13, color: "#065f46",
+                padding: "10px 14px", borderRadius: "var(--radius-md)", marginTop: "var(--space-2)",
+                background: "var(--color-low-bg)", border: "1px solid var(--color-low-border)",
+                fontSize: "var(--text-sm)", color: "var(--color-low)",
               }}>
                 ✓ Integrity verified — {trace.integrity.detail}
                 {trace.integrity.export_hash && (
@@ -482,9 +501,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               </div>
             ) : (
               <div style={{
-                padding: "10px 14px", borderRadius: 8, marginTop: 8,
-                background: "#f3f4f6", border: "1px solid #d1d5db",
-                fontSize: 13, color: "#6b7280",
+                padding: "10px 14px", borderRadius: "var(--radius-md)", marginTop: "var(--space-2)",
+                background: "var(--color-bg-overlay)", border: "1px solid var(--color-border-default)",
+                fontSize: "var(--text-sm)", color: "var(--color-text-secondary)",
               }}>
                 ⓘ Integrity not verified — {trace.integrity.detail || "verification unavailable for this audit."}
               </div>
@@ -492,6 +511,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
