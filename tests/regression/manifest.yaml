@@ -137,3 +137,8 @@ findings:
     test: frontend/src/pages/TraceView.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-030
+    title: "TRACE View asserted 'Hash chain integrity: verified' from an absent field — unbacked overclaim (STORY-TRACE-004)"
+    test: tests/regression/test_fnd_030_trace_integrity_verdict.py
+    status: pinned
+    quarantine_expires: null

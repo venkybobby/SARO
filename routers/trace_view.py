@@ -49,6 +49,52 @@ def _parse_audit_uuid(raw: str) -> uuid.UUID:
         )
 
 
+def _verify_integrity(audit, traces, enhanced, report) -> dict:
+    """STORY-TRACE-004: an honest integrity verdict for the TRACE View banner.
+
+    Recomputes the HMAC-SHA256 signature over the canonical export (the same
+    mechanism that produced the recorded ``export_hash`` in ``trace_export.py``)
+    and compares it to the stored value. The verdict is deliberately conservative:
+
+      - ``verified``: the recomputed HMAC matches the recorded signature — the only
+        state that yields a positive integrity claim.
+      - ``unavailable``: no signed export on record, verification cannot be run, OR
+        the recorded signature does not match. A mismatch is NOT reported as a green
+        "verified" and NOT asserted as "tampered", because ``export_hash`` may have
+        been written by an alternate (plain-SHA-256) export path in this codebase
+        (``output_audit.py``), so a mismatch alone cannot prove tampering. This keeps
+        the banner from over- or under-claiming (ADR-004 anti-overclaiming lock).
+    """
+    if not enhanced or not getattr(enhanced, "export_hash", None) or not report:
+        return {
+            "status": "unavailable",
+            "verified": False,
+            "detail": "No signed export on record for this audit.",
+        }
+    try:
+        from routers.trace_export import _build_signed_json
+
+        _, recomputed, _ = _build_signed_json(audit, enhanced, traces, report)
+    except Exception:
+        return {
+            "status": "unavailable",
+            "verified": False,
+            "detail": "Integrity verification could not be performed for this audit.",
+        }
+    if hmac.compare_digest(str(recomputed), str(enhanced.export_hash)):
+        return {
+            "status": "verified",
+            "verified": True,
+            "export_hash": str(enhanced.export_hash)[:12],
+            "detail": "HMAC-SHA256 signature valid over the canonical export.",
+        }
+    return {
+        "status": "unavailable",
+        "verified": False,
+        "detail": "Recorded export signature could not be confirmed for the current trace.",
+    }
+
+
 def _get_audit_or_404(
     db: Session, audit_uuid: uuid.UUID, tenant_id: uuid.UUID
 ) -> Audit:
@@ -120,6 +166,8 @@ async def get_trace(
         timeline["chain_of_thought"] = chain_of_thought
         timeline["audit_status"] = audit.status
         timeline["risk_score"] = report.overall_risk_score if report else None
+        # STORY-TRACE-004: honest, server-computed integrity verdict.
+        timeline["integrity"] = _verify_integrity(audit, traces, enhanced, report)
     return timeline
 
 

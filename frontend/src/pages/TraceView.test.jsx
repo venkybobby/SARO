@@ -90,3 +90,28 @@ describe("TraceView TRACE-001 render contract", () => {
     await waitFor(() => expect(screen.getByText(/Rule Pack/)).toBeInTheDocument());
   });
 });
+
+describe("TraceView TRACE-004 honest integrity banner", () => {
+  it("shows a specific verified claim only when the backend confirms a real signature", async () => {
+    stubFetch({ ...TIMELINE, integrity: { status: "verified", verified: true, export_hash: "abcdef012345", detail: "HMAC-SHA256 signature valid over the canonical export." } });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/Integrity verified/i)).toBeInTheDocument());
+    expect(screen.getByText(/HMAC-SHA256 signature valid/i)).toBeInTheDocument();
+    expect(screen.getByText(/abcdef012345/)).toBeInTheDocument();
+  });
+
+  it("shows a neutral 'not verified' state (never green 'verified') when unavailable", async () => {
+    stubFetch({ ...TIMELINE, integrity: { status: "unavailable", verified: false, detail: "No signed export on record for this audit." } });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/Integrity not verified/i)).toBeInTheDocument());
+    expect(screen.queryByText(/Integrity verified/i)).not.toBeInTheDocument();
+  });
+
+  it("makes no positive integrity claim when the backend returns no verdict", async () => {
+    stubFetch({ ...TIMELINE, integrity: null });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.queryByText(/Integrity verified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Integrity not verified/i)).not.toBeInTheDocument();
+  });
+});

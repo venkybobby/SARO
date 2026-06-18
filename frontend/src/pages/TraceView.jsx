@@ -31,6 +31,8 @@ export function normalizeTrace(raw) {
     riskScore: raw?.risk_score ?? null,
     modelVersion: raw?.model_version ?? null,
     executiveMode: !!raw?.executive_mode,
+    // STORY-TRACE-004: server-computed integrity verdict (null when absent).
+    integrity: raw?.integrity ?? null,
   };
 }
 
@@ -297,16 +299,31 @@ export default function TraceView({ token, initialAuditId }) {
             );
           })}
 
-          {/* Hash chain */}
-          {trace.hash_chain_valid != null && (
-            <div style={{
-              padding: "10px 14px", borderRadius: 8, marginTop: 8,
-              background: trace.hash_chain_valid ? "#d1fae5" : "#fee2e2",
-              border: `1px solid ${trace.hash_chain_valid ? "#6ee7b7" : "#fca5a5"}`,
-              fontSize: 13, color: trace.hash_chain_valid ? "#065f46" : "#991b1b",
-            }}>
-              {trace.hash_chain_valid ? "✓" : "✗"} Hash chain integrity: {trace.hash_chain_valid ? "verified" : "BROKEN"} — TRACE chain integrity verifiable via SHA-256 hash chain — evidence for human auditor review.
-            </div>
+          {/* STORY-TRACE-004: honest integrity banner — a positive claim renders
+              ONLY when the backend confirms a real HMAC signature match; otherwise
+              the state is neutral "not verified", never a green "verified". */}
+          {trace.integrity && (
+            trace.integrity.verified ? (
+              <div style={{
+                padding: "10px 14px", borderRadius: 8, marginTop: 8,
+                background: "#d1fae5", border: "1px solid #6ee7b7",
+                fontSize: 13, color: "#065f46",
+              }}>
+                ✓ Integrity verified — {trace.integrity.detail}
+                {trace.integrity.export_hash && (
+                  <> (export hash <code>{trace.integrity.export_hash}…</code>)</>
+                )}
+                {" "}Evidence for human auditor review.
+              </div>
+            ) : (
+              <div style={{
+                padding: "10px 14px", borderRadius: 8, marginTop: 8,
+                background: "#f3f4f6", border: "1px solid #d1d5db",
+                fontSize: 13, color: "#6b7280",
+              }}>
+                ⓘ Integrity not verified — {trace.integrity.detail || "verification unavailable for this audit."}
+              </div>
+            )
           )}
         </>
       )}
