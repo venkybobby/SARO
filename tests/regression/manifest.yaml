@@ -122,3 +122,8 @@ findings:
     test: tests/regression/test_fnd_024_async_db_handlers.py
     status: open
     quarantine_expires: null
+  - id: FND-027
+    title: "GET /api/v1/audit/{id}/trace + export variants not tenant-scoped — cross-tenant TRACE leak (STORY-TRACE-002)"
+    test: tests/regression/test_fnd_027_trace_view_tenant_scope.py
+    status: pinned
+    quarantine_expires: null

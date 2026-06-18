@@ -1,4 +1,5 @@
 """TRACE view and evidence export endpoints."""
+
 import json
 import uuid
 import hmac
@@ -38,10 +39,22 @@ def _parse_audit_uuid(raw: str) -> uuid.UUID:
         )
 
 
-def _get_audit_or_404(db: Session, audit_uuid: uuid.UUID) -> Audit:
-    audit = db.query(Audit).filter(Audit.id == audit_uuid).first()
+def _get_audit_or_404(
+    db: Session, audit_uuid: uuid.UUID, tenant_id: uuid.UUID
+) -> Audit:
+    """Return the audit or 404 if not found / wrong tenant.
+
+    STORY-TRACE-002: scoped to the caller's tenant. The 404 detail is generic
+    ("Audit not found") so a foreign-tenant audit is indistinguishable from a
+    nonexistent one (no existence oracle), matching ``routers/traces.py``.
+    """
+    audit = (
+        db.query(Audit)
+        .filter(Audit.id == audit_uuid, Audit.tenant_id == tenant_id)
+        .first()
+    )
     if not audit:
-        raise HTTPException(status_code=404, detail=f"Audit {audit_uuid} not found")
+        raise HTTPException(status_code=404, detail="Audit not found")
     return audit
 
 
@@ -54,7 +67,7 @@ async def get_trace(
 ):
     """Get the 6-step TRACE timeline for an audit, with model_version and chain_of_thought."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    audit = _get_audit_or_404(db, audit_uuid)
+    audit = _get_audit_or_404(db, audit_uuid, current_user.tenant_id)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     trace_dicts = [
@@ -77,7 +90,10 @@ async def get_trace(
 
     # S-202: attach model_version and chain_of_thought from EnhancedTrace if available
     from models import EnhancedTrace as _EnhancedTrace
-    enhanced = db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+
+    enhanced = (
+        db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+    )
     model_version = "saro-engine-1.0"
     chain_of_thought: list = []
     if enhanced:
@@ -100,20 +116,30 @@ async def export_trace_extended(
 ):
     """Export a full signed TRACE evidence pack with model_version and chain_of_thought."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    audit = _get_audit_or_404(db, audit_uuid)
+    audit = _get_audit_or_404(db, audit_uuid, current_user.tenant_id)
 
     from models import EnhancedTrace as _EnhancedTrace, ScanReport as _ScanReport
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     report = db.query(_ScanReport).filter(_ScanReport.audit_id == audit_uuid).first()
-    enhanced = db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+    enhanced = (
+        db.query(_EnhancedTrace).filter(_EnhancedTrace.audit_id == audit_uuid).first()
+    )
 
-    timeline = build_trace_timeline([
-        {"id": str(t.id), "audit_id": str(t.audit_id), "gate_id": t.gate_id,
-         "gate_name": t.gate_name, "result": t.result, "reason": t.reason,
-         "confidence": 0.85}
-        for t in traces
-    ])
+    timeline = build_trace_timeline(
+        [
+            {
+                "id": str(t.id),
+                "audit_id": str(t.audit_id),
+                "gate_id": t.gate_id,
+                "gate_name": t.gate_name,
+                "result": t.result,
+                "reason": t.reason,
+                "confidence": 0.85,
+            }
+            for t in traces
+        ]
+    )
 
     model_version = "saro-engine-1.0"
     chain_of_thought: list = []
@@ -153,17 +179,25 @@ async def export_trace_json(
 ):
     """Export a signed JSON evidence pack for an audit."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    audit = _get_audit_or_404(db, audit_uuid)
+    audit = _get_audit_or_404(db, audit_uuid, current_user.tenant_id)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     report = db.query(ScanReport).filter(ScanReport.audit_id == audit_uuid).first()
 
-    timeline = build_trace_timeline([
-        {"id": str(t.id), "audit_id": str(t.audit_id), "gate_id": t.gate_id,
-         "gate_name": t.gate_name, "result": t.result, "reason": t.reason,
-         "confidence": 0.85}
-        for t in traces
-    ])
+    timeline = build_trace_timeline(
+        [
+            {
+                "id": str(t.id),
+                "audit_id": str(t.audit_id),
+                "gate_id": t.gate_id,
+                "gate_name": t.gate_name,
+                "result": t.result,
+                "reason": t.reason,
+                "confidence": 0.85,
+            }
+            for t in traces
+        ]
+    )
 
     export = {
         "export_version": "2.0",
@@ -194,7 +228,7 @@ async def export_trace_pdf(
 ):
     """Generate a PDF evidence pack for an audit."""
     audit_uuid = _parse_audit_uuid(audit_id)
-    _get_audit_or_404(db, audit_uuid)
+    _get_audit_or_404(db, audit_uuid, current_user.tenant_id)
 
     traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_uuid).all()
     report = db.query(ScanReport).filter(ScanReport.audit_id == audit_uuid).first()
@@ -211,25 +245,35 @@ async def export_trace_pdf(
 
         story.append(Paragraph("SARO Evidence Pack", styles["Title"]))
         story.append(Paragraph(f"Audit ID: {audit_uuid}", styles["Normal"]))
-        story.append(Paragraph(f"Generated: {datetime.utcnow().isoformat()}", styles["Normal"]))
+        story.append(
+            Paragraph(f"Generated: {datetime.utcnow().isoformat()}", styles["Normal"])
+        )
         story.append(Spacer(1, 12))
 
         story.append(Paragraph("TRACE Analysis Timeline", styles["Heading1"]))
         for t in traces:
-            story.append(Paragraph(
-                f"<b>{t.gate_name or t.gate_id}</b>: {t.result} — {t.reason or ''}",
-                styles["Normal"]
-            ))
+            story.append(
+                Paragraph(
+                    f"<b>{t.gate_name or t.gate_id}</b>: {t.result} — {t.reason or ''}",
+                    styles["Normal"],
+                )
+            )
         story.append(Spacer(1, 12))
 
         if report:
             story.append(Paragraph("Risk Assessment", styles["Heading1"]))
-            story.append(Paragraph(f"Risk Score: {report.risk_score}", styles["Normal"]))
-            story.append(Paragraph(f"Confidence: {report.confidence}", styles["Normal"]))
+            story.append(
+                Paragraph(f"Risk Score: {report.risk_score}", styles["Normal"])
+            )
+            story.append(
+                Paragraph(f"Confidence: {report.confidence}", styles["Normal"])
+            )
         story.append(Spacer(1, 12))
 
         canonical = json.dumps({"audit_id": str(audit_uuid)}, sort_keys=True)
-        sig = hmac.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(
+            HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256
+        ).hexdigest()
         story.append(Paragraph("Verification", styles["Heading1"]))
         story.append(Paragraph(f"HMAC-SHA256: {sig[:16]}...", styles["Normal"]))
 
@@ -239,7 +283,9 @@ async def export_trace_pdf(
         return StreamingResponse(
             buf,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=saro-evidence-{str(audit_uuid)[:8]}.pdf"},
+            headers={
+                "Content-Disposition": f"attachment; filename=saro-evidence-{str(audit_uuid)[:8]}.pdf"
+            },
         )
     except ImportError:
         content = f"SARO Evidence Pack\nAudit ID: {audit_uuid}\nGenerated: {datetime.utcnow().isoformat()}\n"
@@ -248,5 +294,7 @@ async def export_trace_pdf(
         return StreamingResponse(
             io.StringIO(content),
             media_type="text/plain",
-            headers={"Content-Disposition": f"attachment; filename=saro-evidence-{str(audit_uuid)[:8]}.txt"},
+            headers={
+                "Content-Disposition": f"attachment; filename=saro-evidence-{str(audit_uuid)[:8]}.txt"
+            },
         )
