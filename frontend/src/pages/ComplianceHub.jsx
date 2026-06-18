@@ -1,15 +1,21 @@
 /**
  * Compliance Hub — landing page for compliance_lead persona.
  * Sections: EVF Validation Status, Recent Audits, Governance Docs, QCO Expiry Alerts, Readiness Checklist.
+ *
+ * CHUB-007: refactored onto the shared design system — PageHeader + design tokens
+ * (no hardcoded hex / system-ui literals; colours come from var(--color-*)).
  */
 import React, { useEffect, useState } from "react";
-import { Button, Skeleton } from "../components/ui/index.jsx";
+import { Button, PageHeader, Skeleton } from "../components/ui/index.jsx";
 
+// Tier badge config — colours are design tokens (paired fg / bg / border).
 const TIER_CONFIG = {
-  tier_1: { color: "#16a34a", icon: "✅", short: "EXTERNALLY REVIEWED" },
-  tier_2: { color: "#ca8a04", icon: "⏳", short: "UNDER REVIEW" },
-  tier_3: { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" },
+  tier_1: { color: "var(--color-low)", bg: "var(--color-low-bg)", border: "var(--color-low-border)", icon: "✅", short: "EXTERNALLY REVIEWED" },
+  tier_2: { color: "var(--color-medium)", bg: "var(--color-medium-bg)", border: "var(--color-medium-border)", icon: "⏳", short: "UNDER REVIEW" },
+  tier_3: { color: "var(--color-text-secondary)", bg: "var(--color-bg-elevated)", border: "var(--color-border-subtle)", icon: "🔒", short: "INTERNAL ONLY" },
 };
+
+const _TIER_FALLBACK = { color: "var(--color-text-secondary)", bg: "var(--color-bg-elevated)", border: "var(--color-border-subtle)", icon: "🔒", short: "INTERNAL ONLY" };
 
 function api(token, path) {
   return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then((r) => {
@@ -54,20 +60,27 @@ export async function downloadFile({ token, path, filename, onError }) {
 
 function Card({ children, style }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, ...style }}>
+    <div style={{
+      background: "var(--color-bg-surface)",
+      border: "1px solid var(--color-border-subtle)",
+      borderRadius: "var(--radius-lg)",
+      padding: "var(--space-4)",
+      ...style,
+    }}>
       {children}
     </div>
   );
 }
 
 function TierBadge({ tier, label, qcoRef, warning }) {
-  const cfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "?", short: "UNKNOWN" };
+  const cfg = TIER_CONFIG[tier] || _TIER_FALLBACK;
   return (
     <span
       style={{
-        background: cfg.color + "20", color: cfg.color,
-        border: `1px solid ${cfg.color}40`,
-        padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+        background: cfg.bg, color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+        padding: "2px 8px", borderRadius: "var(--radius-lg)",
+        fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
       }}
       title={label || ""}
     >
@@ -179,9 +192,14 @@ export function buildEvfRows({ coverage, statuses, tierUnavailable }) {
 
 function RiskBadge({ score }) {
   const s = score * 100;
-  const color = s >= 70 ? "#dc2626" : s >= 40 ? "#ca8a04" : "#16a34a";
+  // Thresholds preserved: RED ≥70, AMBER ≥40, GREEN otherwise (now tokenised).
+  const t = s >= 70
+    ? { c: "var(--color-critical)", bg: "var(--color-critical-bg)", br: "var(--color-critical-border)" }
+    : s >= 40
+    ? { c: "var(--color-medium)", bg: "var(--color-medium-bg)", br: "var(--color-medium-border)" }
+    : { c: "var(--color-low)", bg: "var(--color-low-bg)", br: "var(--color-low-border)" };
   return (
-    <span style={{ background: color + "20", color, border: `1px solid ${color}40`, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+    <span style={{ background: t.bg, color: t.c, border: `1px solid ${t.br}`, padding: "2px 8px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)" }}>
       {s.toFixed(0)}
     </span>
   );
@@ -226,7 +244,9 @@ function ComplianceCalendar({ token }) {
     return d;
   }
 
-  if (loading) return <div style={{ color: "#9ca3af", fontSize: 13 }}>Loading calendar…</div>;
+  if (loading) return <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>Loading calendar…</div>;
+
+  const th = { textAlign: "left", padding: "8px 10px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" };
 
   // Build calendar rows: one per framework
   const rows = KNOWN_FRAMEWORKS.map((fw) => {
@@ -242,50 +262,50 @@ function ComplianceCalendar({ token }) {
 
   return (
     <div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
         <thead>
-          <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Framework</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>EVF Tier</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>QCO Expiry</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Next Review</th>
-            <th style={{ textAlign: "left", padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>Status</th>
+          <tr style={{ borderBottom: "2px solid var(--color-border-subtle)" }}>
+            <th style={th}>Framework</th>
+            <th style={th}>EVF Tier</th>
+            <th style={th}>QCO Expiry</th>
+            <th style={th}>Next Review</th>
+            <th style={th}>Status</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(({ fw, label, tier, expDate, revDate, days }) => {
-            const tierCfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" };
-            const urgentColor = days !== null && days < 30 ? "#dc2626" : days !== null && days < 60 ? "#ca8a04" : "#374151";
+            const tierCfg = TIER_CONFIG[tier] || _TIER_FALLBACK;
+            const urgentColor = days !== null && days < 30 ? "var(--color-critical)" : days !== null && days < 60 ? "var(--color-medium)" : "var(--color-text-primary)";
             return (
-              <tr key={fw} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                <td style={{ padding: "10px 10px", fontWeight: 600 }}>{label}</td>
+              <tr key={fw} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                <td style={{ padding: "10px 10px", fontWeight: "var(--weight-semibold)" }}>{label}</td>
                 <td style={{ padding: "10px 10px" }}>
                   <span style={{
-                    background: tierCfg.color + "20", color: tierCfg.color,
-                    border: `1px solid ${tierCfg.color}40`,
-                    padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+                    background: tierCfg.bg, color: tierCfg.color,
+                    border: `1px solid ${tierCfg.border}`,
+                    padding: "2px 7px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", fontWeight: "var(--weight-semibold)",
                   }}>
                     {tierCfg.icon} {tierCfg.short}
                   </span>
                 </td>
-                <td style={{ padding: "10px 10px", color: urgentColor, fontFamily: "monospace", fontSize: 12 }}>
+                <td style={{ padding: "10px 10px", color: urgentColor, fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>
                   {expDate
                     ? `${expDate.slice(0, 10)}${days !== null ? ` (${days > 0 ? `${days}d` : "EXPIRED"})` : ""}`
-                    : <span style={{ color: "#9ca3af" }}>—</span>}
+                    : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                 </td>
-                <td style={{ padding: "10px 10px", fontFamily: "monospace", fontSize: 12, color: "#6b7280" }}>
-                  {revDate ? revDate.slice(0, 10) : <span style={{ color: "#9ca3af" }}>—</span>}
+                <td style={{ padding: "10px 10px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+                  {revDate ? revDate.slice(0, 10) : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                 </td>
                 <td style={{ padding: "10px 10px" }}>
                   {days !== null && days < 0
-                    ? <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 11 }}>⚠ EXPIRED</span>
+                    ? <span style={{ color: "var(--color-critical)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>⚠ EXPIRED</span>
                     : days !== null && days < 30
-                    ? <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 11 }}>🔴 Urgent</span>
+                    ? <span style={{ color: "var(--color-critical)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>🔴 Urgent</span>
                     : days !== null && days < 60
-                    ? <span style={{ color: "#ca8a04", fontWeight: 600, fontSize: 11 }}>🟡 Due soon</span>
+                    ? <span style={{ color: "var(--color-medium)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-xs)" }}>🟡 Due soon</span>
                     : tier === "tier_3"
-                    ? <span style={{ color: "#64748b", fontSize: 11 }}>Not assessed</span>
-                    : <span style={{ color: "#16a34a", fontSize: 11 }}>✓ OK</span>}
+                    ? <span style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-xs)" }}>Not assessed</span>
+                    : <span style={{ color: "var(--color-low)", fontSize: "var(--text-xs)" }}>✓ OK</span>}
                 </td>
               </tr>
             );
@@ -293,11 +313,11 @@ function ComplianceCalendar({ token }) {
         </tbody>
       </table>
       {expiries.length === 0 && statuses.length === 0 && (
-        <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8, fontStyle: "italic" }}>
+        <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", marginTop: 8, fontStyle: "italic" }}>
           No EVF records found — all frameworks are at Tier 3 (Internal Review Only).
         </div>
       )}
-      <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: 10 }}>
         EVF = External Validation Framework · QCO = Qualified Compliance Opinion.
         Expiry data requires a QCO reference number from an approved SME firm.
       </p>
@@ -380,234 +400,243 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
       .catch(() => setReadinessError(true));
   }
 
-  return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🏛️ Compliance Hub</h1>
-      <p style={{ color: "#6b7280", marginBottom: 16, fontSize: 14 }}>
-        EVF validation status, recent audits, and readiness tracking for compliance leads.
-      </p>
-
-      {/* CHUB-006: actions row */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+  const actions = (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          downloadFile({
+            token,
+            path: "/api/v1/compliance-matrix/export",
+            filename: "saro-compliance-matrix.csv",
+            onError: setActionError,
+          })
+        }
+      >
+        Export matrix (CSV)
+      </Button>
+      <span title={audits.length === 0 ? "No data to report yet" : undefined}>
         <Button
           variant="secondary"
           size="sm"
+          disabled={audits.length === 0}
           onClick={() =>
             downloadFile({
               token,
-              path: "/api/v1/compliance-matrix/export",
-              filename: "saro-compliance-matrix.csv",
+              path: "/api/v1/risk/board-export",
+              filename: "saro-board-report.pdf",
               onError: setActionError,
             })
           }
         >
-          Export matrix (CSV)
+          Generate board report
         </Button>
-        <span title={audits.length === 0 ? "No data to report yet" : undefined}>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={audits.length === 0}
-            onClick={() =>
-              downloadFile({
-                token,
-                path: "/api/v1/risk/board-export",
-                filename: "saro-board-report.pdf",
-                onError: setActionError,
-              })
-            }
-          >
-            Generate board report
-          </Button>
-        </span>
+      </span>
+    </>
+  );
+
+  return (
+    <div style={{ fontFamily: "var(--font-body)", maxWidth: 1200 }}>
+      <PageHeader
+        title="Compliance Hub"
+        subtitle="EVF validation status, recent audits, and readiness tracking for compliance leads."
+        actions={actions}
+      />
+
+      <div style={{ padding: "var(--space-6)" }}>
         {actionError && (
-          <span style={{ color: "#dc2626", fontSize: 12 }}>⚠ {actionError}</span>
+          <div style={{ color: "var(--color-critical)", fontSize: "var(--text-xs)", marginBottom: "var(--space-4)" }}>⚠ {actionError}</div>
         )}
-      </div>
 
-      {/* CHUB-005: overall matrix-coverage headline + provenance */}
-      <Card style={{ marginBottom: 20 }}>
-        {error ? (
-          <div>
-            <div style={{ fontSize: 30, fontWeight: 700, color: "#374151" }}>—</div>
-            <div style={{ color: "#dc2626", fontSize: 13 }}>⚠ {error}</div>
-          </div>
-        ) : coverage == null ? (
-          <div data-testid="coverage-headline-loading">
-            <Skeleton width={220} height={34} />
-            <div style={{ marginTop: 8 }}><Skeleton width={320} height={14} /></div>
-          </div>
-        ) : coverage.total_rules === 0 ? (
-          <div style={{ color: "#6b7280", fontSize: 15 }}>No matrix data yet</div>
-        ) : (
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={{ fontSize: 30, fontWeight: 700, color: "#0d9488" }}>
-                {coverage.overall_coverage_pct}%
-              </span>
-              <span style={{ fontSize: 14, color: "#374151", fontWeight: 600 }}>Matrix coverage</span>
+        {/* CHUB-005: overall matrix-coverage headline + provenance */}
+        <Card style={{ marginBottom: "var(--space-5)" }}>
+          {error ? (
+            <div>
+              <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: "var(--color-text-primary)" }}>—</div>
+              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>⚠ {error}</div>
             </div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-              {coverage.framework_count} frameworks · {coverage.total_rules} rules
+          ) : coverage == null ? (
+            <div data-testid="coverage-headline-loading">
+              <Skeleton width={220} height={34} />
+              <div style={{ marginTop: 8 }}><Skeleton width={320} height={14} /></div>
             </div>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
-              as of {mostRecentLastUpdated(coverage.frameworks) || "—"}
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* EVF Validation Status */}
-      <Card style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 15, marginBottom: 16 }}>EVF Validation Status</h2>
-        {error && <div style={{ color: "#dc2626", marginBottom: 12, fontSize: 13 }}>⚠ {error}</div>}
-        {tierUnavailable && (
-          <div style={{ color: "#ca8a04", marginBottom: 12, fontSize: 12 }}>
-            ⚠ Validation status unavailable — treated as internal only.
-          </div>
-        )}
-        {coverage?.frameworks || evfRows.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-            {evfRows.map((row) => (
-              <div
-                key={row.key}
-                role="button"
-                tabIndex={0}
-                onClick={() => onNavigate?.("coverage_gap", { framework: row.label })}
-                onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("coverage_gap", { framework: row.label }); }}
-                style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, cursor: "pointer" }}
-                title={`View compliance matrix for ${row.label}`}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{row.label}</span>
-                  {row.coveragePct != null && (
-                    <span style={{ fontSize: 13, color: "#0d9488" }}>{row.coveragePct.toFixed(1)}%</span>
-                  )}
-                </div>
-                {row.coveragePct != null && (
-                  <div style={{ height: 4, background: "#e5e7eb", borderRadius: 2, marginBottom: 8 }}>
-                    <div style={{ height: 4, width: `${row.coveragePct}%`, background: "#0d9488", borderRadius: 2 }} />
-                  </div>
-                )}
-                {/* Invariant: every row renders a tier badge — never a coverage % alone. */}
-                <TierBadge tier={row.tier} label={row.tierLabel} qcoRef={row.qcoRef} warning={row.warning} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ color: "#9ca3af", fontSize: 13 }}>Loading EVF validation data…</div>
-        )}
-      </Card>
-
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {/* Recent Audits */}
-        <Card style={{ flex: 2, minWidth: 300 }}>
-          <h2 style={{ fontSize: 15, marginBottom: 12 }}>Recent Audits</h2>
-          {auditsError ? (
-            <div style={{ color: "#dc2626", fontSize: 13 }}>
-              ⚠ Could not load audits — you may not have access, or the service is unavailable.
-            </div>
-          ) : audits.length === 0 ? (
-            <div style={{ color: "#9ca3af", fontSize: 13 }}>No audits yet.</div>
+          ) : coverage.total_rules === 0 ? (
+            <div style={{ color: "var(--color-text-secondary)", fontSize: "var(--text-md)" }}>No matrix data yet</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Audit ID</th>
-                  <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Status</th>
-                  <th style={{ textAlign: "right", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Risk Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audits.slice(0, 10).map((a) => {
-                  // CHUB-003: /api/v1/audits exposes the score as `overall_risk_score`
-                  // (AuditListItemOut); `risk_score` is kept only as a defensive fallback.
-                  const score = a.overall_risk_score ?? a.risk_score;
-                  const auditId = a.audit_id || a.id;
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: "var(--color-info)" }}>
+                  {coverage.overall_coverage_pct}%
+                </span>
+                <span style={{ fontSize: "var(--text-base)", color: "var(--color-text-primary)", fontWeight: "var(--weight-semibold)" }}>Matrix coverage</span>
+              </div>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginTop: 4 }}>
+                {coverage.framework_count} frameworks · {coverage.total_rules} rules
+              </div>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: 4 }}>
+                as of {mostRecentLastUpdated(coverage.frameworks) || "—"}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* EVF Validation Status */}
+        <Card style={{ marginBottom: "var(--space-5)" }}>
+          <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>EVF Validation Status</h2>
+          {error && <div style={{ color: "var(--color-critical)", marginBottom: "var(--space-3)", fontSize: "var(--text-sm)" }}>⚠ {error}</div>}
+          {tierUnavailable && (
+            <div style={{ color: "var(--color-medium)", marginBottom: "var(--space-3)", fontSize: "var(--text-xs)" }}>
+              ⚠ Validation status unavailable — treated as internal only.
+            </div>
+          )}
+          {coverage?.frameworks || evfRows.length > 0 ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
+              {evfRows.map((row) => (
+                <div
+                  key={row.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onNavigate?.("coverage_gap", { framework: row.label })}
+                  onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("coverage_gap", { framework: row.label }); }}
+                  style={{ border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", cursor: "pointer" }}
+                  title={`View compliance matrix for ${row.label}`}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>{row.label}</span>
+                    {row.coveragePct != null && (
+                      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-info)" }}>{row.coveragePct.toFixed(1)}%</span>
+                    )}
+                  </div>
+                  {row.coveragePct != null && (
+                    <div style={{ height: 4, background: "var(--color-bg-elevated)", borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
+                      <div style={{ height: 4, width: `${row.coveragePct}%`, background: "var(--color-info)", borderRadius: "var(--radius-sm)" }} />
+                    </div>
+                  )}
+                  {/* Invariant: every row renders a tier badge — never a coverage % alone. */}
+                  <TierBadge tier={row.tier} label={row.tierLabel} qcoRef={row.qcoRef} warning={row.warning} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>Loading EVF validation data…</div>
+          )}
+        </Card>
+
+        <div style={{ display: "flex", gap: "var(--space-5)", flexWrap: "wrap" }}>
+          {/* Recent Audits */}
+          <Card style={{ flex: 2, minWidth: 300 }}>
+            <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Recent Audits</h2>
+            {auditsError ? (
+              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>
+                ⚠ Could not load audits — you may not have access, or the service is unavailable.
+              </div>
+            ) : audits.length === 0 ? (
+              <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No audits yet.</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Audit ID</th>
+                    <th style={{ textAlign: "left", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Status</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" }}>Risk Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audits.slice(0, 10).map((a) => {
+                    // CHUB-003: /api/v1/audits exposes the score as `overall_risk_score`
+                    // (AuditListItemOut); `risk_score` is kept only as a defensive fallback.
+                    const score = a.overall_risk_score ?? a.risk_score;
+                    const auditId = a.audit_id || a.id;
+                    const statusTone = a.status === "completed"
+                      ? { bg: "var(--color-low-bg)", fg: "var(--color-low)" }
+                      : a.status === "failed"
+                      ? { bg: "var(--color-critical-bg)", fg: "var(--color-critical)" }
+                      : { bg: "var(--color-medium-bg)", fg: "var(--color-medium)" };
+                    return (
+                      <tr
+                        key={auditId}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onNavigate?.("trace_view", auditId)}
+                        onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("trace_view", auditId); }}
+                        style={{ borderBottom: "1px solid var(--color-border-subtle)", cursor: "pointer" }}
+                        title="Open TRACE timeline for this audit"
+                      >
+                        <td style={{ padding: "8px 8px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+                          {(a.audit_id || a.id || "").slice(0, 12)}…
+                        </td>
+                        <td style={{ padding: "8px 8px" }}>
+                          <span style={{
+                            padding: "2px 8px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)",
+                            background: statusTone.bg, color: statusTone.fg,
+                          }}>{a.status}</span>
+                        </td>
+                        <td style={{ padding: "8px 8px", textAlign: "right" }}>
+                          {score != null ? <RiskBadge score={score} /> : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </Card>
+
+          {/* Readiness Checklist */}
+          <Card style={{ flex: 1, minWidth: 240 }}>
+            <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Readiness Checklist</h2>
+            {readinessError ? (
+              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>⚠ Could not load readiness checklist.</div>
+            ) : !readiness || !Array.isArray(readiness.items) ? (
+              <div data-testid="readiness-loading"><Skeleton height={120} /></div>
+            ) : (
+              <div style={{ fontSize: "var(--text-sm)" }}>
+                {readiness.items.map((item) => {
+                  const unknown = item.completed === null;
+                  const checked = item.completed === true;
                   return (
-                    <tr
-                      key={auditId}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onNavigate?.("trace_view", auditId)}
-                      onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("trace_view", auditId); }}
-                      style={{ borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}
-                      title="Open TRACE timeline for this audit"
+                    <label
+                      key={item.key}
+                      title={item.source || undefined}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable ? "pointer" : "default" }}
                     >
-                      <td style={{ padding: "8px 8px", fontFamily: "monospace", fontSize: 11 }}>
-                        {(a.audit_id || a.id || "").slice(0, 12)}…
-                      </td>
-                      <td style={{ padding: "8px 8px" }}>
-                        <span style={{
-                          padding: "2px 8px", borderRadius: 10, fontSize: 11,
-                          background: a.status === "completed" ? "#d1fae5" : a.status === "failed" ? "#fee2e2" : "#fef3c7",
-                          color: a.status === "completed" ? "#065f46" : a.status === "failed" ? "#991b1b" : "#92400e",
-                        }}>{a.status}</span>
-                      </td>
-                      <td style={{ padding: "8px 8px", textAlign: "right" }}>
-                        {score != null ? <RiskBadge score={score} /> : "—"}
-                      </td>
-                    </tr>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!item.editable || unknown}
+                        onChange={() => toggleReadiness(item)}
+                        style={{ marginTop: 2, accentColor: "var(--color-info)" }}
+                      />
+                      <span style={{ color: checked ? "var(--color-text-muted)" : "var(--color-text-primary)", textDecoration: checked ? "line-through" : "none" }}>
+                        {item.label}
+                        {!item.editable && <em style={{ color: "var(--color-text-muted)", fontStyle: "normal" }}> · auto</em>}
+                        {unknown && <span style={{ color: "var(--color-medium)" }}> · unknown</span>}
+                      </span>
+                    </label>
                   );
                 })}
-              </tbody>
-            </table>
-          )}
-        </Card>
-
-        {/* Readiness Checklist */}
-        <Card style={{ flex: 1, minWidth: 240 }}>
-          <h2 style={{ fontSize: 15, marginBottom: 12 }}>Readiness Checklist</h2>
-          {readinessError ? (
-            <div style={{ color: "#dc2626", fontSize: 13 }}>⚠ Could not load readiness checklist.</div>
-          ) : !readiness || !Array.isArray(readiness.items) ? (
-            <div data-testid="readiness-loading"><Skeleton height={120} /></div>
-          ) : (
-            <div style={{ fontSize: 13 }}>
-              {readiness.items.map((item) => {
-                const unknown = item.completed === null;
-                const checked = item.completed === true;
-                return (
-                  <label
-                    key={item.key}
-                    title={item.source || undefined}
-                    style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable ? "pointer" : "default" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={!item.editable || unknown}
-                      onChange={() => toggleReadiness(item)}
-                      style={{ marginTop: 2, accentColor: "#0d9488" }}
-                    />
-                    <span style={{ color: checked ? "#9ca3af" : "#374151", textDecoration: checked ? "line-through" : "none" }}>
-                      {item.label}
-                      {!item.editable && <em style={{ color: "#9ca3af", fontStyle: "normal" }}> · auto</em>}
-                      {unknown && <span style={{ color: "#ca8a04" }}> · unknown</span>}
-                    </span>
-                  </label>
-                );
-              })}
-              <div style={{ marginTop: 12, color: "#0d9488", fontWeight: 600, fontSize: 13 }}>
-                {readiness.items.filter((i) => i.completed === true).length}/{readiness.items.length} complete
+                <div style={{ marginTop: "var(--space-3)", color: "var(--color-info)", fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)" }}>
+                  {readiness.items.filter((i) => i.completed === true).length}/{readiness.items.length} complete
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </Card>
+        </div>
+
+        {/* Compliance Calendar — STORY-010 */}
+        <Card style={{ marginTop: "var(--space-5)", marginBottom: 0 }}>
+          <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>Compliance Calendar</h2>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", marginBottom: "var(--space-4)" }}>
+            QCO expiry dates, next review schedules, and EVF validation tier per framework.
+          </p>
+          <ComplianceCalendar token={token} />
         </Card>
-      </div>
 
-      {/* Compliance Calendar — STORY-010 */}
-      <Card style={{ marginTop: 20, marginBottom: 0 }}>
-        <h2 style={{ fontSize: 15, marginBottom: 14 }}>📅 Compliance Calendar</h2>
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
-          QCO expiry dates, next review schedules, and EVF validation tier per framework.
-        </p>
-        <ComplianceCalendar token={token} />
-      </Card>
-
-      {/* Disclaimer */}
-      <div style={{ marginTop: 24, padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#64748b" }}>
-        <strong>Disclaimer:</strong> This report is audit evidence generated by SARO v8.0.0. It does not constitute regulatory certification, legal advice, or compliance approval. Human review and sign-off by qualified personnel is required before any regulatory submission.
+        {/* Disclaimer */}
+        <div style={{ marginTop: "var(--space-6)", padding: "var(--space-3)", background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>
+          <strong>Disclaimer:</strong> This report is audit evidence generated by SARO v8.0.0. It does not constitute regulatory certification, legal advice, or compliance approval. Human review and sign-off by qualified personnel is required before any regulatory submission.
+        </div>
       </div>
     </div>
   );
