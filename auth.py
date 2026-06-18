@@ -292,6 +292,50 @@ def persona_required(*personas: str):
     return _check
 
 
+# STORY-TRACE-003: roles/personas permitted to READ TRACE evidence — the
+# timeline, audit detail and audit list the AI Auditor's screen depends on.
+# Read-only: this grants endpoint access, never write capability (mutations must
+# still gate on require_write_access / require_write_persona). ai_auditor and
+# compliance_lead are the personas whose job is trace inspection.
+TRACE_READ_ROLES: tuple[str, ...] = ("super_admin", "operator")
+TRACE_READ_PERSONAS: tuple[str, ...] = ("ai_auditor", "compliance_lead")
+
+
+def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
+    """
+    Factory returning a FastAPI dependency that admits a user holding ANY of the
+    given primary ``role`` values OR any of the given ``persona_role`` values.
+
+    A read-only authorization helper: it grants access to an endpoint, never write
+    capability. Mirrors ``routers/reports.py:_require_reports_access`` so backend
+    authz and the persona-driven nav agree. Used by STORY-TRACE-003 to let the
+    audit/compliance personas read TRACE evidence alongside the legacy roles.
+    """
+    role_set = frozenset(roles)
+    persona_set = frozenset(personas)
+
+    async def _check(
+        current_user: Annotated[User, Depends(get_current_user)],
+        request: Request = None,  # type: ignore[assignment]  # injected by FastAPI; None on direct calls
+    ) -> User:
+        if current_user.role in role_set:
+            return current_user
+        if (getattr(current_user, "persona_role", None) or "") in persona_set:
+            return current_user
+        _log_authz_denial(
+            current_user,
+            request,
+            required=f"role:{sorted(role_set)}|persona:{sorted(persona_set)}",
+        )
+        # Generic message — do not echo role/persona identifiers to the client.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorised to read this resource.",
+        )
+
+    return _check
+
+
 async def require_write_persona(
     current_user: Annotated[User, Depends(get_current_user)],
     request: Request = None,  # type: ignore[assignment]  # injected by FastAPI; None on direct calls

@@ -127,3 +127,8 @@ findings:
     test: tests/regression/test_fnd_027_trace_view_tenant_scope.py
     status: pinned
     quarantine_expires: null
+  - id: FND-028
+    title: "AI Auditor / Compliance Lead personas 403'd from TRACE View endpoints (timeline, audit detail, audit list) (STORY-TRACE-003)"
+    test: tests/regression/test_fnd_028_trace_audit_read_access.py
+    status: pinned
+    quarantine_expires: null

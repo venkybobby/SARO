@@ -16,7 +16,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role
+from auth import (
+    get_current_user,
+    require_role,
+    require_role_or_persona,
+    TRACE_READ_ROLES,
+    TRACE_READ_PERSONAS,
+)
 from database import get_db
 from engine import SARoEngine
 from models import Audit, AuditTrace, SampleFinding, ScanReport, User
@@ -28,6 +34,16 @@ from schemas import (
 )
 from services.hash_chain_service import LEGACY_SENTINEL, compute_event_hash
 from sqlalchemy import text as _sql_text
+
+# STORY-TRACE-003: the AI Auditor's screen lists audits and opens audit detail.
+# Grant the audit/compliance personas read access alongside the legacy roles.
+# The list additionally preserves the existing read-only `demo_viewer` role.
+_require_audits_list_read = require_role_or_persona(
+    TRACE_READ_ROLES + ("demo_viewer",), TRACE_READ_PERSONAS
+)
+_require_audit_detail_read = require_role_or_persona(
+    TRACE_READ_ROLES, TRACE_READ_PERSONAS
+)
 
 
 # ── SAR-008: risk notification thresholds ────────────────────────────────────
@@ -328,7 +344,7 @@ def scan_batch(
 @router.get(
     "/audits",
     response_model=list[AuditListItemOut],
-    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
+    dependencies=[Depends(_require_audits_list_read)],
     summary="List audits for the current tenant",
 )
 def list_audits(
@@ -367,7 +383,7 @@ def list_audits(
 @router.get(
     "/audits/{audit_id}",
     response_model=AuditReportOut,
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    dependencies=[Depends(_require_audit_detail_read)],
     summary="Fetch a specific audit report",
 )
 def get_audit(

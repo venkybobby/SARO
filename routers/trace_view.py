@@ -9,7 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
-from auth import get_current_user
+from auth import (
+    get_current_user,
+    require_role_or_persona,
+    TRACE_READ_ROLES,
+    TRACE_READ_PERSONAS,
+)
 from models import Audit, AuditTrace, ScanReport
 from services.trace_service import build_trace_timeline
 from services.rfc3161_service import attach_timestamp_to_export
@@ -17,6 +22,11 @@ import os
 import io
 
 router = APIRouter(prefix="/api/v1/audit", tags=["trace"])
+
+# STORY-TRACE-003: read access to TRACE evidence for the audit/compliance
+# personas (ai_auditor / compliance_lead) plus the legacy operator roles.
+# Applied to the timeline + every signed-export variant (same evidence surface).
+_require_trace_read = require_role_or_persona(TRACE_READ_ROLES, TRACE_READ_PERSONAS)
 
 HMAC_SECRET = os.environ.get("SARO_EXPORT_SECRET", "saro-default-export-secret")
 
@@ -58,7 +68,7 @@ def _get_audit_or_404(
     return audit
 
 
-@router.get("/{audit_id}/trace")
+@router.get("/{audit_id}/trace", dependencies=[Depends(_require_trace_read)])
 async def get_trace(
     audit_id: str = Path(..., description="Audit UUID"),
     executive_mode: bool = False,
@@ -108,7 +118,7 @@ async def get_trace(
     return timeline
 
 
-@router.get("/{audit_id}/trace/export")
+@router.get("/{audit_id}/trace/export", dependencies=[Depends(_require_trace_read)])
 async def export_trace_extended(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
@@ -171,7 +181,7 @@ async def export_trace_extended(
     return export
 
 
-@router.get("/{audit_id}/export/json")
+@router.get("/{audit_id}/export/json", dependencies=[Depends(_require_trace_read)])
 async def export_trace_json(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
@@ -220,7 +230,7 @@ async def export_trace_json(
     return export
 
 
-@router.get("/{audit_id}/export/pdf")
+@router.get("/{audit_id}/export/pdf", dependencies=[Depends(_require_trace_read)])
 async def export_trace_pdf(
     audit_id: str = Path(..., description="Audit UUID"),
     db: Session = Depends(get_db),
