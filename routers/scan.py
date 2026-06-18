@@ -16,7 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_role
+from auth import get_current_user, require_role, require_role_or_persona
 from database import get_db
 from engine import SARoEngine
 from models import Audit, AuditTrace, SampleFinding, ScanReport, User
@@ -328,7 +328,17 @@ def scan_batch(
 @router.get(
     "/audits",
     response_model=list[AuditListItemOut],
-    dependencies=[Depends(require_role("super_admin", "operator", "demo_viewer"))],
+    # CHUB-002 (FND-025): the Compliance Hub landing persona (compliance_lead) and
+    # peer buyer personas must be able to read audit evidence. Access is granted by
+    # system role OR persona_role; tenant scoping below is unchanged.
+    dependencies=[
+        Depends(
+            require_role_or_persona(
+                roles=("super_admin", "operator", "demo_viewer"),
+                personas=("compliance_lead", "risk_officer", "admin"),
+            )
+        )
+    ],
     summary="List audits for the current tenant",
 )
 def list_audits(

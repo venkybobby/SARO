@@ -276,6 +276,7 @@ export default function ComplianceHub({ token, tenantId }) {
   const [error, setError] = useState(null);
   const [statuses, setStatuses] = useState([]);
   const [tierUnavailable, setTierUnavailable] = useState(false);
+  const [auditsError, setAuditsError] = useState(false);
 
   useEffect(() => {
     if (!token || !tenantId) return;
@@ -294,8 +295,13 @@ export default function ComplianceHub({ token, tenantId }) {
         setTierUnavailable(true);
       });
     api(token, `/api/v1/audits?tenant_id=${tenantId}&limit=10&sort=desc`)
-      .then((d) => setAudits(Array.isArray(d) ? d : d.items || []))
-      .catch(() => {});
+      .then((d) => {
+        setAudits(Array.isArray(d) ? d : d.items || []);
+        setAuditsError(false);
+      })
+      // CHUB-002 AC-5: surface the failure instead of swallowing it — a 403 or
+      // network error must be visibly distinct from a legitimately empty table.
+      .catch(() => setAuditsError(true));
   }, [token, tenantId]);
 
   const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
@@ -345,7 +351,11 @@ export default function ComplianceHub({ token, tenantId }) {
         {/* Recent Audits */}
         <Card style={{ flex: 2, minWidth: 300 }}>
           <h2 style={{ fontSize: 15, marginBottom: 12 }}>Recent Audits</h2>
-          {audits.length === 0 ? (
+          {auditsError ? (
+            <div style={{ color: "#dc2626", fontSize: 13 }}>
+              ⚠ Could not load audits — you may not have access, or the service is unavailable.
+            </div>
+          ) : audits.length === 0 ? (
             <div style={{ color: "#9ca3af", fontSize: 13 }}>No audits yet.</div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -357,23 +367,28 @@ export default function ComplianceHub({ token, tenantId }) {
                 </tr>
               </thead>
               <tbody>
-                {audits.slice(0, 10).map((a) => (
-                  <tr key={a.audit_id || a.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "8px 8px", fontFamily: "monospace", fontSize: 11 }}>
-                      {(a.audit_id || a.id || "").slice(0, 12)}…
-                    </td>
-                    <td style={{ padding: "8px 8px" }}>
-                      <span style={{
-                        padding: "2px 8px", borderRadius: 10, fontSize: 11,
-                        background: a.status === "completed" ? "#d1fae5" : a.status === "failed" ? "#fee2e2" : "#fef3c7",
-                        color: a.status === "completed" ? "#065f46" : a.status === "failed" ? "#991b1b" : "#92400e",
-                      }}>{a.status}</span>
-                    </td>
-                    <td style={{ padding: "8px 8px", textAlign: "right" }}>
-                      {a.risk_score != null ? <RiskBadge score={a.risk_score} /> : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {audits.slice(0, 10).map((a) => {
+                  // CHUB-003: /api/v1/audits exposes the score as `overall_risk_score`
+                  // (AuditListItemOut); `risk_score` is kept only as a defensive fallback.
+                  const score = a.overall_risk_score ?? a.risk_score;
+                  return (
+                    <tr key={a.audit_id || a.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "8px 8px", fontFamily: "monospace", fontSize: 11 }}>
+                        {(a.audit_id || a.id || "").slice(0, 12)}…
+                      </td>
+                      <td style={{ padding: "8px 8px" }}>
+                        <span style={{
+                          padding: "2px 8px", borderRadius: 10, fontSize: 11,
+                          background: a.status === "completed" ? "#d1fae5" : a.status === "failed" ? "#fee2e2" : "#fef3c7",
+                          color: a.status === "completed" ? "#065f46" : a.status === "failed" ? "#991b1b" : "#92400e",
+                        }}>{a.status}</span>
+                      </td>
+                      <td style={{ padding: "8px 8px", textAlign: "right" }}>
+                        {score != null ? <RiskBadge score={score} /> : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

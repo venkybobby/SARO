@@ -144,3 +144,61 @@ describe("STORY-CHUB-001: EVF Validation Status card — real tier data + invari
     expect(screen.queryByText(/validated/i)).not.toBeInTheDocument();
   });
 });
+
+describe("STORY-CHUB-002: Recent Audits access — visible error, not silent empty (AC-5)", () => {
+  it("AC-5: a failed audits fetch (403) shows a visible error, not the empty state", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { ok: false, status: 403, json: { detail: "forbidden" } },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText(/Could not load audits/i)).toBeInTheDocument();
+    expect(screen.queryByText("No audits yet.")).not.toBeInTheDocument();
+  });
+
+  it("a successful empty audits fetch still shows the legitimate empty state", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText("No audits yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/Could not load audits/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("STORY-CHUB-003 / FND-026: Recent Audits risk-score field mapping", () => {
+  function renderWithAudits(audits) {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: audits },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+  }
+
+  it("AC-2: overall_risk_score=0.41 renders 41 (amber), not '—'", async () => {
+    renderWithAudits([{ id: "aaaaaaaaaaaa1", status: "completed", overall_risk_score: 0.41 }]);
+    expect(await screen.findByText("41")).toBeInTheDocument();
+  });
+
+  it("AC-3: null/absent risk score renders '—', never a 0 badge", async () => {
+    renderWithAudits([{ id: "bbbbbbbbbbbb2", status: "completed", overall_risk_score: null }]);
+    const row = (await screen.findByText(/bbbbbbbbbbbb/)).closest("tr");
+    expect(within(row).getByText("—")).toBeInTheDocument();
+    expect(within(row).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("edge: genuine overall_risk_score=0 renders a '0' badge (distinct from null)", async () => {
+    renderWithAudits([{ id: "cccccccccccc3", status: "completed", overall_risk_score: 0 }]);
+    const row = (await screen.findByText(/cccccccccccc/)).closest("tr");
+    expect(within(row).getByText("0")).toBeInTheDocument();
+  });
+
+  it("AC-1: legacy a.risk_score fallback still renders when overall_risk_score absent", async () => {
+    renderWithAudits([{ id: "dddddddddddd4", status: "completed", risk_score: 0.9 }]);
+    expect(await screen.findByText("90")).toBeInTheDocument();
+  });
+});
