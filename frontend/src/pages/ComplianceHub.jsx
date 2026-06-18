@@ -3,7 +3,7 @@
  * Sections: EVF Validation Status, Recent Audits, Governance Docs, QCO Expiry Alerts, Readiness Checklist.
  */
 import React, { useEffect, useState } from "react";
-import { Skeleton } from "../components/ui/index.jsx";
+import { Button, Skeleton } from "../components/ui/index.jsx";
 
 const TIER_CONFIG = {
   tier_1: { color: "#16a34a", icon: "✅", short: "EXTERNALLY REVIEWED" },
@@ -25,6 +25,40 @@ function api(token, path) {
     if (!r.ok) throw new Error(`${r.status}`);
     return r.json();
   });
+}
+
+// CHUB-006: stream a file download from an authenticated GET. On any non-200 the
+// caller's onError is invoked with the server's message and NO file is written —
+// a 413/error must never produce an empty/corrupt download.
+export async function downloadFile({ token, path, filename, onError }) {
+  try {
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) {
+      let msg = `Export failed (${r.status})`;
+      try {
+        const j = await r.json();
+        msg = j?.detail?.message || (typeof j?.detail === "string" ? j.detail : msg);
+      } catch {
+        /* non-JSON body */
+      }
+      onError(msg);
+      return false;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    onError(null);
+    return true;
+  } catch {
+    onError("Export failed — network error");
+    return false;
+  }
 }
 
 function Card({ children, style }) {
@@ -280,7 +314,7 @@ function ComplianceCalendar({ token }) {
   );
 }
 
-export default function ComplianceHub({ token, tenantId }) {
+export default function ComplianceHub({ token, tenantId, onNavigate }) {
   const [coverage, setCoverage] = useState(null);
   const [audits, setAudits] = useState([]);
   const [checks, setChecks] = useState(CHECKLIST.map(() => false));
@@ -288,6 +322,7 @@ export default function ComplianceHub({ token, tenantId }) {
   const [statuses, setStatuses] = useState([]);
   const [tierUnavailable, setTierUnavailable] = useState(false);
   const [auditsError, setAuditsError] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     if (!token || !tenantId) return;
@@ -320,9 +355,47 @@ export default function ComplianceHub({ token, tenantId }) {
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>🏛️ Compliance Hub</h1>
-      <p style={{ color: "#6b7280", marginBottom: 24, fontSize: 14 }}>
+      <p style={{ color: "#6b7280", marginBottom: 16, fontSize: 14 }}>
         EVF validation status, recent audits, and readiness tracking for compliance leads.
       </p>
+
+      {/* CHUB-006: actions row */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            downloadFile({
+              token,
+              path: "/api/v1/compliance-matrix/export",
+              filename: "saro-compliance-matrix.csv",
+              onError: setActionError,
+            })
+          }
+        >
+          Export matrix (CSV)
+        </Button>
+        <span title={audits.length === 0 ? "No data to report yet" : undefined}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={audits.length === 0}
+            onClick={() =>
+              downloadFile({
+                token,
+                path: "/api/v1/risk/board-export",
+                filename: "saro-board-report.pdf",
+                onError: setActionError,
+              })
+            }
+          >
+            Generate board report
+          </Button>
+        </span>
+        {actionError && (
+          <span style={{ color: "#dc2626", fontSize: 12 }}>⚠ {actionError}</span>
+        )}
+      </div>
 
       {/* CHUB-005: overall matrix-coverage headline + provenance */}
       <Card style={{ marginBottom: 20 }}>
@@ -368,7 +441,15 @@ export default function ComplianceHub({ token, tenantId }) {
         {coverage?.frameworks || evfRows.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
             {evfRows.map((row) => (
-              <div key={row.key} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
+              <div
+                key={row.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => onNavigate?.("coverage_gap", { framework: row.label })}
+                onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("coverage_gap", { framework: row.label }); }}
+                style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, cursor: "pointer" }}
+                title={`View compliance matrix for ${row.label}`}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontWeight: 600, fontSize: 13 }}>{row.label}</span>
                   {row.coveragePct != null && (
@@ -414,8 +495,17 @@ export default function ComplianceHub({ token, tenantId }) {
                   // CHUB-003: /api/v1/audits exposes the score as `overall_risk_score`
                   // (AuditListItemOut); `risk_score` is kept only as a defensive fallback.
                   const score = a.overall_risk_score ?? a.risk_score;
+                  const auditId = a.audit_id || a.id;
                   return (
-                    <tr key={a.audit_id || a.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <tr
+                      key={auditId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onNavigate?.("trace_view", auditId)}
+                      onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("trace_view", auditId); }}
+                      style={{ borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}
+                      title="Open TRACE timeline for this audit"
+                    >
                       <td style={{ padding: "8px 8px", fontFamily: "monospace", fontSize: 11 }}>
                         {(a.audit_id || a.id || "").slice(0, 12)}…
                       </td>

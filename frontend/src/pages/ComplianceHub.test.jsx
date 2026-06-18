@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import ComplianceHub, { canonicalFramework, buildEvfRows, mostRecentLastUpdated } from "./ComplianceHub";
 
 // The EVF card and the Compliance Calendar both render framework labels, so
@@ -14,11 +15,21 @@ function routeFetch(routes) {
     for (const [frag, resp] of Object.entries(routes)) {
       if (url.includes(frag)) {
         const { ok = true, status = 200, json = [] } = resp;
-        return Promise.resolve({ ok, status, json: () => Promise.resolve(json) });
+        return Promise.resolve({
+          ok,
+          status,
+          json: () => Promise.resolve(json),
+          blob: () => Promise.resolve({ size: 1, type: "application/octet-stream" }),
+        });
       }
     }
     // default: empty OK
-    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve([]),
+      blob: () => Promise.resolve({ size: 0 }),
+    });
   });
 }
 
@@ -259,5 +270,79 @@ describe("STORY-CHUB-005: overall coverage headline + provenance", () => {
     render(<ComplianceHub token="t" tenantId="ten-1" />);
     expect((await screen.findAllByText(/Coverage data unavailable/)).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("STORY-CHUB-006: actions + drill-throughs", () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:mock");
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  function setup(extraRoutes = {}, onNavigate) {
+    const fetchMock = routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [{ id: "audit-xyz-123", status: "completed", overall_risk_score: 0.5 }] },
+      ...extraRoutes,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComplianceHub token="t" tenantId="ten-1" onNavigate={onNavigate} />);
+    return fetchMock;
+  }
+
+  it("AC-1: Export matrix (CSV) issues GET /compliance-matrix/export", async () => {
+    const user = userEvent.setup();
+    const fetchMock = setup();
+    await screen.findByText("59.2%");
+    await user.click(screen.getByRole("button", { name: /Export matrix \(CSV\)/ }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/v1/compliance-matrix/export"), expect.anything())
+    );
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it("AC-2: Generate board report issues GET /risk/board-export", async () => {
+    const user = userEvent.setup();
+    const fetchMock = setup();
+    await screen.findByText(/audit-xyz-12/);
+    await user.click(screen.getByRole("button", { name: /Generate board report/ }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/v1/risk/board-export"), expect.anything())
+    );
+  });
+
+  it("AC-5 / 413: export failure shows inline error and downloads nothing", async () => {
+    const user = userEvent.setup();
+    setup({
+      "/compliance-matrix/export": { ok: false, status: 413, json: { detail: { message: "Export exceeds the 50,000 row limit. Apply filters to reduce the dataset." } } },
+    });
+    await screen.findByText("59.2%");
+    await user.click(screen.getByRole("button", { name: /Export matrix \(CSV\)/ }));
+    expect(await screen.findByText(/Apply filters to reduce the dataset/)).toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("AC-3: clicking a framework card navigates to the matrix filtered by framework", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    setup({}, onNavigate);
+    await screen.findByText("59.2%");
+    await user.click(within(evfCard()).getByText("EU AI Act"));
+    expect(onNavigate).toHaveBeenCalledWith("coverage_gap", { framework: "EU AI Act" });
+  });
+
+  it("AC-4: clicking an audit row navigates to its TRACE view by audit id", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    setup({}, onNavigate);
+    await user.click(await screen.findByText(/audit-xyz-12/));
+    expect(onNavigate).toHaveBeenCalledWith("trace_view", "audit-xyz-123");
+  });
+
+  it("edge: board report is disabled when there are no audits (No data)", async () => {
+    setup({ "/api/v1/audits": { json: [] } });
+    await screen.findByText("59.2%");
+    expect(screen.getByRole("button", { name: /Generate board report/ })).toBeDisabled();
   });
 });
