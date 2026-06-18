@@ -115,3 +115,37 @@ describe("TraceView TRACE-004 honest integrity banner", () => {
     expect(screen.queryByText(/Integrity not verified/i)).not.toBeInTheDocument();
   });
 });
+
+describe("TraceView TRACE-005 ADR-004 methodology gate", () => {
+  it("shows a How SARO Reasons affordance that navigates to the doc", async () => {
+    const onNavigate = vi.fn();
+    render(<TraceView token="t" onNavigate={onNavigate} />);
+    const link = screen.getByText(/How SARO Reasons/i);
+    link.click();
+    expect(onNavigate).toHaveBeenCalledWith("how_saro_reasons");
+  });
+
+  it("gates technical mode for a demo session when the doc is not ready (default-deny)", async () => {
+    const demoUser = { role: "demo_viewer", read_only: true };
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={demoUser} methodologyReady={false} />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.getByText(/transparency document is published/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Technical" })).toBeDisabled();
+  });
+
+  it("does NOT gate when the doc is ready", async () => {
+    const demoUser = { role: "demo_viewer", read_only: true };
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={demoUser} methodologyReady={true} />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.queryByText(/transparency document is published/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Technical" })).not.toBeDisabled();
+  });
+
+  it("does NOT gate an internal (non-demo) session even when the doc is not ready", async () => {
+    const internalUser = { role: "operator", persona_role: "ai_auditor" };
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={internalUser} methodologyReady={false} />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.queryByText(/transparency document is published/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Technical" })).not.toBeDisabled();
+  });
+});

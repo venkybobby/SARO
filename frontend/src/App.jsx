@@ -12,6 +12,7 @@ import Sidebar  from "./components/Sidebar";
 import { ToastContainer, ConfirmDialog } from "./components/ui/index.jsx";
 import { useToast } from "./hooks/useToast.js";
 import { useDirtyNavGuard } from "./hooks/useDirtyNavGuard.js";
+import { TRACE_METHODOLOGY_READY } from "./config/traceGate";
 
 // Lazy-load pages
 const Dashboard     = lazy(() => import("./pages/Dashboard"));
@@ -286,6 +287,7 @@ function AppShell({ token, user, onSignOut, onUserUpdate, toast }) {
             onRegisterDirtyGuard={registerDirtyGuard}
             onSave={() => toast.success("Settings saved")}
             initialAuditId={activePage === "trace_view" ? navPayload : undefined}
+            methodologyReady={TRACE_METHODOLOGY_READY}
             initialRiskId={activePage === "ai_insights" ? navPayload : undefined}
             riskId={
               activePage === "risk_detail"

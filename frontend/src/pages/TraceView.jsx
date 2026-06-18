@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { TRACE_METHODOLOGY_READY } from "../config/traceGate";
 
 const STEPS = [
   { key: "ingest",    label: "1. Ingest" },
@@ -64,7 +65,16 @@ function RiskChip({ score }) {
   );
 }
 
-export default function TraceView({ token, initialAuditId }) {
+export default function TraceView({ token, initialAuditId, user, onNavigate, methodologyReady = TRACE_METHODOLOGY_READY }) {
+  // STORY-TRACE-005 (ADR-004 TRACE View Gate): in an enterprise/demo presentation
+  // context, full TRACE reasoning (technical mode) is gated until the "How SARO
+  // Reasons" transparency document is published. Demo sessions (S-205 demo tokens:
+  // role=demo_viewer / read_only) are the enterprise/demo context; internal staff
+  // sessions are not gated. Default-deny: methodologyReady defaults to the config
+  // flag, which is false when unset.
+  const demoContext = user?.role === "demo_viewer" || !!user?.read_only;
+  const methodologyGated = demoContext && !methodologyReady;
+
   const [auditId, setAuditId]   = useState(initialAuditId || "");
   const [trace, setTrace]       = useState(null);
   const [auditMeta, setAuditMeta] = useState(null); // rule_pack_hash + created_at from audit report
@@ -126,10 +136,33 @@ export default function TraceView({ token, initialAuditId }) {
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>TRACE View</h1>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 22, marginBottom: 4 }}>TRACE View</h1>
+        {/* STORY-TRACE-005 / ADR-004: methodology transparency affordance, always visible */}
+        <button
+          type="button"
+          onClick={() => onNavigate?.("how_saro_reasons")}
+          style={{ background: "none", border: "none", padding: 0, color: "#0d9488", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}
+        >
+          How SARO Reasons ↗
+        </button>
+      </div>
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
         Select a recent trace or enter an Audit ID to view its 6-step TRACE pipeline timeline.
       </p>
+
+      {/* STORY-TRACE-005: ADR-004 gate notice for enterprise/demo sessions when the
+          transparency document is not yet published. */}
+      {methodologyGated && (
+        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", color: "#92400e", fontSize: 13, marginBottom: 20 }}>
+          ⓘ Full TRACE reasoning (technical mode) is unavailable in this demo until the
+          {" "}
+          <button type="button" onClick={() => onNavigate?.("how_saro_reasons")} style={{ background: "none", border: "none", padding: 0, color: "#92400e", cursor: "pointer", textDecoration: "underline", font: "inherit" }}>
+            “How SARO Reasons”
+          </button>
+          {" "}transparency document is published (ADR-004 TRACE View Gate).
+        </div>
+      )}
 
       {/* Recent traces */}
       {(recentLoading || recent.length > 0) && (
@@ -220,20 +253,28 @@ export default function TraceView({ token, initialAuditId }) {
                 </span>
               )}
               <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                {["summary", "technical"].map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    style={{
-                      padding: "4px 12px", borderRadius: 20, fontSize: 12,
-                      background: mode === m ? "#0d9488" : "#f3f4f6",
-                      color: mode === m ? "#fff" : "#374151",
-                      border: "none", cursor: "pointer",
-                    }}
-                  >
-                    {m.charAt(0).toUpperCase() + m.slice(1)}
-                  </button>
-                ))}
+                {["summary", "technical"].map((m) => {
+                  // STORY-TRACE-005: technical mode is gated in enterprise/demo
+                  // sessions until the transparency doc is published.
+                  const disabled = m === "technical" && methodologyGated;
+                  return (
+                    <button
+                      key={m}
+                      disabled={disabled}
+                      title={disabled ? "Gated until the “How SARO Reasons” doc is published (ADR-004)" : undefined}
+                      onClick={() => !disabled && setMode(m)}
+                      style={{
+                        padding: "4px 12px", borderRadius: 20, fontSize: 12,
+                        background: mode === m ? "#0d9488" : "#f3f4f6",
+                        color: mode === m ? "#fff" : "#374151",
+                        border: "none", cursor: disabled ? "not-allowed" : "pointer",
+                        opacity: disabled ? 0.5 : 1,
+                      }}
+                    >
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -290,7 +331,7 @@ export default function TraceView({ token, initialAuditId }) {
                     ? <p style={{ fontSize: 13, color: "#374151", margin: 0 }}>{summaryText}</p>
                     : <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, fontStyle: "italic" }}>No detail for this step.</p>
                 )}
-                {mode === "technical" && (
+                {mode === "technical" && !methodologyGated && (
                   <pre style={{ fontSize: 11, background: "#f8fafc", padding: 10, borderRadius: 6, overflow: "auto", margin: 0 }}>
                     {JSON.stringify(stepData, null, 2)}
                   </pre>
