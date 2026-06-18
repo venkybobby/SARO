@@ -23,6 +23,11 @@ import os
 # The suite must pass with no external secrets configured (e.g. the Stop-hook runner).
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-conftest-local-only-0123456789abcdef")
 os.environ.setdefault("SARO_ENV", "test")
+# FND-034: signed evidence exports fail closed when their HMAC secret is unset
+# (no guessable default). Supply a deterministic test secret here, exactly as we
+# do for JWT_SECRET_KEY, so export endpoints stay exercisable without real secrets.
+os.environ.setdefault("SARO_EXPORT_SECRET", "test-export-secret-conftest-local-only-0123456789abcdef")
+os.environ.setdefault("EXPORT_HMAC_SECRET", "test-export-secret-conftest-local-only-0123456789abcdef")
 
 import sqlalchemy.types as sa_types
 from sqlalchemy.dialects.postgresql import JSON as PG_JSON

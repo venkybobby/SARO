@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any
@@ -21,6 +20,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
+from config import settings, require_export_secret
 from database import get_db
 from models import Audit, AuditTrace, EnhancedTrace, ScanReport, User
 from schemas import (
@@ -33,7 +33,9 @@ from schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/trace", tags=["trace-export"])
 
-_HMAC_SECRET = os.environ.get("EXPORT_HMAC_SECRET", "saro-default-hmac-secret-change-in-prod")
+def _hmac_secret() -> str:
+    """HMAC key for signed exports — fails closed if unset (FND-034)."""
+    return require_export_secret(settings.export_hmac_secret, env_var="EXPORT_HMAC_SECRET")
 
 # PT-008: shown verbatim for reports generated before engine/rule-pack provenance was recorded.
 _PROVENANCE_UNAVAILABLE = "PROVENANCE UNAVAILABLE (pre-v8.0.0)"
@@ -111,7 +113,7 @@ def _sign_report(report_json: dict[str, Any]) -> str:
     """Compute HMAC-SHA256 over canonical JSON of report."""
     canonical = json.dumps(report_json, sort_keys=True, default=str)
     return hmac.new(
-        _HMAC_SECRET.encode(),
+        _hmac_secret().encode(),
         canonical.encode(),
         hashlib.sha256,
     ).hexdigest()

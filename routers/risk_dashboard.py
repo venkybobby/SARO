@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
+from config import settings, require_export_secret
 from database import get_db
 from models import Audit, AuditTrace, ScanReport, Tenant
 from services.risk_service import (
@@ -21,7 +22,6 @@ from services.risk_service import (
 
 router = APIRouter(prefix="/api/v1", tags=["risk-dashboard"])
 
-_HMAC_SECRET = os.environ.get("SARO_EXPORT_SECRET", "saro-default-export-secret")
 _BOARD_RED_THRESHOLD = float(os.environ.get("BOARD_RISK_RED_THRESHOLD", "0.7"))
 _BOARD_AMBER_THRESHOLD = float(os.environ.get("BOARD_RISK_AMBER_THRESHOLD", "0.4"))
 
@@ -258,7 +258,11 @@ def export_board_pdf(
             {"tenant_id": str(current_user.tenant_id), "generated_at": summary["generated_at"]},
             sort_keys=True,
         )
-        sig = hmac.new(_HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(
+            require_export_secret(settings.saro_export_secret, env_var="SARO_EXPORT_SECRET").encode(),
+            canonical.encode(),
+            hashlib.sha256,
+        ).hexdigest()
         story.append(Paragraph(f"Verification hash: {sig[:24]}…", styles["Normal"]))
 
         # Required compliance disclaimer on every exported report (FND-018).

@@ -155,6 +155,8 @@ findings:
   - id: FND-033
     title: "TRACE export endpoints read nonexistent report.risk_score/confidence — null JSON scores + PDF 500 (STORY-TRACE-006 reviewer MAJOR)"
     test: tests/regression/test_fnd_033_trace_export_report_fields.py
+    status: pinned
+    quarantine_expires: null
   - id: FND-025
     title: "GET /api/v1/audits excluded the compliance_lead persona (its own Compliance Hub landing page)"
     test: tests/regression/test_fnd_025_audits_compliance_lead_access.py
@@ -163,5 +165,10 @@ findings:
   - id: FND-026
     title: "Compliance Hub Recent Audits risk-score column always rendered '—' (read a.risk_score not overall_risk_score)"
     test: frontend/src/pages/ComplianceHub.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-034
+    title: "Signed evidence exports fell back to a guessable hardcoded HMAC secret when SARO_EXPORT_SECRET/EXPORT_HMAC_SECRET unset — forgeable _signature/export_hash (STORY-TRACE-002/003 security-auditor)"
+    test: tests/regression/test_fnd_034_export_secret_no_weak_default.py
     status: pinned
     quarantine_expires: null

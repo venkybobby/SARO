@@ -42,5 +42,33 @@ class Settings(BaseSettings):
     # ── Notifications ────────────────────────────────────────────────────────
     sendgrid_api_key: str | None = None
 
+    # ── Signed evidence exports (FND-034) ─────────────────────────────────────
+    # HMAC key for signed TRACE / risk evidence exports. No default on purpose:
+    # signing must fail closed when the secret is unset (see require_export_secret)
+    # rather than fall back to a guessable hardcoded literal — a publicly known
+    # default would let anyone forge a valid ``_signature`` / ``export_hash``.
+    saro_export_secret: str | None = None   # env SARO_EXPORT_SECRET (trace_view, risk_dashboard)
+    export_hmac_secret: str | None = None   # env EXPORT_HMAC_SECRET (trace_export)
+
 
 settings = Settings()
+
+
+def require_export_secret(value: str | None, *, env_var: str) -> str:
+    """Return the HMAC signing secret for evidence exports, or fail closed.
+
+    FND-034: signed TRACE / risk evidence exports must never be signed with a
+    hardcoded fallback secret. A publicly known default key lets anyone forge a
+    valid ``_signature`` / ``export_hash`` on an evidence export. When the
+    configured secret is unset we refuse to sign — mirroring ``auth._secret_key``
+    for ``JWT_SECRET_KEY`` (FND-003) — instead of silently using a guessable
+    literal. Called lazily at request time so import never crashes before the
+    secret is injected (Fly.io / Supabase cold start).
+    """
+    if value:
+        return value
+    raise RuntimeError(
+        f"{env_var} is not set. Signed evidence exports require a secret HMAC key; "
+        f"SARO refuses to sign with a default. Set {env_var} as a Fly.io secret "
+        f"or in your .env file."
+    )

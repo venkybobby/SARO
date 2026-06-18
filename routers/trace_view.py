@@ -18,7 +18,7 @@ from auth import (
 from models import Audit, AuditTrace, ScanReport
 from services.trace_service import build_trace_timeline
 from services.rfc3161_service import attach_timestamp_to_export
-import os
+from config import settings, require_export_secret
 import io
 
 router = APIRouter(prefix="/api/v1/audit", tags=["trace"])
@@ -28,7 +28,10 @@ router = APIRouter(prefix="/api/v1/audit", tags=["trace"])
 # Applied to the timeline + every signed-export variant (same evidence surface).
 _require_trace_read = require_role_or_persona(TRACE_READ_ROLES, TRACE_READ_PERSONAS)
 
-HMAC_SECRET = os.environ.get("SARO_EXPORT_SECRET", "saro-default-export-secret")
+
+def _export_secret() -> str:
+    """HMAC key for signed exports — fails closed if unset (FND-034)."""
+    return require_export_secret(settings.saro_export_secret, env_var="SARO_EXPORT_SECRET")
 
 
 def _parse_audit_uuid(raw: str) -> uuid.UUID:
@@ -234,7 +237,7 @@ async def export_trace_extended(
     }
 
     canonical = json.dumps(export, sort_keys=True)
-    sig = hmac.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+    sig = hmac.new(_export_secret().encode(), canonical.encode(), hashlib.sha256).hexdigest()
     export["_signature"] = sig
     export = attach_timestamp_to_export(export)
     return export
@@ -284,7 +287,7 @@ async def export_trace_json(
     }
 
     canonical = json.dumps(export, sort_keys=True)
-    sig = hmac.new(HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+    sig = hmac.new(_export_secret().encode(), canonical.encode(), hashlib.sha256).hexdigest()
     export["_signature"] = sig
     export = attach_timestamp_to_export(export)
 
@@ -346,7 +349,7 @@ async def export_trace_pdf(
 
         canonical = json.dumps({"audit_id": str(audit_uuid)}, sort_keys=True)
         sig = hmac.new(
-            HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256
+            _export_secret().encode(), canonical.encode(), hashlib.sha256
         ).hexdigest()
         story.append(Paragraph("Verification", styles["Heading1"]))
         story.append(Paragraph(f"HMAC-SHA256: {sig[:16]}...", styles["Normal"]))
