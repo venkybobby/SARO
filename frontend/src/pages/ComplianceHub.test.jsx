@@ -464,3 +464,70 @@ describe("STORY-CHUB-007: design-system refactor", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("STORY-CHUB-008: loading skeletons + visible error states", () => {
+  it("AC-1: each section shows a Skeleton while its data is loading", () => {
+    // fetch never resolves → every section stays in the loading state
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(screen.getByTestId("coverage-headline-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("evf-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("audits-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("readiness-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("calendar-loading")).toBeInTheDocument();
+  });
+
+  it("AC-2/AC-4: a rejected audits fetch shows a section error with a retry that re-fetches only that section", async () => {
+    const user = userEvent.setup();
+    let auditsCalls = 0;
+    let coverageCalls = 0;
+    const fetchMock = vi.fn((url, opts) => {
+      if (url.includes("/api/v1/audits")) {
+        auditsCalls += 1;
+        if (auditsCalls === 1) return Promise.reject(new Error("boom"));
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+      }
+      if (url.includes("/compliance-matrix/coverage")) {
+        coverageCalls += 1;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(COVERAGE_3FW) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+
+    expect(await screen.findByText(/Could not load audits/)).toBeInTheDocument();
+    const coverageCallsBeforeRetry = coverageCalls;
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    // audits re-fetched; coverage NOT re-fetched by the audits retry
+    await waitFor(() => expect(auditsCalls).toBe(2));
+    expect(coverageCalls).toBe(coverageCallsBeforeRetry);
+    expect(await screen.findByText("No audits yet.")).toBeInTheDocument();
+  });
+
+  it("AC-3: a successful empty fetch shows the empty state, distinct from the error state", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+      "/api/v1/compliance/readiness": { json: { items: [], completed: 0, total: 0 } },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText("No audits yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/Could not load audits/)).not.toBeInTheDocument();
+  });
+
+  it("edge: partial failure isolates — audits 403 errors while EVF still renders", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { ok: false, status: 403, json: { detail: "forbidden" } },
+      "/api/v1/compliance/readiness": { json: { items: [], completed: 0, total: 0 } },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText(/Could not load audits/)).toBeInTheDocument();
+    // EVF card still renders its frameworks normally
+    expect(within(evfCard()).getByText("EU AI Act")).toBeInTheDocument();
+  });
+});

@@ -72,6 +72,18 @@ function Card({ children, style }) {
   );
 }
 
+// CHUB-008: section-scoped, non-silent error with a retry affordance.
+function SectionError({ message, onRetry }) {
+  return (
+    <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)", display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+      <span>⚠ {message}</span>
+      {onRetry && (
+        <Button variant="ghost" size="sm" onClick={onRetry}>Retry</Button>
+      )}
+    </div>
+  );
+}
+
 function TierBadge({ tier, label, qcoRef, warning }) {
   const cfg = TIER_CONFIG[tier] || _TIER_FALLBACK;
   return (
@@ -222,20 +234,31 @@ const FW_LABELS = {
 function ComplianceCalendar({ token }) {
   const [statuses, setStatuses] = useState([]);
   const [expiries, setExpiries] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [status, setStatus] = useState("loading"); // loading|ok|error
+
+  function load() {
+    setStatus("loading");
+    const h = { Authorization: `Bearer ${token}` };
+    // Primary source must surface its failure (CHUB-008); expiry alerts degrade.
+    const reqVs = fetch("/api/v1/evf/validation-status", { headers: h }).then((r) => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    });
+    const reqEx = fetch("/api/v1/evf/qco/expiry-alerts?limit=20", { headers: h })
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => []);
+    reqVs
+      .then((st) => reqEx.then((ex) => {
+        setStatuses(Array.isArray(st) ? st : []);
+        setExpiries(Array.isArray(ex) ? ex : []);
+        setStatus("ok");
+      }))
+      .catch(() => setStatus("error"));
+  }
 
   useEffect(() => {
-    if (!token) return;
-    const h = { Authorization: `Bearer ${token}` };
-    const safe = (url) => fetch(url, { headers: h }).then((r) => r.ok ? r.json() : []).catch(() => []);
-    Promise.all([
-      safe("/api/v1/evf/validation-status"),
-      safe("/api/v1/evf/qco/expiry-alerts?limit=20"),
-    ]).then(([st, ex]) => {
-      setStatuses(Array.isArray(st) ? st : []);
-      setExpiries(Array.isArray(ex) ? ex : []);
-      setLoading(false);
-    });
+    if (token) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   function daysUntil(isoStr) {
@@ -244,7 +267,8 @@ function ComplianceCalendar({ token }) {
     return d;
   }
 
-  if (loading) return <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>Loading calendar…</div>;
+  if (status === "error") return <SectionError message="Could not load the compliance calendar." onRetry={load} />;
+  if (status === "loading") return <div data-testid="calendar-loading"><Skeleton height={140} /></div>;
 
   const th = { textAlign: "left", padding: "8px 10px", color: "var(--color-text-secondary)", fontWeight: "var(--weight-semibold)" };
 
@@ -326,47 +350,57 @@ function ComplianceCalendar({ token }) {
 }
 
 export default function ComplianceHub({ token, tenantId, onNavigate }) {
+  // CHUB-008: each section tracks its own status so loading / error / empty /
+  // success are mutually exclusive and individually retryable.
   const [coverage, setCoverage] = useState(null);
+  const [coverageStatus, setCoverageStatus] = useState("loading"); // loading|ok|error
   const [audits, setAudits] = useState([]);
+  const [auditsStatus, setAuditsStatus] = useState("loading");
   const [readiness, setReadiness] = useState(null);
-  const [readinessError, setReadinessError] = useState(false);
-  const [error, setError] = useState(null);
+  const [readinessStatus, setReadinessStatus] = useState("loading");
   const [statuses, setStatuses] = useState([]);
   const [tierUnavailable, setTierUnavailable] = useState(false);
-  const [auditsError, setAuditsError] = useState(false);
+  const [error, setError] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  useEffect(() => {
-    if (!token || !tenantId) return;
+  function loadCoverage() {
+    setCoverageStatus("loading");
     api(token, `/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=30d`)
-      .then(setCoverage)
-      .catch(() => setError("Coverage data unavailable"));
+      .then((d) => { setCoverage(d); setError(null); setCoverageStatus("ok"); })
+      .catch(() => { setError("Coverage data unavailable"); setCoverageStatus("error"); });
+  }
+
+  function loadStatuses() {
     // Tier data is sourced from /evf/validation-status, not /coverage. A failure
     // here degrades every framework to Tier 3 — it never blanks the coverage card.
     api(token, `/api/v1/evf/validation-status`)
-      .then((d) => {
-        setStatuses(Array.isArray(d) ? d : []);
-        setTierUnavailable(false);
-      })
-      .catch(() => {
-        setStatuses([]);
-        setTierUnavailable(true);
-      });
+      .then((d) => { setStatuses(Array.isArray(d) ? d : []); setTierUnavailable(false); })
+      .catch(() => { setStatuses([]); setTierUnavailable(true); });
+  }
+
+  function loadAudits() {
+    setAuditsStatus("loading");
     api(token, `/api/v1/audits?tenant_id=${tenantId}&limit=10&sort=desc`)
-      .then((d) => {
-        setAudits(Array.isArray(d) ? d : d.items || []);
-        setAuditsError(false);
-      })
-      // CHUB-002 AC-5: surface the failure instead of swallowing it — a 403 or
-      // network error must be visibly distinct from a legitimately empty table.
-      .catch(() => setAuditsError(true));
+      .then((d) => { setAudits(Array.isArray(d) ? d : d.items || []); setAuditsStatus("ok"); })
+      // CHUB-002 AC-5: surface the failure instead of swallowing it.
+      .catch(() => setAuditsStatus("error"));
+  }
+
+  function loadReadiness() {
+    setReadinessStatus("loading");
     // CHUB-004: readiness checklist is persisted per tenant, not in-memory.
     api(token, `/api/v1/compliance/readiness`)
-      .then((d) => {
-        setReadiness(d);
-        setReadinessError(false);
-      })
-      .catch(() => setReadinessError(true));
+      .then((d) => { setReadiness(d); setReadinessStatus("ok"); })
+      .catch(() => setReadinessStatus("error"));
+  }
+
+  useEffect(() => {
+    if (!token || !tenantId) return;
+    loadCoverage();
+    loadStatuses();
+    loadAudits();
+    loadReadiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, tenantId]);
 
   const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
@@ -395,9 +429,9 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
               }
             : prev
         );
-        setReadinessError(false);
+        setReadinessStatus("ok");
       })
-      .catch(() => setReadinessError(true));
+      .catch(() => setReadinessStatus("error"));
   }
 
   const actions = (
@@ -451,12 +485,12 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
 
         {/* CHUB-005: overall matrix-coverage headline + provenance */}
         <Card style={{ marginBottom: "var(--space-5)" }}>
-          {error ? (
+          {coverageStatus === "error" ? (
             <div>
               <div style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", color: "var(--color-text-primary)" }}>—</div>
-              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>⚠ {error}</div>
+              <SectionError message={error || "Coverage data unavailable"} onRetry={loadCoverage} />
             </div>
-          ) : coverage == null ? (
+          ) : coverageStatus === "loading" ? (
             <div data-testid="coverage-headline-loading">
               <Skeleton width={220} height={34} />
               <div style={{ marginTop: 8 }}><Skeleton width={320} height={14} /></div>
@@ -484,13 +518,18 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
         {/* EVF Validation Status */}
         <Card style={{ marginBottom: "var(--space-5)" }}>
           <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>EVF Validation Status</h2>
-          {error && <div style={{ color: "var(--color-critical)", marginBottom: "var(--space-3)", fontSize: "var(--text-sm)" }}>⚠ {error}</div>}
-          {tierUnavailable && (
+          {tierUnavailable && coverageStatus === "ok" && (
             <div style={{ color: "var(--color-medium)", marginBottom: "var(--space-3)", fontSize: "var(--text-xs)" }}>
               ⚠ Validation status unavailable — treated as internal only.
             </div>
           )}
-          {coverage?.frameworks || evfRows.length > 0 ? (
+          {coverageStatus === "error" ? (
+            <SectionError message={error || "Coverage data unavailable"} onRetry={loadCoverage} />
+          ) : coverageStatus === "loading" ? (
+            <div data-testid="evf-loading" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
+              <Skeleton height={84} /><Skeleton height={84} /><Skeleton height={84} />
+            </div>
+          ) : coverage?.frameworks || evfRows.length > 0 ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-3)" }}>
               {evfRows.map((row) => (
                 <div
@@ -519,7 +558,7 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
               ))}
             </div>
           ) : (
-            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>Loading EVF validation data…</div>
+            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No framework coverage data yet.</div>
           )}
         </Card>
 
@@ -527,10 +566,13 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
           {/* Recent Audits */}
           <Card style={{ flex: 2, minWidth: 300 }}>
             <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Recent Audits</h2>
-            {auditsError ? (
-              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>
-                ⚠ Could not load audits — you may not have access, or the service is unavailable.
-              </div>
+            {auditsStatus === "error" ? (
+              <SectionError
+                message="Could not load audits — you may not have access, or the service is unavailable."
+                onRetry={loadAudits}
+              />
+            ) : auditsStatus === "loading" ? (
+              <div data-testid="audits-loading"><Skeleton height={28} /><div style={{ marginTop: 8 }}><Skeleton height={28} /></div></div>
             ) : audits.length === 0 ? (
               <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No audits yet.</div>
             ) : (
@@ -586,9 +628,9 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
           {/* Readiness Checklist */}
           <Card style={{ flex: 1, minWidth: 240 }}>
             <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>Readiness Checklist</h2>
-            {readinessError ? (
-              <div style={{ color: "var(--color-critical)", fontSize: "var(--text-sm)" }}>⚠ Could not load readiness checklist.</div>
-            ) : !readiness || !Array.isArray(readiness.items) ? (
+            {readinessStatus === "error" ? (
+              <SectionError message="Could not load readiness checklist." onRetry={loadReadiness} />
+            ) : readinessStatus === "loading" || !readiness || !Array.isArray(readiness.items) ? (
               <div data-testid="readiness-loading"><Skeleton height={120} /></div>
             ) : (
               <div style={{ fontSize: "var(--text-sm)" }}>

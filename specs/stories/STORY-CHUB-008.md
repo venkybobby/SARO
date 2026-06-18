@@ -30,7 +30,7 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
-AC-1	—	—
-AC-2	—	—
-AC-3	—	—
-AC-4	—	—
+AC-1	ComplianceHub.test.jsx "AC-1: each section shows a Skeleton while loading"	frontend/src/pages/ComplianceHub.jsx (per-section *Status + Skeleton)
+AC-2	ComplianceHub.test.jsx "AC-2/AC-4: rejected audits fetch shows a section error with retry"	frontend/src/pages/ComplianceHub.jsx (SectionError + loadAudits/loadCoverage/loadReadiness + ComplianceCalendar)
+AC-3	ComplianceHub.test.jsx "AC-3: successful empty fetch shows the empty state, distinct from error"	frontend/src/pages/ComplianceHub.jsx
+AC-4	ComplianceHub.test.jsx "AC-2/AC-4: ...retry re-fetches only that section" + "edge: partial failure isolates"	frontend/src/pages/ComplianceHub.jsx (per-section loaders)
