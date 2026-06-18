@@ -142,3 +142,8 @@ findings:
     test: tests/regression/test_fnd_030_trace_integrity_verdict.py
     status: pinned
     quarantine_expires: null
+  - id: FND-031
+    title: "TRACE View Recent Traces read a.risk_score but the audits list returns overall_risk_score — chips always blank (STORY-TRACE-007)"
+    test: frontend/src/pages/TraceView.test.jsx
+    status: pinned
+    quarantine_expires: null

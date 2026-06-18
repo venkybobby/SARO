@@ -23,7 +23,7 @@ const TIMELINE = {
 };
 const AUDIT = { audit_id: "audit-123456789", rule_pack_hash: "abc123def456", created_at: "2026-01-01T00:00:00Z" };
 
-function stubFetch(timeline = TIMELINE, audit = AUDIT, traceOk = true) {
+function stubFetch(timeline = TIMELINE, audit = AUDIT, traceOk = true, recent = { ok: true, items: [] }) {
   vi.stubGlobal("fetch", vi.fn((url) => {
     if (url === "/api/v1/audit/audit-123456789/trace") {
       return Promise.resolve({ ok: traceOk, status: traceOk ? 200 : 404, json: () => Promise.resolve(timeline) });
@@ -31,7 +31,8 @@ function stubFetch(timeline = TIMELINE, audit = AUDIT, traceOk = true) {
     if (url === "/api/v1/audits/audit-123456789") {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(audit) });
     }
-    return Promise.resolve({ ok: true, json: () => Promise.resolve([]) }); // recent list
+    // recent list: /api/v1/audits?limit=10&sort=desc
+    return Promise.resolve({ ok: recent.ok, status: recent.ok ? 200 : 403, json: () => Promise.resolve(recent.items || []) });
   }));
 }
 
@@ -115,6 +116,44 @@ describe("TraceView TRACE-008 provenance triple", () => {
     await waitFor(() => expect(screen.getByText(/^Provenance$/i)).toBeInTheDocument());
     // all three fields fall back to the explicit placeholder
     expect(screen.getAllByText("unavailable").length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("TraceView TRACE-007 Recent Traces (overall_risk_score field)", () => {
+  it("reads overall_risk_score (0–1, scaled once) with the right threshold color", async () => {
+    stubFetch(TIMELINE, AUDIT, true, { ok: true, items: [{ audit_id: "rrrr1111aaaa", overall_risk_score: 0.55 }] });
+    render(<TraceView token="t" />);
+    await waitFor(() => expect(screen.getByText("55")).toBeInTheDocument());
+    expect(screen.getByText("55")).toHaveStyle({ color: "rgb(202, 138, 4)" }); // amber (>=40)
+  });
+
+  it("falls back to legacy risk_score and omits the number when score is null", async () => {
+    stubFetch(TIMELINE, AUDIT, true, { ok: true, items: [
+      { audit_id: "legacy0000aa", risk_score: 0.82 },     // legacy fallback -> 82
+      { audit_id: "noscore0000a" },                         // no score -> no number, no NaN
+    ] });
+    render(<TraceView token="t" />);
+    await waitFor(() => expect(screen.getByText("82")).toBeInTheDocument());
+    expect(screen.queryByText("NaN")).not.toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("shows a distinct empty state vs an access failure", async () => {
+    stubFetch(TIMELINE, AUDIT, true, { ok: true, items: [] });
+    const { unmount } = render(<TraceView token="t" />);
+    await waitFor(() => expect(screen.getByText(/No recent traces for this tenant/i)).toBeInTheDocument());
+    unmount();
+
+    stubFetch(TIMELINE, AUDIT, true, { ok: false, items: [] });
+    render(<TraceView token="t" />);
+    await waitFor(() => expect(screen.getByText(/Recent traces are unavailable/i)).toBeInTheDocument());
+  });
+
+  it("a recent-list failure leaves the rest of the page functional", async () => {
+    stubFetch(TIMELINE, AUDIT, true, { ok: false, items: [] });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    // the main trace still loads despite the recent-list failure
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
   });
 });
 

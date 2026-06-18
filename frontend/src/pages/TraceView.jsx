@@ -124,17 +124,25 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
   const [mode, setMode]         = useState("summary");
   const [recent, setRecent]     = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
+  const [recentError, setRecentError] = useState(false);
 
   useEffect(() => {
     async function loadRecent() {
       setRecentLoading(true);
+      setRecentError(false);
       try {
         const r = await fetch("/api/v1/audits?limit=10&sort=desc", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (r.ok) setRecent(await r.json());
+        if (r.ok) {
+          setRecent(await r.json());
+        } else {
+          // STORY-TRACE-007: keep an access/transient failure distinct from a
+          // legitimately empty tenant (which is a valid "no recent traces" state).
+          setRecentError(true);
+        }
       } catch {
-        // non-fatal — recent list is a convenience feature
+        setRecentError(true); // non-fatal — recent list is a convenience feature
       } finally {
         setRecentLoading(false);
       }
@@ -206,39 +214,47 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       )}
 
       {/* Recent traces */}
-      {(recentLoading || recent.length > 0) && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Recent Traces</div>
-          {recentLoading ? (
-            <div style={{ fontSize: 13, color: "#9ca3af" }}>Loading recent traces…</div>
-          ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {recent.map((a) => {
-                const id = a.audit_id || a.id;
-                const score = a.risk_score != null ? Math.round(a.risk_score * 100) : null;
-                const color = score >= 70 ? "#dc2626" : score >= 40 ? "#ca8a04" : "#16a34a";
-                return (
-                  <button
-                    key={id}
-                    onClick={() => load(id)}
-                    style={{
-                      padding: "5px 10px", borderRadius: 6, border: "1px solid #e5e7eb",
-                      background: auditId === id ? "#f0fdf4" : "#f8fafc",
-                      cursor: "pointer", fontSize: 12, fontFamily: "monospace",
-                      color: "#374151", display: "flex", alignItems: "center", gap: 6,
-                    }}
-                  >
-                    {id.slice(0, 8)}…
-                    {score != null && (
-                      <span style={{ fontWeight: 700, color }}>{score}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>Recent Traces</div>
+        {recentLoading ? (
+          <div style={{ fontSize: 13, color: "#9ca3af" }}>Loading recent traces…</div>
+        ) : recentError ? (
+          <div style={{ fontSize: 13, color: "#9ca3af" }}>Recent traces are unavailable right now.</div>
+        ) : recent.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#9ca3af" }}>No recent traces for this tenant yet.</div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {recent.map((a) => {
+              const id = a.audit_id || a.id;
+              // STORY-TRACE-007: the audits list returns `overall_risk_score`
+              // (0–1); `risk_score` is kept only as a defensive fallback. Scale
+              // once. A null score omits the number (no "0"/"NaN").
+              const raw = a.overall_risk_score ?? a.risk_score;
+              const score = raw != null ? Math.round(raw * 100) : null;
+              const color = score == null
+                ? "#9ca3af"
+                : score >= 70 ? "#dc2626" : score >= 40 ? "#ca8a04" : "#16a34a";
+              return (
+                <button
+                  key={id}
+                  onClick={() => load(id)}
+                  style={{
+                    padding: "5px 10px", borderRadius: 6, border: "1px solid #e5e7eb",
+                    background: auditId === id ? "#f0fdf4" : "#f8fafc",
+                    cursor: "pointer", fontSize: 12, fontFamily: "monospace",
+                    color: "#374151", display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  {id.slice(0, 8)}…
+                  {score != null && (
+                    <span style={{ fontWeight: 700, color }}>{score}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Search bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
