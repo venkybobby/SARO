@@ -365,7 +365,9 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
 
   function loadCoverage() {
     setCoverageStatus("loading");
-    api(token, `/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=30d`)
+    // CHUB-009: /coverage takes no query params — tenant derives from the token and
+    // the endpoint ignores window. Dead params removed (no inert affordances).
+    api(token, `/api/v1/compliance-matrix/coverage`)
       .then((d) => { setCoverage(d); setError(null); setCoverageStatus("ok"); })
       .catch(() => { setError("Coverage data unavailable"); setCoverageStatus("error"); });
   }
@@ -380,7 +382,9 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
 
   function loadAudits() {
     setAuditsStatus("loading");
-    api(token, `/api/v1/audits?tenant_id=${tenantId}&limit=10&sort=desc`)
+    // CHUB-009: /audits honors only limit/offset; tenant derives from the token and
+    // ordering is fixed created_at desc server-side. Dead tenant_id/sort removed.
+    api(token, `/api/v1/audits?limit=10`)
       .then((d) => { setAudits(Array.isArray(d) ? d : d.items || []); setAuditsStatus("ok"); })
       // CHUB-002 AC-5: surface the failure instead of swallowing it.
       .catch(() => setAuditsStatus("error"));

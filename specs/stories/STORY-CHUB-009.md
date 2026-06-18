@@ -28,6 +28,6 @@ Test Requirements
 
 Traceability (filled at close by /story)
 AC	Test(s)	Files
-AC-1	—	—
-AC-2	—	—
-AC-3	—	—
+AC-1	ComplianceHub.test.jsx "AC-1/AC-2: /coverage drops tenant_id & window"	frontend/src/pages/ComplianceHub.jsx (loadCoverage URL); window NOT implemented → removed
+AC-2	ComplianceHub.test.jsx "AC-1/AC-2: /audits drops tenant_id & sort ... limit IS honored"	frontend/src/pages/ComplianceHub.jsx (loadAudits URL; keeps limit)
+AC-3	No inert controls remain — only limit (honored) kept; tenant from token. Backend ignoring removed params already evidenced by test_chub010 (/coverage no-param) + test_fnd_025 (/audits no-param)	frontend/src/pages/ComplianceHub.jsx

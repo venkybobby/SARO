@@ -531,3 +531,30 @@ describe("STORY-CHUB-008: loading skeletons + visible error states", () => {
     expect(within(evfCard()).getByText("EU AI Act")).toBeInTheDocument();
   });
 });
+
+describe("STORY-CHUB-009: outgoing requests carry only backend-honored params", () => {
+  it("AC-1/AC-2: /coverage drops tenant_id & window; /audits drops tenant_id & sort", async () => {
+    const fetchMock = routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+      "/api/v1/compliance/readiness": { json: { items: [], completed: 0, total: 0 } },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    await screen.findByText("59.2%");
+
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    const coverageUrl = urls.find((u) => u.includes("/compliance-matrix/coverage"));
+    const auditsUrl = urls.find((u) => u.includes("/api/v1/audits"));
+
+    expect(coverageUrl).toBeTruthy();
+    expect(coverageUrl).not.toMatch(/tenant_id/);
+    expect(coverageUrl).not.toMatch(/window/);
+
+    expect(auditsUrl).toBeTruthy();
+    expect(auditsUrl).not.toMatch(/tenant_id/);
+    expect(auditsUrl).not.toMatch(/sort/);
+    expect(auditsUrl).toMatch(/limit=10/); // limit IS honored by the backend
+  });
+});
