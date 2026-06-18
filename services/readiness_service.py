@@ -69,7 +69,7 @@ MANUAL_KEYS = frozenset(it["key"] for it in READINESS_ITEMS if it["kind"] == "ma
 
 def is_manual_item(item_key: str) -> bool:
     it = _ITEMS_BY_KEY.get(item_key)
-    return bool(it) and it["kind"] == "manual"
+    return it is not None and it["kind"] == "manual"
 
 
 def item_exists(item_key: str) -> bool:
