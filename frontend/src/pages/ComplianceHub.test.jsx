@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import ComplianceHub, { canonicalFramework, buildEvfRows } from "./ComplianceHub";
+import ComplianceHub, { canonicalFramework, buildEvfRows, mostRecentLastUpdated } from "./ComplianceHub";
 
 // The EVF card and the Compliance Calendar both render framework labels, so
 // queries must be scoped to the EVF card to avoid cross-section collisions.
@@ -200,5 +200,64 @@ describe("STORY-CHUB-003 / FND-026: Recent Audits risk-score field mapping", () 
   it("AC-1: legacy a.risk_score fallback still renders when overall_risk_score absent", async () => {
     renderWithAudits([{ id: "dddddddddddd4", status: "completed", risk_score: 0.9 }]);
     expect(await screen.findByText("90")).toBeInTheDocument();
+  });
+});
+
+describe("STORY-CHUB-005: overall coverage headline + provenance", () => {
+  it("mostRecentLastUpdated returns the latest date, or null when all null", () => {
+    expect(mostRecentLastUpdated([{ last_updated: "2026-05-01" }, { last_updated: "2026-06-10" }, { last_updated: null }])).toBe("2026-06-10");
+    expect(mostRecentLastUpdated([{ last_updated: null }, {}])).toBeNull();
+    expect(mostRecentLastUpdated([])).toBeNull();
+  });
+
+  it("AC-1/AC-2: renders overall %, framework/rule counts and the most-recent provenance", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText("59.2%")).toBeInTheDocument();
+    expect(screen.getByText("Matrix coverage")).toBeInTheDocument();
+    expect(screen.getByText(/3 frameworks · 24 rules/)).toBeInTheDocument();
+    expect(screen.getByText(/as of 2026-06-01/)).toBeInTheDocument();
+  });
+
+  it("AC-1: label says 'Matrix coverage', never 'compliant'/'validated'", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    await screen.findByText("59.2%");
+    expect(screen.queryByText(/compliant/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/validated/i)).not.toBeInTheDocument();
+  });
+
+  it("edge: all last_updated null → 'as of —'", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: { frameworks: [{ framework: "EU AI Act", coverage_pct: 50, last_updated: null }], overall_coverage_pct: 50, framework_count: 1, total_rules: 3 } },
+      "validation-status": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText(/as of —/)).toBeInTheDocument();
+  });
+
+  it("edge: total_rules=0 → 'No matrix data yet', not '0% compliant'", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: { frameworks: [], overall_coverage_pct: 0, framework_count: 0, total_rules: 0 } },
+      "validation-status": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect(await screen.findByText("No matrix data yet")).toBeInTheDocument();
+  });
+
+  it("AC-4: coverage error → headline shows '—', never a fabricated number", async () => {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { ok: false, status: 500, json: { detail: "boom" } },
+      "validation-status": { json: [] },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    expect((await screen.findAllByText(/Coverage data unavailable/)).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
   });
 });

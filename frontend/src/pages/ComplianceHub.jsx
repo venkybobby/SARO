@@ -3,6 +3,7 @@
  * Sections: EVF Validation Status, Recent Audits, Governance Docs, QCO Expiry Alerts, Readiness Checklist.
  */
 import React, { useEffect, useState } from "react";
+import { Skeleton } from "../components/ui/index.jsx";
 
 const TIER_CONFIG = {
   tier_1: { color: "#16a34a", icon: "✅", short: "EXTERNALLY REVIEWED" },
@@ -71,6 +72,16 @@ export function canonicalFramework(s) {
   if (u.includes("ISO") && u.includes("42001")) return "ISO_42001";
   if (u.includes("AIGP")) return "AIGP";
   return u;
+}
+
+// CHUB-005: most-recent last_updated across coverage frameworks → provenance line.
+export function mostRecentLastUpdated(frameworks) {
+  const dates = (Array.isArray(frameworks) ? frameworks : [])
+    .map((fw) => fw.last_updated)
+    .filter(Boolean)
+    .map((d) => String(d).slice(0, 10));
+  if (dates.length === 0) return null;
+  return dates.sort().at(-1);
 }
 
 function isExpired(dateStr) {
@@ -312,6 +323,38 @@ export default function ComplianceHub({ token, tenantId }) {
       <p style={{ color: "#6b7280", marginBottom: 24, fontSize: 14 }}>
         EVF validation status, recent audits, and readiness tracking for compliance leads.
       </p>
+
+      {/* CHUB-005: overall matrix-coverage headline + provenance */}
+      <Card style={{ marginBottom: 20 }}>
+        {error ? (
+          <div>
+            <div style={{ fontSize: 30, fontWeight: 700, color: "#374151" }}>—</div>
+            <div style={{ color: "#dc2626", fontSize: 13 }}>⚠ {error}</div>
+          </div>
+        ) : coverage == null ? (
+          <div data-testid="coverage-headline-loading">
+            <Skeleton width={220} height={34} />
+            <div style={{ marginTop: 8 }}><Skeleton width={320} height={14} /></div>
+          </div>
+        ) : coverage.total_rules === 0 ? (
+          <div style={{ color: "#6b7280", fontSize: 15 }}>No matrix data yet</div>
+        ) : (
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontSize: 30, fontWeight: 700, color: "#0d9488" }}>
+                {coverage.overall_coverage_pct}%
+              </span>
+              <span style={{ fontSize: 14, color: "#374151", fontWeight: 600 }}>Matrix coverage</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+              {coverage.framework_count} frameworks · {coverage.total_rules} rules
+            </div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+              as of {mostRecentLastUpdated(coverage.frameworks) || "—"}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* EVF Validation Status */}
       <Card style={{ marginBottom: 20 }}>
