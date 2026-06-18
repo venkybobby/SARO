@@ -57,14 +57,20 @@ function _fmtScanTime(iso) {
 }
 
 // A single read-only provenance field: shows the value or an explicit
-// "unavailable" placeholder, with the full value available on hover (title).
-function ProvField({ label, value, full }) {
+// "unavailable" placeholder. When `truncate` is set, a long value (e.g. a hash)
+// is shortened for display with the full value kept in the title for citation.
+function ProvField({ label, value, truncate }) {
   const unavailable = _isUnavailable(value);
+  const display = unavailable
+    ? "unavailable"
+    : truncate
+      ? `${value.slice(0, 12)}…`
+      : value;
   return (
     <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, fontSize: 11 }}>
       <span style={{ color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</span>
       <span
-        title={unavailable ? "Not recorded for this audit" : (full || value)}
+        title={unavailable ? "Not recorded for this audit" : value}
         style={{
           fontFamily: "monospace",
           color: unavailable ? "#9ca3af" : "#374151",
@@ -72,7 +78,7 @@ function ProvField({ label, value, full }) {
           userSelect: "text",
         }}
       >
-        {unavailable ? "unavailable" : value}
+        {display}
       </span>
     </span>
   );
@@ -325,11 +331,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
               display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline",
             }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.6 }}>Provenance</span>
-              <ProvField
-                label="Rule pack"
-                value={(trace.rulePackHash || auditMeta?.rule_pack_hash) ? (trace.rulePackHash || auditMeta?.rule_pack_hash).slice(0, 12) + "…" : null}
-                full={trace.rulePackHash || auditMeta?.rule_pack_hash}
-              />
+              <ProvField label="Rule pack" value={trace.rulePackHash || auditMeta?.rule_pack_hash} truncate />
               <ProvField label="Model" value={trace.modelVersion} />
               <ProvField label="Scanned" value={_fmtScanTime(trace.scannedAt || auditMeta?.created_at)} />
             </div>
