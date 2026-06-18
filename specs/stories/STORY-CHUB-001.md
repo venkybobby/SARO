@@ -44,3 +44,8 @@ AC-2	"AC-2: canonicalFramework normalizes..." + "buildEvfRows: every coverage ro
 AC-3	"AC-3: ...no resolved tier shows Tier 3 INTERNAL ONLY"	frontend/src/pages/ComplianceHub.jsx (makeEvfRow default tier_3)
 AC-4	"AC-4: validation-status 403 → all Tier 3 + unavailable note"	frontend/src/pages/ComplianceHub.jsx (tierUnavailable fallback + note)
 AC-5	"AC-5: tier_1 status renders EXTERNALLY REVIEWED badge with QCO ref"	frontend/src/pages/ComplianceHub.jsx (shared TIER_CONFIG / TierBadge)
+AC-1	—	—
+AC-2	—	—
+AC-3	—	—
+AC-4	—	—
+AC-5	—	—

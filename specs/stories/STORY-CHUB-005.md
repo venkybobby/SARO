@@ -36,3 +36,7 @@ AC-1	ComplianceHub.test.jsx "AC-1/AC-2: renders overall %..." + "label says 'Mat
 AC-2	ComplianceHub.test.jsx "AC-1/AC-2: ...most-recent provenance" + "all last_updated null → 'as of —'"	frontend/src/pages/ComplianceHub.jsx (mostRecentLastUpdated)
 AC-3	ComplianceHub.test.jsx loading covered by Skeleton (data-testid coverage-headline-loading)	frontend/src/pages/ComplianceHub.jsx (Skeleton import)
 AC-4	ComplianceHub.test.jsx "AC-4: coverage error → headline shows '—'"	frontend/src/pages/ComplianceHub.jsx (error branch); edge total_rules=0 → "No matrix data yet"
+AC-1	—	—
+AC-2	—	—
+AC-3	—	—
+AC-4	—	—

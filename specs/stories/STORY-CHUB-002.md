@@ -43,3 +43,8 @@ AC-3	test_fnd_025 test_audits_forbidden_for_unauthorised_persona	auth.py require
 AC-4	ComplianceHub.test.jsx CHUB-002 "a successful empty audits fetch still shows empty state"	frontend/src/pages/ComplianceHub.jsx
 AC-5	ComplianceHub.test.jsx "AC-5: a failed audits fetch (403) shows a visible error"	frontend/src/pages/ComplianceHub.jsx (auditsError state)
 Regression: demo_viewer preserved	test_fnd_025 [demo_viewer/None] case	tests/regression/test_fnd_025_audits_compliance_lead_access.py
+AC-1	—	—
+AC-2	—	—
+AC-3	—	—
+AC-4	—	—
+AC-5	—	—

@@ -37,3 +37,7 @@ AC-1	(documented) test docstring + endpoint comments cite determining columns	mo
 AC-2	N/A — moot: no tenant-scoped data exists in either path (verified by security-auditor at ORM+migration+call-graph)	—
 AC-3	test_chub010 test_coverage_identical_across_tenants / test_validation_status_identical_across_tenants	routers/compliance_matrix.py (get_coverage_summary comment), routers/evf_sprint3.py (get_all_validation_statuses comment)
 AC-4	tests/test_chub010_tenant_scoping.py (cross-tenant /coverage + /validation-status cases, no tenant_id leak)	tests/test_chub010_tenant_scoping.py
+AC-1	—	—
+AC-2	—	—
+AC-3	—	—
+AC-4	—	—
