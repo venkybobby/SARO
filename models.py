@@ -24,6 +24,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSON, UUID
@@ -1347,4 +1348,36 @@ class GRCEvidenceRecord(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CHUB-004: Compliance Hub readiness checklist — per-tenant manual item state
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ComplianceReadinessItem(Base):
+    """
+    Per-tenant persisted state for a manual Compliance Hub readiness checklist item.
+
+    The item catalog itself is code-defined (services.readiness_service.READINESS_ITEMS);
+    this table stores only the toggled ``completed`` state of *manual* items, scoped to
+    a tenant. Derived items are never written here — they are computed from their real
+    source at read time. Tenant isolation is enforced at the app layer via the
+    ``tenant_id`` filter (mirrors the rest of SARO's per-tenant tables).
+    """
+    __tablename__ = "compliance_readiness_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "item_key", name="uq_readiness_tenant_item"),
     )

@@ -11,15 +11,6 @@ const TIER_CONFIG = {
   tier_3: { color: "#64748b", icon: "🔒", short: "INTERNAL ONLY" },
 };
 
-const CHECKLIST = [
-  "Data processing agreements in place",
-  "AI systems registered in inventory",
-  "Risk assessments completed for high-risk systems",
-  "Human oversight controls documented",
-  "Incident response plan reviewed",
-  "Annual compliance review scheduled",
-];
-
 function api(token, path) {
   return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`);
@@ -317,7 +308,8 @@ function ComplianceCalendar({ token }) {
 export default function ComplianceHub({ token, tenantId, onNavigate }) {
   const [coverage, setCoverage] = useState(null);
   const [audits, setAudits] = useState([]);
-  const [checks, setChecks] = useState(CHECKLIST.map(() => false));
+  const [readiness, setReadiness] = useState(null);
+  const [readinessError, setReadinessError] = useState(false);
   const [error, setError] = useState(null);
   const [statuses, setStatuses] = useState([]);
   const [tierUnavailable, setTierUnavailable] = useState(false);
@@ -348,9 +340,45 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
       // CHUB-002 AC-5: surface the failure instead of swallowing it — a 403 or
       // network error must be visibly distinct from a legitimately empty table.
       .catch(() => setAuditsError(true));
+    // CHUB-004: readiness checklist is persisted per tenant, not in-memory.
+    api(token, `/api/v1/compliance/readiness`)
+      .then((d) => {
+        setReadiness(d);
+        setReadinessError(false);
+      })
+      .catch(() => setReadinessError(true));
   }, [token, tenantId]);
 
   const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
+
+  // CHUB-004: persist a manual item toggle; derived (read-only) items are ignored.
+  function toggleReadiness(item) {
+    if (!item.editable) return;
+    const next = !item.completed;
+    fetch(`/api/v1/compliance/readiness/${item.key}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: next }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then(() => {
+        setReadiness((prev) =>
+          prev
+            ? {
+                ...prev,
+                items: prev.items.map((it) =>
+                  it.key === item.key ? { ...it, completed: next } : it
+                ),
+              }
+            : prev
+        );
+        setReadinessError(false);
+      })
+      .catch(() => setReadinessError(true));
+  }
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
@@ -530,24 +558,41 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
         {/* Readiness Checklist */}
         <Card style={{ flex: 1, minWidth: 240 }}>
           <h2 style={{ fontSize: 15, marginBottom: 12 }}>Readiness Checklist</h2>
-          <div style={{ fontSize: 13 }}>
-            {CHECKLIST.map((item, i) => (
-              <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={checks[i]}
-                  onChange={() => setChecks((c) => { const n = [...c]; n[i] = !n[i]; return n; })}
-                  style={{ marginTop: 2, accentColor: "#0d9488" }}
-                />
-                <span style={{ color: checks[i] ? "#9ca3af" : "#374151", textDecoration: checks[i] ? "line-through" : "none" }}>
-                  {item}
-                </span>
-              </label>
-            ))}
-            <div style={{ marginTop: 12, color: "#0d9488", fontWeight: 600, fontSize: 13 }}>
-              {checks.filter(Boolean).length}/{CHECKLIST.length} complete
+          {readinessError ? (
+            <div style={{ color: "#dc2626", fontSize: 13 }}>⚠ Could not load readiness checklist.</div>
+          ) : !readiness || !Array.isArray(readiness.items) ? (
+            <div data-testid="readiness-loading"><Skeleton height={120} /></div>
+          ) : (
+            <div style={{ fontSize: 13 }}>
+              {readiness.items.map((item) => {
+                const unknown = item.completed === null;
+                const checked = item.completed === true;
+                return (
+                  <label
+                    key={item.key}
+                    title={item.source || undefined}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable ? "pointer" : "default" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={!item.editable || unknown}
+                      onChange={() => toggleReadiness(item)}
+                      style={{ marginTop: 2, accentColor: "#0d9488" }}
+                    />
+                    <span style={{ color: checked ? "#9ca3af" : "#374151", textDecoration: checked ? "line-through" : "none" }}>
+                      {item.label}
+                      {!item.editable && <em style={{ color: "#9ca3af", fontStyle: "normal" }}> · auto</em>}
+                      {unknown && <span style={{ color: "#ca8a04" }}> · unknown</span>}
+                    </span>
+                  </label>
+                );
+              })}
+              <div style={{ marginTop: 12, color: "#0d9488", fontWeight: 600, fontSize: 13 }}>
+                {readiness.items.filter((i) => i.completed === true).length}/{readiness.items.length} complete
+              </div>
             </div>
-          </div>
+          )}
         </Card>
       </div>
 

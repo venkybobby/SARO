@@ -346,3 +346,80 @@ describe("STORY-CHUB-006: actions + drill-throughs", () => {
     expect(screen.getByRole("button", { name: /Generate board report/ })).toBeDisabled();
   });
 });
+
+describe("STORY-CHUB-004: Readiness Checklist hydrates from endpoint", () => {
+  const READINESS = {
+    items: [
+      { key: "dpa_in_place", label: "Data processing agreements in place", kind: "manual", completed: true, editable: true, source: null },
+      { key: "ai_systems_registered", label: "AI systems registered in inventory", kind: "derived", completed: false, editable: false, source: "Derived from AIMS inventory records (ISO 42001 evidence)" },
+      { key: "risk_assessments_completed", label: "Risk assessments completed for high-risk systems", kind: "manual", completed: false, editable: true, source: null },
+    ],
+    completed: 1,
+    total: 3,
+  };
+
+  function setup(readiness = READINESS) {
+    vi.stubGlobal("fetch", routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+      "/api/v1/compliance/readiness": { json: readiness },
+    }));
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+  }
+
+  it("AC-4: checked state hydrates from the endpoint (not in-memory defaults)", async () => {
+    setup();
+    const dpa = await screen.findByLabelText(/Data processing agreements in place/);
+    expect(dpa).toBeChecked();
+    const risk = screen.getByLabelText(/Risk assessments completed/);
+    expect(risk).not.toBeChecked();
+  });
+
+  it("AC-3: derived items are read-only with a source tooltip", async () => {
+    setup();
+    const ai = await screen.findByLabelText(/AI systems registered in inventory/);
+    expect(ai).toBeDisabled();
+    expect(screen.getByText(/AI systems registered in inventory/).closest("label"))
+      .toHaveAttribute("title", expect.stringContaining("AIMS inventory"));
+  });
+
+  it("AC-4: completion counter reflects persisted + derived state", async () => {
+    setup();
+    expect(await screen.findByText("1/3 complete")).toBeInTheDocument();
+  });
+
+  it("edge: a derived item with unknown source state shows 'unknown', not checked", async () => {
+    setup({
+      items: [
+        { key: "ai_systems_registered", label: "AI systems registered in inventory", kind: "derived", completed: null, editable: false, source: "AIMS" },
+      ],
+      completed: 0,
+      total: 1,
+    });
+    const ai = await screen.findByLabelText(/AI systems registered in inventory/);
+    expect(ai).not.toBeChecked();
+    expect(ai).toBeDisabled();
+    expect(screen.getByText(/unknown/)).toBeInTheDocument();
+  });
+
+  it("toggling a manual item PUTs to the persistence endpoint", async () => {
+    const user = userEvent.setup();
+    const fetchMock = routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+      "/api/v1/compliance/readiness": { json: READINESS },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComplianceHub token="t" tenantId="ten-1" />);
+    const risk = await screen.findByLabelText(/Risk assessments completed/);
+    await user.click(risk);
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/compliance/readiness/risk_assessments_completed"),
+        expect.objectContaining({ method: "PUT" })
+      )
+    );
+  });
+});
