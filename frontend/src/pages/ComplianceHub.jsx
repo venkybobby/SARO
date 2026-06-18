@@ -34,7 +34,7 @@ function Card({ children, style }) {
   );
 }
 
-function TierBadge({ tier, label, qcoRef }) {
+function TierBadge({ tier, label, qcoRef, warning }) {
   const cfg = TIER_CONFIG[tier] || { color: "#64748b", icon: "?", short: "UNKNOWN" };
   return (
     <span
@@ -45,9 +45,100 @@ function TierBadge({ tier, label, qcoRef }) {
       }}
       title={label || ""}
     >
-      {cfg.icon} {cfg.short}{qcoRef ? ` · ${qcoRef}` : ""}
+      {cfg.icon} {cfg.short}{warning ? " · EXPIRED" : ""}{qcoRef ? ` · ${qcoRef}` : ""}
     </span>
   );
+}
+
+// ─── STORY-CHUB-001: EVF tier reconciliation ─────────────────────────────────
+// Display strings from /compliance-matrix/coverage (regulation_name) must be
+// reconciled with enum values from /evf/validation-status. A single canonical
+// key drives the join so a coverage % is never shown without its validation tier.
+
+const FW_DISPLAY = {
+  EU_AI_ACT: "EU AI Act",
+  NIST_AI_RMF: "NIST AI RMF",
+  AIGP: "AIGP",
+  ISO_42001: "ISO 42001",
+};
+
+export function canonicalFramework(s) {
+  if (!s) return "";
+  const u = String(s).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (u in FW_DISPLAY) return u;
+  if (u.includes("EU") && u.includes("AI") && u.includes("ACT")) return "EU_AI_ACT";
+  if (u.includes("NIST")) return "NIST_AI_RMF";
+  if (u.includes("ISO") && u.includes("42001")) return "ISO_42001";
+  if (u.includes("AIGP")) return "AIGP";
+  return u;
+}
+
+function isExpired(dateStr) {
+  if (!dateStr) return false;
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return false;
+  return t < Date.now();
+}
+
+function makeEvfRow(label, coveragePct, status) {
+  let tier = (status && status.tier) || "tier_3";
+  const qcoRef = (status && status.qco_reference) || null;
+  const tierLabel = (status && status.label) || null;
+  let warning = false;
+  // Anti-overclaiming: an expired Tier 1 QCO must never render as green/validated.
+  if (tier === "tier_1" && isExpired(status && status.qco_expiry_date)) {
+    tier = "tier_2";
+    warning = true;
+  }
+  return {
+    key: label,
+    label,
+    coveragePct: coveragePct == null ? null : coveragePct,
+    tier,
+    qcoRef,
+    tierLabel,
+    warning,
+  };
+}
+
+/**
+ * Single source of truth for the EVF card rows. Guarantees the tier-with-coverage
+ * invariant: every returned row has a non-null `tier` (defaulting to tier_3), so a
+ * coverage % can never be rendered without a validation tier badge.
+ */
+export function buildEvfRows({ coverage, statuses, tierUnavailable }) {
+  const statusList = Array.isArray(statuses) ? statuses : [];
+  const byCanon = new Map();
+  for (const s of statusList) {
+    byCanon.set(canonicalFramework(s.framework || s.name), s);
+  }
+
+  const rows = [];
+  const seen = new Set();
+  const covFrameworks =
+    coverage && Array.isArray(coverage.frameworks) ? coverage.frameworks : [];
+
+  for (const fw of covFrameworks) {
+    const label = fw.framework || fw.name || "Unknown";
+    const canon = canonicalFramework(label);
+    seen.add(canon);
+    const status = tierUnavailable ? null : byCanon.get(canon);
+    rows.push(makeEvfRow(label, fw.coverage_pct, status));
+  }
+
+  // Frameworks present in /validation-status but absent from /coverage must still
+  // surface (tier badge only, no coverage bar) — never silently dropped.
+  if (!tierUnavailable) {
+    for (const s of statusList) {
+      const canon = canonicalFramework(s.framework || s.name);
+      if (seen.has(canon)) continue;
+      seen.add(canon);
+      const label = FW_DISPLAY[canon] || s.framework || s.name || "Unknown";
+      rows.push(makeEvfRow(label, null, s));
+    }
+  }
+
+  return rows;
 }
 
 function RiskBadge({ score }) {
@@ -183,16 +274,31 @@ export default function ComplianceHub({ token, tenantId }) {
   const [audits, setAudits] = useState([]);
   const [checks, setChecks] = useState(CHECKLIST.map(() => false));
   const [error, setError] = useState(null);
+  const [statuses, setStatuses] = useState([]);
+  const [tierUnavailable, setTierUnavailable] = useState(false);
 
   useEffect(() => {
     if (!token || !tenantId) return;
     api(token, `/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=30d`)
       .then(setCoverage)
       .catch(() => setError("Coverage data unavailable"));
+    // Tier data is sourced from /evf/validation-status, not /coverage. A failure
+    // here degrades every framework to Tier 3 — it never blanks the coverage card.
+    api(token, `/api/v1/evf/validation-status`)
+      .then((d) => {
+        setStatuses(Array.isArray(d) ? d : []);
+        setTierUnavailable(false);
+      })
+      .catch(() => {
+        setStatuses([]);
+        setTierUnavailable(true);
+      });
     api(token, `/api/v1/audits?tenant_id=${tenantId}&limit=10&sort=desc`)
       .then((d) => setAudits(Array.isArray(d) ? d : d.items || []))
       .catch(() => {});
   }, [token, tenantId]);
+
+  const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
 
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1200 }}>
@@ -205,20 +311,28 @@ export default function ComplianceHub({ token, tenantId }) {
       <Card style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 15, marginBottom: 16 }}>EVF Validation Status</h2>
         {error && <div style={{ color: "#dc2626", marginBottom: 12, fontSize: 13 }}>⚠ {error}</div>}
-        {coverage?.frameworks ? (
+        {tierUnavailable && (
+          <div style={{ color: "#ca8a04", marginBottom: 12, fontSize: 12 }}>
+            ⚠ Validation status unavailable — treated as internal only.
+          </div>
+        )}
+        {coverage?.frameworks || evfRows.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-            {coverage.frameworks.map((fw) => (
-              <div key={fw.name} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
+            {evfRows.map((row) => (
+              <div key={row.key} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{fw.name}</span>
-                  <span style={{ fontSize: 13, color: "#0d9488" }}>{fw.coverage_pct?.toFixed(1)}%</span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{row.label}</span>
+                  {row.coveragePct != null && (
+                    <span style={{ fontSize: 13, color: "#0d9488" }}>{row.coveragePct.toFixed(1)}%</span>
+                  )}
                 </div>
-                <div style={{ height: 4, background: "#e5e7eb", borderRadius: 2, marginBottom: 8 }}>
-                  <div style={{ height: 4, width: `${fw.coverage_pct || 0}%`, background: "#0d9488", borderRadius: 2 }} />
-                </div>
-                {fw.evf_tier && (
-                  <TierBadge tier={fw.evf_tier} label={fw.evf_label} qcoRef={fw.evf_qco_reference} />
+                {row.coveragePct != null && (
+                  <div style={{ height: 4, background: "#e5e7eb", borderRadius: 2, marginBottom: 8 }}>
+                    <div style={{ height: 4, width: `${row.coveragePct}%`, background: "#0d9488", borderRadius: 2 }} />
+                  </div>
                 )}
+                {/* Invariant: every row renders a tier badge — never a coverage % alone. */}
+                <TierBadge tier={row.tier} label={row.tierLabel} qcoRef={row.qcoRef} warning={row.warning} />
               </div>
             ))}
           </div>
