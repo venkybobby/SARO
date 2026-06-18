@@ -152,3 +152,8 @@ findings:
     test: frontend/src/pages/TraceView.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-033
+    title: "TRACE export endpoints read nonexistent report.risk_score/confidence — null JSON scores + PDF 500 (STORY-TRACE-006 reviewer MAJOR)"
+    test: tests/regression/test_fnd_033_trace_export_report_fields.py
+    status: pinned
+    quarantine_expires: null

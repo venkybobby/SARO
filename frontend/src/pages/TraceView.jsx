@@ -137,6 +137,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
   const methodologyGated = demoContext && !methodologyReady;
 
   const [auditId, setAuditId]   = useState(initialAuditId || "");
+  const [loadedId, setLoadedId] = useState(null); // id of the trace actually displayed
   const [trace, setTrace]       = useState(null);
   const [auditMeta, setAuditMeta] = useState(null); // rule_pack_hash + created_at from audit report
   const [loading, setLoading]   = useState(false);
@@ -183,6 +184,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
     setLoading(true);
     setError(null);
     setAuditMeta(null);
+    setLoadedId(null);
     try {
       // STORY-TRACE-001: the timeline endpoint returns the true 6-step pipeline
       // (steps as an array with real per-gate status), not the raw trace rows.
@@ -203,6 +205,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
         return;
       }
       setTrace(normalizeTrace(await r.json()));
+      setLoadedId(target); // the id that produced the displayed trace
 
       // Also fetch audit report for rule_pack_hash + created_at (non-blocking)
       fetch(`/api/v1/audits/${target}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -222,7 +225,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
   // and never saves an empty/corrupt file. Cross-tenant/forbidden audits return
   // 403/404 (tenant scope + role gate from STORY-TRACE-002/003) and are messaged.
   async function exportEvidence(fmt) {
-    const target = auditId.trim();
+    // Export the trace that is actually displayed, not whatever is currently
+    // typed in the search box (reviewer MINOR on STORY-TRACE-006).
+    const target = loadedId;
     if (!target) return;
     setExportError(null);
     setExporting(fmt);
@@ -409,13 +414,13 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
                   <button
                     key={fmt}
                     onClick={() => exportEvidence(fmt)}
-                    disabled={!trace || exporting === fmt}
+                    disabled={!loadedId || exporting === fmt}
                     style={{
                       padding: "4px 10px", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)",
                       background: "var(--color-bg-surface)", color: "var(--color-info)",
                       border: "1px solid var(--color-info)",
-                      cursor: !trace || exporting === fmt ? "not-allowed" : "pointer",
-                      opacity: !trace || exporting === fmt ? 0.6 : 1,
+                      cursor: !loadedId || exporting === fmt ? "not-allowed" : "pointer",
+                      opacity: !loadedId || exporting === fmt ? 0.6 : 1,
                     }}
                   >
                     {exporting === fmt ? "Exporting…" : `Export ${fmt.toUpperCase()}`}

@@ -277,8 +277,10 @@ async def export_trace_json(
             "created_at": str(audit.created_at),
         },
         "trace_timeline": timeline,
-        "risk_score": getattr(report, "risk_score", None) if report else None,
-        "confidence": getattr(report, "confidence", None) if report else None,
+        # ScanReport stores overall_risk_score / confidence_score (there is no
+        # risk_score / confidence column) — reviewer MAJOR on STORY-TRACE-006.
+        "risk_score": report.overall_risk_score if report else None,
+        "confidence": report.confidence_score if report else None,
     }
 
     canonical = json.dumps(export, sort_keys=True)
@@ -331,11 +333,14 @@ async def export_trace_pdf(
 
         if report:
             story.append(Paragraph("Risk Assessment", styles["Heading1"]))
+            # ScanReport has overall_risk_score / confidence_score, not
+            # risk_score / confidence — the latter raised AttributeError -> 500
+            # whenever reportlab was installed (reviewer MAJOR on STORY-TRACE-006).
             story.append(
-                Paragraph(f"Risk Score: {report.risk_score}", styles["Normal"])
+                Paragraph(f"Risk Score: {report.overall_risk_score}", styles["Normal"])
             )
             story.append(
-                Paragraph(f"Confidence: {report.confidence}", styles["Normal"])
+                Paragraph(f"Confidence: {report.confidence_score}", styles["Normal"])
             )
         story.append(Spacer(1, 12))
 
