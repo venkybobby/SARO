@@ -189,7 +189,19 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
       const r = await fetch(`/api/v1/audit/${target}/trace`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!r.ok) throw new Error(`${r.status} — audit not found`);
+      if (!r.ok) {
+        // STORY-TRACE-010: distinguish no-access (403) from genuinely-missing
+        // (404) from a transient server failure — they are NOT all "not found".
+        setTrace(null);
+        if (r.status === 403) {
+          setError({ kind: "forbidden", message: "You don't have access to this audit's trace." });
+        } else if (r.status === 404) {
+          setError({ kind: "notfound", message: "Audit not found — there is no trace for this ID." });
+        } else {
+          setError({ kind: "transient", message: `Couldn't load the trace (server error ${r.status}).` });
+        }
+        return;
+      }
       setTrace(normalizeTrace(await r.json()));
 
       // Also fetch audit report for rule_pack_hash + created_at (non-blocking)
@@ -197,9 +209,9 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
         .then((ar) => ar.ok ? ar.json() : null)
         .then((ad) => { if (ad) setAuditMeta(ad); })
         .catch(() => {});
-    } catch (e) {
-      setError(e.message);
+    } catch {
       setTrace(null);
+      setError({ kind: "transient", message: "Network error — couldn't reach the server. Check your connection and retry." });
     } finally {
       setLoading(false);
     }
@@ -347,13 +359,41 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
         </button>
       </div>
 
-      {error && (
-        <div style={{ background: "var(--color-critical-bg)", border: "1px solid var(--color-critical-border)", borderRadius: "var(--radius-md)", padding: "10px 14px", color: "var(--color-critical)", fontSize: "var(--text-sm)", marginBottom: "var(--space-4)" }}>
-          ⚠ {error}
+      {/* STORY-TRACE-010: loading / error / loaded are mutually exclusive.
+          Loading shows real skeletons (not bare text); errors are differentiated
+          (403 vs 404 vs transient) with a retry affordance for transient failures
+          that re-fetches only the trace. */}
+      {loading ? (
+        <div aria-busy="true">
+          <Skeleton width="100%" height={72} />
+          <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
+            {STEPS.map((s) => <Skeleton key={s.key} width={100} height={56} />)}
+          </div>
+          <div style={{ marginTop: "var(--space-4)" }}><Skeleton width="100%" height={96} /></div>
         </div>
-      )}
-
-      {trace && (
+      ) : error ? (
+        <div
+          role="alert"
+          style={{
+            background: error.kind === "transient" ? "var(--color-bg-overlay)" : "var(--color-critical-bg)",
+            border: `1px solid ${error.kind === "transient" ? "var(--color-border-default)" : "var(--color-critical-border)"}`,
+            borderRadius: "var(--radius-md)", padding: "12px 16px",
+            color: error.kind === "transient" ? "var(--color-text-secondary)" : "var(--color-critical)",
+            fontSize: "var(--text-sm)", marginBottom: "var(--space-4)",
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+          }}
+        >
+          <span>{error.kind === "forbidden" ? "🔒" : error.kind === "notfound" ? "🔍" : "⚠"} {error.message}</span>
+          {error.kind === "transient" && (
+            <button
+              onClick={() => load(auditId)}
+              style={{ padding: "4px 12px", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", background: "var(--color-info)", color: "var(--color-text-inverse)", border: "none", cursor: "pointer" }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      ) : trace ? (
         <>
           {/* Header */}
           <div style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-default)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
@@ -510,7 +550,7 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
             )
           )}
         </>
-      )}
+      ) : null}
       </div>
     </div>
   );

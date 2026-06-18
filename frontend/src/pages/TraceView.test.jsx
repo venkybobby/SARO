@@ -240,6 +240,59 @@ describe("TraceView TRACE-009 shared design system", () => {
   });
 });
 
+describe("TraceView TRACE-010 loading + differentiated error states", () => {
+  function stubTrace(status, { reject = false } = {}) {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (url === "/api/v1/audit/audit-123456789/trace") {
+        if (reject) return Promise.reject(new Error("network down"));
+        return Promise.resolve({ ok: status === 200, status, json: () => Promise.resolve(TIMELINE) });
+      }
+      if (url === "/api/v1/audits/audit-123456789") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(AUDIT) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }));
+  }
+
+  it("403 → an access message, never 'not found'", async () => {
+    stubTrace(403);
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/don't have access to this audit's trace/i)).toBeInTheDocument());
+    expect(screen.queryByText(/not found/i)).not.toBeInTheDocument();
+  });
+
+  it("404 → a not-found message", async () => {
+    stubTrace(404);
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/no trace for this ID/i)).toBeInTheDocument());
+    expect(screen.queryByText(/don't have access/i)).not.toBeInTheDocument();
+  });
+
+  it("network/transient failure → a transient message with a working Retry", async () => {
+    stubTrace(0, { reject: true });
+    render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(screen.getByText(/Network error/i)).toBeInTheDocument());
+    const retry = screen.getByRole("button", { name: /Retry/i });
+    stubTrace(200); // recovery
+    retry.click();
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+  });
+
+  it("shows skeletons (aria-busy) while loading — not bare text", async () => {
+    let resolveTrace;
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (url === "/api/v1/audit/audit-123456789/trace") {
+        return new Promise((res) => { resolveTrace = res; });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    }));
+    const { container } = render(<TraceView token="t" initialAuditId="audit-123456789" />);
+    await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).toBeTruthy());
+    resolveTrace?.({ ok: true, status: 200, json: () => Promise.resolve(TIMELINE) });
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+  });
+});
+
 describe("TraceView TRACE-004 honest integrity banner", () => {
   it("shows a specific verified claim only when the backend confirms a real signature", async () => {
     stubFetch({ ...TIMELINE, integrity: { status: "verified", verified: true, export_hash: "9911aa22bb33", detail: "HMAC-SHA256 signature valid over the canonical export." } });

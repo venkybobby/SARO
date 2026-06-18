@@ -147,3 +147,8 @@ findings:
     test: frontend/src/pages/TraceView.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-032
+    title: "TRACE View collapsed 403/404/network failures into one 'audit not found' message (STORY-TRACE-010)"
+    test: frontend/src/pages/TraceView.test.jsx
+    status: pinned
+    quarantine_expires: null
