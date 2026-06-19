@@ -172,3 +172,8 @@ findings:
     test: tests/regression/test_fnd_034_export_secret_no_weak_default.py
     status: pinned
     quarantine_expires: null
+  - id: FND-035
+    title: "Bad merge 4425eec committed unresolved conflicts — auth.py SyntaxError + duplicate dependencies= on /api/v1/audits + contradictory ai_auditor list policy (FND-025 vs FND-028), reconciled to union"
+    test: tests/regression/test_fnd_028_trace_audit_read_access.py
+    status: pinned
+    quarantine_expires: null

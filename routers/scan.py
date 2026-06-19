@@ -38,9 +38,12 @@ from sqlalchemy import text as _sql_text
 
 # STORY-TRACE-003: the AI Auditor's screen lists audits and opens audit detail.
 # Grant the audit/compliance personas read access alongside the legacy roles.
-# The list additionally preserves the existing read-only `demo_viewer` role.
+# The list additionally preserves the existing read-only `demo_viewer` role, and
+# admits the CHUB-002 (FND-025) buyer personas (risk_officer/admin) — the union of
+# STORY-TRACE-003 (FND-028) and CHUB-002, reconciled after a bad upstream merge.
 _require_audits_list_read = require_role_or_persona(
-    TRACE_READ_ROLES + ("demo_viewer",), TRACE_READ_PERSONAS
+    TRACE_READ_ROLES + ("demo_viewer",),
+    TRACE_READ_PERSONAS + ("risk_officer", "admin"),
 )
 _require_audit_detail_read = require_role_or_persona(
     TRACE_READ_ROLES, TRACE_READ_PERSONAS
@@ -345,18 +348,13 @@ def scan_batch(
 @router.get(
     "/audits",
     response_model=list[AuditListItemOut],
+    # STORY-TRACE-003 (FND-028) + CHUB-002 (FND-025) reconciled: audit-list read access
+    # is granted by system role OR persona_role via _require_audits_list_read, whose set
+    # is the UNION of both findings — roles (super_admin, operator, demo_viewer) and
+    # personas (ai_auditor, compliance_lead, risk_officer, admin). The TRACE View is the
+    # ai_auditor's primary screen, so it keeps list access (FND-028). Tenant scoping
+    # below is unchanged.
     dependencies=[Depends(_require_audits_list_read)],
-    # CHUB-002 (FND-025): the Compliance Hub landing persona (compliance_lead) and
-    # peer buyer personas must be able to read audit evidence. Access is granted by
-    # system role OR persona_role; tenant scoping below is unchanged.
-    dependencies=[
-        Depends(
-            require_role_or_persona(
-                roles=("super_admin", "operator", "demo_viewer"),
-                personas=("compliance_lead", "risk_officer", "admin"),
-            )
-        )
-    ],
     summary="List audits for the current tenant",
 )
 def list_audits(

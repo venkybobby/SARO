@@ -125,7 +125,12 @@ def test_audits_readable_by_permitted_role_or_persona(role, persona):
 
 
 def test_audits_forbidden_for_unauthorised_persona():
-    c = _client("viewer", "ai_auditor")
+    # Reconciliation note: the original example used the ``ai_auditor`` persona, but
+    # STORY-TRACE-003 (FND-028) grants ai_auditor audit-list read access (the TRACE
+    # View is its primary screen). The two findings were merged to the UNION of
+    # permitted personas, so the genuinely-unauthorised case is a user with neither a
+    # qualifying system role nor a granted persona.
+    c = _client("viewer", None)
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 403, (

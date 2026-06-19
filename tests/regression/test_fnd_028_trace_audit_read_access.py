@@ -93,10 +93,16 @@ _PERMITTED = [
     ("viewer", "ai_auditor"),
     ("viewer", "compliance_lead"),
 ]
-# Neither a trace-read role nor a trace-read persona.
+# Neither a trace-read role nor a trace-read persona — denied on ALL three endpoints.
 _DENIED = [
-    ("viewer", "risk_officer"),
     ("viewer", None),
+]
+# CHUB-002 (FND-025) reconciliation: these buyer personas are granted the audits
+# *list* (the union choice) but were NOT widened onto the trace timeline / audit
+# detail, which stay scoped to the trace-read personas (ai_auditor, compliance_lead).
+_LIST_ONLY = [
+    ("viewer", "risk_officer"),
+    ("viewer", "admin"),
 ]
 
 
@@ -133,6 +139,17 @@ def test_unprivileged_role_and_persona_denied(role, persona):
     assert client.get(f"/api/v1/audit/{AUDIT_A}/trace").status_code == 403
     assert client.get(f"/api/v1/audits/{AUDIT_A}").status_code == 403
     assert client.get("/api/v1/audits").status_code == 403
+
+
+@pytest.mark.parametrize("role,persona", _LIST_ONLY)
+def test_list_only_personas_denied_on_trace_and_detail(role, persona):
+    """CHUB-002 (FND-025) union: risk_officer/admin can list audits but must NOT
+    reach the trace timeline or audit detail (those stay scoped to the trace-read
+    personas). Pins that the list-widening did not leak onto the evidence surface."""
+    client = _client_as(_user(role, persona))
+    assert client.get(f"/api/v1/audit/{AUDIT_A}/trace").status_code == 403
+    assert client.get(f"/api/v1/audits/{AUDIT_A}").status_code == 403
+    assert client.get("/api/v1/audits").status_code == 200
 
 
 def test_legacy_roles_and_demo_viewer_preserved():
