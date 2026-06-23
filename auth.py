@@ -313,26 +313,6 @@ def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
     """
     role_set = frozenset(roles)
     persona_set = frozenset(personas)
-def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
-    """
-    FastAPI dependency factory granting access if the user's *system role* is in
-    ``roles`` OR their ``persona_role`` is in ``personas``.
-
-    Read-only composition of :func:`require_role` and :func:`persona_required` for
-    endpoints whose audience spans both system roles (e.g. ``demo_viewer``) and
-    buyer personas (e.g. ``compliance_lead``). Tenant scoping is unaffected — it is
-    enforced inside each handler via ``tenant_id`` filters.
-
-    Usage::
-
-        @router.get(
-            "/audits",
-            dependencies=[Depends(require_role_or_persona(
-                roles=("super_admin", "operator", "demo_viewer"),
-                personas=("compliance_lead", "risk_officer", "admin"),
-            ))],
-        )
-    """
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
@@ -351,20 +331,6 @@ def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorised to read this resource.",
-        if current_user.role in roles:
-            return current_user
-        if (getattr(current_user, "persona_role", None) or "") in personas:
-            return current_user
-        _log_authz_denial(
-            current_user, request, required=f"role:{roles}|persona:{personas}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Role '{current_user.role}' / persona "
-                f"'{getattr(current_user, 'persona_role', None)}' is not authorised "
-                f"for this action. Required role {roles} or persona {personas}."
-            ),
         )
 
     return _check
