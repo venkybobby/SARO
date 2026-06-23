@@ -3,12 +3,12 @@
     "github": {
       "type": "url",
       "url": "https://api.githubcopilot.com/mcp/",
-      "note": "Primary repo: github.com/venkybobby/saro-platform. All code delivery integrated into this repo only — never create standalone repos or separate folders."
+      "note": "Canonical repo: github.com/venkybobby/SARO (remote 'origin'). All PRs target venkybobby/SARO — never venkybobby/saro-platform (legacy mirror). Never create standalone repos or separate folders."
     },
-    "neon-postgres": {
+    "supabase-postgres": {
       "type": "url",
-      "url": "https://mcp.neon.tech/sse",
-      "note": "Production DB: Neon PostgreSQL. Used for compliance audit logs, drift records, user sessions."
+      "url": "https://mcp.supabase.com/sse",
+      "note": "Production DB: Supabase PostgreSQL (canonical per docs/ARCHITECTURE.md, PT-012). Row-Level Security for tenant isolation. Stores compliance audit logs, drift records, user sessions. Neon is SUPERSEDED (migrated 2026-05-08)."
     },
     "slack": {
       "type": "url",

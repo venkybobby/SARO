@@ -37,6 +37,10 @@
           {
             "type": "command",
             "command": "echo '[Stop hook] Verifying test suite before marking task complete...' >&2; python -m pytest tests/ -q --tb=line --no-header >&2 && echo 'All tests pass.' >&2 || { echo 'STOP: Tests are failing. Fix before marking task complete.' >&2; exit 2; }"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/extract-patterns.sh || true"
           }
         ]
       }
