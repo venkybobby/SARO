@@ -39,6 +39,8 @@ huggingface-hub>=0.22.0
 # issues in multi-stage Docker builds. See Dockerfile for the RUN step.
 # For local dev: pip install -e ./saro-data-framework
 python-dateutil>=2.8.0
+# STORY-404: Parquet export for the governance-runtime audit emitter (SIEM export)
+pyarrow>=14.0.0
 # Test dependencies
 pytest>=8.0.0
 pytest-asyncio>=1.0.0
