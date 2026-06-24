@@ -6,6 +6,7 @@ POST /api/v1/scan/data     — saro_data framework format (model_outputs[].outpu
 GET  /api/v1/audits        — list audits for the caller's tenant
 GET  /api/v1/audits/{id}   — fetch a specific audit report
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,6 @@ from auth import (
     TRACE_READ_ROLES,
     TRACE_READ_PERSONAS,
 )
-from auth import get_current_user, require_role, require_role_or_persona
 from database import get_db
 from engine import SARoEngine
 from models import Audit, AuditTrace, SampleFinding, ScanReport, User
@@ -48,8 +48,8 @@ _require_audit_detail_read = require_role_or_persona(
 
 
 # ── SAR-008: risk notification thresholds ────────────────────────────────────
-_NOTIF_CRITICAL_THRESHOLD = 0.80   # risk score ≥ 80 → critical alert
-_NOTIF_HIGH_THRESHOLD = 0.60       # risk score ≥ 60 → high alert
+_NOTIF_CRITICAL_THRESHOLD = 0.80  # risk score ≥ 80 → critical alert
+_NOTIF_HIGH_THRESHOLD = 0.60  # risk score ≥ 60 → high alert
 
 
 def _maybe_dispatch_risk_notification(
@@ -97,7 +97,9 @@ def _maybe_dispatch_risk_notification(
         dispatch_notification(db, notif)
         logger.info(
             "Risk notification dispatched: audit=%s risk=%.1f severity=%s",
-            audit_id, risk_pct, severity,
+            audit_id,
+            risk_pct,
+            severity,
         )
     except Exception as exc:
         logger.warning("Risk notification failed (non-fatal): %s", exc)
@@ -105,6 +107,7 @@ def _maybe_dispatch_risk_notification(
             db.rollback()
         except Exception:
             pass
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["scan"])
@@ -186,24 +189,26 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
         }
         event_hash = compute_event_hash(event_data, prev_hash)
 
-        db.add(AuditTrace(
-            id=event_id,
-            created_at=created_at,
-            audit_id=audit_id,
-            tenant_id=parent_tenant_id,
-            gate_id=t["gate_id"],
-            gate_name=t["gate_name"],
-            check_type=t["check_type"],
-            check_name=t["check_name"],
-            result=t["result"],
-            reason=t.get("reason"),
-            detail_json=t.get("detail_json"),
-            remediation_hint=t.get("remediation_hint"),
-            signal_text=t.get("signal_text"),
-            top_sample_ids=t.get("top_sample_ids"),
-            event_hash=event_hash,
-            prev_hash=prev_hash,
-        ))
+        db.add(
+            AuditTrace(
+                id=event_id,
+                created_at=created_at,
+                audit_id=audit_id,
+                tenant_id=parent_tenant_id,
+                gate_id=t["gate_id"],
+                gate_name=t["gate_name"],
+                check_type=t["check_type"],
+                check_name=t["check_name"],
+                result=t["result"],
+                reason=t.get("reason"),
+                detail_json=t.get("detail_json"),
+                remediation_hint=t.get("remediation_hint"),
+                signal_text=t.get("signal_text"),
+                top_sample_ids=t.get("top_sample_ids"),
+                event_hash=event_hash,
+                prev_hash=prev_hash,
+            )
+        )
         prev_hash = event_hash
 
     # Sample findings are non-critical — failures are logged but not propagated.
@@ -211,17 +216,19 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
     # matched_signal). Identical re-matches collapse; distinct samples are kept.
     try:
         deduped = _dedupe_findings(findings)
-        db.bulk_save_objects([
-            SampleFinding(
-                audit_id=audit_id,
-                sample_id=f["sample_id"],
-                domain=f["domain"],
-                matched_signal=f["matched_signal"],
-                matched_text_fragment=f.get("matched_text_fragment"),
-                weight=f["weight"],
-            )
-            for f in deduped
-        ])
+        db.bulk_save_objects(
+            [
+                SampleFinding(
+                    audit_id=audit_id,
+                    sample_id=f["sample_id"],
+                    domain=f["domain"],
+                    matched_signal=f["matched_signal"],
+                    matched_text_fragment=f.get("matched_text_fragment"),
+                    weight=f["weight"],
+                )
+                for f in deduped
+            ]
+        )
     except Exception as finding_exc:
         logger.warning(
             "Could not persist sample findings for audit %s: %s", audit_id, finding_exc
@@ -232,7 +239,10 @@ def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> Non
     db.commit()
     logger.info(
         "Persisted %d trace records and %d sample findings (%d after signal-level dedupe) for audit %s",
-        len(traces), len(findings), len(deduped), audit_id,
+        len(traces),
+        len(findings),
+        len(deduped),
+        audit_id,
     )
 
 
@@ -333,7 +343,9 @@ def scan_batch(
             audit.completed_at = datetime.now(tz=timezone.utc)
             db.commit()
         except Exception as inner:
-            logger.warning("Could not persist audit failure status for %s: %s", audit_id, inner)
+            logger.warning(
+                "Could not persist audit failure status for %s: %s", audit_id, inner
+            )
             db.rollback()
         logger.exception("Audit %s failed: %s", audit_id, exc)
         raise HTTPException(
@@ -345,18 +357,10 @@ def scan_batch(
 @router.get(
     "/audits",
     response_model=list[AuditListItemOut],
+    # CHUB-002 (FND-025) + FND-035: the Compliance Hub landing persona and peer buyer
+    # personas read audit evidence via the reconciled _require_audits_list_read helper
+    # (role OR persona_role); tenant scoping below is unchanged.
     dependencies=[Depends(_require_audits_list_read)],
-    # CHUB-002 (FND-025): the Compliance Hub landing persona (compliance_lead) and
-    # peer buyer personas must be able to read audit evidence. Access is granted by
-    # system role OR persona_role; tenant scoping below is unchanged.
-    dependencies=[
-        Depends(
-            require_role_or_persona(
-                roles=("super_admin", "operator", "demo_viewer"),
-                personas=("compliance_lead", "risk_officer", "admin"),
-            )
-        )
-    ],
     summary="List audits for the current tenant",
 )
 def list_audits(
@@ -405,7 +409,9 @@ def get_audit(
 ) -> AuditReportOut:
     audit = db.get(Audit, audit_id)
     if not audit or audit.tenant_id != current_user.tenant_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audit not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Audit not found"
+        )
     if not audit.report:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Report not yet available"

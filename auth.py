@@ -5,6 +5,7 @@ Roles:
   super_admin — provisions tenants, manages users, configures defaults.
   operator    — submits batches, runs audits, views reports.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # ── Config ────────────────────────────────────────────────────────────────────
 # Lazy helpers — read settings at call time, not import time.
 # This prevents KeyError crashes during Koyeb startup before secrets are injected.
+
 
 def _secret_key() -> str:
     key = settings.jwt_secret_key
@@ -163,7 +165,9 @@ async def get_current_user(
     payload = _decode_token(credentials.credentials)
     user_id: str | None = payload.get("sub")
     if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token"
+        )
 
     # S-205: Demo tokens carry role="demo_viewer" and sub=tenant_id (not a user UUID).
     # Synthesise a transient namespace object so get_current_user returns without a DB hit.
@@ -171,6 +175,7 @@ async def get_current_user(
     if payload.get("role") == "demo_viewer":
         import uuid as _uuid
         from types import SimpleNamespace
+
         synthetic = SimpleNamespace(
             id=_uuid.UUID(user_id),
             tenant_id=_uuid.UUID(payload.get("tenant_id", user_id)),
@@ -185,9 +190,13 @@ async def get_current_user(
 
     user = db.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
+        )
     # GAP-004: propagate JWT-only claims onto the transient user object so
     # downstream dependencies (e.g. require_write_access in demo router) can
     # inspect them without touching the database.
@@ -226,7 +235,9 @@ _SYSTEM_WRITE_ROLES = frozenset({"super_admin", "operator"})
 _READ_ONLY_PERSONAS = frozenset({"ai_auditor"})
 
 
-def _log_authz_denial(current_user: User, request: Request | None, *, required: str) -> None:
+def _log_authz_denial(
+    current_user: User, request: Request | None, *, required: str
+) -> None:
     """PT-009 NFR: every authz denial is logged with tenant/user/role/persona/endpoint."""
     endpoint = request.url.path if request is not None else "?"
     logger.warning(
@@ -281,11 +292,13 @@ def persona_required(*personas: str):
     ) -> User:
         persona_role = getattr(current_user, "persona_role", None) or ""
         if persona_role not in personas:
-            _log_authz_denial(current_user, request, required=f"persona:{list(personas)}")
+            _log_authz_denial(
+                current_user, request, required=f"persona:{list(personas)}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Persona {persona_role!r} is not authorised for this endpoint. "
-                       f"Required: {list(personas)}",
+                f"Required: {list(personas)}",
             )
         return current_user
 
@@ -313,26 +326,6 @@ def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
     """
     role_set = frozenset(roles)
     persona_set = frozenset(personas)
-def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
-    """
-    FastAPI dependency factory granting access if the user's *system role* is in
-    ``roles`` OR their ``persona_role`` is in ``personas``.
-
-    Read-only composition of :func:`require_role` and :func:`persona_required` for
-    endpoints whose audience spans both system roles (e.g. ``demo_viewer``) and
-    buyer personas (e.g. ``compliance_lead``). Tenant scoping is unaffected — it is
-    enforced inside each handler via ``tenant_id`` filters.
-
-    Usage::
-
-        @router.get(
-            "/audits",
-            dependencies=[Depends(require_role_or_persona(
-                roles=("super_admin", "operator", "demo_viewer"),
-                personas=("compliance_lead", "risk_officer", "admin"),
-            ))],
-        )
-    """
 
     async def _check(
         current_user: Annotated[User, Depends(get_current_user)],
@@ -351,20 +344,6 @@ def require_role_or_persona(roles: tuple[str, ...], personas: tuple[str, ...]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorised to read this resource.",
-        if current_user.role in roles:
-            return current_user
-        if (getattr(current_user, "persona_role", None) or "") in personas:
-            return current_user
-        _log_authz_denial(
-            current_user, request, required=f"role:{roles}|persona:{personas}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Role '{current_user.role}' / persona "
-                f"'{getattr(current_user, 'persona_role', None)}' is not authorised "
-                f"for this action. Required role {roles} or persona {personas}."
-            ),
         )
 
     return _check
@@ -392,7 +371,9 @@ async def require_write_persona(
     role = getattr(current_user, "role", None) or ""
     if persona in _WRITE_PERSONAS or role in _SYSTEM_WRITE_ROLES:
         return current_user
-    _log_authz_denial(current_user, request, required=f"write-persona:{sorted(_WRITE_PERSONAS)}")
+    _log_authz_denial(
+        current_user, request, required=f"write-persona:{sorted(_WRITE_PERSONAS)}"
+    )
     detail = (
         "Read-only persona: this account may view but not modify this resource."
         if persona in _READ_ONLY_PERSONAS
