@@ -1006,3 +1006,130 @@ class InsightActionIn(BaseModel):
                 "(recommended remediation — human validation required)"
             )
         return self
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STORY-401 (Epic 14): Policy-trigger configuration schemas.
+#
+# validate_trigger_config is the SINGLE source of cross-field validation truth,
+# shared by PolicyCreate below and services.policy_service (AC-9 — no drift
+# between the API schema and the persistence layer). Partial updates (PolicyUpdate)
+# are validated in the service against the merged-with-existing config, since the
+# payload alone lacks the row's current state.
+# ─────────────────────────────────────────────────────────────────────────────
+
+TriggerMode = Literal["block", "mirror", "sample"]
+OnTimeout = Literal["open", "closed"]
+
+# Sanity ceiling for a synchronous latency budget (10 minutes). A configuration
+# bound, not a performance guarantee — keeps values within INT4 and flags absurd
+# input cleanly instead of deferring to a DB error.
+MAX_LATENCY_BUDGET_MS = 600_000
+
+
+def validate_trigger_config(
+    trigger_mode: str,
+    latency_budget_ms: int | None,
+    on_timeout: str | None,
+    sample_rate: float | None,
+) -> None:
+    """Raise ValueError if the trigger-config combination is invalid.
+
+    - block  requires latency_budget_ms (0 < ms <= MAX_LATENCY_BUDGET_MS) AND on_timeout; rejects sample_rate.
+    - sample requires sample_rate in [0, 1]; rejects budget/timeout.
+    - mirror rejects budget/timeout/rate (set values are a silent-misconfig risk).
+    """
+    if trigger_mode == "block":
+        missing = [
+            n
+            for n, v in (("latency_budget_ms", latency_budget_ms), ("on_timeout", on_timeout))
+            if v is None
+        ]
+        if missing:
+            raise ValueError(f"trigger_mode 'block' requires {' and '.join(missing)}")
+        if latency_budget_ms is not None and not 0 < latency_budget_ms <= MAX_LATENCY_BUDGET_MS:
+            raise ValueError(f"latency_budget_ms must be within (0, {MAX_LATENCY_BUDGET_MS}]")
+        if sample_rate is not None:
+            raise ValueError("trigger_mode 'block' must not set sample_rate")
+    elif trigger_mode == "sample":
+        if sample_rate is None:
+            raise ValueError("trigger_mode 'sample' requires sample_rate")
+        if not 0.0 <= sample_rate <= 1.0:
+            raise ValueError("sample_rate must be within [0, 1]")
+        if latency_budget_ms is not None or on_timeout is not None:
+            raise ValueError("trigger_mode 'sample' must not set latency_budget_ms or on_timeout")
+    elif trigger_mode == "mirror":
+        offenders = [
+            n
+            for n, v in (
+                ("latency_budget_ms", latency_budget_ms),
+                ("on_timeout", on_timeout),
+                ("sample_rate", sample_rate),
+            )
+            if v is not None
+        ]
+        if offenders:
+            raise ValueError(
+                f"trigger_mode 'mirror' ignores {', '.join(offenders)}; "
+                "remove them to prevent silent misconfiguration"
+            )
+    else:
+        raise ValueError(f"unknown trigger_mode {trigger_mode!r}")
+
+
+class PolicyCreate(BaseModel):
+    """Create payload for a governance policy (STORY-401)."""
+
+    name: str = Field(..., max_length=500)
+    trigger_mode: TriggerMode = "mirror"
+    latency_budget_ms: int | None = Field(default=None, le=MAX_LATENCY_BUDGET_MS)
+    on_timeout: OnTimeout | None = None
+    sample_rate: float | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("name must not be blank")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def _validate_combo(self) -> "PolicyCreate":
+        validate_trigger_config(
+            self.trigger_mode, self.latency_budget_ms, self.on_timeout, self.sample_rate
+        )
+        return self
+
+
+class PolicyUpdate(BaseModel):
+    """Partial update payload. Unset fields are left unchanged; the resulting
+    merged combination is validated in services.policy_service (the payload alone
+    lacks the row's current state, so combo validation cannot live here — AC-9)."""
+
+    name: str | None = Field(default=None, max_length=500)
+    trigger_mode: TriggerMode | None = None
+    latency_budget_ms: int | None = Field(default=None, le=MAX_LATENCY_BUDGET_MS)
+    on_timeout: OnTimeout | None = None
+    sample_rate: float | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_not_blank(cls, v: str | None) -> str | None:
+        # An explicit null/blank name in a partial update is rejected (the column
+        # is NOT NULL); omitting the field entirely leaves it unchanged.
+        if v is not None and not v.strip():
+            raise ValueError("name must not be blank")
+        return v.strip() if v is not None else v
+
+
+class PolicyOut(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    name: str
+    trigger_mode: TriggerMode
+    latency_budget_ms: int | None
+    on_timeout: OnTimeout | None
+    sample_rate: float | None
+    policy_version: int
+
+    model_config = {"from_attributes": True}
