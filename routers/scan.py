@@ -38,10 +38,11 @@ from sqlalchemy import text as _sql_text
 # STORY-TRACE-003: the AI Auditor's screen lists audits and opens audit detail.
 # Grant the audit/compliance personas read access alongside the legacy roles.
 # The list additionally preserves the existing read-only `demo_viewer` role.
-# CHUB-002 (FND-025): the Compliance Hub buyer personas (risk_officer, admin)
-# join the existing audit-list readers (ai_auditor, compliance_lead) so the
-# Compliance Hub landing personas can read audit evidence. Union — no reader
-# loses access. Tenant scoping is unchanged (enforced in each handler).
+# Audits-LIST access is the union of two stories' readers (owner decision,
+# reconciling FND-025 vs FND-028): TRACE auditors (ai_auditor, compliance_lead)
+# AND Compliance Hub buyer personas (risk_officer, admin). The buyer personas
+# get the list only — audit DETAIL and the TRACE timeline stay least-privilege
+# (_require_audit_detail_read below), so risk_officer/admin are denied there.
 _require_audits_list_read = require_role_or_persona(
     TRACE_READ_ROLES + ("demo_viewer",),
     TRACE_READ_PERSONAS + ("risk_officer", "admin"),
