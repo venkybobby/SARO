@@ -92,6 +92,8 @@ TENANT_SCOPED_MODELS = {
     "GRCRegistryEntry",
     "GRCRegistryAudit",
     "GRCEvidenceRecord",
+    # Governance runtime (Epic 14, STORY-401).
+    "Policy",
 }
 
 # Patterns that are always safe — they wrap the tenant check internally.

@@ -705,6 +705,47 @@ class TenantRiskConfig(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# STORY-401 (Epic 14): per-policy trigger configuration — the spine the runtime
+# router (STORY-402) dispatches on. Tenant-scoped; many policies per tenant.
+# Cross-field validation (block needs budget+timeout, sample needs rate, mirror
+# rejects all three) is enforced app-layer in schemas.validate_trigger_config so
+# the model and the Pydantic schema share one source of truth (STORY-401 AC-9).
+# Enum membership is additionally guarded by CHECK constraints in migration 027.
+# Tenant isolation is enforced app-layer (.filter(tenant_id == ...)); the RLS
+# policy on this table mirrors the rest of the schema for parity but, like the
+# other tables, is currently inert at runtime (see tests/test_tenant_isolation.py).
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Policy(Base):
+    """A governance policy declaring *how it fires* at runtime.
+
+    trigger_mode:
+        block  — evaluate synchronously within latency_budget_ms; on_timeout decides fail-open/closed.
+        mirror — enqueue and return immediately (no budget/timeout/rate).
+        sample — enqueue for sample_rate fraction of calls.
+    policy_version is monotonic (starts at 1) and bumps on any trigger-config change (STORY-401 AC-7).
+    """
+
+    __tablename__ = "policies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    # One of: block | mirror | sample. Safe default for backfilled rows is 'mirror' (STORY-401 AC-6).
+    trigger_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="mirror")
+    latency_budget_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # One of: open | closed (nullable; required only for block mode).
+    on_timeout: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    sample_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    policy_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SARO-005: ISO 42001 Annex A generated documents (immutable versioned records)
 # ─────────────────────────────────────────────────────────────────────────────
 
