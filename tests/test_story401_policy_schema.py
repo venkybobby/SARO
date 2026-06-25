@@ -159,7 +159,8 @@ def test_blank_name_rejected(name) -> None:
 @pytest.mark.unit
 def test_bad_trigger_mode_rejected() -> None:
     with pytest.raises(ValueError):
-        PolicyCreate(name="p", trigger_mode="explode")
+        # Intentionally-invalid trigger_mode for the negative test.
+        PolicyCreate(name="p", trigger_mode="explode")  # type: ignore[arg-type]
 
 
 @pytest.mark.unit
@@ -396,7 +397,9 @@ def test_cross_tenant_write_denied(db) -> None:
     with pytest.raises(policy_service.PolicyNotFoundError):
         policy_service.update_policy(db, TENANT_B, p.id, PolicyUpdate(name="hijack"))
     # Unchanged for the real owner.
-    assert policy_service.get_policy(db, TENANT_A, p.id).name == "owned-by-a"
+    owned = policy_service.get_policy(db, TENANT_A, p.id)
+    assert owned is not None
+    assert owned.name == "owned-by-a"
 
 
 # ---------------------------------------------------------------------------
