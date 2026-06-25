@@ -1,9 +1,9 @@
 {
-  "name": "saro-platform",
+  "name": "saro",
   "version": "1.0.0",
   "description": "Claude specialist plugin for SARO (Smart AI Risk Orchestrator) — enterprise AI regulatory compliance platform. Full 5-layer AI Operating System: Memory, Knowledge, Guardrails, Delegation, Distribution.",
   "author": "Venky Bobbyraj (venkybobby)",
-  "repository": "github.com/venkybobby/saro-platform",
+  "repository": "github.com/venkybobby/SARO",
   "layers": {
     "01_memory": "CLAUDE.md + skills/codebase-standards.md (always active)",
     "02_knowledge": "skills/ — 6 domain skill files, auto-loaded on relevance",

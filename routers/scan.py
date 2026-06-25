@@ -23,7 +23,6 @@ from auth import (
     TRACE_READ_ROLES,
     TRACE_READ_PERSONAS,
 )
-from auth import get_current_user, require_role, require_role_or_persona
 from database import get_db
 from engine import SARoEngine
 from models import Audit, AuditTrace, SampleFinding, ScanReport, User
@@ -39,8 +38,14 @@ from sqlalchemy import text as _sql_text
 # STORY-TRACE-003: the AI Auditor's screen lists audits and opens audit detail.
 # Grant the audit/compliance personas read access alongside the legacy roles.
 # The list additionally preserves the existing read-only `demo_viewer` role.
+# Audits-LIST access is the union of two stories' readers (owner decision,
+# reconciling FND-025 vs FND-028): TRACE auditors (ai_auditor, compliance_lead)
+# AND Compliance Hub buyer personas (risk_officer, admin). The buyer personas
+# get the list only — audit DETAIL and the TRACE timeline stay least-privilege
+# (_require_audit_detail_read below), so risk_officer/admin are denied there.
 _require_audits_list_read = require_role_or_persona(
-    TRACE_READ_ROLES + ("demo_viewer",), TRACE_READ_PERSONAS
+    TRACE_READ_ROLES + ("demo_viewer",),
+    TRACE_READ_PERSONAS + ("risk_officer", "admin"),
 )
 _require_audit_detail_read = require_role_or_persona(
     TRACE_READ_ROLES, TRACE_READ_PERSONAS
@@ -346,17 +351,6 @@ def scan_batch(
     "/audits",
     response_model=list[AuditListItemOut],
     dependencies=[Depends(_require_audits_list_read)],
-    # CHUB-002 (FND-025): the Compliance Hub landing persona (compliance_lead) and
-    # peer buyer personas must be able to read audit evidence. Access is granted by
-    # system role OR persona_role; tenant scoping below is unchanged.
-    dependencies=[
-        Depends(
-            require_role_or_persona(
-                roles=("super_admin", "operator", "demo_viewer"),
-                personas=("compliance_lead", "risk_officer", "admin"),
-            )
-        )
-    ],
     summary="List audits for the current tenant",
 )
 def list_audits(

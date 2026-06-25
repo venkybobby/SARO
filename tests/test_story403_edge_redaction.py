@@ -62,6 +62,7 @@ def test_residual_rate_below_threshold_on_fixture() -> None:
     sample = labeled_text_sample()
     catalog = reference_safe_harbor_catalog()
     result = edge_redaction.redact_text(sample["text"], catalog)
+    assert result.sli.residual_rate is not None
     assert result.sli.residual_rate <= 0.05, (
         f"residual rate {result.sli.residual_rate} over threshold"
     )

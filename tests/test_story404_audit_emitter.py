@@ -259,7 +259,7 @@ def test_genesis_event_has_no_prev_hash() -> None:
 @pytest.mark.unit
 def test_export_json_is_schema_valid_and_content_free() -> None:
     events = [_event("t", input_text="SENSITIVE-PHI-123"), _event("t")]
-    sealed = []
+    sealed: list = []
     em = AuditEmitter(transport=sealed.append)
     for e in events:
         em.emit(e)
@@ -274,7 +274,7 @@ def test_export_json_is_schema_valid_and_content_free() -> None:
 def test_export_parquet_is_schema_valid_and_content_free() -> None:
     import pyarrow.parquet as pq
 
-    sealed = []
+    sealed: list = []
     em = AuditEmitter(transport=sealed.append)
     em.emit(_event("t", input_text="SENSITIVE-PHI-456"))
     blob = audit_emitter.export_parquet(sealed)

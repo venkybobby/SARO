@@ -7,10 +7,13 @@ The Compliance Hub landing page (built for the ``compliance_lead`` persona) read
 table always showed "No audits yet."
 
 Fix: the route now uses ``require_role_or_persona`` — access by system role OR by
-persona_role (compliance_lead / risk_officer / admin). Tenant scoping is unchanged.
+persona_role. Per the owner decision reconciling FND-025 vs FND-028, the audits
+LIST is readable by the union of TRACE auditors (ai_auditor, compliance_lead) and
+Compliance Hub buyer personas (compliance_lead, risk_officer, admin). Tenant
+scoping is unchanged.
 
-Pinned behaviourally: buyer personas and demo_viewer reach the handler (no 403);
-an unauthorised role+persona is still rejected with 403.
+Pinned behaviourally: those personas and demo_viewer reach the handler (no 403);
+a user with no audit-reader persona (and a non-privileged role) is still 403.
 """
 
 from __future__ import annotations
@@ -32,7 +35,8 @@ pytestmark = pytest.mark.regression
 _TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000025")
 
 _AUDIT_ROLES = ("super_admin", "operator", "demo_viewer")
-_AUDIT_PERSONAS = ("compliance_lead", "risk_officer", "admin")
+# Union audits-LIST readers (FND-025 ∪ FND-028 reconciliation).
+_AUDIT_PERSONAS = ("ai_auditor", "compliance_lead", "risk_officer", "admin")
 
 
 def _user(role: str, persona: str | None):
@@ -95,7 +99,8 @@ async def test_guard_grants_demo_viewer_role():
 async def test_guard_denies_unauthorised_role_and_persona():
     dep = require_role_or_persona(roles=_AUDIT_ROLES, personas=_AUDIT_PERSONAS)
     with pytest.raises(HTTPException) as exc:
-        await dep(_user("viewer", "ai_auditor"), None)
+        # No audit-reader persona and a non-privileged role → denied.
+        await dep(_user("viewer", None), None)
     assert exc.value.status_code == 403
 
 
@@ -105,6 +110,7 @@ async def test_guard_denies_unauthorised_role_and_persona():
 @pytest.mark.parametrize(
     "role,persona",
     [
+        ("viewer", "ai_auditor"),
         ("viewer", "compliance_lead"),
         ("viewer", "risk_officer"),
         ("viewer", "admin"),
@@ -125,7 +131,8 @@ def test_audits_readable_by_permitted_role_or_persona(role, persona):
 
 
 def test_audits_forbidden_for_unauthorised_persona():
-    c = _client("viewer", "ai_auditor")
+    # No audit-reader persona + non-privileged role → still 403 under the union.
+    c = _client("viewer", None)
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 403, (
