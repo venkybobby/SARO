@@ -82,7 +82,7 @@ def test_render_changelog_empty_range():
 # --- CLI (main) ---------------------------------------------------------------
 
 def test_main_writes_output_file(monkeypatch, tmp_path):
-    monkeypatch.setattr(cd, "last_tag", lambda: None)
+    monkeypatch.setattr(cd, "previous_tag", lambda ref: None)
     monkeypatch.setattr(cd, "commit_subjects", lambda r: ["feat(x): a", "fix: b"])
     out_file = tmp_path / "section.md"
     rc = cd.main(["--version", "v9.9.9", "--date", "2026-06-26", "--output", str(out_file)])
@@ -99,12 +99,32 @@ def test_main_stdout_with_explicit_range(monkeypatch, capsys):
     assert "v1.0.0" in capsys.readouterr().out
 
 
+def test_main_uses_previous_tag_of_target(monkeypatch):
+    # Regression for A1: on a tag push (to == the new tag), the range must be
+    # previous_tag..new_tag, never the empty new_tag..new_tag.
+    seen: dict = {}
+
+    def fake_previous_tag(ref):
+        seen["ref"] = ref
+        return "v8.0.0"
+
+    def fake_commit_subjects(rng):
+        seen["range"] = rng
+        return ["feat: x"]
+
+    monkeypatch.setattr(cd, "previous_tag", fake_previous_tag)
+    monkeypatch.setattr(cd, "commit_subjects", fake_commit_subjects)
+    cd.main(["--version", "v8.1.0", "--to", "v8.1.0", "--date", "2026-06-26"])
+    assert seen["ref"] == "v8.1.0"            # previous_tag called against the target
+    assert seen["range"] == "v8.0.0..v8.1.0"  # not the empty v8.1.0..v8.1.0
+
+
 def test_main_handles_git_failure(monkeypatch):
     import subprocess
 
     def boom(_range):
         raise subprocess.CalledProcessError(1, "git", stderr="bad range")
 
-    monkeypatch.setattr(cd, "last_tag", lambda: None)
+    monkeypatch.setattr(cd, "previous_tag", lambda ref: None)
     monkeypatch.setattr(cd, "commit_subjects", boom)
     assert cd.main(["--version", "v1", "--date", "2026-06-26"]) == 1

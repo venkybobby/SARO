@@ -6,7 +6,7 @@
 #
 # Validate locally:  python -m pytest tests/test_loop_registry.py -q
 
-version: "1.1.0"
+version: "1.1.1"
 updated: "2026-06-26"
 owner: "Jordan Lee"
 
@@ -299,8 +299,8 @@ loops:
     token_cost: low
     implementation: ".github/workflows/dependency-sweeper.yml + scripts/dependency_sweeper.py"
     building_blocks: [scheduling, connectors]
-    verification: "Full pytest suite must pass on the bumped versions before the PR is opened."
-    escalation: "Test failure aborts the PR; minor/major bumps are out of scope and never proposed; human merges."
+    verification: "Hermetic unit suite (pytest -m unit, no DB/network) gates the bump inline; full integration CI runs on the PR (requires PAT_TOKEN to trigger on a bot PR)."
+    escalation: "Unit failure aborts the PR; minor/major bumps are out of scope and never proposed; human merges."
     owner: "Jordan Lee"
 
   - id: changelog-drafter
@@ -326,10 +326,11 @@ loops:
   - id: post-merge-cleanup
     name: "Post-Merge Cleanup"
     description: >-
-      Off-peak prune of remote feature branches already merged into main. The daily
-      scheduled run is DRY-RUN only (logs candidates); deletion requires an operator
-      to dispatch with apply=true. Protected branches (main/develop, automation/*,
-      claude/*) are never touched.
+      Off-peak prune of remote feature branches whose PR was merged into main. Merge
+      detection uses the GitHub PR API (merged_at), so it is squash/rebase-safe (git
+      ancestry would miss those). The daily run is DRY-RUN only; deletion requires an
+      operator to dispatch with apply=true. Protected branches (main/develop,
+      automation/*, claude/*) are never touched.
     category: post-merge-cleanup
     status: active
     trigger: schedule
@@ -340,6 +341,6 @@ loops:
     token_cost: low
     implementation: ".github/workflows/post-merge-cleanup.yml + scripts/post_merge_cleanup.py"
     building_blocks: [scheduling, connectors]
-    verification: "Dry-run by default; only git-confirmed merged branches are eligible."
+    verification: "Dry-run by default; a branch is eligible only if its PR is merged (API) AND it still exists on origin."
     escalation: "Deletion is gated behind an explicit operator dispatch; never force-deletes; protected globs skipped."
     owner: "Jordan Lee"

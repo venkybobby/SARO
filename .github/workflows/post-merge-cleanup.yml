@@ -17,11 +17,15 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    env:
+      # Merge detection uses the PR API (squash/rebase-safe); deletion uses git.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +34,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+
+      - name: Install request dependency
+        run: pip install requests
 
       - name: Prune merged branches
         run: |
