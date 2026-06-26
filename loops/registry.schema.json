@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/venkybobby/SARO/loops/registry.schema.json",
+  "title": "SARO Loop Registry",
+  "description": "Machine-readable catalogue of SARO's automated agent loops, their cadence, risk, maturity, and governance. Modelled on the loop-engineering registry pattern (github.com/cobusgreyling/loop-engineering) and adapted to SARO's verification spine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updated", "owner", "maturity_levels", "loops"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Registry schema/content version (semver).",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "updated": {
+      "type": "string",
+      "description": "ISO 8601 date the registry was last reviewed (YYYY-MM-DD).",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Person accountable for the registry (must be a SARO team member)."
+    },
+    "maturity_levels": {
+      "type": "object",
+      "description": "Definitions of the L1->L2->L3 automation maturity ladder.",
+      "additionalProperties": false,
+      "required": ["L1", "L2", "L3"],
+      "properties": {
+        "L1": {"type": "string"},
+        "L2": {"type": "string"},
+        "L3": {"type": "string"}
+      }
+    },
+    "loops": {
+      "type": "array",
+      "description": "The catalogue of loops.",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/loop"}
+    }
+  },
+  "definitions": {
+    "loop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "category", "status", "trigger", "cadence",
+        "risk", "maturity", "implementation", "building_blocks",
+        "verification", "escalation", "owner"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable kebab-case identifier.",
+          "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$"
+        },
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "category": {
+          "type": "string",
+          "description": "Which loop-engineering reference pattern this maps to, or a SARO-native category.",
+          "enum": [
+            "pr-babysitter",
+            "ci-sweeper",
+            "issue-triage",
+            "daily-triage",
+            "dependency-sweeper",
+            "changelog-drafter",
+            "post-merge-cleanup",
+            "dev-pipeline",
+            "guard-skill",
+            "evidence-generator",
+            "data-refresh"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "proposed", "gap", "deprecated"]
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["schedule", "pull_request", "push", "manual", "agent-context", "event"]
+        },
+        "cadence": {
+          "type": "string",
+          "description": "Human-readable cadence, or a cron expression for scheduled loops."
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "maturity": {
+          "type": "string",
+          "enum": ["L1", "L2", "L3"]
+        },
+        "max_maturity": {
+          "type": "string",
+          "description": "The highest maturity this loop is permitted to reach. Loops touching scoring/compliance/rule-packs are capped at L1.",
+          "enum": ["L1", "L2", "L3"]
+        },
+        "token_cost": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "very-high", "n/a"]
+        },
+        "implementation": {
+          "type": "string",
+          "description": "Where the loop lives (workflow file, skill, slash command, or MCP subscription)."
+        },
+        "building_blocks": {
+          "type": "array",
+          "description": "Loop-engineering building blocks this loop uses.",
+          "items": {
+            "type": "string",
+            "enum": ["scheduling", "worktrees", "skills", "connectors", "sub-agents", "memory"]
+          },
+          "minItems": 1
+        },
+        "verification": {
+          "type": "string",
+          "description": "How a run is checked before it is trusted."
+        },
+        "escalation": {
+          "type": "string",
+          "description": "When and how the loop hands off to a human."
+        },
+        "owner": {"type": "string"}
+      }
+    }
+  }
+}
