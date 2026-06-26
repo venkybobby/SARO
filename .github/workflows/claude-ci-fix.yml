@@ -11,11 +11,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    name: Loop guard (kill switch / cap)
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py ci-sweeper; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   diagnose-and-fix:
     name: Diagnose and Fix Test Failure
+    needs: guard
     runs-on: ubuntu-latest
-    # Only run when CI has failed
-    if: github.event.workflow_run.conclusion == 'failure'
+    # Only run when CI has failed AND the loop is not killed/capped
+    if: github.event.workflow_run.conclusion == 'failure' && needs.guard.outputs.proceed == 'true'
 
     permissions:
       contents: write

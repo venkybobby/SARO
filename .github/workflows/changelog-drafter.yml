@@ -19,8 +19,30 @@ permissions:
   pull-requests: write
 
 jobs:
-  draft:
+  guard:
     runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py changelog-drafter; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  draft:
+    needs: guard
+    runs-on: ubuntu-latest
+    if: needs.guard.outputs.proceed == 'true'
     steps:
       - uses: actions/checkout@v4
         with:

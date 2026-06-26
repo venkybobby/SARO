@@ -20,9 +20,30 @@ permissions:
   pull-requests: read
 
 jobs:
-  cleanup:
+  guard:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py post-merge-cleanup; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  cleanup:
+    needs: guard
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.guard.outputs.proceed == 'true'
     env:
       # Merge detection uses the PR API (squash/rebase-safe); deletion uses git.
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
