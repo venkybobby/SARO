@@ -1,0 +1,47 @@
+name: Post-Merge Cleanup
+
+# Loop: post-merge-cleanup (loops/registry.yaml). Off-peak prune of remote feature
+# branches already merged into main. The scheduled run is DRY-RUN by default and
+# only logs candidates; an operator must dispatch with apply=true to delete.
+# Protected branches (main/master/develop and automation/*) are never touched.
+
+on:
+  schedule:
+    - cron: '23 5 * * *'   # 05:23 UTC daily (off-peak, off-minute) — dry-run only
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Set to 'true' to actually delete merged branches"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prune merged branches
+        run: |
+          APPLY=""
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            APPLY="--apply"
+            echo "Running in APPLY mode (branches will be deleted)."
+          else
+            echo "Running in DRY-RUN mode (no deletions)."
+          fi
+          python scripts/post_merge_cleanup.py \
+            --base main \
+            --protect 'automation/*' \
+            --protect 'claude/*' \
+            $APPLY

@@ -1,0 +1,345 @@
+# SARO Loop Registry
+# Machine-readable catalogue of SARO's automated agent loops.
+# Schema: loops/registry.schema.json  ·  Governance: docs/LOOP_REGISTRY.md
+# Modelled on the loop-engineering registry pattern
+# (github.com/cobusgreyling/loop-engineering), adapted to SARO's verification spine.
+#
+# Validate locally:  python -m pytest tests/test_loop_registry.py -q
+
+version: "1.1.0"
+updated: "2026-06-26"
+owner: "Jordan Lee"
+
+maturity_levels:
+  L1: "Report-only. The loop discovers and proposes; a human makes every change. Safe default."
+  L2: "Assisted. The loop may push fixes on a branch/PR but a human reviews and merges."
+  L3: "Unattended. The loop acts end-to-end within hard guardrails (tests, ratchet, escalation)."
+
+loops:
+  # ---------------------------------------------------------------------------
+  # ACTIVE — event-driven dev-cycle loops
+  # ---------------------------------------------------------------------------
+  - id: pr-babysitter
+    name: "PR Babysitter"
+    description: >-
+      Watches an open PR for review comments and CI events via the
+      subscribe_pr_activity MCP subscription, investigates each event, and pushes
+      fixes or asks the user when ambiguous. The auto-pr-review skill gates the diff
+      before merge.
+    category: pr-babysitter
+    status: active
+    trigger: pull_request
+    cadence: "on PR event (review comment / CI status / push)"
+    risk: medium
+    maturity: L3
+    max_maturity: L3
+    token_cost: high
+    implementation: ".github/workflows/claude-pr-review.yml + .claude/skills/auto-pr-review + subscribe_pr_activity"
+    building_blocks: [connectors, skills, sub-agents, memory]
+    verification: "Independent reviewer + security-auditor agents must approve; full pytest suite must pass."
+    escalation: "AskUserQuestion on any ambiguity; max 3 gate cycles then escalate to a human."
+    owner: "Venky"
+
+  - id: ci-sweeper
+    name: "CI Sweeper"
+    description: >-
+      On red CI, diagnoses the root cause and pushes a fix, re-kicking until green
+      or until the failure is judged real and out of scope.
+    category: ci-sweeper
+    status: active
+    trigger: pull_request
+    cadence: "on CI failure"
+    risk: medium
+    maturity: L3
+    max_maturity: L3
+    token_cost: very-high
+    implementation: ".github/workflows/claude-ci-fix.yml + .claude/skills/ci-debugger"
+    building_blocks: [connectors, skills, sub-agents]
+    verification: "Green CI is the terminal state; never weaken a test to get green."
+    escalation: "Reply with diagnosis after repeated no-progress kicks or when the failure is real and out of scope."
+    owner: "Jordan Lee"
+
+  - id: finding-intake
+    name: "Finding Intake (Issue Triage)"
+    description: >-
+      Logs a new bug/review finding (FND), writes a pinning regression test
+      (red -> green), and updates the regression manifest. SARO's propose-and-pin
+      analogue of issue triage.
+    category: issue-triage
+    status: active
+    trigger: manual
+    cadence: "per finding"
+    risk: low
+    maturity: L2
+    max_maturity: L2
+    token_cost: low
+    implementation: ".claude/commands/finding.md + tests/regression/manifest.yaml"
+    building_blocks: [skills, memory]
+    verification: "Regression test must fail before the fix and pass after; manifest entry required."
+    escalation: "Findings touching scoring/compliance are routed to the relevant guard skill."
+    owner: "Sam Patel"
+
+  - id: story-pipeline
+    name: "Story Pipeline (Dev Pipeline)"
+    description: >-
+      Executes a SARO story end-to-end through the full quality loop: implement ->
+      test -> independent review -> security audit -> gate. The master orchestrator.
+    category: dev-pipeline
+    status: active
+    trigger: manual
+    cadence: "per story"
+    risk: medium
+    maturity: L2
+    max_maturity: L2
+    token_cost: very-high
+    implementation: ".claude/commands/story.md + .claude/skills/saro-dev"
+    building_blocks: [skills, sub-agents, memory, worktrees]
+    verification: "Quality ratchet (quality/baseline.json) never regresses; reviewer + security-auditor approve."
+    escalation: "Max 3 gate cycles then escalate; never weaken a test to pass a gate."
+    owner: "Venky"
+
+  # ---------------------------------------------------------------------------
+  # ACTIVE — scheduled evidence / data loops (real cron jobs)
+  # ---------------------------------------------------------------------------
+  - id: security-sweeper
+    name: "Security Sweeper"
+    description: >-
+      Weekly OWASP Top 10 + PII + SARO-surface security audit producing evidence,
+      not auto-fixes.
+    category: evidence-generator
+    status: active
+    trigger: schedule
+    cadence: "0 2 * * 1"   # Monday 02:00 UTC
+    risk: medium
+    maturity: L1
+    max_maturity: L2
+    token_cost: medium
+    implementation: ".github/workflows/claude-security-audit.yml + .claude/skills/security-audit"
+    building_blocks: [scheduling, skills, sub-agents]
+    verification: "Findings reviewed by security-auditor agent; pip-audit + OWASP patterns."
+    escalation: "Surfaces findings for human triage; does not auto-merge fixes."
+    owner: "Jordan Lee"
+
+  - id: eval-weekly
+    name: "Offline Eval Batch"
+    description: >-
+      Weekly offline evaluation (TruthfulQA, PII, toxicity) over the data framework,
+      tracking scoring quality drift over time.
+    category: evidence-generator
+    status: active
+    trigger: schedule
+    cadence: "0 2 * * 1"   # Monday 02:00 UTC
+    risk: low
+    maturity: L1
+    max_maturity: L1
+    token_cost: medium
+    implementation: ".github/workflows/eval-weekly.yml + saro-data-framework/"
+    building_blocks: [scheduling, memory]
+    verification: "Results compared against prior baselines; regressions flagged."
+    escalation: "Eval regressions reported to ML owner for human review."
+    owner: "Alex Rivera"
+
+  - id: security-evidence-weekly
+    name: "Security Evidence Generator"
+    description: "Weekly generation of security evidence artifacts for the audit trail."
+    category: evidence-generator
+    status: active
+    trigger: schedule
+    cadence: "0 3 * * 1"   # Monday 03:00 UTC
+    risk: low
+    maturity: L1
+    max_maturity: L1
+    token_cost: low
+    implementation: ".github/workflows/security-evidence-weekly.yml"
+    building_blocks: [scheduling, memory]
+    verification: "Evidence artifacts are append-only; hash-chained per compliance matrix."
+    escalation: "Evidence is for human auditor review only; never an automated verdict."
+    owner: "Jordan Lee"
+
+  - id: hf-sampler
+    name: "HF Daily Sampler (Daily Triage)"
+    description: "Daily data sampler feeding the evaluation/data framework."
+    category: data-refresh
+    status: active
+    trigger: schedule
+    cadence: "0 6 * * *"   # 06:00 UTC daily
+    risk: low
+    maturity: L1
+    max_maturity: L1
+    token_cost: low
+    implementation: ".github/workflows/hf_sampler.yml"
+    building_blocks: [scheduling, connectors, memory]
+    verification: "Sampled data validated before ingestion."
+    escalation: "Ingestion failures reported; no client-system writes (read-only posture)."
+    owner: "Alex Rivera"
+
+  - id: seed-refresh
+    name: "Seed Refresh"
+    description: "Weekly refresh of seed/reference data."
+    category: data-refresh
+    status: active
+    trigger: schedule
+    cadence: "0 2 * * 0"   # Sunday 02:00 UTC
+    risk: low
+    maturity: L1
+    max_maturity: L1
+    token_cost: low
+    implementation: ".github/workflows/seed-refresh.yml"
+    building_blocks: [scheduling, memory]
+    verification: "Refreshed seeds validated against schema before commit."
+    escalation: "Validation failure aborts the refresh; no partial writes."
+    owner: "Jordan Lee"
+
+  # ---------------------------------------------------------------------------
+  # ACTIVE — contextual guard skills (agent-in-the-loop, not scheduled)
+  # These run inside the dev loop to keep the agent inside SARO's invariants.
+  # ---------------------------------------------------------------------------
+  - id: compliance-guard
+    name: "Compliance Guard"
+    description: "Blocks overclaiming and enforces SARO's read-only, evidence-only posture on compliance code/docs."
+    category: guard-skill
+    status: active
+    trigger: agent-context
+    cadence: "on edit to compliance code/docs"
+    risk: high
+    maturity: L1
+    max_maturity: L1
+    token_cost: n/a
+    implementation: ".claude/skills/compliance-guard"
+    building_blocks: [skills]
+    verification: "Conformance to COMPLIANCE_CLAIMS_MATRIX.md allowed/forbidden phrase tables."
+    escalation: "Any new external compliance claim requires human (P-0 / EVF) sign-off."
+    owner: "Venky"
+
+  - id: risk-scoring-guard
+    name: "Risk Scoring Guard"
+    description: "Enforces scoring invariants (DIR formula, SHAP, TRACE) on engine.py edits."
+    category: guard-skill
+    status: active
+    trigger: agent-context
+    cadence: "on edit to engine.py / scoring"
+    risk: high
+    maturity: L1
+    max_maturity: L1
+    token_cost: n/a
+    implementation: ".claude/skills/risk-scoring"
+    building_blocks: [skills]
+    verification: "Scoring invariants preserved; PostToolUse hook runs pytest after engine.py edits."
+    escalation: "Scoring math changes require ML owner review."
+    owner: "Alex Rivera"
+
+  - id: rule-pack-guard
+    name: "Rule Pack Guard"
+    description: "Enforces schema validation, versioning, and vertical constraints on rule_packs/ edits."
+    category: guard-skill
+    status: active
+    trigger: agent-context
+    cadence: "on edit to rule_packs/"
+    risk: high
+    maturity: L1
+    max_maturity: L1
+    token_cost: n/a
+    implementation: ".claude/skills/rule-pack-edit (PreToolUse Write hook requires explicit approval)"
+    building_blocks: [skills]
+    verification: "Schema validation; rule-pack hash provenance preserved."
+    escalation: "Rule pack writes are hard-gated: explicit user approval required (settings.json hook)."
+    owner: "Alex Rivera"
+
+  - id: drift-sentinel
+    name: "Drift Sentinel"
+    description: "Enforces the 2-sigma auto-incident rule and circuit-breaker thresholds for drift detection."
+    category: guard-skill
+    status: active
+    trigger: agent-context
+    cadence: "on edit to drift/circuit-breaker logic"
+    risk: high
+    maturity: L1
+    max_maturity: L1
+    token_cost: n/a
+    implementation: ".claude/skills/drift-sentinel"
+    building_blocks: [skills]
+    verification: "KS-test threshold (p=0.05) and 2-sigma rule preserved."
+    escalation: "Threshold changes require human review."
+    owner: "Alex Rivera"
+
+  - id: verification-loop
+    name: "Verification Loop"
+    description: "Runs SARO's unified test -> lint -> typecheck -> security gate before commit/PR so green local predicts green CI."
+    category: guard-skill
+    status: active
+    trigger: agent-context
+    cadence: "before commit / PR / task completion"
+    risk: low
+    maturity: L1
+    max_maturity: L2
+    token_cost: low
+    implementation: ".claude/skills/verification-loop + Stop hook (pytest)"
+    building_blocks: [skills]
+    verification: "Stop hook blocks task completion unless the full suite passes."
+    escalation: "Failing gate blocks completion; ci-debugger engages on persistent failure."
+    owner: "Sam Patel"
+
+  # ---------------------------------------------------------------------------
+  # ACTIVE — maintenance loops adopted from loop-engineering reference patterns
+  # (deterministic scripts: cheap, no LLM calls, PR/dry-run safe)
+  # ---------------------------------------------------------------------------
+  - id: dependency-sweeper
+    name: "Dependency Sweeper"
+    description: >-
+      Weekly patch-only dependency loop. Bumps exact (name==X.Y.Z) pins to the latest
+      patch within the same major.minor, runs the full test suite, and opens a draft
+      PR. Never bumps minor/major, never touches >= floors, never auto-merges.
+    category: dependency-sweeper
+    status: active
+    trigger: schedule
+    cadence: "17 4 * * 1"   # Monday 04:17 UTC
+    risk: medium
+    maturity: L2
+    max_maturity: L2
+    token_cost: low
+    implementation: ".github/workflows/dependency-sweeper.yml + scripts/dependency_sweeper.py"
+    building_blocks: [scheduling, connectors]
+    verification: "Full pytest suite must pass on the bumped versions before the PR is opened."
+    escalation: "Test failure aborts the PR; minor/major bumps are out of scope and never proposed; human merges."
+    owner: "Jordan Lee"
+
+  - id: changelog-drafter
+    name: "Changelog Drafter"
+    description: >-
+      Drafts release notes from Conventional Commits (enforced in CI), grouped by type
+      with a BREAKING CHANGES section, and opens a draft PR updating CHANGELOG.md.
+      Propose-only: never tags, never publishes a release.
+    category: changelog-drafter
+    status: active
+    trigger: push
+    cadence: "on tag push (v*) or manual dispatch"
+    risk: low
+    maturity: L2
+    max_maturity: L2
+    token_cost: low
+    implementation: ".github/workflows/changelog-drafter.yml + scripts/changelog_drafter.py"
+    building_blocks: [scheduling, connectors]
+    verification: "Draft is proposal-only; human edits and publishes."
+    escalation: "Never publishes a release unattended; human merges the CHANGELOG PR."
+    owner: "Venky"
+
+  - id: post-merge-cleanup
+    name: "Post-Merge Cleanup"
+    description: >-
+      Off-peak prune of remote feature branches already merged into main. The daily
+      scheduled run is DRY-RUN only (logs candidates); deletion requires an operator
+      to dispatch with apply=true. Protected branches (main/develop, automation/*,
+      claude/*) are never touched.
+    category: post-merge-cleanup
+    status: active
+    trigger: schedule
+    cadence: "23 5 * * *"   # 05:23 UTC daily (dry-run)
+    risk: low
+    maturity: L1
+    max_maturity: L2
+    token_cost: low
+    implementation: ".github/workflows/post-merge-cleanup.yml + scripts/post_merge_cleanup.py"
+    building_blocks: [scheduling, connectors]
+    verification: "Dry-run by default; only git-confirmed merged branches are eligible."
+    escalation: "Deletion is gated behind an explicit operator dispatch; never force-deletes; protected globs skipped."
+    owner: "Jordan Lee"

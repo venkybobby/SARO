@@ -1,0 +1,64 @@
+name: Dependency Sweeper (patch-only)
+
+# Loop: dependency-sweeper (loops/registry.yaml). Weekly, patch-only dependency
+# bumps. Opens a PR for human review — NEVER auto-merges. Full pytest suite must
+# pass before the PR is opened.
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'   # Monday 04:17 UTC (off-peak, off-minute)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Compute patch-only updates
+        id: sweep
+        run: |
+          python scripts/dependency_sweeper.py --json > sweep.json
+          cat sweep.json
+          COUNT=$(python -c "import json; print(len(json.load(open('sweep.json'))['updates']))")
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Apply updates
+        if: steps.sweep.outputs.count != '0'
+        run: python scripts/dependency_sweeper.py --apply
+
+      - name: Install updated deps and run tests
+        if: steps.sweep.outputs.count != '0'
+        run: |
+          pip install -r requirements.txt
+          python -m pytest tests/ -q --no-header
+
+      - name: Open pull request
+        if: steps.sweep.outputs.count != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: automation/dependency-sweeper
+          base: main
+          commit-message: "chore(deps): patch-only dependency bumps"
+          title: "chore(deps): weekly patch-only dependency bumps"
+          body: |
+            Automated **patch-only** dependency bumps from the Dependency Sweeper loop
+            (`loops/registry.yaml` → `dependency-sweeper`).
+
+            - Only `name==X.Y.Z` exact pins were bumped, within the same major.minor.
+            - The full pytest suite passed on these versions before this PR opened.
+            - **This loop never auto-merges.** Human review and merge required.
+
+            See `docs/LOOP_REGISTRY.md` for governance.
+          labels: dependencies, automation
+          draft: true
