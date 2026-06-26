@@ -71,16 +71,29 @@ patterns plus SARO-native categories:
 | Rule Pack Guard | guard-skill | agent-context | on edit | high | L1 | **L1** |
 | Drift Sentinel | guard-skill | agent-context | on edit | high | L1 | **L1** |
 | Verification Loop | guard-skill | agent-context | pre-commit | low | L1 | L2 |
+| Dependency Sweeper | dependency-sweeper | schedule | Mon 04:17 UTC | medium | L2 | L2 |
+| Changelog Drafter | changelog-drafter | tag push | on `v*` tag | low | L2 | L2 |
+| Post-Merge Cleanup | post-merge-cleanup | schedule | 05:23 UTC daily | low | L1 | L2 |
 
-## Gaps — loop-engineering patterns SARO does not yet run
+## Adopted maintenance loops (deterministic, no LLM cost)
 
-Marked `status: gap` in the registry. These are the cleanest new-value wins:
+Three reference patterns from loop-engineering are now implemented as deterministic,
+unit-tested Python scripts driven by GitHub Actions — cheap, predictable, and PR/dry-run safe:
 
-1. **Dependency Sweeper** (patch-only) — SARO runs `pip-audit` weekly but has no loop that
-   opens patch-bump PRs. Low risk if scoped to patch versions with full-suite verification.
-2. **Changelog Drafter** — drafts release notes from Conventional Commits (already enforced
-   in CI). Propose-only, low risk.
-3. **Post-Merge Cleanup** — off-peak branch/label hygiene after merge. Read-mostly, low risk.
+1. **Dependency Sweeper** (`scripts/dependency_sweeper.py`) — weekly, patch-only. Bumps exact
+   `name==X.Y.Z` pins to the latest patch within the same major.minor, runs the full suite, and
+   opens a **draft PR**. Never bumps minor/major, never touches `>=` floors, never auto-merges.
+2. **Changelog Drafter** (`scripts/changelog_drafter.py`) — on `v*` tag push (or manual). Groups
+   Conventional Commits by type (with a BREAKING CHANGES section) and opens a **draft PR** updating
+   `CHANGELOG.md`. Never tags or publishes a release.
+3. **Post-Merge Cleanup** (`scripts/post_merge_cleanup.py`) — daily, off-peak. **Dry-run by
+   default** (logs candidates only); deletion of git-confirmed merged branches requires an explicit
+   operator dispatch. Protected globs (`main`/`develop`, `automation/*`, `claude/*`) are never touched.
+
+Each ships unit tests for its pure logic (`tests/test_dependency_sweeper.py`,
+`tests/test_changelog_drafter.py`, `tests/test_post_merge_cleanup.py`).
+
+## Remaining gaps
 
 Not yet adopted from the reference toolkit: **`loop-cost`** token budgeting (the PR Babysitter
 and CI Sweeper are the most expensive loops and currently uncapped) and **`loop-audit`**

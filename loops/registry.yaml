@@ -6,7 +6,7 @@
 #
 # Validate locally:  python -m pytest tests/test_loop_registry.py -q
 
-version: "1.0.0"
+version: "1.1.0"
 updated: "2026-06-26"
 owner: "Jordan Lee"
 
@@ -280,62 +280,66 @@ loops:
     owner: "Sam Patel"
 
   # ---------------------------------------------------------------------------
-  # GAP — patterns from loop-engineering not yet implemented in SARO
+  # ACTIVE — maintenance loops adopted from loop-engineering reference patterns
+  # (deterministic scripts: cheap, no LLM calls, PR/dry-run safe)
   # ---------------------------------------------------------------------------
   - id: dependency-sweeper
     name: "Dependency Sweeper"
     description: >-
-      PROPOSED. Patch-only dependency update loop. SARO runs pip-audit weekly but has
-      no automated loop that opens patch-bump PRs. Low risk if scoped to patch versions
-      with full-suite verification.
+      Weekly patch-only dependency loop. Bumps exact (name==X.Y.Z) pins to the latest
+      patch within the same major.minor, runs the full test suite, and opens a draft
+      PR. Never bumps minor/major, never touches >= floors, never auto-merges.
     category: dependency-sweeper
-    status: gap
+    status: active
     trigger: schedule
-    cadence: "proposed: 0 4 * * 1 (weekly, patch-only)"
+    cadence: "17 4 * * 1"   # Monday 04:17 UTC
     risk: medium
-    maturity: L1
+    maturity: L2
     max_maturity: L2
     token_cost: low
-    implementation: "proposed: .github/workflows + new skill"
-    building_blocks: [scheduling, skills, connectors]
-    verification: "Full pytest suite + pip-audit must pass on the bump PR before merge."
-    escalation: "Minor/major bumps and any test failure escalate to a human; patch-only auto-PRs."
+    implementation: ".github/workflows/dependency-sweeper.yml + scripts/dependency_sweeper.py"
+    building_blocks: [scheduling, connectors]
+    verification: "Full pytest suite must pass on the bumped versions before the PR is opened."
+    escalation: "Test failure aborts the PR; minor/major bumps are out of scope and never proposed; human merges."
     owner: "Jordan Lee"
 
   - id: changelog-drafter
     name: "Changelog Drafter"
     description: >-
-      PROPOSED. Drafts release notes from Conventional Commits (already enforced in CI).
-      Low risk, propose-only.
+      Drafts release notes from Conventional Commits (enforced in CI), grouped by type
+      with a BREAKING CHANGES section, and opens a draft PR updating CHANGELOG.md.
+      Propose-only: never tags, never publishes a release.
     category: changelog-drafter
-    status: gap
-    trigger: schedule
-    cadence: "proposed: on release tag / weekly"
+    status: active
+    trigger: push
+    cadence: "on tag push (v*) or manual dispatch"
     risk: low
-    maturity: L1
+    maturity: L2
     max_maturity: L2
     token_cost: low
-    implementation: "proposed: .github/workflows + new skill (parses Conventional Commits)"
-    building_blocks: [scheduling, skills]
+    implementation: ".github/workflows/changelog-drafter.yml + scripts/changelog_drafter.py"
+    building_blocks: [scheduling, connectors]
     verification: "Draft is proposal-only; human edits and publishes."
-    escalation: "Never publishes a release unattended."
+    escalation: "Never publishes a release unattended; human merges the CHANGELOG PR."
     owner: "Venky"
 
   - id: post-merge-cleanup
     name: "Post-Merge Cleanup"
     description: >-
-      PROPOSED. Off-peak repository hygiene after merge (stale branch pruning, label
-      tidy). Low risk, read-mostly.
+      Off-peak prune of remote feature branches already merged into main. The daily
+      scheduled run is DRY-RUN only (logs candidates); deletion requires an operator
+      to dispatch with apply=true. Protected branches (main/develop, automation/*,
+      claude/*) are never touched.
     category: post-merge-cleanup
-    status: gap
+    status: active
     trigger: schedule
-    cadence: "proposed: 0 5 * * * (off-peak daily)"
+    cadence: "23 5 * * *"   # 05:23 UTC daily (dry-run)
     risk: low
     maturity: L1
     max_maturity: L2
     token_cost: low
-    implementation: "proposed: .github/workflows + new skill"
+    implementation: ".github/workflows/post-merge-cleanup.yml + scripts/post_merge_cleanup.py"
     building_blocks: [scheduling, connectors]
-    verification: "Dry-run diff before any branch deletion."
-    escalation: "Only deletes branches already merged to main; never force-deletes."
+    verification: "Dry-run by default; only git-confirmed merged branches are eligible."
+    escalation: "Deletion is gated behind an explicit operator dispatch; never force-deletes; protected globs skipped."
     owner: "Jordan Lee"

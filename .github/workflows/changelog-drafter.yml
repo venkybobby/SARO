@@ -1,0 +1,71 @@
+name: Changelog Drafter
+
+# Loop: changelog-drafter (loops/registry.yaml). Drafts release notes from
+# Conventional Commits and opens a PR updating CHANGELOG.md. PROPOSE-ONLY:
+# it never tags or publishes a release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label for the changelog section (e.g. v8.1.0)"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for git describe / log ranges
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve version label
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Draft changelog section
+        run: |
+          python scripts/changelog_drafter.py --version "${{ steps.ver.outputs.version }}" > section.md
+          echo "----- drafted section -----"
+          cat section.md
+          # Prepend the new section to CHANGELOG.md (create if missing).
+          if [ -f CHANGELOG.md ]; then
+            { echo "# Changelog"; echo; cat section.md; echo; tail -n +2 CHANGELOG.md; } > CHANGELOG.new
+          else
+            { echo "# Changelog"; echo; cat section.md; } > CHANGELOG.new
+          fi
+          mv CHANGELOG.new CHANGELOG.md
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: automation/changelog-${{ steps.ver.outputs.version }}
+          base: main
+          commit-message: "docs(changelog): draft notes for ${{ steps.ver.outputs.version }}"
+          title: "docs(changelog): draft release notes for ${{ steps.ver.outputs.version }}"
+          body: |
+            Automated changelog draft from the Changelog Drafter loop
+            (`loops/registry.yaml` → `changelog-drafter`), grouped from Conventional Commits.
+
+            **Propose-only** — a human edits and publishes the release. This loop never tags.
+
+            See `docs/LOOP_REGISTRY.md` for governance.
+          labels: documentation, automation
+          draft: true
