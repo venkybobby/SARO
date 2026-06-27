@@ -5,3 +5,4 @@ Newest entries at the bottom. Written by scripts/loop_runlog.py.
 
 | Timestamp (UTC) | Loop | Run | Outcome | Detail |
 |---|---|---|---|---|
+| 2026-06-27T08:07:48Z | post-merge-cleanup | 28283421741 | ok | prune scan (apply=false) |
