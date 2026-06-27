@@ -90,3 +90,10 @@ jobs:
             See `docs/LOOP_REGISTRY.md` for governance.
           labels: dependencies, automation
           draft: true
+
+      - name: Record run (observability)
+        if: always()
+        run: |
+          python3 scripts/loop_runlog.py dependency-sweeper \
+            --outcome ${{ steps.sweep.outputs.count == '0' && 'no-op' || 'ok' }} \
+            --detail "${{ steps.sweep.outputs.count }} patch bump(s)"

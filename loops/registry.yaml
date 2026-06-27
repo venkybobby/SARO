@@ -6,8 +6,8 @@
 #
 # Validate locally:  python -m pytest tests/test_loop_registry.py -q
 
-version: "1.1.1"
-updated: "2026-06-26"
+version: "1.2.0"
+updated: "2026-06-27"
 owner: "Jordan Lee"
 
 maturity_levels:
@@ -55,8 +55,8 @@ loops:
     token_cost: very-high
     implementation: ".github/workflows/claude-ci-fix.yml + .claude/skills/ci-debugger"
     building_blocks: [connectors, skills, sub-agents]
-    verification: "Green CI is the terminal state; never weaken a test to get green."
-    escalation: "Reply with diagnosis after repeated no-progress kicks or when the failure is real and out of scope."
+    verification: "Green CI is the terminal state; never weaken a test to get green. Fixes land on a PR branch and cannot self-merge — they are independently reviewed (reviewer + security-auditor + human gate) before merge."
+    escalation: "Reply with diagnosis after repeated no-progress kicks or when the failure is real and out of scope; flake handling per the ci-debugger skill."
     owner: "Jordan Lee"
 
   - id: finding-intake

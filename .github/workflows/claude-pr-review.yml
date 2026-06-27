@@ -94,3 +94,9 @@ jobs:
             4. **Approved patterns** (what was done well)
 
             Be direct. Flag real issues only — no padding.
+
+      - name: Record run (observability)
+        if: always()
+        run: |
+          python3 scripts/loop_runlog.py pr-babysitter \
+            --outcome ok --detail "PR #${{ github.event.pull_request.number }} review"
