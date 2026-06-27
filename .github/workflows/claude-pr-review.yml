@@ -10,11 +10,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    name: Loop guard (kill switch / cap)
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py pr-babysitter; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   review:
     name: Claude Code Review
+    needs: guard
     runs-on: ubuntu-latest
-    # Skip draft PRs
-    if: github.event.pull_request.draft == false
+    # Skip draft PRs and honour the loop kill switch / daily cap
+    if: github.event.pull_request.draft == false && needs.guard.outputs.proceed == 'true'
 
     permissions:
       contents: read

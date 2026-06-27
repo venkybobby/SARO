@@ -1,8 +1,10 @@
 name: Dependency Sweeper (patch-only)
 
 # Loop: dependency-sweeper (loops/registry.yaml). Weekly, patch-only dependency
-# bumps. Opens a PR for human review — NEVER auto-merges. Full pytest suite must
-# pass before the PR is opened.
+# bumps. Opens a draft PR for human review — NEVER auto-merges. The hermetic unit
+# suite (pytest -m unit: no DB, no network) gates the bump inline; the full
+# integration suite runs as normal CI on the resulting PR (requires PAT_TOKEN for
+# CI to trigger on a bot-opened PR — see docs/LOOP_REGISTRY.md).
 
 on:
   schedule:
@@ -14,9 +16,30 @@ permissions:
   pull-requests: write
 
 jobs:
-  sweep:
+  guard:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py dependency-sweeper; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  sweep:
+    needs: guard
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.guard.outputs.proceed == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,11 +59,15 @@ jobs:
         if: steps.sweep.outputs.count != '0'
         run: python scripts/dependency_sweeper.py --apply
 
-      - name: Install updated deps and run tests
+      - name: Install updated deps and run hermetic unit suite
         if: steps.sweep.outputs.count != '0'
+        env:
+          SARO_ENV: test
         run: |
-          pip install -r requirements.txt
-          python -m pytest tests/ -q --no-header
+          pip install -r requirements.txt pytest pytest-asyncio
+          # Unit marker is "no DB, no network" (pytest.ini) — a meaningful gate
+          # that runs without Supabase. Integration tests run as CI on the PR.
+          python -m pytest tests/ -m unit -q --no-header
 
       - name: Open pull request
         if: steps.sweep.outputs.count != '0'
@@ -56,7 +83,8 @@ jobs:
             (`loops/registry.yaml` → `dependency-sweeper`).
 
             - Only `name==X.Y.Z` exact pins were bumped, within the same major.minor.
-            - The full pytest suite passed on these versions before this PR opened.
+            - The hermetic unit suite (`pytest -m unit`) passed on these versions inline.
+              Full integration CI runs on this PR for the human reviewer.
             - **This loop never auto-merges.** Human review and merge required.
 
             See `docs/LOOP_REGISTRY.md` for governance.

@@ -1,0 +1,65 @@
+# SARO Loop Limits — kill switch + cost/run caps
+#
+# Enforced at workflow preflight by scripts/loop_guard.py (a `guard` job each loop
+# depends on). A halted run goes GREEN and skips the work — it is not a failure.
+# Governance: docs/LOOP_REGISTRY.md ("Cost & Limits / Kill Switch").
+#
+# HOW TO STOP A LOOP (operator runbook):
+#   - Stop EVERYTHING now, no commit:   set repo/Actions env SARO_LOOPS_KILL_SWITCH=1
+#   - Stop everything, auditable:        set `kill_switch: true` below and merge
+#   - Stop ONE loop:                     set its `enabled: false` below and merge
+#
+# Validate locally:  python -m pytest tests/test_loop_guard.py -q
+
+version: "1.0.0"
+
+# Global kill switch. true (or env SARO_LOOPS_KILL_SWITCH in {1,true,yes}) halts
+# every loop at preflight. The env var wins so an operator can stop the fleet
+# without waiting on a merge.
+kill_switch: false
+
+# Advisory ceiling across all loops in a day. The enforceable control is each
+# loop's daily_run_cap (run count is what loop_guard actually gates on); the token
+# budgets document the intended spend envelope per run-cap.
+global_daily_token_budget: 5000000
+
+defaults:
+  daily_run_cap: 24
+
+# loop id must match an id in loops/registry.yaml (cross-checked by the test).
+loops:
+  pr-babysitter:
+    enabled: true
+    workflow: claude-pr-review.yml
+    daily_run_cap: 120         # high-churn PRs; ~event-driven
+    daily_token_budget: 2000000
+
+  ci-sweeper:
+    enabled: true
+    workflow: claude-ci-fix.yml
+    daily_run_cap: 50
+    daily_token_budget: 2000000
+
+  security-sweeper:
+    enabled: true
+    workflow: claude-security-audit.yml
+    daily_run_cap: 4
+    daily_token_budget: 500000
+
+  dependency-sweeper:
+    enabled: true
+    workflow: dependency-sweeper.yml
+    daily_run_cap: 4
+    daily_token_budget: 100000
+
+  changelog-drafter:
+    enabled: true
+    workflow: changelog-drafter.yml
+    daily_run_cap: 10
+    daily_token_budget: 100000
+
+  post-merge-cleanup:
+    enabled: true
+    workflow: post-merge-cleanup.yml
+    daily_run_cap: 24
+    daily_token_budget: 50000

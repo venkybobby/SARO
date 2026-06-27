@@ -93,11 +93,35 @@ unit-tested Python scripts driven by GitHub Actions — cheap, predictable, and 
 Each ships unit tests for its pure logic (`tests/test_dependency_sweeper.py`,
 `tests/test_changelog_drafter.py`, `tests/test_post_merge_cleanup.py`).
 
+## Cost & Limits / Kill Switch
+
+Every workflow-driven loop runs a **preflight `guard` job** (`scripts/loop_guard.py`) before
+doing any work, gated by `needs: guard` + `if: needs.guard.outputs.proceed == 'true'`. A halted
+run is **green and does nothing** — it is not a failure, so the kill switch never pages anyone.
+Limits live in [`loops/limits.yaml`](../loops/limits.yaml).
+
+The guard enforces three controls, cheapest first:
+
+| Control | Where | Effect |
+|---|---|---|
+| **Global kill switch** | `kill_switch: true` in `limits.yaml`, or env `SARO_LOOPS_KILL_SWITCH=1` | Halts **every** loop at preflight. The env var wins, so an operator can stop the whole fleet without waiting on a merge. |
+| **Per-loop enable** | `loops.<id>.enabled: false` | Halts one loop. |
+| **Daily run cap** | `loops.<id>.daily_run_cap` | Halts once the loop's workflow has run N times today (UTC), counted via the Actions API. Per-run cost × cap is the spend envelope; token budgets in `limits.yaml` document the intended ceiling. |
+
+**Operator runbook (stop a runaway loop):**
+1. *Right now, no commit* — set repo/Actions variable `SARO_LOOPS_KILL_SWITCH=1`.
+2. *Auditable* — set `kill_switch: true` in `limits.yaml` and merge (the off switch is then in git history — useful for a compliance product).
+3. *One loop only* — set that loop's `enabled: false` and merge.
+
+`tests/test_loop_guard.py` enforces the decision logic and keeps `limits.yaml` ids in sync with
+the registry and with real workflow files.
+
 ## Remaining gaps
 
-Not yet adopted from the reference toolkit: **`loop-cost`** token budgeting (the PR Babysitter
-and CI Sweeper are the most expensive loops and currently uncapped) and **`loop-audit`**
-readiness scoring for L1→L2→L3 promotion decisions.
+Still open from the reference toolkit: **`loop-audit`** readiness scoring to justify L1→L2→L3
+promotions empirically, and an **observability run-log** (`loop-run-log.md`) of what each loop
+did over time. Token budgets in `limits.yaml` are currently declared ceilings enforced via the
+run cap rather than measured spend; metering actual tokens per run is future work.
 
 ## Governance rules
 
@@ -112,6 +136,9 @@ readiness scoring for L1→L2→L3 promotion decisions.
 5. **The test guards the rules.** `tests/test_loop_registry.py` enforces schema conformance,
    unique ids, real owners, the maturity cap, and the judgment-loop L1 cap. It runs in the
    standard pytest gate.
+6. **Every workflow-driven loop is behind the guard.** A new scheduled or event-driven loop must
+   add a `guard` job calling `scripts/loop_guard.py <id>` and an entry in `loops/limits.yaml`
+   (kept in sync by `tests/test_loop_guard.py`). No loop ships without a kill switch.
 
 ## Maintenance
 

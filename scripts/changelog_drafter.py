@@ -40,7 +40,6 @@ SECTIONS: list[tuple[str, str]] = [
     ("ci", "CI/CD"),
     ("chore", "Chores"),
 ]
-_KNOWN_TYPES = {t for t, _ in SECTIONS}
 
 
 def parse_commit(subject: str) -> dict | None:
@@ -117,9 +116,16 @@ def _git(*args: str) -> str:
     ).stdout
 
 
-def last_tag() -> str | None:
+def previous_tag(ref: str) -> str | None:
+    """The most recent tag strictly BEFORE ``ref``.
+
+    Using ``{ref}^`` is what makes a tag-push run correct: when the workflow is
+    triggered by pushing tag vX (so HEAD == vX), ``git describe HEAD^`` returns the
+    PRIOR tag, giving a ``prev..vX`` range instead of the empty ``vX..vX``. For a
+    manual run where HEAD is untagged it still resolves to the last release tag.
+    Returns None if there is no earlier tag (first release) or ref has no parent."""
     try:
-        out = _git("describe", "--tags", "--abbrev=0").strip()
+        out = _git("describe", "--tags", "--abbrev=0", f"{ref}^").strip()
         return out or None
     except subprocess.CalledProcessError:
         return None
@@ -134,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Draft a changelog from Conventional Commits.")
     parser.add_argument("--version", required=True, help="Release version label, e.g. v8.1.0")
     parser.add_argument("--from", dest="from_ref", default=None,
-                        help="Start ref (default: last tag, else repo start).")
+                        help="Start ref (default: the tag before --to, else repo start).")
     parser.add_argument("--to", dest="to_ref", default="HEAD", help="End ref (default: HEAD).")
     parser.add_argument("--date", default=None, help="Release date YYYY-MM-DD (default: today UTC).")
     parser.add_argument("--output", default=None, help="Write to this file instead of stdout.")
@@ -146,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         from datetime import datetime, timezone
         date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    from_ref = args.from_ref or last_tag()
+    from_ref = args.from_ref or previous_tag(args.to_ref)
     rev_range = f"{from_ref}..{args.to_ref}" if from_ref else args.to_ref
 
     try:

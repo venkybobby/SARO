@@ -1,6 +1,6 @@
 ---
 name: ci-debugger
-description: Autonomous CI failure diagnosis and fix for SARO. Triggered when CI is red on a PR, tests fail in the stop hook, or a deploy fails on Railway. Diagnoses root cause and pushes a fix without human intervention where possible.
+description: Autonomous CI failure diagnosis and fix for SARO. Triggered when CI is red on a PR, tests fail in the stop hook, or a deploy fails on Fly.io. Diagnoses root cause and pushes a fix without human intervention where possible.
 ---
 
 Diagnose and fix CI failures autonomously. Follow this protocol in order.
@@ -29,13 +29,14 @@ Diagnose and fix CI failures autonomously. Follow this protocol in order.
 - Read the full error; fix the type annotation — do not use `# type: ignore` unless the library has no stubs
 
 **Build / Docker error**
-- Read Dockerfile and railway.toml
+- Read Dockerfile and fly.toml
 - Check if a new dependency needs to be added to the build stage
 
-**Railway deploy failure**
+**Fly.io deploy failure**
 - Check health endpoint: `GET /health` must return `{"app":"SARO","db_ok":true}`
-- Check env vars: `$PORT`, `$DATABASE_URL`, `$REDIS_URL` injected by Railway
-- See deploy-railway skill for full topology
+- Check env vars / secrets: `$PORT`, `$DATABASE_URL` (Supabase), `$REDIS_URL` (optional)
+- Stack of record is Fly.io + Supabase (`saro-backend`, `sarofrontend`) — see docs/ARCHITECTURE.md.
+  Railway/Koyeb/Neon are SUPERSEDED; do not reintroduce them.
 
 ## Step 3 — Apply Fix
 - Edit the minimum files needed
@@ -52,4 +53,5 @@ Diagnose and fix CI failures autonomously. Follow this protocol in order.
 - Never use `--no-verify` to skip hooks
 - Never force-push
 - Never mock away a real failure to make tests green
-- If the failure is in a third-party service (Supabase down, Railway outage), report it and wait — do not retry infinitely
+- If the failure is in a third-party service (Supabase down, Fly.io outage), report it and wait — do not retry infinitely
+- Flake handling: if a test fails non-deterministically (passes on re-run, timing/order/network-dependent), do NOT patch application code to chase it. Re-run once to confirm; if it flakes, quarantine it (mark/skip with a tracking `/finding`) and report — never mask infrastructure flakiness with a code change
