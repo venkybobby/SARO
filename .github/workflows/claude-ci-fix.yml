@@ -109,3 +109,10 @@ jobs:
               issue_number: context.payload.workflow_run.pull_requests[0]?.number,
               body: '⚠️ Claude CI Fix attempted but could not resolve the failure automatically. Manual investigation required. See workflow run: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId
             });
+
+      - name: Record run (observability)
+        if: always()
+        run: |
+          python3 scripts/loop_runlog.py ci-sweeper \
+            --outcome ${{ job.status == 'success' && 'ok' || 'failed' }} \
+            --detail "CI fix attempt on ${GITHUB_SHA::7}"

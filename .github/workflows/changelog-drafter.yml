@@ -91,3 +91,9 @@ jobs:
             See `docs/LOOP_REGISTRY.md` for governance.
           labels: documentation, automation
           draft: true
+
+      - name: Record run (observability)
+        if: always()
+        run: |
+          python3 scripts/loop_runlog.py changelog-drafter \
+            --outcome ok --detail "drafted ${{ steps.ver.outputs.version }}"

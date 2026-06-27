@@ -116,12 +116,38 @@ The guard enforces three controls, cheapest first:
 `tests/test_loop_guard.py` enforces the decision logic and keeps `limits.yaml` ids in sync with
 the registry and with real workflow files.
 
+## Readiness audit (`loop-audit`)
+
+`scripts/loop_audit.py` scores every loop against the design-checklist dimensions (purpose,
+scheduling, implementation, human handoff, verification, maker/checker, cost limits,
+observability), derives the **maturity its evidence justifies**, and flags any loop whose
+declared maturity exceeds it ("over-provisioned" — loop-engineering anti-pattern #4, *L3 before
+L1 quality*). Dimensions that don't apply to a loop type (e.g. cost limits for a contextual
+guard skill) are not held against it.
+
+It runs in CI with `--strict` (in `quality-gates.yml`), so a loop can never be promoted past its
+evidence — the audit fails the build. `tests/test_loop_audit.py` pins the same invariant. Run
+`python scripts/loop_audit.py` locally for the readiness report, `--json` for machine output.
+
+## Observability run-log
+
+`scripts/loop_runlog.py` records a structured entry per loop run, anti-pattern #10 (*no run
+log*). Two sinks:
+
+- **GitHub Actions job summary** — every workflow loop writes a per-run row (zero commit noise),
+  giving live observability even for the high-frequency LLM loops.
+- **`loops/run-log.md`** — a committed, auditable ledger. The low-frequency, PR-action-free
+  Post-Merge Cleanup appends + commits an entry per run (`[skip ci]`, mirroring the weekly
+  security-evidence pattern), so a durable history lives in git for the compliance audit trail.
+
+The audit's *observability* dimension is satisfied when a loop's workflow records via
+`loop_runlog.py`.
+
 ## Remaining gaps
 
-Still open from the reference toolkit: **`loop-audit`** readiness scoring to justify L1→L2→L3
-promotions empirically, and an **observability run-log** (`loop-run-log.md`) of what each loop
-did over time. Token budgets in `limits.yaml` are currently declared ceilings enforced via the
-run cap rather than measured spend; metering actual tokens per run is future work.
+Token budgets in `limits.yaml` are declared ceilings enforced via the run cap rather than
+**measured** spend; metering actual tokens per run (instrumenting the Claude action's usage) is
+the last open item from the reference toolkit.
 
 ## Governance rules
 
@@ -139,6 +165,9 @@ run cap rather than measured spend; metering actual tokens per run is future wor
 6. **Every workflow-driven loop is behind the guard.** A new scheduled or event-driven loop must
    add a `guard` job calling `scripts/loop_guard.py <id>` and an entry in `loops/limits.yaml`
    (kept in sync by `tests/test_loop_guard.py`). No loop ships without a kill switch.
+7. **No loop above its evidence.** `scripts/loop_audit.py --strict` runs in CI; a loop's declared
+   maturity may not exceed the level its checklist evidence justifies. Raising a maturity means
+   adding the evidence (verification, limits, observability, independent review), not the number.
 
 ## Maintenance
 
