@@ -10,3 +10,4 @@ Newest entries at the bottom. Written by scripts/loop_runlog.py.
 | 2026-06-29T10:01:31Z | post-merge-cleanup | 28364066231 | ok | prune scan (apply=false) |
 | 2026-06-30T08:39:24Z | post-merge-cleanup | 28431532786 | ok | prune scan (apply=false) |
 | 2026-07-01T08:57:29Z | post-merge-cleanup | 28505805203 | ok | prune scan (apply=false) |
+| 2026-07-02T08:26:41Z | post-merge-cleanup | 28576218981 | ok | prune scan (apply=false) |
