@@ -167,3 +167,8 @@ findings:
     test: frontend/src/pages/ComplianceHub.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-036
+    title: "Bad merge left main non-importable (auth.py + routers/scan.py SyntaxErrors + dropped manifest status field)"
+    test: tests/regression/test_fnd_036_repair_bad_merge_import.py
+    status: pinned
+    quarantine_expires: null

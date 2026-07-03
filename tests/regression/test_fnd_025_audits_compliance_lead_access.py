@@ -99,6 +99,8 @@ async def test_guard_grants_demo_viewer_role():
 async def test_guard_denies_unauthorised_role_and_persona():
     dep = require_role_or_persona(roles=_AUDIT_ROLES, personas=_AUDIT_PERSONAS)
     with pytest.raises(HTTPException) as exc:
+        # risk_officer is outside the reconciled canonical set (FND-035).
+        await dep(_user("viewer", "risk_officer"), None)
         # No audit-reader persona and a non-privileged role → denied.
         await dep(_user("viewer", None), None)
     assert exc.value.status_code == 403
@@ -112,8 +114,7 @@ async def test_guard_denies_unauthorised_role_and_persona():
     [
         ("viewer", "ai_auditor"),
         ("viewer", "compliance_lead"),
-        ("viewer", "risk_officer"),
-        ("viewer", "admin"),
+        ("viewer", "ai_auditor"),  # reconciled canonical persona (FND-035)
         ("demo_viewer", None),  # regression: demo path preserved
         ("super_admin", None),
     ],
@@ -123,7 +124,7 @@ def test_audits_readable_by_permitted_role_or_persona(role, persona):
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 200, (
-            f"{role}/{persona} must read audits (FND-025); got {r.status_code}"
+            f"{role}/{persona} must read audits (FND-025/FND-035); got {r.status_code}"
         )
         assert r.json() == []
     finally:
@@ -136,7 +137,7 @@ def test_audits_forbidden_for_unauthorised_persona():
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 403, (
-            f"unauthorised role+persona must 403 on audits; got {r.status_code}"
+            f"persona {persona} outside canonical set must 403 on audits; got {r.status_code}"
         )
     finally:
         _clear()
