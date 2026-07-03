@@ -137,7 +137,7 @@ def test_audits_forbidden_for_unauthorised_persona():
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 403, (
-            f"persona {persona} outside canonical set must 403 on audits; got {r.status_code}"
+            f"viewer/None outside canonical set must 403 on audits; got {r.status_code}"
         )
     finally:
         _clear()
