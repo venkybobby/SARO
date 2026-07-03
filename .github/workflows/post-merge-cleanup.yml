@@ -1,0 +1,92 @@
+name: Post-Merge Cleanup
+
+# Loop: post-merge-cleanup (loops/registry.yaml). Off-peak prune of remote feature
+# branches already merged into main. The scheduled run is DRY-RUN by default and
+# only logs candidates; an operator must dispatch with apply=true to delete.
+# Protected branches (main/master/develop and automation/*) are never touched.
+
+on:
+  schedule:
+    - cron: '23 5 * * *'   # 05:23 UTC daily (off-peak, off-minute) — dry-run only
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Set to 'true' to actually delete merged branches"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: guard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install --quiet pyyaml requests
+          if python scripts/loop_guard.py post-merge-cleanup; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  cleanup:
+    needs: guard
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.guard.outputs.proceed == 'true'
+    env:
+      # Merge detection uses the PR API (squash/rebase-safe); deletion uses git.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install request dependency
+        run: pip install requests
+
+      - name: Prune merged branches
+        run: |
+          APPLY=""
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            APPLY="--apply"
+            echo "Running in APPLY mode (branches will be deleted)."
+          else
+            echo "Running in DRY-RUN mode (no deletions)."
+          fi
+          python scripts/post_merge_cleanup.py \
+            --base main \
+            --protect 'automation/*' \
+            --protect 'claude/*' \
+            $APPLY
+
+      - name: Record run + commit ledger (observability)
+        if: always()
+        run: |
+          python3 scripts/loop_runlog.py post-merge-cleanup \
+            --outcome ok --detail "prune scan (apply=${{ github.event.inputs.apply || 'false' }})" \
+            --append loops/run-log.md
+          git config user.name "saro-ci"
+          git config user.email "ci@saro.local"
+          git add loops/run-log.md
+          if git diff --cached --quiet; then
+            echo "No run-log change to commit."
+          else
+            git commit -m "chore(loops): record post-merge-cleanup run [skip ci]"
+            git push
+          fi

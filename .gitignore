@@ -53,3 +53,6 @@ logs/
 # Node (scripts tooling)
 node_modules/
 scripts/node_modules/
+
+# Continuous-learning hook output (session-local, advisory)
+.claude/learnings/

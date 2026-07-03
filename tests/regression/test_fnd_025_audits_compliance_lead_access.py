@@ -7,17 +7,13 @@ The Compliance Hub landing page (built for the ``compliance_lead`` persona) read
 table always showed "No audits yet."
 
 Fix: the route now uses ``require_role_or_persona`` — access by system role OR by
-persona_role. Tenant scoping is unchanged.
+persona_role. Per the owner decision reconciling FND-025 vs FND-028, the audits
+LIST is readable by the union of TRACE auditors (ai_auditor, compliance_lead) and
+Compliance Hub buyer personas (compliance_lead, risk_officer, admin). Tenant
+scoping is unchanged.
 
-Authz scope reconciliation (FND-035, lead decision 2026-06-24): two merged PRs set
-conflicting persona sets for ``/api/v1/audits``. The canonical set is the reconciled
-``_require_audits_list_read`` helper — roles {super_admin, operator, demo_viewer} OR
-personas {ai_auditor, compliance_lead} (== TRACE_READ_*), aligning audits-read with
-TRACE evidence read (least-privilege). The earlier CHUB set (risk_officer / admin) is
-superseded; this test is updated to the canonical set, not weakened.
-
-Pinned behaviourally: the audit/compliance personas and demo_viewer reach the handler
-(no 403); a persona outside the canonical set is still rejected with 403.
+Pinned behaviourally: those personas and demo_viewer reach the handler (no 403);
+a user with no audit-reader persona (and a non-privileged role) is still 403.
 """
 
 from __future__ import annotations
@@ -39,8 +35,8 @@ pytestmark = pytest.mark.regression
 _TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000025")
 
 _AUDIT_ROLES = ("super_admin", "operator", "demo_viewer")
-# Reconciled canonical set (FND-035) — matches routers.scan._require_audits_list_read.
-_AUDIT_PERSONAS = ("ai_auditor", "compliance_lead")
+# Union audits-LIST readers (FND-025 ∪ FND-028 reconciliation).
+_AUDIT_PERSONAS = ("ai_auditor", "compliance_lead", "risk_officer", "admin")
 
 
 def _user(role: str, persona: str | None):
@@ -105,6 +101,8 @@ async def test_guard_denies_unauthorised_role_and_persona():
     with pytest.raises(HTTPException) as exc:
         # risk_officer is outside the reconciled canonical set (FND-035).
         await dep(_user("viewer", "risk_officer"), None)
+        # No audit-reader persona and a non-privileged role → denied.
+        await dep(_user("viewer", None), None)
     assert exc.value.status_code == 403
 
 
@@ -114,6 +112,7 @@ async def test_guard_denies_unauthorised_role_and_persona():
 @pytest.mark.parametrize(
     "role,persona",
     [
+        ("viewer", "ai_auditor"),
         ("viewer", "compliance_lead"),
         ("viewer", "ai_auditor"),  # reconciled canonical persona (FND-035)
         ("demo_viewer", None),  # regression: demo path preserved
@@ -132,11 +131,9 @@ def test_audits_readable_by_permitted_role_or_persona(role, persona):
         _clear()
 
 
-@pytest.mark.parametrize("persona", ["risk_officer", "admin"])
-def test_audits_forbidden_for_persona_outside_canonical_set(persona):
-    """Personas outside the reconciled set (FND-035) are rejected — risk_officer/admin
-    were in the superseded CHUB set and no longer read audit evidence."""
-    c = _client("viewer", persona)
+def test_audits_forbidden_for_unauthorised_persona():
+    # No audit-reader persona + non-privileged role → still 403 under the union.
+    c = _client("viewer", None)
     try:
         r = c.get("/api/v1/audits", headers={"Authorization": "Bearer t"})
         assert r.status_code == 403, (
