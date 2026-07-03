@@ -111,7 +111,7 @@ def runlog_wired_ids(limits_loops: dict, workflows_dir: Path = WORKFLOWS) -> set
         if not wf:
             continue
         path = workflows_dir / wf
-        if path.exists() and "loop_runlog.py" in path.read_text():
+        if path.exists() and "loop_runlog.py" in path.read_text(encoding="utf-8"):
             wired.add(loop_id)
     return wired
 
@@ -146,8 +146,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Exit 1 if any loop is over-provisioned.")
     args = parser.parse_args(argv)
 
-    registry = yaml.safe_load(REGISTRY.read_text())
-    limits = yaml.safe_load(LIMITS.read_text())
+    registry = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
+    limits = yaml.safe_load(LIMITS.read_text(encoding="utf-8"))
     results = run_audit(registry, limits)
 
     if args.json:
