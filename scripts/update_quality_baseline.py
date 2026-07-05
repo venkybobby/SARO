@@ -25,7 +25,7 @@ def coverage_pct() -> float:
     cov_file = ROOT / "coverage.json"
     if not cov_file.exists():
         return 0.0
-    return round(json.loads(cov_file.read_text())["totals"]["percent_covered"], 2)
+    return round(json.loads(cov_file.read_text(encoding="utf-8"))["totals"]["percent_covered"], 2)
 
 
 def ruff_errors() -> int:

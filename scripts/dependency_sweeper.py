@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {req_path} not found", file=sys.stderr)
         return 1
 
-    text = req_path.read_text()
+    text = req_path.read_text(encoding="utf-8")
     new_text, updates = compute_updates(text, fetch_versions)
 
     if args.json:

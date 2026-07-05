@@ -30,12 +30,12 @@ def main() -> int:
     if not BASELINE.exists():
         print("::warning::quality/baseline.json not seeded — run scripts/update_quality_baseline.py locally and commit it.")
         return 78
-    base = json.loads(BASELINE.read_text())
+    base = json.loads(BASELINE.read_text(encoding="utf-8"))
     failures: list[str] = []
 
     cov_file = ROOT / "coverage.json"
     if cov_file.exists() and base.get("coverage_pct") is not None:
-        cur = json.loads(cov_file.read_text())["totals"]["percent_covered"]
+        cur = json.loads(cov_file.read_text(encoding="utf-8"))["totals"]["percent_covered"]
         if cur < base["coverage_pct"] - COVERAGE_TOLERANCE:
             failures.append(f"coverage dropped: {cur:.2f}% < baseline {base['coverage_pct']}%")
         else:
