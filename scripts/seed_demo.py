@@ -156,7 +156,7 @@ def seed() -> None:
             if not vpath.exists():
                 logger.warning("Demo data file not found, skipping: %s", fname)
                 continue
-            vdata = json.loads(vpath.read_text())
+            vdata = json.loads(vpath.read_text(encoding="utf-8"))
             vaudit = Audit(
                 tenant_id=tenant.id,
                 user_id=user.id,
