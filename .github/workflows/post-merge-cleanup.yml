@@ -75,18 +75,27 @@ jobs:
             --protect 'claude/*' \
             $APPLY
 
-      - name: Record run + commit ledger (observability)
+      # main is a protected branch (ruleset "main branch protection") — this job
+      # must NOT push to it. The run-log is observability only, so we surface it
+      # in the Actions run summary and as a retained artifact instead of committing.
+      - name: Record run (observability — no main write)
         if: always()
         run: |
           python3 scripts/loop_runlog.py post-merge-cleanup \
             --outcome ok --detail "prune scan (apply=${{ github.event.inputs.apply || 'false' }})" \
             --append loops/run-log.md
-          git config user.name "saro-ci"
-          git config user.email "ci@saro.local"
-          git add loops/run-log.md
-          if git diff --cached --quiet; then
-            echo "No run-log change to commit."
-          else
-            git commit -m "chore(loops): record post-merge-cleanup run [skip ci]"
-            git push
-          fi
+          {
+            echo "### post-merge-cleanup run record"
+            echo ''
+            echo '```'
+            tail -n 5 loops/run-log.md
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload run-log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-run-log-${{ github.run_id }}
+          path: loops/run-log.md
+          retention-days: 90
