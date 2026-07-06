@@ -177,3 +177,13 @@ findings:
     test: tests/regression/test_fnd_039_rpv_snapshot_integrity.py
     status: pinned
     quarantine_expires: null
+  - id: FND-040
+    title: "RPV-002 reproduce_criteria returned snapshot_content outside the hash chain — tamperable while valid"
+    test: tests/regression/test_fnd_040_rpv_reproduction_integrity.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-041
+    title: "RPV-002 pin in _PAYLOAD_FIELDS would false-fail every pre-RPV-002 evidence chain (AC-4)"
+    test: tests/regression/test_fnd_041_evidence_pin_backcompat.py
+    status: pinned
+    quarantine_expires: null

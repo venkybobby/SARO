@@ -49,5 +49,13 @@ class Settings(BaseSettings):
     # are never includable regardless of this flag.
     saro_snapshot_include_legacy: bool = True
 
+    # ── Rule-pack evaluation pin (STORY-RPV-002) ─────────────────────────────
+    # PERMISSIVE: pin the latest PUBLISHED snapshot (never the working copy); if
+    #   none published, pin is None (PRE-VERSIONING) and evaluation proceeds.
+    # STRICT: refuse to evaluate when no version is published or the working copy
+    #   has drifted from the latest published version beyond tolerance.
+    # A broken snapshot chain refuses in BOTH modes (integrity incident).
+    saro_rule_pack_eval_mode: str = "PERMISSIVE"
+
 
 settings = Settings()

@@ -100,24 +100,44 @@ class SnapshotImmutableError(SnapshotError):
 
 
 # ── canonical serialization / hashing ──────────────────────────────────────────
+def _row_payload(table: str, fields: list[str], row) -> dict:
+    """Frozen field dict for one rule row (the reproducible content, STORY-RPV-002).
+
+    NULLs render as empty strings; the table + id anchor the payload so a hash is
+    collision-safe across tables.
+    """
+    payload = {"__table__": table, "__id__": str(getattr(row, "id", ""))}
+    for f in fields:
+        payload[f] = "" if getattr(row, f, None) is None else str(getattr(row, f))
+    return payload
+
+
 def _canonical_row(table: str, fields: list[str], row) -> str:
     """Deterministic serialization of one rule row over a fixed field set.
 
     Column order is fixed by ``fields``; NULLs render as empty strings; keys are
     sorted; encoding is UTF-8. The row id and table anchor the payload.
     """
-    payload = {"__table__": table, "__id__": str(getattr(row, "id", ""))}
-    for f in fields:
-        payload[f] = "" if getattr(row, f, None) is None else str(getattr(row, f))
-    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return json.dumps(
+        _row_payload(table, fields, row), sort_keys=True, ensure_ascii=False
+    )
+
+
+def _hash_row_payload(payload: dict) -> str:
+    """SHA-256 over a frozen row payload dict (the stored snapshot_content form).
+
+    Lets reproduction re-derive a stored row's hash and cross-check it against the
+    manifest, so snapshot_content cannot be tampered independently of the chain.
+    """
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
 
 
 def compute_row_hash(table: str, row) -> str:
     """SHA-256 over the canonical serialization of a single rule row."""
     fields = next(fl for (t, _m, _h, fl) in _RULE_TABLES if t == table)
-    return hashlib.sha256(
-        _canonical_row(table, fields, row).encode("utf-8")
-    ).hexdigest()
+    return _hash_row_payload(_row_payload(table, fields, row))
 
 
 def _content_hash(manifest: dict) -> str:
@@ -163,19 +183,25 @@ def _classify(status: Optional[str], has_status: bool) -> str:
     return "block"
 
 
-def _build_manifest(db: Session, include_legacy: bool) -> tuple[dict, dict, list, bool]:
-    """Return (manifest, counts, blocking, legacy_included) for the working copy.
+def _build_manifest(
+    db: Session, include_legacy: bool
+) -> tuple[dict, dict, list, bool, dict]:
+    """Return (manifest, counts, blocking, legacy_included, content) for the working copy.
 
     ``manifest`` = {table: {row_id: row_hash}} over the INCLUDED rows only.
+    ``content``  = {table: {row_id: {field: value}}} — the frozen full rows for
+    exact criteria reproduction (STORY-RPV-002), same included set as the manifest.
     """
     manifest: dict[str, dict[str, str]] = {}
+    content: dict[str, dict[str, dict]] = {}
     counts: dict[str, int] = {}
     blocking: list[dict] = []
     legacy_included = False
 
-    for table, model, has_status, _fields in _RULE_TABLES:
+    for table, model, has_status, fields in _RULE_TABLES:
         rows = db.query(model).all()
         included: dict[str, str] = {}
+        included_content: dict[str, dict] = {}
         for row in rows:
             status = getattr(row, "validation_status", None) if has_status else None
             verdict = _classify(status, has_status)
@@ -190,10 +216,13 @@ def _build_manifest(db: Session, include_legacy: bool) -> tuple[dict, dict, list
                 if not include_legacy:
                     continue
                 legacy_included = True
-            included[str(getattr(row, "id"))] = compute_row_hash(table, row)
+            rid = str(getattr(row, "id"))
+            included[rid] = compute_row_hash(table, row)
+            included_content[rid] = _row_payload(table, fields, row)
         manifest[table] = included
+        content[table] = included_content
         counts[table] = len(included)
-    return manifest, counts, blocking, legacy_included
+    return manifest, counts, blocking, legacy_included, content
 
 
 _LEGACY_CAVEAT = (
@@ -268,7 +297,9 @@ def publish_snapshot(
     if include_legacy is None:
         include_legacy = settings.saro_snapshot_include_legacy
 
-    manifest, counts, blocking, legacy_included = _build_manifest(db, include_legacy)
+    manifest, counts, blocking, legacy_included, content = _build_manifest(
+        db, include_legacy
+    )
     if blocking:
         raise DraftRowsPresentError(blocking)
 
@@ -289,6 +320,7 @@ def publish_snapshot(
         prev_hash=prev_hash,
         record_hash=record_hash,
         snapshot_manifest=manifest,
+        snapshot_content=content,
         framework_counts=counts,
         includes_legacy=legacy_included,
         caveat=_LEGACY_CAVEAT if legacy_included else None,
@@ -336,7 +368,9 @@ def diff_against_latest(db: Session) -> dict:
     # the snapshot manifest, so a row flipped to RETIRED/DRAFT drops out and is
     # reported as retired — not silently mislabelled "updated" (reviewer S1).
     include_legacy = settings.saro_snapshot_include_legacy
-    current_manifest, _counts, _blocking, _legacy = _build_manifest(db, include_legacy)
+    current_manifest, _counts, _blocking, _legacy, _content = _build_manifest(
+        db, include_legacy
+    )
     result: dict[str, dict] = {}
     for table, _model, _has, _fields in _RULE_TABLES:
         current = dict(current_manifest.get(table, {}))
@@ -391,4 +425,128 @@ def verify_chain(db: Session) -> dict:
         "break_at_version": None,
         "expected_hash": None,
         "actual_hash": None,
+    }
+
+
+# ── evaluation-time version resolution + criteria reproduction (STORY-RPV-002) ───
+MODE_PERMISSIVE = "PERMISSIVE"
+MODE_STRICT = "STRICT"
+
+PRE_VERSIONING = "PRE-VERSIONING"
+
+
+class RulePackResolutionError(SnapshotError):
+    """STRICT mode refuses: no published version, or the working copy has drifted."""
+
+
+class RulePackIntegrityError(SnapshotError):
+    """Snapshot chain is broken at pin time — refuse in BOTH modes (incident)."""
+
+
+def get_snapshot_by_version(db: Session, version: str) -> Optional[RulePackSnapshot]:
+    return (
+        db.query(RulePackSnapshot).filter(RulePackSnapshot.version == version).first()
+    )
+
+
+def resolve_pinned_version(
+    db: Session, mode: Optional[str] = None
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve the rule-pack version to pin to an evaluation (AC-2, AC-5).
+
+    Returns (version, content_hash), or (None, None) for PRE-VERSIONING in
+    PERMISSIVE mode when nothing is published. Resolution is per invocation; the
+    result is derived only from published snapshots, never the working copy.
+
+    Raises:
+        RulePackResolutionError — STRICT and (no published version OR working-copy drift).
+        RulePackIntegrityError  — the snapshot chain is broken (refused in both modes).
+    """
+    resolved_mode = (
+        mode or settings.saro_rule_pack_eval_mode or MODE_PERMISSIVE
+    ).upper()
+    latest = get_latest_snapshot(db)
+    if latest is None:
+        if resolved_mode == MODE_STRICT:
+            raise RulePackResolutionError(
+                "no published rule-pack version exists (STRICT mode refuses to evaluate)"
+            )
+        return None, None  # PERMISSIVE: pre-versioning, evaluation proceeds unpinned
+
+    # Integrity gate at pin time — a broken chain is an incident, not a warning.
+    chain = verify_chain(db)
+    if not chain["valid"]:
+        raise RulePackIntegrityError(
+            f"rule-pack snapshot chain is broken at version {chain['break_at_version']}"
+        )
+
+    if resolved_mode == MODE_STRICT:
+        diff = diff_against_latest(db)
+        drifted = any(
+            fr["added"] or fr["updated"] or fr["retired"] for fr in diff.values()
+        )
+        if drifted:
+            raise RulePackResolutionError(
+                "working copy has drifted from the latest published version "
+                "(STRICT mode refuses; publish a new version or switch to PERMISSIVE)"
+            )
+    return latest.version, latest.content_hash
+
+
+def reproduce_criteria(db: Session, version: str) -> dict:
+    """Return the full frozen rule content of a pinned version (AC-3).
+
+    Reads snapshot_content (frozen at publish), so reproduction is exact even after
+    the working copy mutates. Carries chain-verification status. Snapshots published
+    before RPV-002 have no snapshot_content -> reproduction_available is False with a
+    stated limitation (never a guess).
+    """
+    snap = get_snapshot_by_version(db, version)
+    if snap is None:
+        raise RulePackResolutionError(f"no rule-pack snapshot for version {version}")
+    content = snap.snapshot_content or {}
+    manifest = snap.snapshot_manifest or {}
+    chain = verify_chain(db)
+
+    # Cross-check snapshot_content against the (chain-covered) manifest hashes:
+    # snapshot_content itself is not in content_hash, so without this an out-of-band
+    # edit to the reproduced rows would go undetected while the chain still verifies
+    # (reviewer B2 — same class as FND-039, one layer deeper). Any row whose stored
+    # payload does not hash to its manifest entry fails content integrity.
+    content_integrity = True
+    for table, rows in content.items():
+        table_manifest = manifest.get(table, {})
+        for rid, payload in rows.items():
+            if _hash_row_payload(payload) != table_manifest.get(rid):
+                content_integrity = False
+                break
+        if not content_integrity:
+            break
+
+    available = bool(content) and content_integrity
+    if not content:
+        limitation = (
+            "This snapshot predates full-content storage (RPV-001-only); "
+            "exact criteria reproduction is unavailable for it."
+        )
+    elif not content_integrity:
+        limitation = (
+            "Stored criteria content failed its integrity cross-check against the "
+            "hash-chained manifest — reproduction is not trustworthy (possible "
+            "out-of-band tampering). Treat as an incident."
+        )
+    else:
+        limitation = None
+
+    return {
+        "version": snap.version,
+        "content_hash": snap.content_hash,
+        "reproduction_available": available,
+        "content_integrity": content_integrity,
+        "frameworks": {t: list(rows.values()) for t, rows in content.items()},
+        "chain_verification": {
+            "valid": chain["valid"],
+            "break_at_version": chain["break_at_version"],
+        },
+        "limitation": limitation,
     }

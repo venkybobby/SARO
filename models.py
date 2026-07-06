@@ -486,6 +486,10 @@ class RulePackSnapshot(Base):
     record_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     # {"eu_ai_act_rules": {"12": "<rowhash>", ...}, "governance_rules": {...}}
     snapshot_manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # Frozen full rule rows for exact criteria reproduction (STORY-RPV-002):
+    # {"eu_ai_act_rules": {"12": {"title": ..., ...}}, ...}. Nullable so RPV-001
+    # snapshots predating RPV-002 read as reproduction-unavailable.
+    snapshot_content: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # {"eu_ai_act_rules": 17, "governance_rules": 36, ...}
     framework_counts: Mapped[dict] = mapped_column(JSON, nullable=False)
     includes_legacy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -1421,6 +1425,13 @@ class GRCEvidenceRecord(Base):
     captured_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # ── Rule-pack criteria pin (STORY-RPV-002) ──
+    # Version + content hash of the published snapshot in force at capture time.
+    # Included in _PAYLOAD_FIELDS so the pin is inside content_hash (tamper-evident).
+    # NULL = PRE-VERSIONING (record predates versioning); never backfilled (AC-4).
+    rule_pack_version_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    rule_pack_content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # ── Hash chain ──
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)

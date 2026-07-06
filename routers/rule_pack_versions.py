@@ -134,6 +134,19 @@ def verify_versions(db: Session = Depends(get_db)):
 
 
 @router.get(
+    "/{version}/reproduce",
+    dependencies=[Depends(_require_read)],
+    summary="Reproduce the full frozen rule content of a pinned version",
+)
+def reproduce_version(version: str, db: Session = Depends(get_db)):
+    """Return the exact rule content in force at a pinned version (STORY-RPV-002 AC-3)."""
+    try:
+        return snap_svc.reproduce_criteria(db, version)
+    except snap_svc.RulePackResolutionError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get(
     "/{version}",
     dependencies=[Depends(_require_read)],
     summary="Get one snapshot by version",
