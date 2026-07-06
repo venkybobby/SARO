@@ -14,9 +14,15 @@ FILE=$(printf '%s' "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]
 # to forward slashes so the allow-list globs below (e.g. *.claude/*) match.
 FILE=${FILE//\\//}
 
-# Paths that are always allowed: notes, mocks, docs, plugin config, tests-as-spec.
+# Paths that are always allowed: notes, mocks, docs, plugin config, and tests.
+# Tests are allowed pre-Decision-Log so a failing/regression test can be written
+# first (TDD red step, and the /finding red-first flow). Globs are anchored to
+# filename/dir boundaries so source files like `latest_config.py` don't slip
+# through: pytest test_*.py / *_test.py and anything under a tests/ dir, plus
+# frontend *.test.* / *.spec.* (vitest, Playwright).
 case "$FILE" in
   ""|*implementation-notes.md|*.claude/*|*mock-*.html|*design-directions.html|*change-debrief.html|*.md|*buy-in*) exit 0 ;;
+  */tests/*|tests/*|*/test_*.py|test_*.py|*_test.py|*.test.*|*.spec.*) exit 0 ;;
 esac
 
 NOTES="implementation-notes.md"
