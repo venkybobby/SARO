@@ -113,3 +113,15 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 - New work: create `specs/stories/STORY-###.md` from `_TEMPLATE.md`, then run `/story STORY-###`.
 - New bug/review finding: run `/finding <description>` — it logs an FND, writes a pinning regression test (red→green), and updates `tests/regression/manifest.yaml`.
 - Standards live in `docs/engineering-standards.md`. Core invariants: quality ratchet (`quality/baseline.json`) never goes backward; every bug fix ships a regression test; independent `reviewer`/`security-auditor` agents must approve before merge; max 3 gate cycles then escalate — never weaken a test to get green.
+
+## Lifecycle
+- ALL implementation work runs under the saro-lifecycle skill
+  (DISCOVER → SHAPE → PREVIEW → PLAN → BUILD → VERIFY → SELL). Load it at the
+  start of any story, finding, feature, fix, or refactor — even when the user
+  doesn't mention it. /story and /build are the entry points; individual
+  stage prompts are never needed.
+- implementation-notes.md (lifecycle template) is created at task start and
+  kept truthful; hooks gate on it. Deviations from plan: conservative option,
+  log under ## Deviations, keep going.
+- Plans lead with tweak-likely decisions (data model, type interfaces,
+  user-facing); mechanical refactoring is buried at the bottom.

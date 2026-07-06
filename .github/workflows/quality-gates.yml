@@ -68,3 +68,33 @@ jobs:
           echo "All SQL migrations applied cleanly to a fresh database."
       - name: Note non-SQL migrations
         run: ls migrations/*.py 2>/dev/null && echo "::warning::Python migrations exist — not covered by this gate; verify via docs/MIGRATION_RUNBOOK.md" || true
+
+  lifecycle-guard:
+    name: Lifecycle Guard (impl-notes on multi-file PRs)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce lifecycle on multi-file PRs
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" | grep -v '^implementation-notes\.md$' | wc -l)
+          NOTES=$(git diff --name-only "$BASE" "$HEAD" | grep -c '^implementation-notes\.md$' || true)
+          echo "Changed: $CHANGED | notes touched: $NOTES"
+          [ "$CHANGED" -lt 3 ] && exit 0
+          if grep -qi '^Stage:[[:space:]]*trivial' implementation-notes.md 2>/dev/null; then exit 0; fi
+          if [ "$NOTES" -eq 0 ]; then
+            echo "::error::PR changes $CHANGED files but implementation-notes.md was not updated."
+            exit 1
+          fi
+          if ! grep -q '^## Deviations' implementation-notes.md; then
+            echo "::error::implementation-notes.md is missing a '## Deviations' section."
+            exit 1
+          fi
+          if grep -q '^\- \[ \] verify' implementation-notes.md; then
+            echo "::error::verify stage unchecked — produce change-debrief.html or mark verify skipped with a reason."
+            exit 1
+          fi
