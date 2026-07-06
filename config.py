@@ -57,5 +57,13 @@ class Settings(BaseSettings):
     # A broken snapshot chain refuses in BOTH modes (integrity incident).
     saro_rule_pack_eval_mode: str = "PERMISSIVE"
 
+    # ── Rule-pack visibility on customer surfaces (STORY-CHUB-011) ────────────
+    # When True, LEGACY_UNREVIEWED rule rows are visible in default customer views
+    # (provisionally-visible legacy), carrying a "pending validation" indicator that
+    # is shown to internal personas only. When False, legacy rows are hidden from
+    # default views too. DRAFT_UNVALIDATED / RETIRED / NULL are never in default
+    # views regardless of this flag.
+    saro_show_legacy_rules: bool = True
+
 
 settings = Settings()

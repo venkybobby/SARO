@@ -4,6 +4,7 @@ Endpoints:
     GET  /api/v1/compliance-matrix          list rows (sort + filter)
     GET  /api/v1/compliance-matrix/export   stream CSV (same filter/sort params)
 """
+
 from __future__ import annotations
 
 import csv
@@ -58,14 +59,39 @@ _ROW_FIELD_MAP = [
 ]
 
 
+# STORY-CHUB-011 AC-3: only these personas may reveal draft/retired rule rows.
+_DRAFT_TOGGLE_PERSONAS = frozenset({"ai_auditor", "admin"})
+
+
+def _effective_show_drafts(current_user: User, requested: bool) -> bool:
+    """Honor the show-drafts toggle only for privileged personas; else force False.
+
+    Fail-closed: an unprivileged caller requesting drafts silently gets the default
+    (validated-only) view — the toggle is never persisted and never leaks draft rows.
+    """
+    if not requested:
+        return False
+    persona = getattr(current_user, "persona_role", None) or ""
+    allowed = persona in _DRAFT_TOGGLE_PERSONAS
+    if not allowed:
+        # AC-3 observability: a denied draft-toggle request is an access-control event.
+        logger.info(
+            "compliance_matrix draft-toggle denied actor=%s persona=%s",
+            getattr(current_user, "email", "?"),
+            persona or "-",
+        )
+    return allowed
+
+
 def _resolve_rows(
     db: Session,
     sort_by: str | None,
     sort_dir: str,
     filter_regulation: str | None,
     filter_risk_level: str | None,
+    show_drafts: bool = False,
 ) -> list[dict[str, Any]]:
-    rows = get_matrix_rows(db)
+    rows = get_matrix_rows(db, show_drafts=show_drafts)
     rows = filter_matrix_rows(rows, filter_regulation, filter_risk_level)
     rows = sort_matrix_rows(rows, sort_by, sort_dir)
     return rows
@@ -140,7 +166,9 @@ async def get_coverage_summary(
             entry["not_covered"] += 1
 
         lu = row.get("last_updated")
-        if lu and (entry["last_updated"] is None or str(lu) > str(entry["last_updated"])):
+        if lu and (
+            entry["last_updated"] is None or str(lu) > str(entry["last_updated"])
+        ):
             entry["last_updated"] = lu
 
     coverage_items = []
@@ -148,22 +176,28 @@ async def get_coverage_summary(
         total = fw_entry["total_rules"]
         covered = fw_entry["covered"] + fw_entry["partial"] * 0.5
         pct = round((covered / total * 100) if total else 0.0, 1)
-        coverage_items.append({
-            "framework": fw_entry["framework"],
-            "total_rules": total,
-            "covered": fw_entry["covered"],
-            "partial": fw_entry["partial"],
-            "not_covered": fw_entry["not_covered"],
-            "coverage_pct": pct,
-            "last_updated": str(fw_entry["last_updated"]) if fw_entry["last_updated"] else None,
-        })
+        coverage_items.append(
+            {
+                "framework": fw_entry["framework"],
+                "total_rules": total,
+                "covered": fw_entry["covered"],
+                "partial": fw_entry["partial"],
+                "not_covered": fw_entry["not_covered"],
+                "coverage_pct": pct,
+                "last_updated": str(fw_entry["last_updated"])
+                if fw_entry["last_updated"]
+                else None,
+            }
+        )
 
     # Sort by coverage_pct descending
     coverage_items.sort(key=lambda x: x["coverage_pct"], reverse=True)
 
     overall_total = sum(c["total_rules"] for c in coverage_items)
     overall_covered = sum(c["covered"] + c["partial"] * 0.5 for c in coverage_items)
-    overall_pct = round((overall_covered / overall_total * 100) if overall_total else 0.0, 1)
+    overall_pct = round(
+        (overall_covered / overall_total * 100) if overall_total else 0.0, 1
+    )
 
     return {
         "frameworks": coverage_items,
@@ -177,14 +211,23 @@ async def get_coverage_summary(
 async def list_matrix(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-    sort_by: str | None = Query(default=None, description="risk_level | regulation_name | last_updated"),
+    sort_by: str | None = Query(
+        default=None, description="risk_level | regulation_name | last_updated"
+    ),
     sort_dir: str = Query(default="asc", description="asc | desc"),
     filter_regulation: str | None = Query(default=None, alias="filter_regulation"),
     filter_risk_level: str | None = Query(default=None, alias="filter_risk_level"),
+    show_drafts: bool = Query(
+        default=False,
+        description="Internal personas only: reveal DRAFT/RETIRED rows with a badge.",
+    ),
 ) -> dict[str, Any]:
     _validate_sort_params(sort_by, sort_dir)
-    rows = _resolve_rows(db, sort_by, sort_dir, filter_regulation, filter_risk_level)
-    return {"items": rows, "total": len(rows)}
+    effective_drafts = _effective_show_drafts(current_user, show_drafts)
+    rows = _resolve_rows(
+        db, sort_by, sort_dir, filter_regulation, filter_risk_level, effective_drafts
+    )
+    return {"items": rows, "total": len(rows), "showing_drafts": effective_drafts}
 
 
 @router.get("/export", summary="Export compliance matrix as CSV")
@@ -215,7 +258,10 @@ async def export_matrix_csv(
 
     logger.info(
         "compliance_matrix_export actor=%s filter_regulation=%s filter_risk_level=%s rows=%d",
-        current_user.email, filter_regulation, filter_risk_level, len(rows),
+        current_user.email,
+        filter_regulation,
+        filter_risk_level,
+        len(rows),
     )
 
     today = date.today().isoformat()
@@ -230,10 +276,12 @@ async def export_matrix_csv(
         for row in rows:
             buf = io.StringIO()
             writer = csv.writer(buf, lineterminator="\r\n")
-            writer.writerow([
-                row.get(field) if row.get(field) is not None else ""
-                for field in _ROW_FIELD_MAP
-            ])
+            writer.writerow(
+                [
+                    row.get(field) if row.get(field) is not None else ""
+                    for field in _ROW_FIELD_MAP
+                ]
+            )
             yield buf.getvalue()
 
     return StreamingResponse(
@@ -243,9 +291,9 @@ async def export_matrix_csv(
     )
 
 
-
-
-@router.get("/summary", summary="Compliance matrix summary — alias for /coverage (React compat)")
+@router.get(
+    "/summary", summary="Compliance matrix summary — alias for /coverage (React compat)"
+)
 async def get_summary(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],

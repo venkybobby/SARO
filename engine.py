@@ -36,6 +36,7 @@ Among the top-K similar incidents, compute:
   > 0 → historically resolved (favourable)
   < 0 → historically unresolved (ongoing risk pattern)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -67,6 +68,7 @@ from rule_packs.loader import (
     build_domain_trigger_map,
     load_all_packs,
 )
+from services import rule_visibility
 from schemas import (
     AppliedRuleOut,
     AuditConfigIn,
@@ -102,7 +104,9 @@ CI_LEVEL: float = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.95"))
 PRIOR_WEIGHT: float = float(os.environ.get("BAYESIAN_PRIOR_WEIGHT", "5.0"))
 
 # SPEC-E1: LLM-as-judge hybrid classifier constants
-LLM_CONFIDENCE_THRESHOLD: float = float(os.environ.get("LLM_CONFIDENCE_THRESHOLD", "0.7"))
+LLM_CONFIDENCE_THRESHOLD: float = float(
+    os.environ.get("LLM_CONFIDENCE_THRESHOLD", "0.7")
+)
 MAX_LLM_CALLS_PER_BATCH: int = int(os.environ.get("MAX_LLM_CALLS_PER_BATCH", "200"))
 
 # STORY-102: the OPTIONAL Gate-3 LLM-judge model/provider are configurable so a
@@ -110,7 +114,9 @@ MAX_LLM_CALLS_PER_BATCH: int = int(os.environ.get("MAX_LLM_CALLS_PER_BATCH", "20
 # today's behavior (Anthropic + claude-sonnet-4). The judge runs only when the
 # provider's API key is set; SARO's core scoring never calls an external model.
 LLM_JUDGE_PROVIDER: str = os.environ.get("SARO_LLM_JUDGE_PROVIDER", "anthropic")
-LLM_JUDGE_MODEL: str = os.environ.get("SARO_LLM_JUDGE_MODEL", "claude-sonnet-4-20250514")
+LLM_JUDGE_MODEL: str = os.environ.get(
+    "SARO_LLM_JUDGE_MODEL", "claude-sonnet-4-20250514"
+)
 
 # SPEC-E1: MIT domain definitions for LLM verification prompt
 _MIT_DOMAIN_DEFINITIONS: dict[str, str] = {
@@ -139,8 +145,17 @@ MIT_DOMAINS: list[str] = [
 _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     "Discrimination & Toxicity": {
         "keywords": [
-            "hate", "racist", "sexist", "discriminat", "toxic", "slur",
-            "offensive", "harass", "bigot", "prejudice", "stereotype",
+            "hate",
+            "racist",
+            "sexist",
+            "discriminat",
+            "toxic",
+            "slur",
+            "offensive",
+            "harass",
+            "bigot",
+            "prejudice",
+            "stereotype",
         ],
         "patterns": [
             re.compile(r"\b(hate\s*speech|racial\s*slur|gender\s*bias)\b", re.I),
@@ -149,23 +164,42 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     },
     "Privacy & Security": {
         "keywords": [
-            "ssn", r"social\s*security", r"credit\s*card", "password", "private",
-            "confidential", "dob", r"date\s*of\s*birth", r"medical\s*record",
-            "phi", "pii", "passport",
+            "ssn",
+            r"social\s*security",
+            r"credit\s*card",
+            "password",
+            "private",
+            "confidential",
+            "dob",
+            r"date\s*of\s*birth",
+            r"medical\s*record",
+            "phi",
+            "pii",
+            "passport",
         ],
         "patterns": [
-            re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),                          # SSN
-            re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"),       # Credit card
-            re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),  # Email
-            re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"),                  # Phone
-            re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),                          # Passport
+            re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),  # SSN
+            re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"),  # Credit card
+            re.compile(
+                r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"
+            ),  # Email
+            re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"),  # Phone
+            re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),  # Passport
         ],
         "weight": 0.85,
     },
     "Misinformation": {
         "keywords": [
-            "fake", "false", "mislead", "fabricat", "disinform", "lie",
-            "untrue", "conspiracy", "hoax", "debunk",
+            "fake",
+            "false",
+            "mislead",
+            "fabricat",
+            "disinform",
+            "lie",
+            "untrue",
+            "conspiracy",
+            "hoax",
+            "debunk",
         ],
         "patterns": [
             re.compile(
@@ -177,34 +211,66 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     },
     "Malicious Use": {
         "keywords": [
-            "hack", "exploit", "malware", "virus", "phish", "scam", "fraud",
-            "attack", "ransom", "botnet", "spyware", "rootkit",
+            "hack",
+            "exploit",
+            "malware",
+            "virus",
+            "phish",
+            "scam",
+            "fraud",
+            "attack",
+            "ransom",
+            "botnet",
+            "spyware",
+            "rootkit",
         ],
         "patterns": [
-            re.compile(r"\b(sql\s*injection|xss|csrf|ddos|ransomware|zero.day)\b", re.I),
+            re.compile(
+                r"\b(sql\s*injection|xss|csrf|ddos|ransomware|zero.day)\b", re.I
+            ),
         ],
         "weight": 0.95,
     },
     "Human-Computer Interaction": {
         "keywords": [
-            "manipulat", "deceiv", r"dark\s*pattern", "coercive", "addict",
-            r"mislead\s*user", r"deceptive\s*design", r"exploit\s*user",
+            "manipulat",
+            "deceiv",
+            r"dark\s*pattern",
+            "coercive",
+            "addict",
+            r"mislead\s*user",
+            r"deceptive\s*design",
+            r"exploit\s*user",
         ],
         "patterns": [],
         "weight": 0.65,
     },
     "Socioeconomic & Environmental": {
         "keywords": [
-            r"job\s*loss", "unemploy", "poverty", "carbon", "environment",
-            "inequality", r"wage\s*gap", r"automation\s*displac",
+            r"job\s*loss",
+            "unemploy",
+            "poverty",
+            "carbon",
+            "environment",
+            "inequality",
+            r"wage\s*gap",
+            r"automation\s*displac",
         ],
         "patterns": [],
         "weight": 0.50,
     },
     "AI System Safety": {
         "keywords": [
-            "fail", "error", "crash", "unsafe", "dangerous", "accident",
-            "harm", "injur", "fatal", r"autonomous.*fail",
+            "fail",
+            "error",
+            "crash",
+            "unsafe",
+            "dangerous",
+            "accident",
+            "harm",
+            "injur",
+            "fatal",
+            r"autonomous.*fail",
         ],
         "patterns": [
             re.compile(
@@ -487,7 +553,11 @@ _REMEDIATIONS: dict[str, dict[str, str]] = {
             "Run TEVV (Test, Evaluate, Validate, Verify) cycles per NIST MEASURE 2.6."
         ),
         "priority": "critical",
-        "related_controls": ["EU AI Act Art. 9", "EU AI Act Art. 14", "NIST MANAGE 4.1"],
+        "related_controls": [
+            "EU AI Act Art. 9",
+            "EU AI Act Art. 14",
+            "NIST MANAGE 4.1",
+        ],
     },
 }
 
@@ -589,6 +659,7 @@ class SARoEngine:
 
     # SPEC-E3: asyncio lock for thread-safe TF-IDF index rebuilds
     import asyncio as _asyncio_module
+
     _rebuild_lock: "_asyncio_module.Lock | None" = None
 
     def __init__(self, db: Session) -> None:
@@ -662,11 +733,18 @@ class SARoEngine:
                 max(corpus_dates).isoformat() if corpus_dates else None
             )
         except Exception as exc:
-            logger.warning("ai_incidents table not accessible — using empty list: %s", exc)
+            logger.warning(
+                "ai_incidents table not accessible — using empty list: %s", exc
+            )
             db.rollback()
             self._incidents = []
             self._incident_corpus_version = None
 
+        # STORY-CHUB-011 (AC-1/AC-5): exclude DRAFT_UNVALIDATED / RETIRED / NULL rule
+        # rows so unvalidated obligation text never becomes authoritative remediation
+        # guidance in AppliedRuleOut or the TRACE timeline. Same fail-closed allow-list
+        # as the customer-facing matrix (services.rule_visibility).
+        _visible = rule_visibility.default_visible_statuses()
         try:
             self._eu_rules: list[dict] = [
                 {
@@ -675,10 +753,14 @@ class SARoEngine:
                     "obligations_providers": r.obligations_providers,
                     "risk_level": r.risk_level,
                 }
-                for r in db.query(EUAIActRule).all()
+                for r in db.query(EUAIActRule)
+                .filter(EUAIActRule.validation_status.in_(_visible))
+                .all()
             ]
         except Exception as exc:
-            logger.warning("eu_ai_act_rules table not accessible — using empty list: %s", exc)
+            logger.warning(
+                "eu_ai_act_rules table not accessible — using empty list: %s", exc
+            )
             db.rollback()
             self._eu_rules = []
 
@@ -693,17 +775,25 @@ class SARoEngine:
                 for r in db.query(NISTControl).all()
             ]
         except Exception as exc:
-            logger.warning("nist_controls table not accessible — using empty list: %s", exc)
+            logger.warning(
+                "nist_controls table not accessible — using empty list: %s", exc
+            )
             db.rollback()
             self._nist_controls = []
 
         try:
             self._aigp: list[dict] = [
-                {"domain": r.domain, "subtopic": r.subtopic, "description": r.description}
+                {
+                    "domain": r.domain,
+                    "subtopic": r.subtopic,
+                    "description": r.description,
+                }
                 for r in db.query(AIGPPrinciple).all()
             ]
         except Exception as exc:
-            logger.warning("aigp_principles table not accessible — using empty list: %s", exc)
+            logger.warning(
+                "aigp_principles table not accessible — using empty list: %s", exc
+            )
             db.rollback()
             self._aigp = []
 
@@ -716,10 +806,16 @@ class SARoEngine:
                     "description": r.description,
                     "obligations": r.obligations,
                 }
-                for r in db.query(GovernanceRule).all()
+                # STORY-CHUB-011: exclude DRAFT/RETIRED/NULL (e.g. retired US EO 14110)
+                # so unvalidated governance obligations don't reach attestations/TRACE.
+                for r in db.query(GovernanceRule)
+                .filter(GovernanceRule.validation_status.in_(_visible))
+                .all()
             ]
         except Exception as exc:
-            logger.warning("governance_rules table not accessible — using empty list: %s", exc)
+            logger.warning(
+                "governance_rules table not accessible — using empty list: %s", exc
+            )
             db.rollback()
             self._gov_rules = []
 
@@ -746,15 +842,22 @@ class SARoEngine:
     async def check_and_refresh_index(self, db: Session) -> None:
         """Check if ai_incidents changed; rebuild TF-IDF index if stale."""
         import asyncio
+
         try:
             from sqlalchemy import text
-            result = db.execute(text("SELECT COUNT(*), MAX(id) FROM ai_incidents")).fetchone()
+
+            result = db.execute(
+                text("SELECT COUNT(*), MAX(id) FROM ai_incidents")
+            ).fetchone()
             new_count = result[0] if result else 0
             cached_count = getattr(self, "_cached_incident_count", None)
             if cached_count is not None and new_count == cached_count:
                 return
             # Use a per-instance lock (lazy init)
-            if not hasattr(self, "_instance_rebuild_lock") or self._instance_rebuild_lock is None:
+            if (
+                not hasattr(self, "_instance_rebuild_lock")
+                or self._instance_rebuild_lock is None
+            ):
                 self._instance_rebuild_lock = asyncio.Lock()
             async with self._instance_rebuild_lock:
                 if new_count != getattr(self, "_cached_incident_count", None):
@@ -769,6 +872,7 @@ class SARoEngine:
         """Reload incidents from DB and rebuild TF-IDF index."""
         try:
             from models import AIIncident
+
             incident_rows = db.query(AIIncident).all()
             self._incidents = [
                 {
@@ -827,7 +931,9 @@ class SARoEngine:
         }
 
         if not self._incidents:
-            logger.warning("ai_incidents empty — using non-informative Jeffreys prior for all domains")
+            logger.warning(
+                "ai_incidents empty — using non-informative Jeffreys prior for all domains"
+            )
             return {d: (0.5, 0.5) for d in MIT_DOMAINS}
 
         domain_counts: dict[str, int] = {d: 0 for d in MIT_DOMAINS}
@@ -1033,8 +1139,10 @@ class SARoEngine:
 
         # Gate 1: Skipped — data quality / 50-sample threshold not applicable
         gate1 = _GateResult(
-            gate_id=1, name="Data Quality",
-            status="pass", score=1.0,
+            gate_id=1,
+            name="Data Quality",
+            status="pass",
+            score=1.0,
             details={
                 "skipped": True,
                 "reason": (
@@ -1052,7 +1160,8 @@ class SARoEngine:
         gate2 = _GateResult(
             gate_id=2,
             name="Fairness (EU AI Act Art. 10 / NIST MAP 2.3)",
-            status="warn", score=0.5,
+            status="warn",
+            score=0.5,
             details={
                 "skipped": True,
                 "reason": (
@@ -1092,9 +1201,11 @@ class SARoEngine:
 
         gate_outs = [
             GateResultOut(
-                gate_id=g.gate_id, name=g.name,
+                gate_id=g.gate_id,
+                name=g.name,
                 status=g.status,  # type: ignore[arg-type]
-                score=round(g.score, 4), details=g.details,
+                score=round(g.score, 4),
+                details=g.details,
             )
             for g in gates
         ]
@@ -1232,7 +1343,9 @@ class SARoEngine:
         positive_rates: dict[str, float] = {}
         for grp, lbls in group_label_map.items():
             n_grp = len(lbls)
-            n_pos = sum(1 for lb in lbls if lb.lower() not in ("safe", "benign", "0", "false"))
+            n_pos = sum(
+                1 for lb in lbls if lb.lower() not in ("safe", "benign", "0", "false")
+            )
             positive_rates[grp] = n_pos / n_grp if n_grp else 0.0
 
         rates = list(positive_rates.values())
@@ -1265,9 +1378,15 @@ class SARoEngine:
 
     # PII patterns used for redacting matched_text_fragment in sample_findings (SARO-001)
     _PII_REDACT_PATTERNS: list[tuple[re.Pattern, str]] = [
-        (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "***-**-****"),             # SSN
-        (re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"), "****-****-****-****"),  # CC
-        (re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"), "[email]"),
+        (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "***-**-****"),  # SSN
+        (
+            re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"),
+            "****-****-****-****",
+        ),  # CC
+        (
+            re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
+            "[email]",
+        ),
         (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[phone]"),
         (re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"), "[passport]"),
     ]
@@ -1306,7 +1425,9 @@ class SARoEngine:
                 # SARO-003: apply keyword suppressions from risk config
                 suppressed_kws: set[str] = set()
                 if risk_config and risk_config.keyword_suppressions:
-                    suppressed_kws = set(risk_config.keyword_suppressions.get(domain, []))
+                    suppressed_kws = set(
+                        risk_config.keyword_suppressions.get(domain, [])
+                    )
 
                 # Keyword matching
                 for kw in signals["keywords"]:
@@ -1348,13 +1469,15 @@ class SARoEngine:
                     domain_counts[domain] += 1
 
                     # SARO-001: accumulate sample finding for persistence
-                    self._sample_findings.append({
-                        "sample_id": sample.sample_id,
-                        "domain": domain,
-                        "matched_signal": matched_signal,
-                        "matched_text_fragment": fragment,
-                        "weight": weight,
-                    })
+                    self._sample_findings.append(
+                        {
+                            "sample_id": sample.sample_id,
+                            "domain": domain,
+                            "matched_signal": matched_signal,
+                            "matched_text_fragment": fragment,
+                            "weight": weight,
+                        }
+                    )
 
         # SPEC-E1: LLM-as-judge hybrid verification pass
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -1370,6 +1493,7 @@ class SARoEngine:
                 # branch here; an unknown provider fails safe to keyword-only.
                 if LLM_JUDGE_PROVIDER == "anthropic":
                     import anthropic as _anthropic
+
                     _client = _anthropic.Anthropic(api_key=api_key)
                 else:
                     raise RuntimeError(
@@ -1386,28 +1510,41 @@ class SARoEngine:
                     if not flag.text:
                         confirmed_flags.append(flag)
                         continue
-                    verdict = self._gate3_llm_verify_sync(_client, flag.text, flag.domain)
+                    verdict = self._gate3_llm_verify_sync(
+                        _client, flag.text, flag.domain
+                    )
                     llm_calls_made += 1
                     if verdict is not None:
                         # Store the verdict for trace detail_json
-                        llm_verdicts.append({
-                            "domain": flag.domain,
-                            "confirmed": verdict.get("confirmed"),
-                            "confidence": verdict.get("confidence"),
-                            "reasoning_summary": str(verdict.get("reasoning", ""))[:200],
-                        })
+                        llm_verdicts.append(
+                            {
+                                "domain": flag.domain,
+                                "confirmed": verdict.get("confirmed"),
+                                "confidence": verdict.get("confidence"),
+                                "reasoning_summary": str(verdict.get("reasoning", ""))[
+                                    :200
+                                ],
+                            }
+                        )
                     if verdict is None:
                         llm_parse_failures += 1
                         confirmed_flags.append(flag)
-                    elif verdict.get("confirmed", True) and verdict.get("confidence", 1.0) >= LLM_CONFIDENCE_THRESHOLD:
+                    elif (
+                        verdict.get("confirmed", True)
+                        and verdict.get("confidence", 1.0) >= LLM_CONFIDENCE_THRESHOLD
+                    ):
                         confirmed_flags.append(flag)
                     # else: LLM rejected flag — drop it (false positive reduction)
                 flags = confirmed_flags
             except ImportError:
-                logger.warning("anthropic SDK not installed — falling back to keyword-only mode")
+                logger.warning(
+                    "anthropic SDK not installed — falling back to keyword-only mode"
+                )
                 hybrid_mode = False
             except Exception as exc:
-                logger.warning("LLM hybrid pass failed (%s) — using keyword-only results", exc)
+                logger.warning(
+                    "LLM hybrid pass failed (%s) — using keyword-only results", exc
+                )
                 hybrid_mode = False
 
         # Re-compute after possible LLM filtering
@@ -1428,16 +1565,23 @@ class SARoEngine:
         llm_classification: dict | None = None
         if hybrid_mode and llm_verdicts:
             confirmed_count = sum(1 for v in llm_verdicts if v.get("confirmed"))
-            confidences = [v["confidence"] for v in llm_verdicts if v.get("confidence") is not None]
-            avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else None
+            confidences = [
+                v["confidence"] for v in llm_verdicts if v.get("confidence") is not None
+            ]
+            avg_confidence = (
+                round(sum(confidences) / len(confidences), 3) if confidences else None
+            )
             llm_classification = {
                 "model": LLM_JUDGE_MODEL,
                 "verdicts_count": len(llm_verdicts),
                 "confirmed_count": confirmed_count,
                 "confidence_avg": avg_confidence,
                 "reasoning_summary": "; ".join(
-                    v["reasoning_summary"] for v in llm_verdicts[:3] if v.get("reasoning_summary")
-                )[:500] or None,
+                    v["reasoning_summary"]
+                    for v in llm_verdicts[:3]
+                    if v.get("reasoning_summary")
+                )[:500]
+                or None,
                 "verdicts": llm_verdicts[:10],  # cap at 10 for storage
             }
 
@@ -1464,10 +1608,13 @@ class SARoEngine:
         )
 
     # SPEC-E1: LLM-as-judge synchronous verification
-    def _gate3_llm_verify_sync(self, client: "Any", sample_text: str, domain: str) -> "dict | None":
+    def _gate3_llm_verify_sync(
+        self, client: "Any", sample_text: str, domain: str
+    ) -> "dict | None":
         """Synchronous LLM-as-judge call for gate3 verification."""
         try:
             import json as _json
+
             domain_def = _MIT_DOMAIN_DEFINITIONS.get(domain, domain)
             truncated = str(sample_text)[:500]
             prompt = (
@@ -1507,7 +1654,11 @@ class SARoEngine:
         self._applied_rule_packs: dict[str, dict] = {}
 
         # Use versioned rule packs if loaded; fall back to legacy hardcoded triggers
-        compliance_map = self._compliance_triggers if self._compliance_triggers else _COMPLIANCE_TRIGGERS
+        compliance_map = (
+            self._compliance_triggers
+            if self._compliance_triggers
+            else _COMPLIANCE_TRIGGERS
+        )
 
         for domain in triggered_domains:
             triggers = compliance_map.get(domain, [])
@@ -1518,7 +1669,9 @@ class SARoEngine:
                 seen_rule_ids.add(key)
 
                 # Obligation from rule pack YAML takes precedence over DB lookup
-                obligations = t.get("obligation") or self._lookup_obligations(t["framework"], t["rule_id"])
+                obligations = t.get("obligation") or self._lookup_obligations(
+                    t["framework"], t["rule_id"]
+                )
                 if "rule_pack" in t:
                     self._applied_rule_packs[key] = t["rule_pack"]
 
@@ -1534,7 +1687,9 @@ class SARoEngine:
                 applied.append(rule)
 
         frameworks_covered = {r.framework for r in applied}
-        score = len(frameworks_covered) / 4 if frameworks_covered else 1.0  # 4 target frameworks
+        score = (
+            len(frameworks_covered) / 4 if frameworks_covered else 1.0
+        )  # 4 target frameworks
 
         return applied, _GateResult(
             gate_id=4,
@@ -1552,15 +1707,17 @@ class SARoEngine:
         """Return obligation text from the reference DB, or None if not found."""
         if "EU AI Act" in framework:
             for rule in self._eu_rules:
-                if rule.get("article_number") and rule_id.lower() in str(
-                    rule["article_number"]
-                ).lower():
+                if (
+                    rule.get("article_number")
+                    and rule_id.lower() in str(rule["article_number"]).lower()
+                ):
                     return rule.get("obligations_providers")
         if "NIST" in framework:
             for ctrl in self._nist_controls:
-                if ctrl.get("subcategory_id") and rule_id.upper() in str(
-                    ctrl["subcategory_id"]
-                ).upper():
+                if (
+                    ctrl.get("subcategory_id")
+                    and rule_id.upper() in str(ctrl["subcategory_id"]).upper()
+                ):
                     return ctrl.get("key_actions")
         if "AIGP" in framework:
             for p in self._aigp:
@@ -1579,15 +1736,23 @@ class SARoEngine:
         details = gate.details or {}
         # Build a human-readable reason
         if gate.status == "fail":
-            reason = details.get("reason") or f"Gate {gate.gate_id} failed with score {gate.score:.3f}"
+            reason = (
+                details.get("reason")
+                or f"Gate {gate.gate_id} failed with score {gate.score:.3f}"
+            )
         elif gate.status == "warn":
-            reason = details.get("warning") or f"Gate {gate.gate_id} warning — score {gate.score:.3f}"
+            reason = (
+                details.get("warning")
+                or f"Gate {gate.gate_id} warning — score {gate.score:.3f}"
+            )
         else:
             reason = f"Gate {gate.gate_id} passed with score {gate.score:.3f}"
 
         remediation = None
         if gate.status in ("fail", "warn"):
-            remediation = _GATE_REMEDIATION_HINTS.get(gate.gate_id, "Review gate details and address flagged issues.")
+            remediation = _GATE_REMEDIATION_HINTS.get(
+                gate.gate_id, "Review gate details and address flagged issues."
+            )
 
         # SARO-DC-001: Gate 2 parity metric as signal_text
         signal_text: str | None = None
@@ -1595,20 +1760,24 @@ class SARoEngine:
             gap = details["statistical_parity_difference"]
             groups = details.get("groups_analysed", [])
             if len(groups) >= 2:
-                signal_text = f"stat_parity_diff={gap:.4f} ({groups[0]} vs {groups[1]})"[:500]
+                signal_text = (
+                    f"stat_parity_diff={gap:.4f} ({groups[0]} vs {groups[1]})"[:500]
+                )
 
-        self._traces.append({
-            "gate_id": gate.gate_id,
-            "gate_name": gate.name,
-            "check_type": "gate_result",
-            "check_name": gate.name,
-            "result": gate.status,
-            "reason": reason,
-            "detail_json": details,
-            "remediation_hint": remediation,
-            "signal_text": signal_text,
-            "top_sample_ids": None,
-        })
+        self._traces.append(
+            {
+                "gate_id": gate.gate_id,
+                "gate_name": gate.name,
+                "check_type": "gate_result",
+                "check_name": gate.name,
+                "result": gate.status,
+                "reason": reason,
+                "detail_json": details,
+                "remediation_hint": remediation,
+                "signal_text": signal_text,
+                "top_sample_ids": None,
+            }
+        )
 
     def _record_gate3_domain_traces(self, flags: list, gate: object) -> None:
         """
@@ -1616,9 +1785,12 @@ class SARoEngine:
         'pass' when the domain was clean.
         """
         from collections import Counter, defaultdict
+
         domain_flags: dict[str, list[dict]] = defaultdict(list)
         for f in flags:
-            domain_flags[f.domain].append({"sample_id": f.sample_id, "signal": f.signal, "weight": f.weight})
+            domain_flags[f.domain].append(
+                {"sample_id": f.sample_id, "signal": f.signal, "weight": f.weight}
+            )
 
         for domain in MIT_DOMAINS:
             df = domain_flags.get(domain, [])
@@ -1632,10 +1804,14 @@ class SARoEngine:
                 remediation = _DOMAIN_REMEDIATION_HINTS.get(domain)
                 # SARO-DC-001: modal signal (most frequent) — never raw PII matched text
                 signal_counts = Counter(d["signal"] for d in df)
-                signal_text: str | None = signal_counts.most_common(1)[0][0][:500] if signal_counts else None
+                signal_text: str | None = (
+                    signal_counts.most_common(1)[0][0][:500] if signal_counts else None
+                )
                 # SARO-DC-002: top 10 sample_ids by weight descending
                 sorted_by_weight = sorted(df, key=lambda d: d["weight"], reverse=True)
-                top_sample_ids: list[str] | None = [d["sample_id"] for d in sorted_by_weight[:10]]
+                top_sample_ids: list[str] | None = [
+                    d["sample_id"] for d in sorted_by_weight[:10]
+                ]
             else:
                 result = "pass"
                 reason = f"No risk signals detected for domain '{domain}'."
@@ -1643,18 +1819,20 @@ class SARoEngine:
                 signal_text = None
                 top_sample_ids = None
 
-            self._traces.append({
-                "gate_id": 3,
-                "gate_name": "Risk Classification (MIT Taxonomy)",
-                "check_type": "risk_domain",
-                "check_name": domain,
-                "result": result,
-                "reason": reason,
-                "detail_json": {"flagged_signals": df[:20]} if df else {},
-                "remediation_hint": remediation,
-                "signal_text": signal_text,
-                "top_sample_ids": top_sample_ids,
-            })
+            self._traces.append(
+                {
+                    "gate_id": 3,
+                    "gate_name": "Risk Classification (MIT Taxonomy)",
+                    "check_type": "risk_domain",
+                    "check_name": domain,
+                    "result": result,
+                    "reason": reason,
+                    "detail_json": {"flagged_signals": df[:20]} if df else {},
+                    "remediation_hint": remediation,
+                    "signal_text": signal_text,
+                    "top_sample_ids": top_sample_ids,
+                }
+            )
 
     def _record_explain_trace(
         self,
@@ -1671,27 +1849,33 @@ class SARoEngine:
         top_str = ", ".join(f"{d} ({p:.1%})" for d, p in top_domains if p > 0)
         reason = (
             f"Overall risk probability: {bayesian.overall:.1%}. "
-            + (f"Top risk domains: {top_str}. " if top_str else "No risk domains triggered. ")
+            + (
+                f"Top risk domains: {top_str}. "
+                if top_str
+                else "No risk domains triggered. "
+            )
             + f"MIT coverage score: {mit_coverage.score:.1%}. "
             f"Similar historical incidents matched: {len(similar_incidents)}."
         )
-        self._traces.append({
-            "gate_id": None,
-            "gate_name": "Explain",
-            "check_type": "explain",
-            "check_name": "Bayesian Risk Explanation",
-            "result": "done",
-            "reason": reason,
-            "detail_json": {
-                "overall_risk": bayesian.overall,
-                "top_domains": dict(top_domains),
-                "mit_coverage": mit_coverage.score,
-                "similar_incidents_count": len(similar_incidents),
-            },
-            "remediation_hint": None,
-            "signal_text": None,
-            "top_sample_ids": None,
-        })
+        self._traces.append(
+            {
+                "gate_id": None,
+                "gate_name": "Explain",
+                "check_type": "explain",
+                "check_name": "Bayesian Risk Explanation",
+                "result": "done",
+                "reason": reason,
+                "detail_json": {
+                    "overall_risk": bayesian.overall,
+                    "top_domains": dict(top_domains),
+                    "mit_coverage": mit_coverage.score,
+                    "similar_incidents_count": len(similar_incidents),
+                },
+                "remediation_hint": None,
+                "signal_text": None,
+                "top_sample_ids": None,
+            }
+        )
 
     def _record_remediate_trace(self, remediations: list) -> None:
         """Record Remediate step trace — summarises generated remediation guidance."""
@@ -1708,22 +1892,24 @@ class SARoEngine:
             result = "pass"
             reason = "No remediation actions required — no risk domains triggered."
 
-        self._traces.append({
-            "gate_id": None,
-            "gate_name": "Remediate",
-            "check_type": "remediate",
-            "check_name": "Remediation Guidance",
-            "result": result,
-            "reason": reason,
-            "detail_json": {
-                "remediation_count": len(remediations),
-                "domains": [r.domain for r in remediations],
-                "priorities": [r.priority for r in remediations],
-            },
-            "remediation_hint": None,
-            "signal_text": None,
-            "top_sample_ids": None,
-        })
+        self._traces.append(
+            {
+                "gate_id": None,
+                "gate_name": "Remediate",
+                "check_type": "remediate",
+                "check_name": "Remediation Guidance",
+                "result": result,
+                "reason": reason,
+                "detail_json": {
+                    "remediation_count": len(remediations),
+                    "domains": [r.domain for r in remediations],
+                    "priorities": [r.priority for r in remediations],
+                },
+                "remediation_hint": None,
+                "signal_text": None,
+                "top_sample_ids": None,
+            }
+        )
 
     def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
         """Record one trace per compliance rule that was triggered in Gate 4."""
@@ -1743,34 +1929,39 @@ class SARoEngine:
                 detail["rule_pack"] = rule_pack_meta
             if nist_sub:
                 detail["nist_subcategory_id"] = nist_sub
-            self._traces.append({
-                "gate_id": 4,
-                "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
-                "check_type": "compliance_rule",
-                "check_name": f"{rule.framework} — {rule.rule_id}: {rule.title}",
-                "result": "triggered",
-                "reason": f"Rule triggered by: {rule.triggered_by}",
-                "detail_json": detail,
-                "remediation_hint": rule.obligations or "Review compliance obligations and implement required controls.",
-                # SARO-DC-001: triggered rule_id as the representative signal
-                "signal_text": str(rule.rule_id)[:500] if rule.rule_id else None,
-                "top_sample_ids": None,
-            })
+            self._traces.append(
+                {
+                    "gate_id": 4,
+                    "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
+                    "check_type": "compliance_rule",
+                    "check_name": f"{rule.framework} — {rule.rule_id}: {rule.title}",
+                    "result": "triggered",
+                    "reason": f"Rule triggered by: {rule.triggered_by}",
+                    "detail_json": detail,
+                    "remediation_hint": rule.obligations
+                    or "Review compliance obligations and implement required controls.",
+                    # SARO-DC-001: triggered rule_id as the representative signal
+                    "signal_text": str(rule.rule_id)[:500] if rule.rule_id else None,
+                    "top_sample_ids": None,
+                }
+            )
 
         # If no rules were triggered, record a single pass trace
         if not applied_rules:
-            self._traces.append({
-                "gate_id": 4,
-                "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
-                "check_type": "gate_result",
-                "check_name": "Compliance Mapping",
-                "result": "pass",
-                "reason": "No compliance rules triggered — no risk domains detected.",
-                "detail_json": {},
-                "remediation_hint": None,
-                "signal_text": None,
-                "top_sample_ids": None,
-            })
+            self._traces.append(
+                {
+                    "gate_id": 4,
+                    "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
+                    "check_type": "gate_result",
+                    "check_name": "Compliance Mapping",
+                    "result": "pass",
+                    "reason": "No compliance rules triggered — no risk domains detected.",
+                    "detail_json": {},
+                    "remediation_hint": None,
+                    "signal_text": None,
+                    "top_sample_ids": None,
+                }
+            )
 
     # ── Bayesian Risk Scoring ─────────────────────────────────────────────────
 
@@ -1788,7 +1979,9 @@ class SARoEngine:
         ci_high = 1.0 - ci_low
 
         # SPEC-E4: use calibrated domain priors; fall back to BAYESIAN_PRIOR if not set
-        domain_priors = getattr(self, "_domain_priors", None) or {d: (BAYESIAN_PRIOR, BAYESIAN_PRIOR) for d in MIT_DOMAINS}
+        domain_priors = getattr(self, "_domain_priors", None) or {
+            d: (BAYESIAN_PRIOR, BAYESIAN_PRIOR) for d in MIT_DOMAINS
+        }
         n_incidents_for_prior = len(getattr(self, "_incidents", []))
 
         # Count unique flagged sample IDs per domain
@@ -1864,10 +2057,15 @@ class SARoEngine:
     # ── Incident Similarity Matching ─────────────────────────────────────────
 
     # SARO-007: minimum similarity threshold for meaningful matches
-    SIMILARITY_THRESHOLD: float = float(os.environ.get("INCIDENT_SIMILARITY_THRESHOLD", "0.15"))
+    SIMILARITY_THRESHOLD: float = float(
+        os.environ.get("INCIDENT_SIMILARITY_THRESHOLD", "0.15")
+    )
 
     def _find_similar_incidents(
-        self, batch_text: str, top_k: int = INCIDENT_TOP_K, include_below_floor: bool = False
+        self,
+        batch_text: str,
+        top_k: int = INCIDENT_TOP_K,
+        include_below_floor: bool = False,
     ) -> list[SimilarIncidentOut]:
         """
         Return the top-K incidents most similar to the batch text,
@@ -1928,7 +2126,11 @@ class SARoEngine:
         n = len(similar_incidents)
         if n == 0:
             return FixedDeltaOut(
-                fixed_count=0, unfixed_count=0, total_similar=0, delta=0.0, confidence=0.0
+                fixed_count=0,
+                unfixed_count=0,
+                total_similar=0,
+                delta=0.0,
+                confidence=0.0,
             )
 
         fixed = sum(1 for inc in similar_incidents if inc.is_fixed)
@@ -1940,7 +2142,9 @@ class SARoEngine:
         z = stats.norm.ppf((1 + CI_LEVEL) / 2)
         denominator = 1 + z**2 / n
         centre = (p_hat + z**2 / (2 * n)) / denominator  # noqa: F841
-        margin = (z * np.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2))) / denominator
+        margin = (
+            z * np.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2))
+        ) / denominator
         confidence = float(np.clip(1.0 - 2 * margin, 0.0, 1.0))
 
         return FixedDeltaOut(
@@ -1953,9 +2157,7 @@ class SARoEngine:
 
     # ── Remediations ─────────────────────────────────────────────────────────
 
-    def _build_remediations(
-        self, triggered_domains: set[str]
-    ) -> list[RemediationOut]:
+    def _build_remediations(self, triggered_domains: set[str]) -> list[RemediationOut]:
         result: list[RemediationOut] = []
         priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         for domain in triggered_domains:
@@ -2044,7 +2246,11 @@ class SARoEngine:
             ),
             similar_incidents=[],
             fixed_delta=FixedDeltaOut(
-                fixed_count=0, unfixed_count=0, total_similar=0, delta=0.0, confidence=0.0
+                fixed_count=0,
+                unfixed_count=0,
+                total_similar=0,
+                delta=0.0,
+                confidence=0.0,
             ),
             applied_rules=[],
             remediations=[],

@@ -1,101 +1,69 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-RPV-002 — Change Debrief</title>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STORY-CHUB-011 — Change Debrief</title>
 <style>
   :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --bad:#e06a6a; --line:#26304a; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap { max-width:960px; margin:0 auto; padding:32px 20px 80px; }
-  h1 { font-size:25px; margin:0 0 4px; } h2 { font-size:18px; margin:30px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
-  .sub { color:var(--dim); margin:0 0 16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:12px 0; }
+  * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:940px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  .sub { color:var(--dim); margin:0 0 16px; } .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:12px 0; }
   code { background:#0c1120; padding:1px 6px; border-radius:5px; color:#bfe6ff; font-size:13px; }
-  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; }
-  th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--dim); } .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; }
-  .ok { background:rgba(90,209,168,.15); color:var(--acc); } .warn { background:rgba(232,176,75,.15); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; } th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--dim); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); }
   ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
-  .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; }
-  .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
-  svg { max-width:100%; height:auto; } .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
+  .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
+  .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <h1>STORY-RPV-002 — Attestation Evidence Pins Rule-Pack Version</h1>
-  <p class="sub">Change debrief · story 2/8 · stacked on <code>story/STORY-RPV-001</code></p>
+<body><div class="wrap">
+  <h1>STORY-CHUB-011 — Validation-Status Filtering for Rule-Pack Data</h1>
+  <p class="sub">Change debrief · story 3/8 · P0 SummitCare demo-blocker · stacked on <code>story/STORY-RPV-002</code></p>
 
   <h2>1. Context</h2>
-  <div class="card">
-    <p>RPV-001 made rule-pack versions immutable. But an attestation's evidence record didn't say
-    <i>which</i> version it was evaluated against — and SARO keeps zero payload content, so you cannot
-    re-run the evaluation. RPV-002 stamps every evidence record with the rule-pack
-    <b>version + content hash</b> in force, inside the record's own tamper-evident hash chain. That pin
-    is <b>the only link</b> between an attestation and its criteria. It also lets you reproduce the exact
-    frozen rule text on demand — the examiner question "which rule version did this attestation use?" now
-    has a provable answer.</p>
-  </div>
+  <div class="card"><p>The 2026-07-04 radar scan flagged <b>28 DRAFT_UNVALIDATED</b> and <b>7 RETIRED</b> rule
+  rows — and nothing filtered them, so unvalidated/retired regulatory mappings were being presented to
+  customers as authoritative. CHUB-011 adds a <b>server-side</b> visibility filter so default customer
+  views show only SME-validated (and provisionally-visible legacy) content. Internal auditor personas can
+  opt into seeing drafts, badged. This is a leak-prevention control aligned with the anti-overclaiming
+  posture.</p></div>
 
-  <h2>2. Intuition</h2>
-  <div class="card">
-    <p>Discovery: the GRC checks evaluate against a <b>static versioned crosswalk</b>
-    (<code>framework_crosswalk.json</code>), <i>not</i> the live DB rule tables — so "working-copy rules
-    must never be the evaluation basis" (AC-2) was already structurally true. The pin is therefore a
-    <b>provenance annotation + an evaluation gate</b>, not a check-logic rewrite.</p>
-    <svg viewBox="0 0 880 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="pin flow">
-      <style>.b{fill:#171e2e;stroke:#26304a} .t{fill:#e6ebf5;font:12.5px sans-serif} .d{fill:#9aa7bd;font:11px sans-serif} .a{stroke:#5ad1a8;stroke-width:2;fill:none;marker-end:url(#h)}</style>
-      <defs><marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ad1a8"/></marker></defs>
-      <rect class="b" x="8" y="40" width="150" height="52" rx="8"/><text x="20" y="62" class="t">evaluation starts</text><text x="20" y="80" class="d">resolve_pinned_version</text>
-      <path class="a" d="M162,66 L228,66"/>
-      <rect class="b" x="232" y="40" width="170" height="52" rx="8"/><text x="244" y="62" class="t">latest PUBLISHED</text><text x="244" y="80" class="d">snapshot (never wc)</text>
-      <path class="a" d="M406,66 L472,66"/>
-      <rect class="b" x="476" y="40" width="180" height="52" rx="8"/><text x="488" y="62" class="t">evidence record</text><text x="488" y="80" class="d">pin ∈ content_hash</text>
-      <path class="a" d="M660,66 L726,66"/>
-      <rect class="b" x="730" y="40" width="142" height="52" rx="8"/><text x="742" y="62" class="t">reproduce</text><text x="742" y="80" class="d">frozen rule text</text>
-    </svg>
-  </div>
+  <h2>2. Intuition + key discovery</h2>
+  <div class="card"><p><code>get_matrix_rows</code> is the <b>single aggregation point</b> feeding all three
+  customer surfaces — the row list, the coverage <b>counts</b>, and the CSV <b>export</b>. Filtering there
+  once closes every leak surface (including the "easiest leak", export) in one place. <code>governance_rules</code>
+  isn't served to customers, NIST has no status column, and the eval path already pins to published snapshots
+  (RPV-002) — so the blast radius is exactly the EU-rule rows in the matrix.</p>
+  <p>The filter is <b>fail-closed</b>: visibility is an allow-list (<code>status IN (SME, LEGACY?)</code>), and
+  SQL <code>IN</code> excludes NULL for free — a future insert that bypasses the column default can't sneak in.</p></div>
 
   <h2>3. File-by-file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/030</code></td><td>Pin columns on <code>grc_evidence_records</code>; <code>snapshot_content</code> JSONB on <code>rule_pack_snapshots</code> (frozen full rows for reproduction).</td></tr>
-    <tr><td><code>grc/evidence.py</code></td><td>Pin added to <code>_PAYLOAD_FIELDS</code> (hashed → tamper-evident); <code>capture_evidence</code> resolves the version per-invocation and stores it.</td></tr>
-    <tr><td><code>services/rule_pack_snapshot_service.py</code></td><td><code>resolve_pinned_version</code> (PERMISSIVE/STRICT + integrity gate), <code>reproduce_criteria</code>, <code>snapshot_content</code> at publish, <code>_row_payload</code>.</td></tr>
-    <tr><td><code>routers/rule_pack_versions.py</code>, <code>routers/evidence_criteria.py</code></td><td><code>GET /versions/{v}/reproduce</code>; new tenant-scoped <code>GET /evidence/{id}/criteria</code>.</td></tr>
-    <tr><td>models/config/main</td><td>Columns, <code>saro_rule_pack_eval_mode=PERMISSIVE</code>, registration.</td></tr>
+    <tr><td><code>services/rule_visibility.py</code> (new)</td><td>Central visibility policy: allow-list, fail-closed <code>is_visible_by_default</code>, internal <code>badge_for</code>.</td></tr>
+    <tr><td><code>services/compliance_matrix_service.py</code></td><td><code>get_matrix_rows(show_drafts=False)</code> filters EU rows; adds internal-only <code>validation_badge</code>.</td></tr>
+    <tr><td><code>routers/compliance_matrix.py</code></td><td><code>show_drafts</code> param on the list endpoint; <code>_effective_show_drafts</code> honors it only for ai_auditor/admin; export + coverage stay default-filtered.</td></tr>
+    <tr><td><code>config.py</code></td><td><code>saro_show_legacy_rules</code> (default True) — AC-4 flag.</td></tr>
+    <tr><td><code>migrations/031</code></td><td>Companion: exports the radar DATA migration (idempotent) so repo and live DB agree.</td></tr>
   </table>
 
-  <h2>4. Deliberately NOT done</h2>
-  <div class="card"><ul>
-    <li>Re-evaluation/replay of historical observations — impossible by design (zero retention); a product limitation, not a gap.</li>
-    <li>Customer UI for criteria reproduction — API-first; out of scope.</li>
-    <li>Rewriting the GRC checks to read snapshots — unnecessary; they use the static crosswalk.</li>
-  </ul></div>
-
-  <h2>5. Risk map</h2>
+  <h2>4. Risk map</h2>
   <table>
     <tr><th>Risk</th><th>Covering test</th><th>State</th></tr>
-    <tr><td>Working-copy rules leak into the pin</td><td><code>test_strict_refuses_on_working_copy_drift</code> / <code>test_permissive_pins_latest_published</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Pin not tamper-evident</td><td><code>test_pin_is_inside_content_hash</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Broken chain still pins (integrity)</td><td><code>test_broken_chain_refuses_in_both_modes</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Reproduction reads mutated live rows, not frozen text</td><td><code>test_reproduce_returns_frozen_content_after_mutation</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Pre-versioning record backfilled with a guess</td><td><code>test_evidence_criteria_pre_versioning</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Cross-tenant evidence read</td><td><code>get_evidence</code> filters tenant_id; endpoint uses caller tenant; generic 404</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>DRAFT/RETIRED leak to customer view</td><td><code>test_default_view_hides_draft_retired_null</code>, <code>test_endpoint_default_hides_drafts</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Unprivileged persona reveals drafts</td><td><code>test_unprivileged_show_drafts_is_ignored</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>NULL status slips through</td><td><code>test_visibility_policy</code>, seed includes null row</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Counts include drafts</td><td><code>test_coverage_counts_exclude_drafts</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Legacy flag doesn't hide legacy</td><td><code>test_legacy_flag_off_hides_legacy</code></td><td><span class="tag ok">covered</span></td></tr>
   </table>
 
-  <h2>6. Understanding check</h2>
+  <h2>5. Understanding check</h2>
   <div class="quiz">
-    <div class="q"><details><summary>Why does adding two fields to <code>_PAYLOAD_FIELDS</code> not corrupt existing evidence records?</summary><div class="a">The content hash is recomputed from the same <code>_PAYLOAD_FIELDS</code> on both write and verify. Existing rows get the two new fields as NULL (migration default), and verify reads them the same way — so the chain stays self-consistent. New captures include the resolved pin. Nothing rehashes historical rows behind the scenes; PRE-VERSIONING rows simply carry a NULL pin.</div></details></div>
-    <div class="q"><details><summary>PERMISSIVE mode, no snapshot published yet. What gets pinned, and does evaluation proceed?</summary><div class="a"><code>resolve_pinned_version</code> returns <code>(None, None)</code>; the record is stamped PRE-VERSIONING and evaluation proceeds. STRICT mode instead refuses. This is the honest-gap posture: an unpinned record is explicitly labelled, never faked.</div></details></div>
-    <div class="q"><details><summary>The working copy changed after v1.0.0 was published. What does <code>/versions/1.0.0/reproduce</code> return?</summary><div class="a">The <b>frozen</b> rule text stored in <code>snapshot_content</code> at publish time — not the mutated live rows. That is the whole point: reproduction must survive working-copy mutation, since the pin is the only link to the criteria of record.</div></details></div>
-    <div class="q"><details><summary>Why resolve the version at capture time rather than at audit time?</summary><div class="a">AC-1 puts the pin on the evidence record when it is persisted, and the pin must be inside that record's content hash. Capture is where the record (and its hash) is created, so resolving there makes the pin tamper-evident in the same chain. The audit reads the pinned version off the record.</div></details></div>
-    <div class="q"><details><summary>How is a cross-tenant criteria read prevented?</summary><div class="a"><code>get_evidence</code> filters on <code>tenant_id</code>, and the endpoint passes the <i>caller's</i> <code>current_user.tenant_id</code>; a foreign or nonexistent id both yield a generic 404 (no existence oracle). The reproduced rule content is global reference data with no tenant/PII fields.</div></details></div>
+    <div class="q"><details><summary>Why filter inside <code>get_matrix_rows</code> instead of in each endpoint?</summary><div class="a">It's the one function all three customer surfaces (list, coverage-counts, CSV export) call. Filtering there means a new surface built on it inherits the control automatically, and the "easiest leak" (export) can't forget to apply it. One chokepoint = no divergence.</div></details></div>
+    <div class="q"><details><summary>A row's <code>validation_status</code> is NULL. Visible by default? Why?</summary><div class="a">No — hidden. Visibility is an allow-list (<code>SME</code>, optionally <code>LEGACY</code>); NULL isn't in it, and SQL/`in` semantics exclude it. This is fail-closed: a row that bypassed the column default (which is LEGACY) still can't appear as authoritative content.</div></details></div>
+    <div class="q"><details><summary>Why does the CSV export not offer the draft toggle even to an ai_auditor?</summary><div class="a">An exported CSV is a portable artifact that can travel outside the tool to non-privileged eyes. The authoritative exported matrix should contain only validated content; drafts are for interactive internal review only. So export is always default-filtered — the conservative, leak-safe choice the story emphasizes.</div></details></div>
+    <div class="q"><details><summary>Where does AC-5 (draft rows excluded from evaluation) get satisfied, if not here?</summary><div class="a">By RPV-002: GRC checks resolve against a static crosswalk, and evaluations pin to PUBLISHED snapshots whose publish gate already excludes DRAFT/RETIRED. Snapshot membership supersedes this UI filter for the eval path — so no evaluation code is touched by CHUB-011.</div></details></div>
   </div>
-
-  <p class="mono">Gates 1–5,7 green (unit 414 / integration 84 / regression 96 / ruff / mypy / bandit). Coverage ratchet + reviewer/security-auditor verdicts pending at write time. Live migration 030 apply pending Supabase MCP recovery (repo migration is source of truth; applied at app startup).</p>
-</div>
-</body>
-</html>
+  <p class="mono">Gates 1–5,7 green (ruff / unit 419 / integration 90 / regression 98 / bandit). Coverage ratchet + reviewer/security-auditor pending at write time.</p>
+</div></body></html>

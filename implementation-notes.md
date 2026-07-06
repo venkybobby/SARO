@@ -1,65 +1,63 @@
-# STORY-RPV-002 — Attestation Evidence Pins Rule-Pack Version
+# STORY-CHUB-011 — Validation-Status Filtering for Rule-Pack Data
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (recon: grc/evidence.py capture + hash chain (_PAYLOAD_FIELDS, per-tenant seq),
-                  grc/orchestrator.run_audit, grc/citation.py -> checks use a STATIC crosswalk
-                  (framework_crosswalk.json), NOT the DB rule tables; RPV-001 snapshot service/table)
+- [x] discover   (recon: get_matrix_rows (services/compliance_matrix_service.py) is the SINGLE
+                  aggregation point feeding GET /compliance-matrix, /coverage (counts), /export (CSV);
+                  governance_rules NOT served to any customer surface; NIST has no validation_status;
+                  GRC eval uses static crosswalk + RPV-002 pinned snapshots, not DB rule tables)
 - [x] shape      (skipped brainstorm — STORY has ACs; interview -> Decision Log below)
-- [x] preview    (skipped — backend-only; customer UI for criteria reproduction is out-of-scope)
+- [x] preview    (skipped — server-side filter + response field; React badge rendering is client work,
+                  no new SARO UI surface designed here)
 - [x] plan
 - [x] build
 - [x] verify    (change-debrief.html generated)
-- [x] sell       (n/a)
+- [x] sell       (n/a — SummitCare demo-blocker but no new customer-facing mock)
 
 ## Decision Log
-Q1 what does the pin attach to? → grc_evidence_records gets rule_pack_version_id +
-  rule_pack_content_hash, added to _PAYLOAD_FIELDS so the pin is inside the record's own
-  content_hash / chain (AC-1: criteria pin is tamper-evident). Resolved at capture time (persist).
+Q1 where is the server-side filter applied (AC-1/AC-2)? → inside get_matrix_rows, the single
+  aggregation point for list + coverage-counts + CSV export. One filter covers all three customer
+  surfaces AND the counts/export edge cases. Filter is SERVER-SIDE (never client-only), fail-closed.
 
-Q2 does the pin change what the checks evaluate? → NO. GRC checks resolve against the static
-  versioned crosswalk (grc/citation.py, framework_crosswalk.json), never the working-copy DB rule
-  tables — so "working-copy rules must never be the evaluation basis" (AC-2) already holds for the
-  audit path. The pin is a provenance annotation + an evaluation gate, not a check-logic rewrite.
+Q2 visibility rules? → default view excludes DRAFT_UNVALIDATED, RETIRED, and NULL (fail-closed,
+  treat NULL as draft). Includes SME_VALIDATED always + LEGACY_UNREVIEWED when config flag on.
+  Implemented as validation_status IN (allowed) — SQL IN excludes NULL for free.
 
-Q3 STRICT vs PERMISSIVE default (owner-locked PERMISSIVE)? → config saro_rule_pack_eval_mode,
-  default "PERMISSIVE". PERMISSIVE pins the latest PUBLISHED snapshot (never the working copy);
-  if none published, pin = None (pre-versioning, evaluation still proceeds). STRICT refuses to
-  evaluate when no version is published OR the working copy has drifted from the latest published
-  beyond tolerance (default: any diff). Resolver is called per-invocation (AC-5).
+Q3 which personas get the "show draft content" toggle (AC-3, stop-and-ask)? → ai_auditor + admin
+  (resolved from persona_permissions: they hold rule_packs/coverage_gap tabs, trace_mode=technical;
+  compliance_lead/risk_officer explicitly deny rule_pack_admin). A show_drafts query param is honored
+  ONLY for those personas; requested-but-unprivileged silently forces False (fail-closed, no error).
+  Never persisted as a default.
 
-Q4 integrity at pin time (edge)? → resolver verifies the latest snapshot's chain before pinning;
-  a broken chain REFUSES in BOTH modes (RulePackIntegrityError) — this is an incident, not a warning.
+Q4 LEGACY visibility (AC-4)? → config flag saro_show_legacy_rules (default True = visible). Legacy
+  rows carry a "PENDING_VALIDATION" badge ONLY in the internal (show_drafts) view — customers never
+  see the pending indicator. Product can flip the flag to hide legacy before SummitCare.
 
-Q5 how is "full rule content of the pinned version" reproduced (AC-3)? → RPV-001 stored only a
-  hash manifest (no full text). Extend the snapshot with snapshot_content JSONB ({table:{id:{fields}}})
-  populated at publish, so reproduction returns the EXACT frozen rule text even after the working
-  copy mutates. content_hash/manifest (RPV-001) unchanged. reproduce_criteria re-hashes each stored
-  row (_hash_row_payload) and cross-checks it against the chain-covered manifest, so snapshot_content
-  cannot be tampered independently of the chain (see DEV-2). Rule packs are tiny (~160 rows) so
-  full-content storage is cheap.
+Q5 eval-path exclusion (AC-5)? → the GRC audit path is covered by RPV-002 (static crosswalk +
+  published-snapshot pin). BUT the legacy 4-gate scoring engine (engine.py) ALSO reads the DB rule
+  tables directly to enrich Gate-4 applied rules with obligation text -> that path needed filtering
+  too (see DEV-1). engine.py now filters _eu_rules/_gov_rules by the same visibility allow-list.
 
-Q6 pre-existing records (AC-4)? → rule_pack_version_id NULL is rendered verbatim as "PRE-VERSIONING"
-  by the criteria-reproduction API; NEVER backfilled with a guessed version. The API states the
-  limitation in its response (honest-gap disclosure).
+Q6 RETIRED framework disappears (edge)? → naturally handled: a framework whose rows are all
+  RETIRED/filtered produces zero visible rows, so it is absent from the matrix and any selector
+  derived from visible rows (e.g. US EO 14110 governance framework — though governance isn't in the
+  matrix surface; EU/NIST are the matrix frameworks and neither fully retires).
 
-Q7 caching (AC-5)? → a version-keyed immutable lru cache of reproduced content is permitted;
-  NEVER key any cache on payload-derived input. Resolver reads latest snapshot per call.
+Q7 companion task? → export the live radar DATA migration radar_scan1_rule_pack_delta_data into the
+  repo as migration 031 (the columns migration was already exported as 029 in RPV-001). Idempotent-safe.
 
 ## Deviations
-- DEV-1 (reviewer B1): first cut added the pin to _PAYLOAD_FIELDS unconditionally, which
-  false-failed verification of every pre-RPV-002 evidence record (AC-4 violation).
-  Conservative fix: pin fields live in _PIN_FIELDS and are folded into the canonical
-  payload ONLY when non-NULL, so legacy/NULL-pin records serialize identically to before.
-  Pinned by FND-041.
-- DEV-2 (reviewer B2): first cut left snapshot_content outside the hash chain (the Q5 note
-  claimed a cross-check that did not exist — corrected above). Fix: reproduce_criteria
-  re-hashes stored rows against the chain-covered manifest and refuses/flags on mismatch
-  (content_integrity=False). Pinned by FND-040.
+- DEV-1 (security-auditor Blocker): I initially scoped AC-5 as "fully covered by RPV-002", but the
+  legacy scoring engine (engine.py) loads _eu_rules/_gov_rules with no status filter and
+  _lookup_obligations attaches their obligation text to Gate-4 AppliedRuleOut + TRACE — a real
+  DRAFT/RETIRED text leak on the scan path. Conservative fix: both loads filter
+  validation_status IN rule_visibility.default_visible_statuses() (fail-closed). Pinned by FND-042.
+  (The reviewer rated this a narrow text-enrichment leak / nice-to-have; the security-auditor rated it
+  a Blocker. Fixed to satisfy the stricter reading — it is a leak-prevention story.)
 
-## Review outcomes (both agents, addressed in-PR)
-- Reviewer VERDICT: REQUEST-CHANGES -> B1 (FND-041) + B2 (FND-040) fixed with pinning
-  regression tests; S1 (regression pins) satisfied. N1/N2 documented (whole-chain vs
-  per-version verify status; content_integrity now surfaced alongside pin_matches_snapshot).
-- Security-auditor VERDICT: PASS -> 2 Should-fix pinned: cross-tenant 404 test + route-ordering
-  test (tests/test_rpv_version_pin_api.py). N3/N4 doc notes accepted.
+## Review outcomes (both agents)
+- Reviewer VERDICT: APPROVE (no blockers). Nice-to-haves: engine path (fixed, DEV-1/FND-042);
+  persona-downgrade log (added logger.info); scope drift (precise per-story staging — stray specs
+  NOT committed here).
+- Security-auditor VERDICT: FAIL -> Blocker 1 (engine leak) FIXED + pinned (FND-042); Should-fix 2
+  (SSO persona self-assignment) is pre-existing -> logged as FND-043 (open, forward work).

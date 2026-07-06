@@ -187,3 +187,13 @@ findings:
     test: tests/regression/test_fnd_041_evidence_pin_backcompat.py
     status: pinned
     quarantine_expires: null
+  - id: FND-042
+    title: "Scoring engine served DRAFT/RETIRED obligation text as authoritative in AppliedRuleOut + TRACE (CHUB-011)"
+    test: tests/regression/test_fnd_042_engine_excludes_draft_rules.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-043
+    title: "SSO can self-assign privileged ai_auditor/admin persona unlocking the draft toggle (pre-existing; forward)"
+    test: tests/regression/test_fnd_043_sso_persona_allowlist.py
+    status: open
+    quarantine_expires: null
