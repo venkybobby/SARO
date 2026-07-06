@@ -54,6 +54,7 @@ from routers.governance import router as governance_router
 from routers.risk_dashboard import router as risk_dashboard_router
 from routers.trace_view import router as trace_view_router
 from routers.rule_packs import router as rule_packs_router
+from routers.rule_pack_versions import router as rule_pack_versions_router
 from routers.sso import router as sso_router
 from routers.remediation import router as remediation_router
 from routers.compliance_hub import router as compliance_hub_router
@@ -413,6 +414,7 @@ app.include_router(governance_router)
 app.include_router(risk_dashboard_router)
 app.include_router(trace_view_router)
 app.include_router(rule_packs_router)
+app.include_router(rule_pack_versions_router)
 # STORY-111: the React-compat alias router is no longer registered (React uses canonical /api/v1/rules/* paths)
 app.include_router(sso_router)
 app.include_router(remediation_router)

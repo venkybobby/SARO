@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STORY-RPV-001 — Change Debrief</title>
+<style>
+  :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --bad:#e06a6a; --line:#26304a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:34px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:15px; margin:18px 0 6px; color:var(--acc); }
+  .sub { color:var(--dim); margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:12px 0; }
+  code { background:#0c1120; padding:1px 6px; border-radius:5px; color:#bfe6ff; font-size:13px; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; }
+  th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(90,209,168,.15); color:var(--acc); }
+  .warn { background:rgba(232,176,75,.15); color:var(--warn); }
+  .bad { background:rgba(224,106,106,.15); color:var(--bad); }
+  ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
+  .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .quiz summary { cursor:pointer; font-weight:600; color:var(--ink); }
+  .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; }
+  svg { max-width:100%; height:auto; }
+  .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; color:var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>STORY-RPV-001 — Versioned, Immutable Rule-Pack Snapshots</h1>
+  <p class="sub">Change debrief · foundation story of the RPV/CHUB/TEN/META/DISP/MTR/COV batch · branch <code>story/STORY-RPV-001</code></p>
+
+  <h2>1. Context — why this exists</h2>
+  <div class="card">
+    <p>On 2026-07-04 a "regulatory radar" session <b>mutated rule rows in place</b> in the live tables
+    (<code>eu_ai_act_rules</code>, <code>governance_rules</code>). The problem: a historical attestation says
+    "this output was evaluated against the rules" — but the rule text has since changed, and SARO keeps
+    <b>zero payload content</b>, so you cannot re-run the evaluation to see what it actually checked.
+    An examiner asking <i>"which rule version did this attestation use?"</i> had no answer.</p>
+    <p>RPV-001 fixes the <b>criteria side</b> of evidence integrity: it lets you freeze the rule tables into an
+    <b>immutable, hash-identified version</b>. RPV-002 (next) pins each attestation to one of these versions,
+    closing the loop. This story builds the snapshot mechanism; it deliberately reuses the proven EVF
+    hash-chain pattern rather than inventing new cryptography.</p>
+  </div>
+
+  <h2>2. Intuition — the mental model</h2>
+  <div class="card">
+    <p>Think of the three rule tables as a <b>working copy</b> (a git working tree). <b>Publishing</b> is
+    <code>git commit</code>: it freezes exactly which rows, at what content, were in force — and links to the
+    prior commit by hash. Each snapshot stores a <b>manifest</b> of per-row hashes (not the full rule text)
+    plus a <b>content_hash</b> over all included rows, and a <b>record_hash</b> that chains to the previous
+    version. Tampering with any snapshot breaks the chain from that version forward — detectable by walking
+    from genesis.</p>
+    <svg viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="before and after flow">
+      <style>
+        .b{fill:#171e2e;stroke:#26304a;rx:8} .t{fill:#e6ebf5;font:13px sans-serif} .d{fill:#9aa7bd;font:11px sans-serif}
+        .g{fill:#5ad1a8;font:12px sans-serif} .arr{stroke:#5ad1a8;stroke-width:2;fill:none;marker-end:url(#h)}
+        .arrb{stroke:#e06a6a;stroke-width:2;fill:none;marker-end:url(#hb)}
+      </style>
+      <defs>
+        <marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ad1a8"/></marker>
+        <marker id="hb" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e06a6a"/></marker>
+      </defs>
+      <text x="10" y="16" class="d">BEFORE — rules mutate in place; history unprovable</text>
+      <rect class="b" x="10" y="26" width="150" height="46" rx="8"/><text x="24" y="46" class="t">rule tables</text><text x="24" y="62" class="d">edited in place</text>
+      <path class="arrb" d="M165,49 L250,49"/>
+      <rect class="b" x="255" y="26" width="170" height="46" rx="8"/><text x="269" y="46" class="t">old attestation</text><text x="269" y="62" class="d">criteria = ??? (lost)</text>
+
+      <text x="10" y="112" class="g">AFTER — publish freezes an immutable, chained snapshot</text>
+      <rect class="b" x="10" y="122" width="150" height="46" rx="8"/><text x="24" y="142" class="t">working copy</text><text x="24" y="158" class="d">3 rule tables</text>
+      <path class="arr" d="M165,145 L235,145"/>
+      <rect class="b" x="240" y="122" width="150" height="46" rx="8"/><text x="254" y="142" class="t">snapshot v1.0.0</text><text x="254" y="158" class="d">content_hash + manifest</text>
+      <path class="arr" d="M395,145 L465,145"/>
+      <rect class="b" x="470" y="122" width="150" height="46" rx="8"/><text x="484" y="142" class="t">snapshot v1.0.1</text><text x="484" y="158" class="d">prev_hash → v1.0.0</text>
+      <path class="arr" d="M625,145 L695,145"/>
+      <rect class="b" x="700" y="122" width="185" height="46" rx="8"/><text x="714" y="142" class="t">attestation (RPV-002)</text><text x="714" y="158" class="d">pins version + hash</text>
+    </svg>
+  </div>
+
+  <h2>3. File-by-file — what was done</h2>
+  <table>
+    <tr><th>File</th><th>Change</th></tr>
+    <tr><td><code>migrations/028_rule_pack_snapshots.sql</code></td><td>New <code>rule_pack_snapshots</code> table + append-only immutability trigger (<code>BEFORE UPDATE OR DELETE → RAISE</code>). Applied to live Supabase; trigger verified rejecting UPDATE and DELETE.</td></tr>
+    <tr><td><code>models.py</code></td><td><code>RulePackSnapshot</code> ORM model; added <code>validation_status</code> column to <code>EUAIActRule</code> + <code>GovernanceRule</code> (the radar migration added it to the DB but not the models).</td></tr>
+    <tr><td><code>services/rule_pack_snapshot_service.py</code></td><td>Core: canonical row serialization, <code>publish_snapshot</code> (SME-only gate, DRAFT/NULL fail-closed, empty-publish + semver-monotonic guards), <code>diff_against_latest</code>, <code>verify_chain</code>, <code>update_snapshot_version</code> guard. Reuses <code>hash_chain_service</code> discipline.</td></tr>
+    <tr><td><code>routers/rule_pack_versions.py</code></td><td>New router <code>/api/v1/rules/versions</code>: POST publish (role-gated), GET list/latest/diff/verify/{version} (auditor-read gated). 409 with blocking listing on DRAFT.</td></tr>
+    <tr><td><code>config.py</code></td><td><code>saro_snapshot_include_legacy</code> flag (default True) — LEGACY/status-less rows includable with a caveat.</td></tr>
+    <tr><td><code>main.py</code></td><td>Router registration.</td></tr>
+    <tr><td><code>tests/test_rpv_snapshots.py</code>, <code>tests/test_rpv_snapshots_api.py</code></td><td>15 unit + 3 integration tests across AC-1..AC-5 + edges.</td></tr>
+  </table>
+
+  <h2>4. What was deliberately NOT done</h2>
+  <div class="card">
+    <ul>
+      <li><b>Evidence-record pinning</b> — that's STORY-RPV-002 (next in the batch).</li>
+      <li><b>UI for browsing versions / changelogs</b> — explicit out-of-scope; API-first.</li>
+      <li><b>Auto-validation of DRAFT rows</b> — the SME validation workflow is separate; RPV-001 only <i>gates</i> on status.</li>
+      <li><b>Fixing the 5 pre-existing bandit medium findings</b> and the 12 <code>saro-data-framework</code> test failures — unrelated, out of scope (scope discipline).</li>
+    </ul>
+  </div>
+
+  <h2>5. Risk map</h2>
+  <table>
+    <tr><th>Risk</th><th>Covering test / control</th><th>State</th></tr>
+    <tr><td>DRAFT/RETIRED rule leaks into a published snapshot</td><td><code>test_draft_rows_block_publish_with_listing</code>, <code>test_null_status_fails_closed_as_draft</code>, <code>test_retired_rows_excluded_not_blocking</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Snapshot mutated after publish (integrity loss)</td><td>service guard (<code>test_service_guard_rejects_mutation</code>) + DB trigger (verified on Supabase)</td><td><span class="tag ok">covered ×2</span></td></tr>
+    <tr><td>Tamper undetected</td><td><code>test_verify_chain_detects_tamper</code> (identifies by version)</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Non-deterministic hashing → false tamper alarms</td><td><code>test_row_hash_is_deterministic_and_order_independent</code>; sorted-keys canonical JSON</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Empty / non-monotonic versions</td><td><code>test_empty_publish_rejected</code>, <code>test_version_must_strictly_increase</code>, <code>test_invalid_semver_rejected</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Under-privileged persona publishes</td><td><code>test_publish_forbidden_for_reader_persona</code> (role gate)</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Privileged actor disables the DB trigger out-of-band</td><td>Documented residual risk (mitigation = role separation); META-001 will audit out-of-band rule writes</td><td><span class="tag warn">accepted / follow-on</span></td></tr>
+  </table>
+
+  <h2>6. Understanding check</h2>
+  <div class="quiz">
+    <div class="q"><details><summary>Why store per-row <i>hashes</i> in the manifest instead of the full rule text?</summary>
+      <div class="a">Avoids duplicating the entire rule corpus into every snapshot row (table bloat), while still being tamper-evident: <code>content_hash</code> covers every included row's canonical serialization, so any later edit to a working-copy row changes its hash and is caught by <code>diff</code>. The full text is reconstructable from the working tables + diff. RPV-002's criteria-reproduction will read the pinned version's rows.</div></details></div>
+    <div class="q"><details><summary>Why is immutability enforced in <b>two</b> places, and which one do the unit tests exercise?</summary>
+      <div class="a">The SQLite test harness can't run plpgsql triggers, so the DB trigger (defense-in-depth on real Postgres) is unit-untestable there. The <b>service-layer guard</b> is what the unit tests hit (<code>update_snapshot_version</code> always raises <code>SnapshotImmutableError</code>); the trigger was verified separately against live Supabase. This mirrors the existing EVF split (app-enforced QCO + trigger-enforced publication events).</div></details></div>
+    <div class="q"><details><summary>A DRAFT_UNVALIDATED row exists in <code>eu_ai_act_rules</code>. What happens on publish, and why is that the safe default?</summary>
+      <div class="a">Publish is <b>refused</b> with a listing of the blocking <code>(table,id)</code> rows (HTTP 409). You cannot freeze a version while unvalidated draft rules float in it — a published snapshot is examiner-facing and must contain only SME-validated (or explicitly-caveated legacy) content. NULL status is treated as DRAFT (fail-closed), so a future insert bypassing the default can't silently enter a snapshot.</div></details></div>
+    <div class="q"><details><summary>What breaks if the canonical serialization used <code>json.dumps(payload)</code> without <code>sort_keys=True</code>?</summary>
+      <div class="a">Row hashes would depend on dict insertion order, so the same row could hash two different ways across Python versions/runs — producing spurious "tamper" verdicts and unstable <code>content_hash</code> values (empty-publish detection and the chain would both misfire). Deterministic, sorted, UTF-8 canonical form is the whole basis of the tamper-evidence claim.</div></details></div>
+    <div class="q"><details><summary>Why does NIST (<code>nist_ai_rmf_controls</code>) get treated as LEGACY rather than blocking like a NULL status?</summary>
+      <div class="a">NIST has <b>no</b> <code>validation_status</code> column at all (the radar migration only touched EU + governance). "Column absent" is a different fact from "column present but NULL": absent → the table has no lifecycle yet → LEGACY (includable-with-caveat under the flag); present-but-NULL → a row that <i>should</i> have a status but doesn't → fail-closed as DRAFT. The service distinguishes these via the <code>has_status</code> flag in <code>_RULE_TABLES</code>.</div></details></div>
+    <div class="q"><details><summary>How does RPV-001 preserve SARO's "never calls external models / evidence-only" posture?</summary>
+      <div class="a">Everything is local: SHA-256 over rows already in the DB, no network calls, no model inference, no writes to client systems. The endpoints return hashes, counts, and diffs — evidence artifacts for a human auditor, never a compliance verdict. The publish action is an internal admin operation on SARO's own reference data.</div></details></div>
+  </div>
+
+  <p class="mono">Gates 1–7 green (tests/ scope). Reviewer + security-auditor verdicts pending at time of writing. saro-data-framework failures + 5 bandit mediums are pre-existing and out of scope.</p>
+</div>
+</body>
+</html>

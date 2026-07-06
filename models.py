@@ -333,6 +333,10 @@ class EUAIActRule(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     annex_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # SME validation lifecycle (migration radar_scan1_validation_status_columns):
+    # LEGACY_UNREVIEWED | DRAFT_UNVALIDATED | SME_VALIDATED | RETIRED.
+    # NULL is treated as DRAFT_UNVALIDATED (fail-closed) by consumers.
+    validation_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_updated: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -375,6 +379,9 @@ class GovernanceRule(Base):
     category: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     obligations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SME validation lifecycle (migration radar_scan1_validation_status_columns).
+    # See EUAIActRule.validation_status. NULL -> DRAFT_UNVALIDATED (fail-closed).
+    validation_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_updated: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -454,6 +461,39 @@ class ClientConfig(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="client_config")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rule-Pack Versioning — Immutable Snapshots (STORY-RPV-001)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class RulePackSnapshot(Base):
+    """Immutable, hash-chained snapshot of the rule-pack state at publish time.
+
+    Publish-on-create: a row is frozen at insert. UPDATE/DELETE is rejected by a
+    DB trigger (migration 028) and by the service-layer guard. ``record_hash``
+    chains to the prior version's hash; ``content_hash`` covers the canonical
+    serialization of every included rule row (tamper-evidence). Evidence records
+    pin ``version`` + ``content_hash`` (STORY-RPV-002).
+    """
+    __tablename__ = "rule_pack_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    version: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    record_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # {"eu_ai_act_rules": {"12": "<rowhash>", ...}, "governance_rules": {...}}
+    snapshot_manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # {"eu_ai_act_rules": 17, "governance_rules": 36, ...}
+    framework_counts: Mapped[dict] = mapped_column(JSON, nullable=False)
+    includes_legacy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    caveat: Mapped[str | None] = mapped_column(Text, nullable=True)
+    publisher_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -42,5 +42,12 @@ class Settings(BaseSettings):
     # ── Notifications ────────────────────────────────────────────────────────
     sendgrid_api_key: str | None = None
 
+    # ── Rule-pack versioning (STORY-RPV-001) ─────────────────────────────────
+    # When TRUE, LEGACY_UNREVIEWED (and status-less, e.g. NIST) rule rows are
+    # includable in a published snapshot, carrying a version-level caveat. When
+    # FALSE, only SME_VALIDATED rows are includable. DRAFT_UNVALIDATED / RETIRED
+    # are never includable regardless of this flag.
+    saro_snapshot_include_legacy: bool = True
+
 
 settings = Settings()

@@ -172,3 +172,8 @@ findings:
     test: tests/regression/test_fnd_036_repair_bad_merge_import.py
     status: pinned
     quarantine_expires: null
+  - id: FND-039
+    title: "RPV-001 verify_chain trusted stored content_hash — manifest tampering undetectable (AC-5 hole)"
+    test: tests/regression/test_fnd_039_rpv_snapshot_integrity.py
+    status: pinned
+    quarantine_expires: null
