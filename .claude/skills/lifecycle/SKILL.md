@@ -142,3 +142,9 @@ None yet.
 
 Check items off as stages complete. Hooks parse this file; never check off a
 stage that didn't happen.
+
+**Recreate it at the start of every task.** The gate treats a committed,
+unmodified implementation-notes.md as a *finished* task's leftover and blocks
+source edits until you rewrite it for the current task — so a stale notes file
+can never satisfy the gate for unrelated work. Overwriting the file (new Stage
+line + fresh Decision Log) is what clears the gate.
