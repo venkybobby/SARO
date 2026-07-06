@@ -49,3 +49,21 @@ or log them as FND entries in `quality/findings.md`.
   FILES CHANGED / FILES NOT TOUCHED / CONCERNS / NEXT STEPS.
 - Commit on branch `story/$ARGUMENTS`; confirm before pushing or opening a PR
   (target `venkybobby/SARO`, never saro-platform).
+
+
+---
+
+## Lifecycle (mandatory)
+
+This story runs under the saro-lifecycle skill. After ingesting the story:
+
+1. Classify trivial vs. standard and create implementation-notes.md from the
+   lifecycle template immediately.
+2. Walk DISCOVER → SHAPE → PREVIEW → PLAN → BUILD → VERIFY in order, applying
+   each stage's trigger/skip rules from the skill. Announce each stage
+   transition in one line ("→ Stage 1b: interview — 4 questions expected"),
+   then execute the stage. Do not ask permission to run a stage whose trigger
+   fired; do ask before skipping one whose trigger fired.
+3. The interview's Decision Log must exist in implementation-notes.md before
+   any source file is edited (the gate hook enforces this).
+4. SELL runs only if this story is tagged design-partner-facing or I ask.

@@ -18,6 +18,12 @@
             "command": "WPATH=$(python -c \"import os,json; print(json.loads(os.environ.get('CLAUDE_TOOL_INPUT','{}')).get('file_path',''))\" 2>/dev/null); if echo \"$WPATH\" | grep -q 'rule_packs/'; then echo \"CONFIRM REQUIRED: About to write to rule pack: $WPATH\" >&2; echo \"Rule pack changes affect risk scoring across all clients. Explicit user approval required.\" >&2; exit 2; fi"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/lifecycle-gate.sh" }
+        ]
       }
     ],
     "PostToolUse": [
@@ -41,6 +47,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/extract-patterns.sh || true"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lifecycle-stop.sh"
           }
         ]
       }
