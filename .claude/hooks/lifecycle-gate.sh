@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PreToolUse gate (Edit|Write|MultiEdit): on standard tasks, source files may
-# not be edited until implementation-notes.md exists and contains a Decision
-# Log. Trivial tasks (Stage: trivial) bypass everything.
-# Runs under Git Bash on Windows.
+# not be edited until implementation-notes.md exists, is fresh for the CURRENT
+# task (not a committed leftover from a finished one), and contains a Decision
+# Log. Trivial tasks (Stage: trivial) bypass the trivial/log checks but must
+# still be fresh. Runs under Git Bash on Windows.
 
 set -uo pipefail
 INPUT=$(cat)
@@ -22,6 +23,20 @@ NOTES="implementation-notes.md"
 
 if [ ! -f "$NOTES" ]; then
   echo "GATE: no implementation-notes.md. Create it from the saro-lifecycle template (classify trivial/standard) before editing source." >&2
+  exit 2
+fi
+
+# Staleness guard — a COMMITTED, unmodified notes file describes work that is
+# already finished (its task ended with a commit that included the notes), so it
+# must not satisfy the gate for a new or unrelated task. Require the notes to be
+# fresh for the current task: untracked, staged, or modified vs HEAD. The
+# saro-lifecycle skill overwrites implementation-notes.md at task start, which
+# makes it dirty and clears this gate. Fail open outside a git work tree.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+   && git ls-files --error-unmatch "$NOTES" >/dev/null 2>&1 \
+   && git diff --quiet -- "$NOTES" \
+   && git diff --cached --quiet -- "$NOTES"; then
+  echo "GATE: implementation-notes.md is committed and unmodified — it reflects a COMPLETED task, not the one you are starting. Recreate it from the saro-lifecycle template for the current task (reclassify trivial/standard, write a fresh Decision Log) before editing source. A stale notes file must not satisfy the gate for unrelated work." >&2
   exit 2
 fi
 
