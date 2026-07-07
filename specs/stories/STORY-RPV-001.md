@@ -81,3 +81,6 @@ any tampered snapshot is detected and identified by version id.
 | AC-5 chain verify detects tamper | `test_verify_chain_clean`, `test_verify_chain_detects_tamper`, `test_verify_chain_detects_manifest_tamper`, `test_fnd_039_rpv_snapshot_integrity` | `verify_chain` (record + content_hash re-derivation); `_ordered_chain` |
 | Edges (empty publish, semver monotonic, invalid semver, deterministic hash, chain order) | `test_empty_publish_rejected`, `test_version_must_strictly_increase`, `test_invalid_semver_rejected`, `test_row_hash_is_deterministic_and_order_independent`, `test_chain_order_follows_hash_links` | `_resolve_version`, `EmptyPublishError`, `_canonical_row` |
 | API | `tests/test_rpv_snapshots_api.py` (publish/list/verify/diff, 409 on draft, 403 for reader persona) | `routers/rule_pack_versions.py` |
+| Status vocabulary | Migration radar_scan1_validation_status_columns |
+| SME gate | GRC SME Validation Requirements |
+| Examiner demand | synthetic-examiner Phase 3 (provenance, tamper-evidence) |

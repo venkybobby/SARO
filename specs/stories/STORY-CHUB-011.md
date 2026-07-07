@@ -84,17 +84,3 @@ When views refresh, Then it appears in default views with no badge.
 Export both Supabase migrations (radar_scan1_*) into the repo's migration
 directory so CI-managed schema_migrations and the live DB do not diverge
 (integrated-delivery rule).
-> Done: columns migration exported as `migrations/029_radar_scan1_validation_status_columns.sql`
-> (in the RPV-001 commit, since RPV-001's gate needed the column); data migration exported as
-> `migrations/031_radar_scan1_rule_pack_delta_data.sql` here. Both idempotent.
-
-## Traceability (AC → tests → files)
-| AC | Tests | Implementation |
-|---|---|---|
-| AC-1 DRAFT/RETIRED excluded from default views | `test_default_view_hides_draft_retired_null`, `test_endpoint_default_hides_drafts` | `services/rule_visibility.py`; `get_matrix_rows` filter |
-| AC-2 server-side enforcement | `test_endpoint_default_hides_drafts` (+ all service-level tests) | `get_matrix_rows` (single aggregation point for list/coverage/export) |
-| AC-3 internal draft toggle for ai_auditor/admin only | `test_privileged_persona_can_show_drafts`, `test_unprivileged_show_drafts_is_ignored` | `routers/compliance_matrix._effective_show_drafts` |
-| AC-4 legacy visible behind flag + internal pending badge | `test_legacy_flag_off_hides_legacy`, `test_show_drafts_reveals_all_with_badges` | `config.saro_show_legacy_rules`; `rule_visibility.badge_for` |
-| AC-5 draft excluded from evaluation | satisfied by RPV-002 (static crosswalk + published-snapshot pin); no eval code touched | — |
-| Edge NULL fail-closed / NIST unaffected / counts exclude drafts | `test_visibility_policy`, `test_nist_rows_always_visible`, `test_coverage_counts_exclude_drafts` | `is_visible_by_default` (allow-list) |
-| Companion migrations | applied+verified on Supabase | `migrations/029`, `migrations/031` |
