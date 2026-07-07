@@ -21,6 +21,7 @@ ENV/
 .pytest_cache/
 .coverage
 coverage.xml
+coverage.json
 htmlcov/
 .tox/
 
@@ -32,6 +33,7 @@ htmlcov/
 # Claude Code — local machine settings only
 .claude/settings.local.json
 .claude/transcripts/
+**/.claude/transcripts/
 
 # IDE
 .vscode/
