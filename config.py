@@ -77,5 +77,13 @@ class Settings(BaseSettings):
     # expiry must be in (today, today + this]. Reject past/absurd-future expiries.
     saro_disposition_max_waiver_days: int = 180
 
+    # ── PHI-free usage metering (STORY-MTR-001) ──────────────────────────────
+    # Per-meter soft thresholds: crossing RECORDS + NOTIFIES; it never enforces a
+    # cutoff (v1 never silently drops evaluations). {} means no thresholds configured.
+    saro_metering_thresholds: dict = {}
+    # Reconciliation drift tolerance: meter total vs authoritative count beyond this
+    # fraction raises a data-quality finding.
+    saro_metering_drift_tolerance: float = 0.005
+
 
 settings = Settings()

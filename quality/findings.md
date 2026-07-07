@@ -51,6 +51,8 @@ Workflow: log here → root-cause → fix → write `tests/regression/test_fnd_#
 
 | FND-044 | Hardcoded default HMAC secret on the evidence-export path | security-auditor (STORY-TEN-001, pre-existing) | 2026-07 | `routers/trace_export.py` uses `os.environ.get("EXPORT_HMAC_SECRET", "saro-default-hmac-secret-change-in-prod")` — if the env var is unset in prod, TRACE evidence exports are signed with a public default secret, so their HMAC integrity signature is forgeable. Outside the TEN-001 diff (flagged because a CISO scrutinizes the evidence-export path). Forward work: require EXPORT_HMAC_SECRET (fail fast if unset in non-test env); no default in prod. No regression test yet. | open |
 
+| FND-045 | Usage-meter dimension VALUES were unbounded — PHI-free guarantee was key-only | security-auditor (STORY-MTR-001) | 2026-07 | `services/metering_service._validate` bounded dimension KEYS to a closed vocab but performed zero validation on VALUES, which are stored verbatim in the `dimensions` JSONB. A future caller could smuggle raw payload/PII via a value (e.g. `adapter_id="<raw output>"`), structurally undermining AC-1 ("PHI-free by construction, not by redaction"). Fix: `_validate` now requires bounded scalars, a hard 64-char length cap, and a closed per-key value allow-list where defined (`outcome` ∈ {GO, GO_WITH_CONDITIONS, NO_GO, unknown}). Pinned by `test_fnd_045_metering_phi_free_values.py`. | pinned |
+
 **`verify-pinned`** = fix believed shipped, but no regression test confirms it stays fixed.
 First task of any auth story: convert these to `pinned` by writing the tests.
 

@@ -153,12 +153,24 @@ def verify_versions(db: Session = Depends(get_db)):
     dependencies=[Depends(_require_read)],
     summary="Reproduce the full frozen rule content of a pinned version",
 )
-def reproduce_version(version: str, db: Session = Depends(get_db)):
+def reproduce_version(
+    version: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Return the exact rule content in force at a pinned version (STORY-RPV-002 AC-3)."""
     try:
-        return snap_svc.reproduce_criteria(db, version)
+        result = snap_svc.reproduce_criteria(db, version)
     except snap_svc.RulePackResolutionError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    # STORY-MTR-001: meter criteria reproductions (PHI-free, best-effort).
+    import services.metering_service as metering
+
+    metering.safe_increment(
+        db, tenant_id=getattr(current_user, "tenant_id", None),
+        meter_key=metering.CRITERIA_REPRODUCTIONS,
+    )
+    return result
 
 
 @router.get(

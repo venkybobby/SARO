@@ -202,3 +202,8 @@ findings:
     test: tests/regression/test_fnd_044_export_hmac_secret_required.py
     status: open
     quarantine_expires: null
+  - id: FND-045
+    title: "Usage-meter dimension VALUES were unbounded — PHI-free guarantee was key-only (MTR-001)"
+    test: tests/regression/test_fnd_045_metering_phi_free_values.py
+    status: pinned
+    quarantine_expires: null

@@ -169,6 +169,15 @@ def capture_evidence(
     db.add(record)
     db.commit()
     db.refresh(record)
+
+    # STORY-MTR-001: meter evidence persistence (PHI-free, best-effort, post-commit —
+    # a metering failure must never fail/delay evaluation). Idempotent per record id.
+    import services.metering_service as metering
+
+    metering.safe_increment(
+        db, tenant_id=tenant_id, meter_key=metering.EVIDENCE_RECORDS_PERSISTED,
+        idempotency_key=f"evidence:{record.id}",
+    )
     return record
 
 

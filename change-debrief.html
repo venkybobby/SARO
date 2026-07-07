@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-DISP-001 — Change Debrief</title>
+<title>STORY-MTR-001 — Change Debrief</title>
 <style>
   :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --line:#26304a; }
   * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
@@ -11,63 +11,53 @@
   ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
   .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
   .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
-  svg { max-width:100%; height:auto; }
 </style></head><body><div class="wrap">
-  <h1>STORY-DISP-001 — Finding Disposition Lifecycle</h1>
-  <p class="sub">Change debrief · story 6/8 · shelfware-risk P1 · stacked on <code>story/STORY-META-001</code></p>
+  <h1>STORY-MTR-001 — PHI-Free Usage Metering</h1>
+  <p class="sub">Change debrief · story 7/8 · commercial foundation P1 · stacked on <code>story/STORY-DISP-001</code></p>
 
   <h2>1. Context</h2>
-  <div class="card"><p>A failed evaluation used to <b>terminate at the finding</b> — there was no
-  acknowledge/remediate/waive lifecycle (the notifications table had 0 rows). An examiner asking
-  "you found this problem; what did you do about it?" had no answer. DISP-001 makes every failed
-  finding enter a tracked disposition lifecycle, because <b>dispositions ARE evidence</b>.</p></div>
+  <div class="card"><p>There was <b>no consumption tracking</b> — so pricing had no basis, invoices couldn't
+  be substantiated, and renewal conversations had no delivered-value story. MTR-001 adds per-tenant,
+  per-period usage meters. The hard constraint: metering a <b>healthcare</b> product means it must be
+  <b>PHI-free by construction</b> — a meter must be structurally incapable of holding payload content.</p></div>
 
-  <h2>2. Intuition — the state machine</h2>
-  <div class="card">
-    <svg viewBox="0 0 760 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="disposition state machine">
-      <style>.b{fill:#171e2e;stroke:#26304a} .t{fill:#e6ebf5;font:12px sans-serif} .a{stroke:#5ad1a8;stroke-width:2;fill:none;marker-end:url(#h)} .r{stroke:#e8b04b;stroke-width:2;fill:none;stroke-dasharray:4 3;marker-end:url(#hr)}</style>
-      <defs><marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ad1a8"/></marker><marker id="hr" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e8b04b"/></marker></defs>
-      <rect class="b" x="10" y="46" width="90" height="34" rx="8"/><text x="34" y="67" class="t">OPEN</text>
-      <path class="a" d="M102,63 L150,63"/>
-      <rect class="b" x="152" y="46" width="128" height="34" rx="8"/><text x="170" y="67" class="t">ACKNOWLEDGED</text>
-      <path class="a" d="M282,55 L330,30"/><rect class="b" x="332" y="12" width="110" height="30" rx="8"/><text x="352" y="32" class="t">REMEDIATED</text>
-      <path class="a" d="M282,63 L330,63"/><rect class="b" x="332" y="48" width="90" height="30" rx="8"/><text x="352" y="68" class="t">WAIVED</text>
-      <path class="a" d="M282,71 L330,96"/><rect class="b" x="332" y="82" width="100" height="30" rx="8"/><text x="352" y="102" class="t">ESCALATED</text>
-      <path class="r" d="M422,58 C520,20 520,110 108,66"/><text x="470" y="30" style="fill:#e8b04b;font:11px sans-serif">waiver expiry → auto-reopen</text>
-    </svg>
-    <p>Forward-only, each hop stamped actor+timestamp and sealed into a per-disposition SHA-256
-    <b>transition log</b> (append-only, trigger-immutable). An expired <code>WAIVED</code> auto-reopens
-    to <code>OPEN</code> — the one backward edge, system-driven — and fires the first real
-    <code>notifications</code> row. De-identified throughout (INV-2): rule/gate/system ids and
-    severity, never observed content.</p>
-  </div>
+  <h2>2. Intuition — PHI-free by construction, not by redaction</h2>
+  <div class="card"><p>A meter row is <b>only</b>: tenant, a <b>closed-vocabulary</b> meter key
+  (<code>evaluations_executed</code>, <code>evidence_records_persisted</code>, …), a period bucket, a
+  count, and dimension tags whose <b>keys are a closed set</b> (<code>gate_id, vertical, adapter_id,
+  outcome</code>). There is <b>no free-text column</b>. An unknown meter key or dimension key is
+  rejected at write. So PII can't leak because there's nowhere to put it — redaction isn't even needed.</p>
+  <p>Metering is <b>best-effort, post-evidence-persist</b>: a metering hiccup logs and continues, never
+  blocking or delaying an evaluation (a dropped increment is acceptable; a blocked healthcare
+  evaluation is not). Loss is bounded and <b>measured by daily reconciliation</b> against authoritative
+  row counts — drift beyond 0.5% raises a data-quality finding.</p></div>
 
   <h2>3. File-by-file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/034</code></td><td><code>dispositions</code> + <code>disposition_transitions</code> (append-only immutability trigger); RLS policy on dispositions. Applied on Supabase.</td></tr>
-    <tr><td><code>services/disposition_service.py</code></td><td>State machine, hash-chained transitions (evf pattern), waiver rules (justification+approver+expiry, four-eyes), <code>expire_waivers</code> (reopen + Notification), recurrence linking, report.</td></tr>
-    <tr><td><code>routers/dispositions.py</code></td><td>acknowledge/remediate/waive/escalate (persona-gated), list, report, bulk-acknowledge (<b>bulk-waive not offered</b>), expire-waivers. Tenant-scoped.</td></tr>
-    <tr><td>TEN-001 doc + guard test</td><td>Registered the new tenant-scoped <code>dispositions</code> table (the schema-completeness guard required it).</td></tr>
+    <tr><td><code>migrations/035</code></td><td><code>usage_meters</code> (unique key, RLS), <code>usage_meter_idempotency</code>, <code>usage_statements</code> (immutable trigger, RLS). Applied on Supabase.</td></tr>
+    <tr><td><code>services/metering_service.py</code></td><td>closed-vocab <code>increment</code> (idempotent) + <code>safe_increment</code> (fail-open), <code>record_high_water</code>, <code>generate_statement</code> (hashed, immutable), <code>check_threshold</code> (notify, no cutoff), <code>reconcile</code>.</td></tr>
+    <tr><td>wiring</td><td><code>capture_evidence</code> (evidence_records_persisted, idempotent per record id), <code>run_audit_by_id</code> (evaluations_executed), reproduce endpoint (criteria_reproductions) — all best-effort.</td></tr>
+    <tr><td><code>routers/metering.py</code></td><td><code>GET /usage</code>, <code>POST /statement</code>, <code>GET /reconcile</code> — operator/admin, tenant-scoped.</td></tr>
   </table>
 
   <h2>4. Risk map</h2>
   <table>
     <tr><th>Risk</th><th>Covering test</th><th>State</th></tr>
-    <tr><td>Illegal state jump (e.g. OPEN→REMEDIATED)</td><td><code>test_illegal_transition_rejected</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Transition log tampered</td><td><code>verify_transition_chain</code> + immutability trigger</td><td><span class="tag ok">covered ×2</span></td></tr>
-    <tr><td>Waiver without justification / self-approval</td><td><code>test_waiver_requires_fields_and_four_eyes</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Expired waiver silently persists</td><td><code>test_expired_waiver_reopens_and_notifies</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Duplicate dispositions per finding</td><td><code>test_recurrence_links_to_prior_chain</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Cross-tenant action</td><td><code>test_api_cross_tenant_404</code> + RLS policy</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>PII/payload enters a meter</td><td><code>test_unknown_meter_key_and_dimension_rejected</code></td><td><span class="tag ok">structurally impossible</span></td></tr>
+    <tr><td>Retry double-counts</td><td><code>test_increment_and_idempotency</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Metering failure blocks an evaluation</td><td><code>test_safe_increment_never_raises</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Statement mutated / re-hashed</td><td><code>test_statement_hash_and_immutable_reissue</code> + immutability trigger</td><td><span class="tag ok">covered ×2</span></td></tr>
+    <tr><td>Threshold silently drops evaluations</td><td><code>test_threshold_records_and_notifies_without_cutoff</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Silent meter drift</td><td><code>test_reconcile_flags_drift</code></td><td><span class="tag ok">covered</span></td></tr>
   </table>
 
   <h2>5. Understanding check</h2>
   <div class="quiz">
-    <div class="q"><details><summary>Why does a recurring finding link to the prior disposition instead of creating a new one?</summary><div class="a"><code>create_disposition</code> checks for an ACTIVE disposition with the same (tenant, rule_id, system_id); if found it increments <code>recurrence_count</code> and returns it. Otherwise a re-failing check would spawn unbounded duplicate rows for one underlying problem, drowning the report. Recurrence under an active waiver does NOT auto-escalate in v1 (recorded, not acted on).</div></details></div>
-    <div class="q"><details><summary>How is the expired-waiver reopen a "lineage reference to the expired waiver" if it's the same row?</summary><div class="a">The append-only transition log holds the lineage: the row gets a new <code>WAIVED → OPEN</code> transition with reason "waiver expired {date}", so the full history (opened → acknowledged → waived → reopened) is sealed and verifiable. The waiver fields remain on the row, and the report surfaces the reopened-waiver lineage. No duplicate disposition is created.</div></details></div>
-    <div class="q"><details><summary>Why is bulk-waive forbidden while bulk-acknowledge is allowed?</summary><div class="a">A waiver is an accountable risk-acceptance decision that requires its own justification, approver, and expiry — batching them would let someone rubber-stamp many risk acceptances with one rationale. Acknowledgement is just "I've seen this", so batching it is safe. There is simply no bulk-waive endpoint.</div></details></div>
-    <div class="q"><details><summary>The TEN-001 test failed when this story added a table. Was that a bug?</summary><div class="a">No — it was the schema-completeness guard working exactly as intended. Adding <code>dispositions</code> (a tenant_id-bearing table) without registering it tripped <code>test_every_tenant_scoped_model_is_accounted_for</code>, forcing this story to add the RLS policy (migration 034) and update the isolation inventory. That's how AC-1's "no tenant table relies on zero policies" stays enforced over time.</div></details></div>
+    <div class="q"><details><summary>Why is "PHI-free by construction" stronger than redacting PII from meters?</summary><div class="a">Redaction is a runtime filter that can be forgotten, bypassed, or imperfect. Here the schema has <b>no free-text field at all</b> — meter keys and dimension keys are both closed sets validated at write, and values are bounded tags/counts. There is literally nowhere for payload content to go, so leakage is a structural impossibility, not a policy you have to enforce.</div></details></div>
+    <div class="q"><details><summary>Why is metering best-effort/fail-open when almost everything else in SARO fails closed?</summary><div class="a">Metering is a commercial/observability concern, not a compliance control. Blocking a healthcare tenant's evaluation because a counter couldn't increment would trade a real safety/availability cost for a billing-accuracy benefit — the wrong trade. A lost increment is acceptable and is caught by reconciliation; a blocked evaluation is not. (Contrast META-001, where privileged WRITES fail closed.)</div></details></div>
+    <div class="q"><details><summary>How does the idempotency key stop double-counting without itself risking cross-tenant issues?</summary><div class="a">Each logical invocation supplies a unique key (e.g. <code>evidence:{record.id}</code>); if the key was seen, the increment is a no-op. Keys embed a tenant-unique identifier (the record UUID), so the global dedup table can't let one tenant's key suppress another's increment.</div></details></div>
+    <div class="q"><details><summary>What does reconciliation actually compare, and what happens on drift?</summary><div class="a">It compares the <code>evidence_records_persisted</code> meter total against the authoritative <code>grc_evidence_records</code> row count for the tenant/period. If the relative drift exceeds the configured tolerance (0.5%), it raises a <code>data_quality</code> notification — so lost best-effort increments are bounded <i>and measured</i>, making the "acceptable loss" claim honest rather than hand-wavy.</div></details></div>
   </div>
-  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 433 / integration 105 / regression 99 / bandit). Migration 034 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
+  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 444 / integration 107 / regression 99 / bandit). Migration 035 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
 </div></body></html>

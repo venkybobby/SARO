@@ -1,73 +1,68 @@
-# STORY-DISP-001 — Finding Disposition Lifecycle
+# STORY-MTR-001 — PHI-Free Usage Metering
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (recon: Notification model + notification_service (dispatch/generate) exist,
-                  notifications table 0 rows -> DISP is first real consumer; evf_engagement_service
-                  is the state-machine + hash-chained append-only transition-log pattern to mirror
-                  (_build_transition_payload, _compute_transition_hash, _write_transition);
-                  grc_evidence_records is the evidence FK target (UUID); self_audit.record_event
-                  exists for DISPOSITION_ACTION mirroring, META-001)
+- [x] discover   (recon: Notification model + notification_service exist; evf_expiry_notifications
+                  idempotency_key UNIQUE pattern to reuse; grc_evidence_records is the authoritative
+                  count source for reconciliation; DISP-001 async-post-evidence posture is the model;
+                  RPV-002 reproduce endpoint is a metered surface (criteria_reproductions);
+                  TEN-001 schema-completeness guard will require registering the new tenant table)
 - [x] shape      (skipped brainstorm — STORY has ACs; interview -> Decision Log below)
-- [x] preview    (skipped — backend lifecycle + report API; no new UI surface designed here)
+- [x] preview    (skipped — backend meters + statement API; no new UI surface)
 - [x] plan
 - [x] build
 - [x] verify    (change-debrief.html generated)
 - [x] sell       (n/a)
 
 ## Decision Log
-Q1 state machine? → forward-only OPEN -> ACKNOWLEDGED -> (REMEDIATED | WAIVED | ESCALATED),
-  mirroring evf_sme_engagements. Terminal states are REMEDIATED/WAIVED/ESCALATED; an expired
-  WAIVED auto-reopens to OPEN with a lineage link (reopened_from_id). Illegal transitions rejected.
+Q1 PHI-free by construction (AC-1)? → meter records carry ONLY: tenant_id, meter_key (closed set),
+  period_bucket, count, and dimension tags from a CLOSED vocabulary (gate_id, vertical, adapter_id,
+  outcome). NO free-text fields — validated at write; unknown meter_key or dimension key raises.
+  PHI leakage is structurally impossible (INV-2 by construction, not by redaction).
 
-Q2 transition log? → append-only disposition_transitions, hash-chained per disposition
-  (event_hash = SHA-256(payload + prev_hash)), immutability trigger — reuse the evf pattern verbatim.
+Q2 meter set (v1)? → evaluations_executed, attestations_issued, evidence_records_persisted,
+  coverage_report_generations, criteria_reproductions, active_observed_systems (high-water per
+  period), adapter_observation_volume (COUNT ONLY, never content).
 
-Q3 zero-PHI (INV-2)? → dispositions carry only de-identified finding metadata (evidence_record_id,
-  rule/gate id, system id, severity) — NEVER observed content. Same for transitions.
+Q3 async posture (AC-2, NFR)? → increments emitted post-evidence-persist, best-effort; a metering
+  failure NEVER fails/delays an evaluation (lost increments acceptable; blocked evals are not).
+  Loss is bounded + measured by reconciliation (AC-5).
 
-Q4 waiver rules? → WAIVED requires justification text + approver + expiry_date. Four-eyes
-  (approver distinct from acknowledger) is per-tenant config (saro_disposition_four_eyes, default
-  False). Expired waiver -> auto-reopen OPEN with lineage + emit a Notification (AC-3, first consumer).
+Q4 idempotency (edge)? → idempotency_key per logical invocation (UNIQUE) so retries don't
+  double-count — reuse the evf_expiry_notifications pattern. Multi-tenant shared rule-pack reads are
+  NOT metered (cost of goods, not usage).
 
-Q5 recurrence (edge)? → a duplicate finding (same rule+system) links to the prior disposition chain
-  (recurrence_count++) rather than spawning unbounded duplicates; recurrence under an ACTIVE waiver
-  does NOT auto-escalate in v1 (record it; escalation policy is follow-on).
+Q5 usage statement (AC-3)? → per-tenant, per-period artifact: meter totals, period, generation
+  timestamp, content_hash (usage statements are evidence too — disputes are audits). UTC period
+  bucketing at emission (tenant-local display is presentation-layer). Immutable once issued;
+  corrections are new adjustment records, never edits.
 
-Q6 bulk ops (edge)? → bulk-acknowledge permitted; bulk-waive FORBIDDEN (each waiver needs its own
-  justification). API enforces this.
+Q6 thresholds (AC-4)? → threshold-crossing events recorded + a Notification emitted; v1 RECORDS and
+  NOTIFIES, does NOT enforce cutoffs (never silently drop a healthcare tenant's evaluations).
+  Config saro_metering_thresholds is per-meter soft limits.
 
-Q7 async / zero eval-path latency (NFR)? → create_disposition is wired into grc.orchestrator
-  run_audit_by_id (after run_audit computes findings, for each FAIL finding) via
-  _open_dispositions_for_failures, wrapped in a fail-open try/except so a creation failure never
-  blocks the evaluation. (Reviewer B1: this wiring was missing in the first cut and is now added.)
+Q7 reconciliation (AC-5)? → daily cross-check of meter totals vs authoritative row counts
+  (grc_evidence_records for evidence_records_persisted; dispositions/attestations where applicable);
+  drift beyond 0.5% raises a data-quality finding (Notification type='data_quality').
 
-Q8 persona gates (AC-5)? → acknowledge/remediate/waive/escalate map per persona; waive-approval
-  authority is per-tenant configurable. v1: risk_officer + ai_auditor + admin may act; compliance_lead
-  read-only; waive-approve requires operator/admin (distinct actor under four-eyes).
-
-Q9 report (AC-4)? → findings count, state breakdown, mean time-to-acknowledge, waivers with
-  justifications + approvers, reopened-waiver lineage — exportable evidence artifact.
-
-Q10 META-001 tie-in? → each transition also records a DISPOSITION_ACTION self-audit event
-  (self_audit.record_access, fail-open) so the disposition log mirrors into the audit spine.
+Q8 tenant isolation? → usage_meters is tenant-scoped -> RLS policy (migration 035) + register in the
+  TEN-001 schema-completeness guard + docs/TENANT_ISOLATION.md (the guard enforces this).
 
 ## Deviations
 None (no plan reversal).
 
 ## Review outcomes (both agents)
 - Reviewer VERDICT: REQUEST-CHANGES -> resolved. Security-auditor VERDICT: PASS.
-- B1 (reviewer BLOCKER): AC-1 was unwired (create_disposition had no production caller). Fixed:
-  grc.orchestrator.run_audit_by_id now opens a disposition per FAIL finding (fail-open). Pinned by
-  test_evaluation_failure_opens_disposition. Corrected the untruthful Q7 note.
-- SF (both agents): four-eyes compared the waive-actor, not the acknowledger. Fixed: persist
-  acknowledged_by; four-eyes now requires approver differ from BOTH acknowledger and actor. Pinned by
-  test_four_eyes_blocks_approver_equal_acknowledger.
-- SF (security): unbounded waiver expiry could indefinitely suppress a finding. Fixed:
-  saro_disposition_max_waiver_days (default 180); reject past/absurd-future expiry. Pinned by
-  test_waiver_expiry_bounds.
-- NH (both): reopened_from_id dead + report double-counted reopened rows as active waivers. Fixed:
-  migration comment corrected (lineage lives in the transition log; column reserved); report
-  waivers list now counts only state==WAIVED.
-- NH (both): expire-waivers has no scheduler yet — it is an operator-triggered/cron sweep in v1
-  (documented); automatic per-request reopen is follow-on.
+- B1 (reviewer BLOCKER): reconcile compared a period-scoped meter vs an ALL-TIME authoritative
+  count -> false positive once a tenant spans >1 period. Fixed: authoritative count is period-scoped
+  via _period_range(created_at). Pinned by test_reconcile_is_period_scoped.
+- SF (reviewer): check_threshold had no runtime caller (AC-4 half-delivered). Fixed: wired into
+  safe_increment (best-effort, post-increment). Pinned by test_safe_increment_fires_threshold.
+- SF (reviewer): evaluations_executed metered without an idempotency key -> retry double-count.
+  Fixed: idempotency_key=f"eval:{record.id}". Pinned by test_eval_style_idempotency_dedup.
+- SF (reviewer): daily reconcile has no scheduler -> documented as out-of-scope (endpoint = manual
+  trigger; cron/CI wiring is ops follow-on).
+- SF (security): dimension VALUES were unbounded (PHI-free was key-only). Fixed: bounded scalars +
+  64-char cap + closed per-key allow-lists. FND-045 (pinned regression).
+- NH: limit==0 treated as unset -> `if limit is None`; period query param validated (422 on bad
+  format); TENANT_ISOLATION/migration doc corrected (idempotency keys must be globally unique).

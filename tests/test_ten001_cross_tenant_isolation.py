@@ -217,6 +217,8 @@ _ACCOUNTED_TENANT_SCOPED = frozenset(
         "hf_sample_queue",
         "tenant_risk_configs",
         "dispositions",  # STORY-DISP-001 (RLS policy added in migration 034)
+        "usage_meters",  # STORY-MTR-001 (RLS policy added in migration 035)
+        "usage_statements",  # STORY-MTR-001 (RLS policy added in migration 035)
     }
 )
 

@@ -217,6 +217,22 @@ def run_audit_by_id(db, *, tenant_id: uuid.UUID, output_id: str) -> dict[str, An
     # the evidence record. Fail-open — a disposition failure must never block the audit
     # (NFR: zero added latency/failure to the evaluation path).
     _open_dispositions_for_failures(db, tenant_id, record, result, sys_id)
+
+    # STORY-MTR-001: meter the evaluation (PHI-free, best-effort). Outcome dimension is a
+    # closed-vocabulary tag derived from the gate recommendation.
+    try:
+        import services.metering_service as metering
+
+        # Idempotency key per evaluation invocation so a retried audit doesn't
+        # double-count (AC-2 edge). Keyed on the evidence record when present.
+        idem = f"eval:{getattr(record, 'id', None)}" if record is not None else None
+        metering.safe_increment(
+            db, tenant_id=tenant_id, meter_key=metering.EVALUATIONS_EXECUTED,
+            idempotency_key=idem,
+            dimensions={"outcome": str(result.get("gate_recommendation") or "unknown")},
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return result
 
 

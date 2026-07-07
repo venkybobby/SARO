@@ -673,6 +673,59 @@ class DispositionTransition(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PHI-Free Usage Metering (STORY-MTR-001)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class UsageMeter(Base):
+    """A per-tenant, per-period consumption counter. PHI-free by construction —
+    only closed-vocabulary keys/dimensions and a count (never payload content)."""
+
+    __tablename__ = "usage_meters"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    meter_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    period_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
+    dimensions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    dimensions_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "meter_key", "period_bucket", "dimensions_hash",
+                         name="ux_usage_meters_key"),
+    )
+
+
+class UsageMeterIdempotency(Base):
+    """Dedup log: an increment carrying a seen idempotency_key is a no-op (retry-safe)."""
+
+    __tablename__ = "usage_meter_idempotency"
+
+    idempotency_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UsageStatement(Base):
+    """Immutable per-period usage artifact (evidence — disputes are audits)."""
+
+    __tablename__ = "usage_statements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    period_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
+    totals: Mapped[dict] = mapped_column(JSON, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "period_bucket", name="ux_usage_statements"),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Enhanced Trace / Chain-of-Thought (one per completed audit)
 # ─────────────────────────────────────────────────────────────────────────────
 
