@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role, require_role_or_persona
 import services.rule_pack_snapshot_service as snap_svc
+import services.self_audit as self_audit
 from database import get_db
 from models import RulePackSnapshot
 
@@ -90,6 +91,20 @@ def publish_version(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+
+    # STORY-META-001: record a RULE_PACK_CHANGE on the SYSTEM (global) audit chain.
+    # Best-effort post-commit (the snapshot is already durable); a failure is logged,
+    # not fatal, and the DB-level out-of-band trigger is the backstop for rule writes.
+    self_audit.record_access(
+        db,
+        tenant_id=self_audit.SYSTEM_TENANT_ID,
+        actor=getattr(current_user, "email", "system"),
+        action_class=self_audit.RULE_PACK_CHANGE,
+        user_id=getattr(current_user, "id", None),
+        target_type="rule_pack_version",
+        target_id=snap.version,
+        metadata={"content_hash": snap.content_hash, "source": "api_publish"},
+    )
     return _serialize(snap)
 
 

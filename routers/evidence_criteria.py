@@ -18,6 +18,7 @@ from auth import get_current_user, require_role_or_persona
 from database import get_db
 from grc.evidence import get_evidence
 import services.rule_pack_snapshot_service as snap_svc
+import services.self_audit as self_audit
 
 router = APIRouter(prefix="/api/v1/evidence", tags=["evidence-criteria"])
 
@@ -38,6 +39,20 @@ def evidence_criteria(
 ):
     tenant_id: uuid.UUID = current_user.tenant_id
     record = get_evidence(db, tenant_id=tenant_id, evidence_id=evidence_id)
+
+    # STORY-META-001: EVIDENCE_ACCESS is a read-audited class. Fail-open (record_access):
+    # a self-audit hiccup must not block the customer's compliance read.
+    self_audit.record_access(
+        db,
+        tenant_id=tenant_id,
+        actor=getattr(current_user, "email", "?"),
+        action_class=self_audit.EVIDENCE_ACCESS,
+        user_id=getattr(current_user, "id", None),
+        target_type="evidence_record",
+        target_id=str(evidence_id),
+        outcome=self_audit.OUTCOME_SUCCESS if record is not None else self_audit.OUTCOME_FAILURE,
+    )
+
     if record is None:
         # Generic 404 — no existence oracle across tenants.
         raise HTTPException(status_code=404, detail="evidence record not found")

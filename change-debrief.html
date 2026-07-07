@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-TEN-001 — Change Debrief</title>
+<title>STORY-META-001 — Change Debrief</title>
 <style>
   :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --line:#26304a; }
   * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
@@ -12,48 +12,57 @@
   .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
   .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
 </style></head><body><div class="wrap">
-  <h1>STORY-TEN-001 — Tenant Isolation: Policies, Proof, Report</h1>
-  <p class="sub">Change debrief · story 4/8 · P0 CISO-facing · stacked on <code>story/STORY-CHUB-011</code></p>
+  <h1>STORY-META-001 — SARO Self-Audit: Governance of the Governance Tool</h1>
+  <p class="sub">Change debrief · story 5/8 · SOC 2 spine · stacked on <code>story/STORY-TEN-001</code></p>
 
   <h2>1. Context</h2>
-  <div class="card"><p>RLS was "enabled" on all 47 tables, but that meant nothing: <b>~35 had zero policies</b>,
-  and RLS is <b>inert at runtime</b> anyway (the service-role pooler bypasses it; nothing sets
-  <code>app.current_tenant</code>). "Enabled ≠ isolated." A CISO doing diligence would find this and walk.
-  TEN-001 makes isolation <b>demonstrated, not asserted</b>: it records the FastAPI-only decision, closes the
-  zero-policy gap, proves isolation with a cross-tenant test suite, and packages it as a diligence report.</p></div>
+  <div class="card"><p>SARO audits its customers' AI, but its own <code>audit_events</code> table was <b>empty</b> —
+  who viewed evidence, changed rules, or exported what was unanswerable. The 2026-07-04 out-of-band
+  rule mutation would have shown up here, and didn't. META-001 makes SARO survive the scrutiny it
+  applies to others: an <b>immutable, hash-chained</b> trail of privileged actions, plus <b>DB-level
+  capture of out-of-band writes</b> so the API isn't the only thing watched.</p></div>
 
-  <h2>2. Intuition — what actually isolates tenants</h2>
-  <div class="card"><p>Under posture (a) FastAPI-only, the <b>enforced</b> control is the API layer:
-  every tenant-scoped query does <code>.filter(Model.tenant_id == current_user.tenant_id)</code>. It's
-  <b>fail-closed</b> — an unauthenticated request is 401 before any query, and a user with
-  <code>tenant_id=None</code> filters to zero rows (<code>== None</code> matches nothing), never a leak.
-  RLS is defense-in-depth that only becomes load-bearing under posture (b) direct-DB access (not implemented).</p></div>
+  <h2>2. Intuition</h2>
+  <div class="card"><p>Two chains, one table. <b>App-layer</b> events (RULE_PACK_CHANGE, EVIDENCE_ACCESS,
+  EXPORT…) are sealed into a per-tenant SHA-256 chain (reusing the evidence-store discipline) —
+  content-free, metadata only. <b>Out-of-band</b> writes to the rule tables are caught by a
+  statement-level DB trigger that appends a <code>RULE_PACK_CHANGE</code> with <code>actor=db:role</code>,
+  honestly flagged as outside the app chain. Global actions (rule-pack changes aren't tenant-specific)
+  live on a dedicated <b>SYSTEM tenant</b> chain.</p></div>
 
   <h2>3. File-by-file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/032</code></td><td>Adds a tenant-isolation policy (USING + WITH CHECK) to the 7 tenant-scoped zero-policy tables, so the inventory shows a policy on <i>every</i> tenant-scoped table (AC-1). Applied + verified on Supabase.</td></tr>
-    <tr><td><code>tests/test_ten001_cross_tenant_isolation.py</code></td><td>Cross-tenant CI suite: TENANT-A/B, asserts own-only reads, foreign-id 404 (no oracle), fail-closed empty (AC-2/AC-3).</td></tr>
-    <tr><td><code>docs/TENANT_ISOLATION.md</code></td><td>The diligence report: access-path architecture, recorded (a) decision, policy inventory, test matrix, honest residual risks (AC-4/AC-5).</td></tr>
+    <tr><td><code>migrations/033</code></td><td>Extends <code>audit_events</code> (chained schema + id default); immutability trigger; SYSTEM tenant; statement-level out-of-band triggers on the rule tables; 2 RETROACTIVE backfill events. Applied + verified on Supabase.</td></tr>
+    <tr><td><code>services/self_audit.py</code></td><td><code>record_event</code> (per-tenant chain), <code>record_privileged</code> (fail-closed), <code>record_access</code> (fail-open), <code>verify_audit_chain</code>, <code>query_events</code>.</td></tr>
+    <tr><td><code>routers/self_audit.py</code></td><td><code>GET /audit/events</code> (filter + verify + self-referential export), <code>/events/verify</code>; system scope operator-gated.</td></tr>
+    <tr><td>rule_pack_versions / evidence_criteria</td><td>Wire RULE_PACK_CHANGE (publish) + EVIDENCE_ACCESS (read).</td></tr>
   </table>
 
-  <h2>4. Risk map</h2>
+  <h2>4. Deliberately NOT done</h2>
+  <div class="card"><ul>
+    <li>Full ADMIN_ACTION/AUTH_EVENT wiring + DISPOSITION_ACTION (DISP-001's log) — incremental.</li>
+    <li>SIEM export/streaming, full SOC 2 program, anomaly detection — the story is the spine, not the program.</li>
+    <li>Archival job — retention is config'd (<code>saro_audit_retention_days</code>); the mover is follow-on.</li>
+  </ul></div>
+
+  <h2>5. Risk map</h2>
   <table>
     <tr><th>Risk</th><th>Covering test / disclosure</th><th>State</th></tr>
-    <tr><td>Cross-tenant read via list endpoint</td><td><code>test_audits_list_shows_only_own_tenant</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Foreign-id read / existence oracle</td><td><code>test_get_foreign_audit_is_generic_404</code>, trace + evidence 404 tests</td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Absent tenant context leaks</td><td><code>test_absent_tenant_context_fails_closed</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Zero-policy tenant tables</td><td>migration 032 (verified live: 7/7 now have a policy)</td><td><span class="tag ok">closed</span></td></tr>
-    <tr><td>RLS inert at runtime</td><td>disclosed in report §1/§4 (not hidden)</td><td><span class="tag warn">disclosed</span></td></tr>
-    <tr><td>Integer-PK volume signal</td><td>disclosed §4; UUID migration is follow-on</td><td><span class="tag warn">disclosed</span></td></tr>
+    <tr><td>Audit log copies payload content (retention violation)</td><td><code>test_content_free_no_payload</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Trail tampered</td><td><code>test_verify_detects_tamper</code> + DB immutability trigger (verified live)</td><td><span class="tag ok">covered ×2</span></td></tr>
+    <tr><td>Out-of-band rule write invisible</td><td>statement trigger (verified live: UPDATE→db_trigger event)</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Unauditable privileged action proceeds</td><td><code>test_fail_closed_vs_fail_open</code> (record_privileged raises)</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Cross-tenant chain read / system scope</td><td><code>test_system_scope_requires_operator</code>; query is tenant-scoped</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Superuser disables the trigger</td><td>disclosed as residual risk (role separation is the mitigation)</td><td><span class="tag warn">disclosed</span></td></tr>
   </table>
 
-  <h2>5. Understanding check</h2>
+  <h2>6. Understanding check</h2>
   <div class="quiz">
-    <div class="q"><details><summary>Why does adding RLS policies not actually change runtime behavior here?</summary><div class="a">The app connects via the Supabase service-role pooler, which bypasses RLS, and nothing sets <code>app.current_tenant</code> — so the policies are inert. They close the "zero-policy" inventory gap (AC-1) and become load-bearing only under posture (b). The report discloses this honestly rather than implying RLS is the live control.</div></details></div>
-    <div class="q"><details><summary>Would the test suite catch a developer who forgot the tenant filter on a new endpoint?</summary><div class="a">For a covered endpoint, yes: <code>test_audits_list_shows_only_own_tenant</code> would fail because TENANT-B's row would appear, and the foreign-id tests would return 200 instead of 404. The residual gap is endpoints not yet in the matrix — which is why the report lists exactly which paths are proven, and the suite is marked to run on every PR touching data access.</div></details></div>
-    <div class="q"><details><summary>A user's <code>tenant_id</code> is None. What does <code>GET /audits</code> return, and why is that safe?</summary><div class="a">An empty list. The filter <code>Audit.tenant_id == None</code> matches no rows (SQL NULL semantics), so the caller sees nothing rather than everything — fail-closed. The worst case degrades to "no data", never "all tenants' data".</div></details></div>
-    <div class="q"><details><summary>Why is <code>rule_pack_snapshots</code> correctly policy-free while <code>audit_events</code> needed a policy?</summary><div class="a"><code>rule_pack_snapshots</code> has no <code>tenant_id</code> — published rule-pack versions are global product data, one copy for all tenants, so a tenant policy would be meaningless. <code>audit_events</code> has a <code>tenant_id</code> (it's per-tenant), so leaving it policy-free was a real gap that migration 032 closed.</div></details></div>
+    <div class="q"><details><summary>Why does EVIDENCE_ACCESS fail OPEN while a privileged action fails CLOSED?</summary><div class="a">A read is the customer's compliance function doing its job — blocking it because SARO's self-audit hiccuped would harm availability for a benefit (self-audit completeness) that matters less in that moment. A privileged WRITE that can't be audited is exactly what you must not let happen silently, so it fails closed (aborts). The tradeoff is documented, not accidental.</div></details></div>
+    <div class="q"><details><summary>Why do out-of-band (DB-trigger) and backfill events sit OUTSIDE the hash chain?</summary><div class="a">The app-layer chain seals events the service creates in order. A DB trigger firing on a raw SQL write can't compute the Python canonical hash, and backfill events predate the chain entirely. Rather than fake a chain link, they're captured with <code>seq=NULL</code> and honestly flagged (out_of_band / retroactive) — queryable, but excluded from <code>verify_audit_chain</code>. Honesty over a fake-complete chain.</div></details></div>
+    <div class="q"><details><summary>Why does the SYSTEM tenant UUID start with 'a'?</summary><div class="a">An all-numeric UUID string (once dashes are stripped) is a valid number, and SQLite's NUMERIC type affinity coerces it to an integer on readback in the test harness — so <code>uuid.UUID(1)</code> blows up. A leading hex letter keeps it TEXT. Real Postgres UUID columns are unaffected; this is purely a test-harness robustness choice.</div></details></div>
+    <div class="q"><details><summary>How is the trail content-free, and why does it matter?</summary><div class="a">Only metadata is hashed and stored — actor, action class, target id, outcome, timestamp — never the prompt/output/evidence content. An audit log that copied evidence content would itself become a PII-retention liability (INV-2/INV-3), turning the compliance feature into a compliance risk. The <code>metadata</code> passed at call sites is hashes/counts only.</div></details></div>
   </div>
-  <p class="mono">Gates 1,3,4,5 green (ruff / unit 419 / integration 95 / regression 99). No new Python source (test + migration + doc); bandit N/A. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
+  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 425 / integration 102 / regression 99 / bandit). Migration 033 applied + verified on Supabase (immutability, out-of-band trigger, backfill=2). Coverage ratchet + reviewer/security-auditor pending at write time.</p>
 </div></body></html>

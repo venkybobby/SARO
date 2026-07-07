@@ -65,5 +65,9 @@ class Settings(BaseSettings):
     # views regardless of this flag.
     saro_show_legacy_rules: bool = True
 
+    # ── SARO self-audit spine (STORY-META-001) ───────────────────────────────
+    # Hot-retention floor for audit_events before archival (never silent deletion).
+    saro_audit_retention_days: int = 365
+
 
 settings = Settings()

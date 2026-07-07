@@ -595,6 +595,23 @@ class AuditEvent(Base):
     # | "user_enrolled" | "mfa_policy_changed" | "sso_test_passed" | "sso_test_failed"
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     event_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    # ── SARO self-audit spine (STORY-META-001) ──
+    # Nullable so pre-existing unchained writers (clients/sso/remediation/...) keep working;
+    # self-audit events populate the full chained schema. Metadata only — never payload
+    # content (INV-2/INV-3 apply to the audit trail itself).
+    # action_class: RULE_PACK_CHANGE | EVIDENCE_ACCESS | DISPOSITION_ACTION | ADMIN_ACTION
+    #             | AUTH_EVENT | EXPORT
+    action_class: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(50), nullable=True)  # SUCCESS|FAILURE|DENIED
+    retroactive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Per-tenant hash chain (grc/evidence pattern): seq is a per-tenant monotonic order.
+    seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
