@@ -197,3 +197,8 @@ findings:
     test: tests/regression/test_fnd_043_sso_persona_allowlist.py
     status: open
     quarantine_expires: null
+  - id: FND-044
+    title: "Hardcoded default HMAC secret on the TRACE evidence-export path (pre-existing; forward)"
+    test: tests/regression/test_fnd_044_export_hmac_secret_required.py
+    status: open
+    quarantine_expires: null

@@ -8,6 +8,7 @@ Existing tables (populated by import_*.py scripts):
 New tables added here:
   tenants, users, audits, scan_reports, audit_traces, demo_requests
 """
+
 from __future__ import annotations
 
 import enum as py_enum
@@ -93,8 +94,10 @@ class Audit(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # NOT NULL in the DB; declared explicitly so the tenant-isolation invariant
+    # (an audit always carries a tenant) is enforced by the ORM too (STORY-TEN-001).
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -153,7 +156,9 @@ class ScanReport(Base):
     # SARO-006: engine provenance fields for audit-of-the-auditor
     engine_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     rule_pack_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    compliance_matrix_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    compliance_matrix_version: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -168,22 +173,32 @@ class AuditMetadata(Base):
     Kept separate from Audit to preserve existing audit data when new fields
     are added (avoids schema-healing drop/recreate of the audits table).
     """
+
     __tablename__ = "audit_metadata"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     # source_model: "grok" | "claude" | "openai" | "sierra" | "internal" | "unknown"
     source_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # ingestion_method: "api" | "ui_form" | "sdk_webhook" | "batch_scan"
-    ingestion_method: Mapped[str] = mapped_column(String(50), nullable=False, default="batch_scan")
+    ingestion_method: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="batch_scan"
+    )
     # GAP-009: business vertical for dashboard filtering
     vertical: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Optional S3 object keys for large prompt/output storage
     prompt_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     output_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class RiskMetadata(Base):
@@ -195,16 +210,24 @@ class RiskMetadata(Base):
     don't otherwise exist on Audit — owner assignment, status override, and
     a soft-delete ("dismissed") flag used by the register's delete action.
     """
+
     __tablename__ = "risk_metadata"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status_override: Mapped[str | None] = mapped_column(String(50), nullable=True)
     dismissed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -219,21 +242,29 @@ class InsightAction(Base):
     only the reviewer's accept / snooze / dismiss decision lives here.
     Every status change also appends an immutable AuditEvent row.
     """
+
     __tablename__ = "insight_actions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     audit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     # status: "accepted" | "snoozed" | "dismissed" (absence of a row = "active")
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     acted_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -246,9 +277,12 @@ class AuditTrace(Base):
     One row per gate result, domain risk signal, or compliance rule trigger.
     Drives the Remedy screen: failed/warn traces are surfaced for operator review.
     """
+
     __tablename__ = "audit_traces"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
@@ -278,19 +312,27 @@ class AuditTrace(Base):
     top_sample_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Remedy workflow fields
     is_remediated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    remediated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    remediated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     remediated_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     # AUD-001: SHA-256 hash chain for tamper-evident audit logs.
     # event_hash: SHA-256 hex of this event's canonical payload (build_event_payload).
     # prev_hash: event_hash of the preceding event in this audit's chain (NULL = genesis).
     # Rows written before migration 009 carry event_hash=LEGACY_SENTINEL.
     # Column is nullable in DB (migration 003); _persist_traces() always supplies a value.
     # No ORM-level default — callers must set event_hash explicitly so omissions fail loudly.
-    event_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
-    prev_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, deferred=True)
+    event_hash: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, deferred=True
+    )
+    prev_hash: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, deferred=True
+    )
 
     audit: Mapped["Audit"] = relationship(back_populates="traces")
 
@@ -351,7 +393,9 @@ class NISTControl(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_actions: Mapped[str | None] = mapped_column(Text, nullable=True)
     # SARO-004: framework version for traceability
-    version: Mapped[str | None] = mapped_column(String(50), nullable=True, default="AI RMF 1.0")
+    version: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default="AI RMF 1.0"
+    )
     last_updated: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -425,17 +469,25 @@ class ClientConfig(Base):
     Stores identity provider metadata, SCIM provisioning config, MFA settings,
     and contact information for the enterprise onboarding workflow.
     """
+
     __tablename__ = "client_configs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # size: "1–50" | "51–200" | "201–1,000" | "1,000+"
     size: Mapped[str | None] = mapped_column(String(100), nullable=True)
     primary_contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    primary_contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    primary_contact_email: Mapped[str | None] = mapped_column(
+        String(320), nullable=True
+    )
     # SSO / IDP
     sso_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # idp_provider: "okta" | "azure_ad" | "google_workspace" | "pingfederate" | "custom_saml" | "custom_oidc"
@@ -444,11 +496,17 @@ class ClientConfig(Base):
     # SCIM 2.0
     scim_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     scim_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    scim_bearer_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scim_bearer_token_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
     # Security & Compliance
     mfa_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    allow_magic_link_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    warning_banner_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_magic_link_fallback: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    warning_banner_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
     # LIVE-005: per-tenant JWT session length in minutes.
     # None → use global ACCESS_TOKEN_EXPIRE_MINUTES env var (default 480 = 8h).
     # Set to e.g. 480 for enterprise SSO sessions, 60 for high-security tenants.
@@ -457,8 +515,12 @@ class ClientConfig(Base):
     # "EU" → EU data residency required; GitHub integration blocked until DPA amended.
     # "US" or None → no EU-specific restrictions.
     data_region: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     tenant: Mapped["Tenant"] = relationship(back_populates="client_config")
 
@@ -477,9 +539,12 @@ class RulePackSnapshot(Base):
     serialization of every included rule row (tamper-evidence). Evidence records
     pin ``version`` + ``content_hash`` (STORY-RPV-002).
     """
+
     __tablename__ = "rule_pack_snapshots"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     version: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -492,12 +557,16 @@ class RulePackSnapshot(Base):
     snapshot_content: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # {"eu_ai_act_rules": 17, "governance_rules": 36, ...}
     framework_counts: Mapped[dict] = mapped_column(JSON, nullable=False)
-    includes_legacy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    includes_legacy: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     caveat: Mapped[str | None] = mapped_column(Text, nullable=True)
     publisher_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -510,9 +579,12 @@ class AuditEvent(Base):
     Immutable event log — every state change is appended here, never updated.
     Drives compliance trails for client onboarding, user enrollment, SSO config.
     """
+
     __tablename__ = "audit_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
@@ -523,7 +595,9 @@ class AuditEvent(Base):
     # | "user_enrolled" | "mfa_policy_changed" | "sso_test_passed" | "sso_test_failed"
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     event_data: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -538,11 +612,17 @@ class EnhancedTrace(Base):
     Synthesised on first access from AuditTrace records + ScanReport JSON,
     then persisted for subsequent reads.  Drives the TRACE / Explainability view.
     """
+
     __tablename__ = "enhanced_traces"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -562,7 +642,9 @@ class EnhancedTrace(Base):
     raw_output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # SHA-256 of the exported trace JSON (for signed export verification)
     export_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -578,19 +660,29 @@ class GitHubIntegration(Base):
     Scopes: repo:contents:read, repo:metadata (read-only).
     No code is stored — only scan results + file hashes.
     """
+
     __tablename__ = "github_integrations"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     # JSON array of "owner/repo" strings that SARO may read
     allowed_repos: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     # SHA-256 of the Personal Access Token — never stored in plaintext
     access_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_scan_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class GitHubScanResult(Base):
@@ -601,9 +693,12 @@ class GitHubScanResult(Base):
     with a short snippet (no full file content stored) and a remediation note.
     Every scan is logged immutably in audit_events.
     """
+
     __tablename__ = "github_scan_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
@@ -616,7 +711,9 @@ class GitHubScanResult(Base):
     finding_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # SHA-256 of the file content at scan time (for integrity tracking)
     scan_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class DemoRequest(Base):
@@ -624,9 +721,12 @@ class DemoRequest(Base):
     Prospective customer demo/trial signup request.
     Submitted from the public login page — no authentication required.
     """
+
     __tablename__ = "demo_requests"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
@@ -635,8 +735,12 @@ class DemoRequest(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # status: "pending" | "contacted" | "rejected" | "converted"
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -654,13 +758,18 @@ class PersonaPermission(Base):
     allowed_tabs: JSON array of tab identifiers (match frontend route keys)
     allowed_actions: JSON array of action strings (e.g. "create_aims_document")
     """
+
     __tablename__ = "persona_permissions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     persona_role: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     allowed_tabs: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     allowed_actions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -675,21 +784,32 @@ class AIMSDocument(Base):
     Stores document metadata and links to completed audits.
     linked_audit_ids: JSON array of audit UUIDs (as strings).
     """
+
     __tablename__ = "aims_documents"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     # semver string e.g. "1.0.0"
     version: Mapped[str] = mapped_column(String(50), nullable=False)
-    effective_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    effective_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     owner_email: Mapped[str] = mapped_column(String(320), nullable=False)
     # JSON array of audit UUID strings
     linked_audit_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 # SARO-001: Sample-level audit evidence (per-sample Gate 3 findings)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -702,9 +822,12 @@ class SampleFinding(Base):
     the exact samples that triggered it.  PII-containing matched_text_fragment
     fields are redacted at write time — raw SSNs/cards are never stored here.
     """
+
     __tablename__ = "sample_findings"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
@@ -713,9 +836,13 @@ class SampleFinding(Base):
     # The keyword or pattern identifier that matched (e.g. "keyword:ssn")
     matched_signal: Mapped[str] = mapped_column(String(500), nullable=False)
     # Short redacted snippet from the sample text (max 200 chars, PII masked)
-    matched_text_fragment: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    matched_text_fragment: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
     weight: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     audit: Mapped["Audit"] = relationship()
 
@@ -732,20 +859,34 @@ class TenantRiskConfig(Base):
     super_admin sets the tenant ceiling; operator can override per-scan within
     those bounds.  Applied at audit-start; never mutates the global _RISK_SIGNALS.
     """
+
     __tablename__ = "tenant_risk_configs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     # domain → weight float (0.0–1.0); JSON: {"Privacy & Security": 0.95, ...}
     domain_weights: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     # domain → list of keywords to suppress; JSON: {"AI System Safety": ["fail"]}
-    keyword_suppressions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    keyword_suppressions: Mapped[dict] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
     # Maximum weight ceiling an operator may set; enforced at scan time
-    max_weight_ceiling: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    max_weight_ceiling: Mapped[float] = mapped_column(
+        Float, nullable=False, default=1.0
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -773,20 +914,31 @@ class Policy(Base):
 
     __tablename__ = "policies"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     # One of: block | mirror | sample. Safe default for backfilled rows is 'mirror' (STORY-401 AC-6).
-    trigger_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="mirror")
+    trigger_mode: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="mirror"
+    )
     latency_budget_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # One of: open | closed (nullable; required only for block mode).
     on_timeout: Mapped[str | None] = mapped_column(String(10), nullable=True)
     sample_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     policy_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -801,9 +953,12 @@ class Iso42001Document(Base):
     Each generation creates a new row; old rows are never edited through the API.
     content_hash ensures the document content has not been altered post-generation.
     """
+
     __tablename__ = "iso42001_documents"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
@@ -817,9 +972,13 @@ class Iso42001Document(Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     # Version counter within this audit (1, 2, 3 …)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     audit: Mapped["Audit"] = relationship()
+
+
 # Notifications (migration 006)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -827,16 +986,24 @@ class Iso42001Document(Base):
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     # values: threshold_breach | drift_alert | framework_update | system
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # values: critical | high | medium | low
     severity: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
-    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     metadata_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
 
 
@@ -884,26 +1051,39 @@ class SMEEngagement(Base):
     REVIEW_IN_PROGRESS → DRAFT_QCO_RECEIVED → QCO_APPROVED →
     PUBLISHED → RENEWAL_TRIGGERED
     """
+
     __tablename__ = "evf_sme_engagements"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     sme_firm_name: Mapped[str] = mapped_column(String(255), nullable=False)
     sme_key_contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sme_credential: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # EVFFramework enum value stored as string
     framework: Mapped[str] = mapped_column(String(50), nullable=False)
     # SMEEngagementState enum value stored as string
-    state: Mapped[str] = mapped_column(String(50), nullable=False, default=SMEEngagementState.SHORTLISTED.value)
-    state_entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    state: Mapped[str] = mapped_column(
+        String(50), nullable=False, default=SMEEngagementState.SHORTLISTED.value
+    )
+    state_entered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     transitions: Mapped[list["SMEEngagementTransition"]] = relationship(
-        back_populates="engagement", cascade="all, delete-orphan", order_by="SMEEngagementTransition.created_at"
+        back_populates="engagement",
+        cascade="all, delete-orphan",
+        order_by="SMEEngagementTransition.created_at",
     )
     gate: Mapped["ValidationGate | None"] = relationship(
         back_populates="engagement", uselist=False, cascade="all, delete-orphan"
@@ -915,11 +1095,16 @@ class SMEEngagementTransition(Base):
     Append-only hash-chained log of every state transition for an engagement.
     Tamper-evident: each row's event_hash covers prev_hash + transition payload.
     """
+
     __tablename__ = "evf_engagement_transitions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     engagement_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"),
+        nullable=False,
     )
     from_state: Mapped[str] = mapped_column(String(50), nullable=False)
     to_state: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -929,7 +1114,9 @@ class SMEEngagementTransition(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     engagement: Mapped["SMEEngagement"] = relationship(back_populates="transitions")
 
@@ -939,35 +1126,59 @@ class ValidationGate(Base):
     7-item checklist that must be fully completed before any QCO can be
     published for this engagement (FR-EVF-08). Locked once all items are true.
     """
+
     __tablename__ = "evf_validation_gates"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     engagement_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"), unique=True, nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("evf_sme_engagements.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     # Gate items — each becomes True when evidence is recorded
-    coi_declared_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    coi_declared_approved: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     coi_evidence_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sow_executed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sow_evidence_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    evidence_package_delivered: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    evidence_package_delivered: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     evidence_package_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    product_demo_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    product_demo_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     product_demo_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    draft_qco_received: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    draft_qco_received: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     draft_qco_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    saro_legal_review_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    saro_legal_review_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     legal_signoff_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    qco_approved_ref_assigned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    qco_approved_ref_assigned: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     qco_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # Locked when all 7 items are True — no further edits permitted
     locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     locked_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     engagement: Mapped["SMEEngagement"] = relationship(back_populates="gate")
 
@@ -986,19 +1197,28 @@ class QCORegistry(Base):
     all immutable fields so tampering with any published entry breaks the chain.
     FR-EVF-10 | SARO-RISK-001
     """
+
     __tablename__ = "evf_qco_registry"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     # Format: SARO-QCO-{FRAMEWORK}-{YYYY}-{SEQ:03d}
-    qco_reference_number: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    qco_reference_number: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False
+    )
     # EVFFramework enum value stored as string
     framework_covered: Mapped[str] = mapped_column(String(50), nullable=False)
     saro_version_assessed: Mapped[str] = mapped_column(String(50), nullable=False)
     sme_firm: Mapped[str] = mapped_column(String(255), nullable=False)
     sme_credential: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Set at publish time (FR-EVF-13: expiry_date <= issue_date + 365 days)
-    issue_date: Mapped[date | None] = mapped_column(DateTime(timezone=False), nullable=True)
-    expiry_date: Mapped[date | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    issue_date: Mapped[date | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    expiry_date: Mapped[date | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
     scope_boundary_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Access-controlled signed URL; SHA-256 of the document for integrity
     document_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -1010,11 +1230,15 @@ class QCORegistry(Base):
     rule_pack_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     findings_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     engagement_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_sme_engagements.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("evf_sme_engagements.id", ondelete="SET NULL"),
+        nullable=True,
     )
     # Publication state — once True, record is immutable
     published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     published_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -1023,16 +1247,24 @@ class QCORegistry(Base):
     record_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Renewal links
     renews_qco_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("evf_qco_registry.id", ondelete="SET NULL"),
+        nullable=True,
     )
     superseded_by_qco_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("evf_qco_registry.id", ondelete="SET NULL"),
+        nullable=True,
     )
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class QCOPublicationEvent(Base):
@@ -1046,9 +1278,12 @@ class QCOPublicationEvent(Base):
 
     FR-EVF-20, FR-EVF-21 | SARO-RISK-001
     """
+
     __tablename__ = "evf_publication_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     # Required field 1: server-set UTC timestamp
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # Required field 2: identifies the artefact that triggered the publication
@@ -1066,7 +1301,9 @@ class QCOPublicationEvent(Base):
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Idempotency key — deduplication for retries
-    idempotency_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1088,11 +1325,16 @@ class QCOExpiryNotification(Base):
 
     FR-EVF-13 | SARO-RISK-001
     """
+
     __tablename__ = "evf_expiry_notifications"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     qco_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evf_qco_registry.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("evf_qco_registry.id", ondelete="SET NULL"),
+        nullable=True,
     )
     qco_reference_number: Mapped[str] = mapped_column(String(100), nullable=False)
     framework: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -1101,7 +1343,9 @@ class QCOExpiryNotification(Base):
     expires_in_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # Idempotency key: "{qco_id}:{notification_type}:{reference_date}"
-    idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1113,9 +1357,12 @@ class HFSampleQueue(Base):
     'pending' rows and runs them through the SARO engine, updating status to
     'processed' or 'failed'.
     """
+
     __tablename__ = "hf_sample_queue"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
@@ -1123,7 +1370,9 @@ class HFSampleQueue(Base):
     source_dataset: Mapped[str] = mapped_column(String(200), nullable=False)
     prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
     raw_output_text: Mapped[str] = mapped_column(Text, nullable=False)
-    source_model: Mapped[str] = mapped_column(String(100), nullable=False, default="unknown")
+    source_model: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="unknown"
+    )
     # status: "pending" | "processing" | "processed" | "failed"
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     audit_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -1131,8 +1380,12 @@ class HFSampleQueue(Base):
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sampled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -1150,28 +1403,39 @@ class EvaluationRun(Base):
     Status values: running | completed | partial | failed
     Triggered by:  api | schedule | ci | manual
     """
+
     __tablename__ = "evaluation_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     triggered_by: Mapped[str] = mapped_column(String(50), nullable=False, default="api")
     triggered_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     datasets_requested: Mapped[str] = mapped_column(Text, nullable=False, default="all")
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="running")
     datasets_attempted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     datasets_passed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     datasets_skipped: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     datasets_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    total_samples_uploaded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_samples_uploaded: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
     overall_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     elapsed_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     run_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     api_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1187,9 +1451,12 @@ class AISystem(Base):
     The audit engine MUST NEVER set this field automatically — it may only suggest.
     Only compliance_lead and risk_officer personas may write eu_ai_act_risk_tier via API.
     """
+
     __tablename__ = "ai_systems"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
@@ -1201,25 +1468,38 @@ class AISystem(Base):
     # EU AI Act risk tier — HUMAN DECISION ONLY (Art. 14). Never set by engine.
     # Values: "unacceptable" | "high" | "limited" | "minimal" | None (not classified)
     eu_ai_act_risk_tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    last_audit_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_audit_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     current_risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class SystemAudit(Base):
     """Junction table linking AI systems to their audit records."""
+
     __tablename__ = "system_audits"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     system_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ai_systems.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("ai_systems.id", ondelete="CASCADE"),
+        nullable=False,
     )
     audit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
-    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    linked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1235,21 +1515,30 @@ class Control(Base):
     via ControlFrameworkMapping (many-to-many). Rule packs are the technical
     implementation of a control — controls are the governance-layer abstraction.
     """
+
     __tablename__ = "controls"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     # Human-readable control identifier, e.g. "CTRL-RISK-001"
     control_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # "preventive" | "detective" | "corrective" | "compensating"
-    control_type: Mapped[str] = mapped_column(String(50), nullable=False, default="detective")
+    control_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="detective"
+    )
     # "active" | "planned" | "deprecated"
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     # Aggregate count of audit traces that serve as evidence for this control (denormalised)
     evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_assessed_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_assessed_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class ControlFrameworkMapping(Base):
@@ -1259,17 +1548,24 @@ class ControlFrameworkMapping(Base):
     A single control may have multiple rows here (one per framework clause it
     satisfies), enabling cross-framework coverage queries.
     """
+
     __tablename__ = "control_framework_mappings"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     control_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("controls.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("controls.id", ondelete="CASCADE"),
+        nullable=False,
     )
     # "EU_AI_ACT" | "NIST_AI_RMF" | "AIGP" | "ISO_42001"
     framework: Mapped[str] = mapped_column(String(50), nullable=False)
     # e.g. "Art.9", "Cl.6.1", "GOVERN-1.7", "Pr.4"
     clause_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1431,7 +1727,9 @@ class GRCEvidenceRecord(Base):
     # Included in _PAYLOAD_FIELDS so the pin is inside content_hash (tamper-evident).
     # NULL = PRE-VERSIONING (record predates versioning); never backfilled (AC-4).
     rule_pack_version_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    rule_pack_content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rule_pack_content_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
 
     # ── Hash chain ──
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1458,11 +1756,17 @@ class ComplianceReadinessItem(Base):
     source at read time. Tenant isolation is enforced at the app layer via the
     ``tenant_id`` filter (mirrors the rest of SARO's per-tenant tables).
     """
+
     __tablename__ = "compliance_readiness_items"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     item_key: Mapped[str] = mapped_column(String(64), nullable=False)
     completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
