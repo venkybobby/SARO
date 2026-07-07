@@ -90,5 +90,15 @@ class Settings(BaseSettings):
     # considered blind — a gap opens. Per-adapter cadence + tolerance in one knob (v1).
     saro_coverage_cadence_seconds: int = 300
 
+    # ── Live observation-checkpoint emission (STORY-COV-002) ──────────────────
+    # Coalescing window for live emission: at most one checkpoint per
+    # (tenant, system, adapter) per bucket. Must be < cadence so an actively-observed
+    # window always leaves at least one heartbeat before a gap could open.
+    saro_coverage_bucket_seconds: int = 60
+    # When a fresh checkpoint (new bucket) is created on the live audit path, also run an
+    # opportunistic gap sweep so gaps auto-open with no external scheduler. Fail-open; set
+    # False to disable the sweep (e.g. under a dedicated scheduler) without a code change.
+    saro_coverage_auto_sweep: bool = True
+
 
 settings = Settings()

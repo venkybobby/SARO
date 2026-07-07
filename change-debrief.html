@@ -1,64 +1,172 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-COV-001 — Change Debrief</title>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STORY-COV-002 — Live Observation-Checkpoint Emission · Change Debrief</title>
 <style>
-  :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --line:#26304a; }
-  * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap { max-width:940px; margin:0 auto; padding:32px 20px 80px; } h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
-  .sub { color:var(--dim); margin:0 0 16px; } .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:12px 0; }
-  code { background:#0c1120; padding:1px 6px; border-radius:5px; color:#bfe6ff; font-size:13px; } table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; } th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--dim); }
-  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); } .warn { background:rgba(232,176,75,.15); color:var(--warn); }
-  ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
-  .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
-  .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
-</style></head><body><div class="wrap">
-  <h1>STORY-COV-001 — Observation-Gap (Coverage) Attestations</h1>
-  <p class="sub">Change debrief · story 8/8 (final) · CISO differentiator P1 · stacked on <code>story/STORY-MTR-001</code></p>
+  :root { --ink:#12181f; --mut:#5b6b7b; --line:#e3e8ee; --bg:#f7f9fb; --card:#fff;
+          --accent:#0b7285; --good:#0a7d3f; --warn:#b4690e; --bad:#b42318; --code:#0f2733; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); background:var(--bg); }
+  header { background:linear-gradient(135deg,#0b2733,#0b7285); color:#fff; padding:34px 22px; }
+  header h1 { margin:0 0 6px; font-size:23px; }
+  header p { margin:0; opacity:.9; font-size:14px; }
+  main { max-width:920px; margin:0 auto; padding:22px 18px 80px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px;
+            padding:20px 22px; margin:18px 0; }
+  h2 { font-size:17px; margin:0 0 12px; color:var(--accent); }
+  code { background:#eef3f6; padding:1px 5px; border-radius:4px; font-size:13px; color:var(--code); }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; }
+  .p-good{ background:#e5f4ec; color:var(--good);} .p-warn{ background:#fbefd9; color:var(--warn);} .p-bad{ background:#fbe4e2; color:var(--bad);}
+  .mut { color:var(--mut); }
+  ul { margin:6px 0; padding-left:20px; } li { margin:3px 0; }
+  .quiz { border-left:3px solid var(--accent); padding-left:14px; margin:14px 0; }
+  .quiz button { font:inherit; background:#eef3f6; border:1px solid var(--line); border-radius:6px;
+                 padding:5px 10px; cursor:pointer; color:var(--accent); }
+  .quiz .a { display:none; margin-top:8px; padding:10px 12px; background:#f0f7f4; border-radius:8px; }
+  .quiz.open .a { display:block; }
+  .diagram { background:#fbfdfe; border:1px dashed var(--line); border-radius:10px; padding:10px; overflow-x:auto; }
+  .foot { color:var(--mut); font-size:12.5px; text-align:center; margin-top:26px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>STORY-COV-002 — Live Observation-Checkpoint Emission</h1>
+  <p>Un-deferring COV-001 AC-1 · branch <code>story/STORY-COV-002</code> · VERIFY debrief</p>
+</header>
+<main>
 
-  <h2>1. Context</h2>
-  <div class="card"><p>SARO observes AI outputs mirror-async, so it is <b>sometimes blind</b> — an adapter
-  outage, a lag spike, a deploy window. Today that blindness is <b>silent</b>, which an examiner reads
-  as either dishonesty or ignorance. COV-001 turns "when SARO wasn't watching" into <b>first-class
-  evidence</b>: gap records with cause and bounds, a coverage %, and a measured maximum observation
-  lag — converting mirror-async's weakness into a diligence artifact.</p></div>
+<section>
+  <h2>1 · Context — why this exists (plain language)</h2>
+  <p>SARO can now <em>prove how much of the time it was actually watching</em> a client's AI system,
+  and honestly disclose the windows when it wasn't. COV-001 built the machinery (checkpoints → gaps →
+  coverage report, hash-chained, de-identified) but stopped short of the one thing that makes it
+  <strong>live</strong>: emitting a heartbeat when SARO observes something. That step was deferred on a
+  dependency — <code>STORY-406</code>, a "Bedrock adapter" — that <strong>does not exist</strong>.</p>
+  <p>Recon reframed it: SARO is <strong>push-model</strong>. It never polls a client's model; clients
+  push outputs to be audited. So the real "observation event" is a <strong>completed audit</strong>.
+  This story wires the existing <code>record_checkpoint()</code> into every live audit path.</p>
+</section>
 
-  <h2>2. Intuition + scope</h2>
-  <div class="card"><p>Each observation source emits <b>checkpoints</b> (last-observed watermark position +
-  timestamp). When checkpoints stop advancing past the expected cadence, a <b>gap</b> opens
-  (cause UNKNOWN until diagnosed); when they resume, it closes with duration + watermark delta.
-  De-identified throughout (INV-2): <b>positions and timestamps only, never observed content</b>.
-  SARO even confesses its own downtime (a retroactive <code>SARO_OUTAGE</code> gap on restart).</p>
-  <p><b>Owner-locked scope:</b> this is the <b>adapter-independent core</b>. The live Bedrock-adapter
-  heartbeat <i>emission</i> (STORY-406) doesn't exist yet, so AC-1's live wiring is <b>deferred and
-  documented</b> — the checkpoint interface ships, and a future adapter just calls it.</p></div>
+<section>
+  <h2>2 · Intuition — the mental model</h2>
+  <p>A motion-triggered camera: each audit is a "motion event" that stamps <em>"SARO watched system X
+  at time T."</em> No events for longer than the cadence ⇒ a <strong>gap</strong> — evidence of SARO's
+  own blind window, not a claim the client was down. Heartbeats are <strong>coalesced</strong> into time
+  buckets: ≤ one checkpoint per (system, adapter) per bucket.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 860 210" width="860" height="210" role="img" aria-label="before/after flow">
+    <style>.t{font:12px sans-serif;fill:#12181f}.m{font:11px sans-serif;fill:#5b6b7b}.b{fill:#eef3f6;stroke:#cfd9e0}.g{fill:#e5f4ec;stroke:#0a7d3f}.r{fill:#fbe4e2;stroke:#b42318}</style>
+    <text class="t" x="0" y="16">BEFORE (COV-001): interface exists, nothing calls it</text>
+    <rect class="b" x="0" y="30" width="150" height="40" rx="6"/><text class="m" x="12" y="54">audit completes</text>
+    <text class="m" x="165" y="54">— ✗ no heartbeat —▶</text>
+    <rect class="r" x="330" y="30" width="180" height="40" rx="6"/><text class="m" x="342" y="48">record_checkpoint()</text><text class="m" x="342" y="63">only manual POST</text>
+    <rect class="b" x="540" y="30" width="160" height="40" rx="6"/><text class="m" x="552" y="54">coverage = unknowable</text>
 
-  <h2>3. File-by-file</h2>
+    <text class="t" x="0" y="112">AFTER (COV-002): every live path emits (coalesced + fail-open)</text>
+    <rect class="g" x="0" y="126" width="150" height="40" rx="6"/><text class="m" x="10" y="150">GRC / ingest / scan</text>
+    <text class="m" x="163" y="150">—emit_observation()▶</text>
+    <rect class="g" x="330" y="126" width="180" height="40" rx="6"/><text class="m" x="342" y="144">coalesce → bucket</text><text class="m" x="342" y="159">obs:{floor(ts/60)}</text>
+    <rect class="g" x="540" y="126" width="140" height="40" rx="6"/><text class="m" x="552" y="150">checkpoint row</text>
+    <text class="m" x="690" y="150">+ sweep▶</text>
+    <rect class="b" x="740" y="126" width="115" height="40" rx="6"/><text class="m" x="750" y="144">detect_gaps</text><text class="m" x="750" y="159">(fail-open)</text>
+  </svg>
+  </div>
+</section>
+
+<section>
+  <h2>3 · What was done — file by file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/036</code></td><td><code>observation_checkpoints</code> (idempotent unique), <code>observation_gaps</code> (cause CHECK, open-gap partial index), <code>observation_lag_samples</code>; RLS on all 3. Applied on Supabase.</td></tr>
-    <tr><td><code>services/observation_coverage_service.py</code></td><td>checkpoint interface (idempotent, closes gaps on resume), gap detection, diagnose, SARO_OUTAGE self-detect, maintenance, p50/p95/max lag, coverage report.</td></tr>
-    <tr><td><code>routers/observation_coverage.py</code></td><td>POST checkpoint + detect-gaps (operator); GET gaps + report (auditor/CISO). Tenant-scoped.</td></tr>
-    <tr><td>TEN-001 doc + guard</td><td>Registered the 3 new tenant-scoped tables.</td></tr>
+    <tr><td><code>services/observation_coverage_service.py</code></td>
+        <td>New <code>emit_observation()</code> (coalesces via watermark <code>obs:{floor(ts/bucket)}</code>;
+        fail-open opportunistic sweep on fresh checkpoints only). New <code>_safe_ident()</code> INV-2
+        guard + extracted <code>_existing_checkpoint()</code>. <strong>record_checkpoint made race-safe</strong>
+        (IntegrityError → rollback → None). <strong>detect_gaps reduces latest-per-key DB-side</strong> (no
+        full-history load). <strong>coverage_report</strong> now returns <code>observation_events</code> +
+        <code>coverage_attested</code> + a caveat; methodology text discloses push-model + emission-driven semantics.</td></tr>
+    <tr><td><code>config.py</code></td>
+        <td><code>saro_coverage_bucket_seconds=60</code>, <code>saro_coverage_auto_sweep=True</code>.</td></tr>
+    <tr><td><code>grc/orchestrator.py</code></td>
+        <td>Emit hook in <code>run_audit_by_id</code> (adapter_id <code>grc-evaluation</code>), fail-open, beside DISP/MTR.</td></tr>
+    <tr><td><code>routers/ingest.py</code></td>
+        <td>Emit in <code>_run_audit_background</code> (adapter_id <code>sdk-ingest</code>, system_id = source_model).</td></tr>
+    <tr><td><code>routers/scan.py</code></td>
+        <td>Emit in <code>scan_batch</code> + <code>scan_data_batch</code> (adapter_id <code>batch-scan</code>).</td></tr>
+    <tr><td><code>tests/test_cov002_live_emission.py</code></td>
+        <td>Coalescing, buckets, INV-2, sweep-opens-gap, sweep-throttle, sweep-fail-open, wiring (GRC/scan/ingest) + fail-open-on-emit-error, quiet-vs-observed report attestation.</td></tr>
+    <tr><td><code>tests/regression/test_fnd_047_*.py</code> + manifest + ledger</td>
+        <td>FND-047 pinning test for the coalescing-race session-poisoning fix.</td></tr>
   </table>
+</section>
 
-  <h2>4. Risk map</h2>
+<section>
+  <h2>4 · Independent review — findings &amp; disposition</h2>
+  <p><strong>security-auditor: PASS</strong> (INV-2 enforced on every path, tenant isolation intact,
+  emission genuinely fail-open, no new write surface). <strong>reviewer: REQUEST CHANGES → all resolved in-PR.</strong></p>
   <table>
-    <tr><th>Risk</th><th>Covering test / disclosure</th><th>State</th></tr>
-    <tr><td>Duplicate window re-read double-records</td><td><code>test_checkpoint_idempotent_and_gap_opens_when_stale</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Blind period silently unrecorded</td><td><code>detect_gaps</code> + <code>test_...gap_opens_when_stale</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Gap never closes on resume</td><td><code>test_resuming_checkpoint_closes_gap</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Coverage % over-reports (hides a gap)</td><td><code>test_coverage_report_percentage</code> (union of gap intervals; ongoing → window end)</td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>SARO hides its own downtime</td><td><code>test_saro_outage_is_retroactive</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Content leaks into a gap record</td><td>schema has positions/timestamps only (INV-2)</td><td><span class="tag ok">by construction</span></td></tr>
-    <tr><td>Live-adapter emission unwired</td><td>owner-locked deferral (STORY-406), documented</td><td><span class="tag warn">deferred</span></td></tr>
+    <tr><th>Finding</th><th>Fix</th><th></th></tr>
+    <tr><td><strong>Should-fix 1 — coalescing race poisons the shared session.</strong> record_checkpoint's unlocked SELECT-then-INSERT let a concurrent commit raise IntegrityError with no rollback, leaving the session in PendingRollbackError.</td>
+        <td>Wrapped add→flush→commit in <code>try/except IntegrityError: rollback(); return None</code> (the collision surfaced at autoflush, not just commit — the test caught that). Pinned by <strong>FND-047</strong>.</td>
+        <td><span class="pill p-good">fixed</span></td></tr>
+    <tr><td><strong>Should-fix 2 — sweep loaded the tenant's entire checkpoint history into Python.</strong></td>
+        <td>Rewrote <code>detect_gaps</code> to GROUP BY (tenant,system,adapter) with max(timestamp) DB-side (uses the existing index); only stale keys fetch a row. Not a recency filter (that would hide the stale keys we need).</td>
+        <td><span class="pill p-good">fixed</span></td></tr>
+    <tr><td><strong>Should-fix 3 — quiet tenant reads 100% coverage; methodology didn't disclose it.</strong></td>
+        <td><code>coverage_report</code> now surfaces <code>observation_events</code> + <code>coverage_attested=false</code> + a caveat when the window had zero observations, and the methodology text states gap detection is emission-driven.</td>
+        <td><span class="pill p-good">fixed</span></td></tr>
+    <tr><td>Nits — docstring throttling wording; wiring tests prove the call not the body.</td>
+        <td>Docstring corrected; added concurrent-collision + quiet-window tests that exercise the real bodies.</td>
+        <td><span class="pill p-good">fixed</span></td></tr>
   </table>
+</section>
 
-  <h2>5. Understanding check</h2>
-  <div class="quiz">
-    <div class="q"><details><summary>Why record gaps at all instead of just reporting uptime %?</summary><div class="a">A bare % is unfalsifiable and reads as marketing. A gap record — {system, adapter, start, end, cause, watermark bounds} — is auditable evidence an examiner can inspect: it says exactly WHEN SARO was blind, for how long, and WHY. Disclosing gaps as evidence is the opposite of hiding them behind an aggregate; it's what turns mirror-async blindness from a liability into honesty.</div></details></div>
-    <div class="q"><details><summary>How is a gap record kept PHI-free by construction?</summary><div class="a">The schema has no content column at all — only <code>system_id</code>/<code>adapter_id</code> identifiers, watermark <b>positions</b> (source-side offsets), and timestamps. A "watermark delta" expresses the range of missed source activity as positions/timestamps, never the missed content itself. There's nowhere for observed payload to land.</div></details></div>
-    <div class="q"><details><summary>Why does SARO open a retroactive gap for its OWN downtime?</summary><div class="a">If SARO crashes, it wasn't observing — and a coverage claim that ignored its own outages would be dishonest. On restart, a checkpoint discontinuity opens a retroactive <code>SARO_OUTAGE</code> gap. The system confesses its downtime rather than letting the gap look like the source's fault (or vanish).</div></details></div>
-    <div class="q"><details><summary>Why is AC-1's live wiring deferred, and is that a hole?</summary><div class="a">AC-1's heartbeat emission depends on STORY-406 (the Bedrock adapter contract), which doesn't exist — the story set stops at 404. Per an owner-locked decision, this story ships the adapter-INDEPENDENT core (the checkpoint interface + all gap/lag/report logic) and defers the live wiring. It's documented in the notes + story out-of-scope, so it's an honest, scoped deferral — a future adapter just calls <code>record_checkpoint</code>.</div></details></div>
-  </div>
-  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 455 / integration 109 / regression 100 / bandit). Migration 036 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
-</div></body></html>
+<section>
+  <h2>5 · What was deliberately NOT done</h2>
+  <ul>
+    <li><strong>No migration / schema change.</strong> Coalescing rides the existing UNIQUE constraint.</li>
+    <li><strong>No scheduler.</strong> Sweep is opportunistic; a fully-quiet tenant still needs
+      <code>POST /detect-gaps</code> or a future cron — now surfaced honestly via <code>coverage_attested</code>.</li>
+    <li><strong>No lag auto-measurement (AC-5)</strong> and <strong>no change to scoring / SARO posture.</strong></li>
+  </ul>
+</section>
+
+<section>
+  <h2>6 · Risk map</h2>
+  <table>
+    <tr><th>Risk</th><th>Covering test</th><th></th></tr>
+    <tr><td>PII / free text into evidence store</td><td><code>test_emit_never_stores_free_text_system_id</code>, <code>test_safe_ident_opaques_free_text</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Emission failure breaks the audit</td><td><code>test_grc_path_is_fail_open_on_emit_error</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Concurrent-emit session poisoning</td><td><code>test_fnd_047_checkpoint_race_idempotent</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Sweep failure propagates</td><td><code>test_emit_sweep_is_fail_open</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Row explosion / heavy sweep</td><td>coalescing + DB-side reduction; <code>test_emit_coalesces_within_bucket</code>, <code>test_emit_sweep_only_on_fresh_checkpoint</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Quiet window read as attested 100%</td><td><code>test_quiet_window_is_not_attested</code>, <code>test_observed_window_is_attested</code></td><td><span class="pill p-good">covered</span></td></tr>
+    <tr><td>Quiet-tenant gaps need a scheduler</td><td>disclosed via <code>coverage_attested</code> + methodology</td><td><span class="pill p-warn">disclosed</span></td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>7 · Understanding check</h2>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q1.</strong> Why is a completed audit the right observation event, not a Bedrock adapter? <button>reveal</button>
+    <div class="a">SARO is push-model and by invariant never polls/calls a client model — it only sees an output when a client submits it. A polling adapter would contradict the read-only, no-external-model posture.</div></div>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q2.</strong> The reviewer said "bound detect_gaps to a recency window." Why did we NOT do exactly that? <button>reveal</button>
+    <div class="a">A stale system's latest checkpoint is <em>by definition</em> old, so a recency filter would exclude the very keys that should open a gap — silently breaking detection. The correct fix is a DB-side GROUP BY max(timestamp) that reduces cost without dropping stale keys.</div></div>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q3.</strong> Two audits for <code>claude</code> land in the same 60s bucket concurrently. What happens to the loser? <button>reveal</button>
+    <div class="a">It hits the UNIQUE constraint at autoflush/commit; record_checkpoint catches IntegrityError, rolls back, returns None (idempotent no-op). Before the fix it left the session in PendingRollbackError, silently killing the downstream SAR-008 notification. (FND-047)</div></div>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q4.</strong> A tenant submits nothing for a day, then pulls a coverage report. What does it show? <button>reveal</button>
+    <div class="a"><code>observation_events: 0</code>, <code>coverage_attested: false</code>, and a caveat that coverage_pct is vacuous. The raw 100% is still shown but explicitly marked un-attested — honesty in the examiner-facing artifact, which is the whole point of the story.</div></div>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q5.</strong> Why must bucket_seconds stay below the cadence? <button>reveal</button>
+    <div class="a">Within one bucket only the first audit records a heartbeat. If the bucket exceeds the cadence, an actively-observed system could look stale between heartbeats and get a false gap. 60 &lt; 300 keeps a live window always leaving a heartbeat.</div></div>
+  <div class="quiz" onclick="this.classList.toggle('open')"><strong>Q6.</strong> Emission raises mid-audit. What does the client see? <button>reveal</button>
+    <div class="a">Nothing — the audit completes normally. Every call site swallows emission errors (fail-open), matching DISP/MTR; the audit record is already committed before emission. Proven by <code>test_grc_path_is_fail_open_on_emit_error</code>.</div></div>
+</section>
+
+<p class="foot">SARO · STORY-COV-002 · gates: ruff/mypy/unit(466)/integration(114)/regression(102)/bandit clean · coverage ratchet holding · security-auditor PASS, reviewer REQUEST-CHANGES → all 3 Should-fix resolved in-PR (FND-047 pinned).</p>
+</main>
+</body>
+</html>

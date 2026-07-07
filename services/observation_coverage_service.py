@@ -7,9 +7,11 @@ are provable and gaps are disclosed rather than discovered. De-identified by con
 Distinct from services/coverage_service.py (that is audit-recency staleness). This module
 is observation-continuity: mirror-async blindness expressed as first-class gap evidence.
 
-Scope: the adapter-independent core (checkpoint interface + gap/lag/report logic). The live
-Bedrock-adapter heartbeat EMISSION (STORY-406) is deferred; a future adapter calls
-record_checkpoint().
+Live emission (STORY-COV-002): SARO is push-model — its real observation event is an
+inbound audit (a client submits an AI output and SARO evaluates it). emit_observation()
+turns each completed audit into a coalesced heartbeat, so coverage reflects SARO's actual
+visibility. A gap therefore means SARO received NO observations for a (system, adapter) for
+longer than the cadence — it is NOT a claim that the client's system was down.
 """
 
 from __future__ import annotations
@@ -17,17 +19,24 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from statistics import median
 from typing import Optional, Sequence
 
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config import settings
 from models import ObservationCheckpoint, ObservationGap, ObservationLagSample
 
 logger = logging.getLogger(__name__)
+
+# Opaque-token charset for evidence identifiers. Anything outside it is treated as
+# potentially free-text/PII and collapsed to a deterministic surrogate (INV-2).
+_SAFE_TOKEN = re.compile(r"^[A-Za-z0-9:._\-+/=]{1,255}$")
 
 # Cause classes (v1 closed set).
 ADAPTER_FAILURE = "ADAPTER_FAILURE"
@@ -149,6 +158,19 @@ def _close_gap(
 
 
 # ── checkpoint interface (AC-1 core) ────────────────────────────────────────────
+def _existing_checkpoint(db, tenant_id, system_id, adapter_id, watermark_position):
+    return (
+        db.query(ObservationCheckpoint)
+        .filter(
+            ObservationCheckpoint.tenant_id == tenant_id,
+            ObservationCheckpoint.system_id == system_id,
+            ObservationCheckpoint.adapter_id == adapter_id,
+            ObservationCheckpoint.watermark_position == watermark_position,
+        )
+        .first()
+    )
+
+
 def record_checkpoint(
     db: Session,
     *,
@@ -162,18 +184,17 @@ def record_checkpoint(
 
     A checkpoint arriving while a gap is open CLOSES that gap (observation resumed).
     Returns the checkpoint, or None if it was an idempotent duplicate.
+
+    Race-safe: the SELECT-then-INSERT below has a window in which two concurrent callers
+    (the coalescing design deliberately drives audits at the same bucket watermark) can both
+    pass the existence check and race to INSERT. The UNIQUE constraint makes the loser's
+    commit raise IntegrityError; we roll it back and treat it as the idempotent no-op it
+    semantically is, so a coverage-emit collision can never poison the caller's session.
     """
-    existing = (
-        db.query(ObservationCheckpoint)
-        .filter(
-            ObservationCheckpoint.tenant_id == tenant_id,
-            ObservationCheckpoint.system_id == system_id,
-            ObservationCheckpoint.adapter_id == adapter_id,
-            ObservationCheckpoint.watermark_position == watermark_position,
-        )
-        .first()
-    )
-    if existing is not None:
+    if (
+        _existing_checkpoint(db, tenant_id, system_id, adapter_id, watermark_position)
+        is not None
+    ):
         return None  # duplicate window re-read — do not double-record
 
     cp = ObservationCheckpoint(
@@ -183,13 +204,86 @@ def record_checkpoint(
         watermark_position=watermark_position,
         watermark_timestamp=watermark_timestamp,
     )
-    db.add(cp)
-    gap = _open_gap(db, tenant_id, system_id, adapter_id)
-    if gap is not None:
-        _close_gap(gap, end=watermark_timestamp, watermark_end=watermark_position)
-        _finalize_gap_hash(db, gap)  # chain the now-finalized gap (AC-3)
-    db.commit()
+    # Wrap the whole add→flush→commit: the UNIQUE collision can surface either at the explicit
+    # commit OR earlier at the autoflush that _open_gap's query triggers. Catching both keeps a
+    # coverage-emit race from ever leaving the caller's session in a PendingRollbackError state.
+    try:
+        db.add(cp)
+        gap = _open_gap(db, tenant_id, system_id, adapter_id)
+        if gap is not None:
+            _close_gap(gap, end=watermark_timestamp, watermark_end=watermark_position)
+            _finalize_gap_hash(db, gap)  # chain the now-finalized gap (AC-3)
+        db.commit()
+    except IntegrityError:
+        db.rollback()  # concurrent insert won the UNIQUE race — idempotent no-op
+        return None
     db.refresh(cp)
+    return cp
+
+
+# ── live emission (STORY-COV-002) ────────────────────────────────────────────────
+def _safe_ident(value: Optional[str], *, fallback: str) -> str:
+    """Guarantee an evidence identifier is opaque (INV-2). A caller-supplied system/adapter
+    id that is empty → fallback; that fails the opaque-token charset (i.e. could carry
+    free-text/PII) → a deterministic 'op_'+sha256[:16] surrogate. Token-safe values pass
+    through unchanged so coverage streams stay readable when the source is already opaque."""
+    v = (value or "").strip()
+    if not v:
+        return fallback
+    if _SAFE_TOKEN.match(v):
+        return v
+    return "op_" + hashlib.sha256(v.encode("utf-8")).hexdigest()[:16]
+
+
+def emit_observation(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    system_id: str,
+    adapter_id: str,
+    observed_at: Optional[datetime] = None,
+    sweep: Optional[bool] = None,
+) -> Optional[ObservationCheckpoint]:
+    """Record a live observation heartbeat from a completed audit (STORY-COV-002).
+
+    Coalesced: watermark_position is the bucket ``obs:{floor(ts / bucket_seconds)}`` so at
+    most one checkpoint is written per (tenant, system, adapter) per bucket — the existing
+    UNIQUE constraint makes further audits in the same window idempotent no-ops.
+
+    Identifiers pass through _safe_ident so no free text reaches the evidence store (INV-2).
+
+    When a FRESH checkpoint (new bucket) is created and auto-sweep is enabled, opportunistically
+    run detect_gaps for the tenant so gaps auto-open without an external scheduler. The sweep is
+    triggered once per fresh (system, adapter, bucket) — i.e. only when record_checkpoint actually
+    inserts — but detect_gaps itself is tenant-wide (it reduces latest-per-key DB-side, so its cost
+    is bounded by the number of distinct streams, not the checkpoint history). Fail-open.
+
+    Returns the checkpoint, or None if it was an idempotent duplicate within the bucket.
+    """
+    observed_at = _aware(observed_at or datetime.now(tz=timezone.utc))
+    sid = _safe_ident(system_id, fallback="unknown")
+    aid = _safe_ident(adapter_id, fallback="unknown")
+    bucket = int(observed_at.timestamp()) // max(
+        1, settings.saro_coverage_bucket_seconds
+    )
+    cp = record_checkpoint(
+        db,
+        tenant_id=tenant_id,
+        system_id=sid,
+        adapter_id=aid,
+        watermark_position=f"obs:{bucket}",
+        watermark_timestamp=observed_at,
+    )
+    do_sweep = settings.saro_coverage_auto_sweep if sweep is None else sweep
+    if cp is not None and do_sweep:
+        try:
+            detect_gaps(db, tenant_id=tenant_id, now=observed_at)
+        except Exception:  # noqa: BLE001 — coverage bookkeeping must never break the audit
+            logger.warning(
+                "coverage: opportunistic gap sweep failed (tenant=%s)",
+                tenant_id,
+                exc_info=True,
+            )
     return cp
 
 
@@ -210,33 +304,50 @@ def detect_gaps(
         else settings.saro_coverage_cadence_seconds
     )
 
-    q = db.query(ObservationCheckpoint)
+    # Latest watermark per (tenant, system, adapter), reduced DB-side via the
+    # ix_observation_checkpoints_key index. This must NOT be a recency-filtered scan: a stale
+    # system's latest checkpoint is BY DEFINITION old, so filtering by recency would hide the
+    # very keys that need a gap. Instead we GROUP BY key and take max(timestamp), so the
+    # coalescing emit path never materializes the tenant's full (unbounded) checkpoint history.
+    latest_q = db.query(
+        ObservationCheckpoint.tenant_id,
+        ObservationCheckpoint.system_id,
+        ObservationCheckpoint.adapter_id,
+        func.max(ObservationCheckpoint.watermark_timestamp).label("latest_ts"),
+    )
     if tenant_id is not None:
-        q = q.filter(ObservationCheckpoint.tenant_id == tenant_id)
-
-    latest: dict[tuple, ObservationCheckpoint] = {}
-    for cp in q.all():
-        key = (cp.tenant_id, cp.system_id, cp.adapter_id)
-        if (
-            key not in latest
-            or cp.watermark_timestamp > latest[key].watermark_timestamp
-        ):
-            latest[key] = cp
+        latest_q = latest_q.filter(ObservationCheckpoint.tenant_id == tenant_id)
+    latest_q = latest_q.group_by(
+        ObservationCheckpoint.tenant_id,
+        ObservationCheckpoint.system_id,
+        ObservationCheckpoint.adapter_id,
+    )
 
     opened: list[ObservationGap] = []
-    for (tid, sid, aid), cp in latest.items():
-        if (_aware(now) - _aware(cp.watermark_timestamp)).total_seconds() <= cadence:
+    for tid, sid, aid, latest_ts in latest_q.all():
+        if (_aware(now) - _aware(latest_ts)).total_seconds() <= cadence:
             continue
         if _open_gap(db, tid, sid, aid) is not None:
             continue
+        # Only STALE keys reach here (few) — fetch that one row for its watermark position.
+        cp = (
+            db.query(ObservationCheckpoint)
+            .filter(
+                ObservationCheckpoint.tenant_id == tid,
+                ObservationCheckpoint.system_id == sid,
+                ObservationCheckpoint.adapter_id == aid,
+                ObservationCheckpoint.watermark_timestamp == latest_ts,
+            )
+            .first()
+        )
         gap = ObservationGap(
             tenant_id=tid,
             system_id=sid,
             adapter_id=aid,
-            gap_start=cp.watermark_timestamp,
+            gap_start=latest_ts,
             cause_class=UNKNOWN,
             detection_method="checkpoint_cadence_monitor",
-            watermark_start=cp.watermark_position,
+            watermark_start=cp.watermark_position if cp else None,
         )
         db.add(gap)
         opened.append(gap)
@@ -468,10 +579,35 @@ def coverage_report(
         .order_by(ObservationLagSample.max_ms.desc())
         .first()
     )
+
+    # Observation events in the window. Coverage is emission-driven: gap detection only runs
+    # when an audit arrives, so a window with ZERO observations produces no gaps and would
+    # otherwise read as 100% — which is vacuous, not attested. Surface the count + an explicit
+    # caveat so the examiner-facing artifact can never imply visibility it did not have.
+    observation_events = (
+        db.query(func.count(ObservationCheckpoint.id))
+        .filter(
+            ObservationCheckpoint.tenant_id == tenant_id,
+            ObservationCheckpoint.system_id == system_id,
+            ObservationCheckpoint.watermark_timestamp >= start,
+            ObservationCheckpoint.watermark_timestamp <= end,
+        )
+        .scalar()
+    ) or 0
+    attested = observation_events > 0
     return {
         "system_id": system_id,
         "window": {"start": start.isoformat(), "end": end.isoformat()},
         "coverage_pct": coverage_pct,
+        "observation_events": observation_events,
+        "coverage_attested": attested,
+        "caveat": None
+        if attested
+        else (
+            "No observations were recorded for this system in the window; coverage_pct is "
+            "vacuous (absence of gaps ≠ observation). A scheduled sweep or at least one audit "
+            "is required before coverage can be attested."
+        ),
         "gaps": gap_list,
         "max_observation_lag_ms": float(max_lag[0])
         if max_lag and max_lag[0] is not None
@@ -480,6 +616,12 @@ def coverage_report(
             "Coverage = 1 - (blind seconds / window seconds), where blind seconds are the union "
             "of observation-gap intervals overlapping the window. Gaps carry cause class + watermark "
             "bounds (positions/timestamps only, no observed content). Max lag is the measured "
-            "per-window maximum, not an estimate. Ongoing gaps count to the window end."
+            "per-window maximum, not an estimate. Ongoing gaps count to the window end. "
+            "SARO observes on a push model: a heartbeat is emitted when SARO evaluates an inbound "
+            "output, so a gap means SARO received no observations for this system/adapter for longer "
+            "than the configured cadence — it is evidence of SARO's own visibility, not a claim that "
+            "the observed system was down. Gap detection is emission-driven: a window in which SARO "
+            "received zero submissions self-reports no gaps, so read coverage_pct together with "
+            "observation_events / coverage_attested (a scheduled sweep closes this)."
         ),
     }

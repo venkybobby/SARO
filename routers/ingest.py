@@ -144,6 +144,20 @@ def _run_audit_background(
         audit.completed_at = datetime.now(tz=timezone.utc)
         db.commit()
 
+        # STORY-COV-002: a completed ingest IS a live observation of the source model.
+        # Coalesced + fail-open — coverage bookkeeping must never fail the audit.
+        try:
+            import services.observation_coverage_service as coverage
+
+            coverage.emit_observation(
+                db,
+                tenant_id=audit.tenant_id,
+                system_id=source_model,
+                adapter_id="sdk-ingest",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("coverage: ingest checkpoint emission failed (audit=%s)", audit_id, exc_info=True)
+
         log.info(
             "ingest: audit complete",
             audit_id=str(audit_id),
