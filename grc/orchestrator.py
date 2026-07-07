@@ -233,6 +233,20 @@ def run_audit_by_id(db, *, tenant_id: uuid.UUID, output_id: str) -> dict[str, An
         )
     except Exception:  # noqa: BLE001
         pass
+
+    # STORY-COV-002: emit a live observation checkpoint — this evaluation proves SARO was
+    # observing this system now. Coalesced + fail-open (never block/slow the audit path).
+    try:
+        import services.observation_coverage_service as coverage
+
+        coverage.emit_observation(
+            db,
+            tenant_id=tenant_id,
+            system_id=str(sys_id) if sys_id else "unknown",
+            adapter_id="grc-evaluation",
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("coverage: checkpoint emission failed (output=%s)", output_id, exc_info=True)
     return result
 
 

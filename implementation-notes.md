@@ -1,74 +1,82 @@
-# STORY-COV-001 — Observation-Gap (Coverage) Attestations
+# STORY-COV-002 — Live observation-checkpoint emission (COV-001 AC-1, un-deferred)
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (recon: no STORY-406 adapter exists (stories stop at 404) -> AC-1 live-adapter
-                  heartbeat wiring is DEFERRED per the owner decision; grc/evidence hash-chain +
-                  self_audit + metering patterns available to reuse; INV-2 = positions/timestamps
-                  only, never content; TEN-001 schema-completeness guard requires registering new
-                  tenant tables)
-- [x] shape      (skipped brainstorm — STORY has ACs; interview -> Decision Log below)
-- [x] preview    (skipped — backend coverage engine + report API; no new UI surface)
+- [x] discover   (reframe below — the "STORY-406 Bedrock adapter" premise was wrong for SARO)
+- [x] shape      (interview → Decision Log; owner picked all-paths / coalesce / opportunistic-sweep)
+- [x] preview    (skipped — backend emission wiring; no new UI surface)
 - [x] plan
 - [x] build
-- [x] verify    (change-debrief.html generated)
-- [x] sell       (n/a)
-
-## Decision Log
-Q1 scope (owner-locked)? → build the ADAPTER-INDEPENDENT core: checkpoint interface, gap records
-  with cause classes, SARO_OUTAGE self-detect, lag p50/p95/max, coverage report. DEFER AC-1's live
-  Bedrock-adapter heartbeat emission until STORY-406 (the adapter contract) exists. The checkpoint
-  DATA MODEL + record_checkpoint() ARE in scope so a future adapter just calls them.
-
-Q2 checkpoint (AC-1 core)? → observation_checkpoints: {tenant, system, adapter, watermark_position,
-  watermark_timestamp, recorded_at}. Idempotent per (tenant, system, adapter, watermark_position) so
-  duplicate window re-reads don't double-record (evf_expiry_notifications idempotency pattern).
-
-Q3 gap lifecycle (AC-2/AC-3)? → when the latest checkpoint for a (system, adapter) is older than the
-  configured cadence + tolerance and no gap is open, open an observation_gap with cause UNKNOWN
-  (until diagnosed). Cause classes: ADAPTER_FAILURE | SOURCE_UNAVAILABLE | CREDENTIAL_EXPIRY |
-  DEPLOY_WINDOW | LAG_EXCEEDED | PLANNED_MAINTENANCE | SARO_OUTAGE | UNKNOWN. A resuming checkpoint
-  closes the open gap with duration + watermark delta (positions/timestamps only — never content).
-  AC-3 "links into the evidence hash chain": on FINALIZATION (close / created-closed) each gap gets a
-  content_hash + prev_hash chaining per tenant (reviewer B1 — added; verify_gap_chain detects tamper).
-
-Q4 zero-PHI (INV-2/INV-3)? → gap + checkpoint records carry positions and timestamps ONLY. No
-  observed content, ever. Watermark deltas are expressed as positions/timestamps.
-
-Q5 SARO self-outage (edge)? → detect_saro_outage(): on boot, a checkpoint-discontinuity beyond
-  tolerance opens a RETROACTIVE gap with cause SARO_OUTAGE — the system confesses its own downtime.
-
-Q6 planned maintenance (edge)? → declare_maintenance() pre-creates a gap with cause
-  PLANNED_MAINTENANCE + approver. Planned gaps are still gaps (counted in coverage).
-
-Q7 lag (AC-5)? → observation_lag_samples: p50/p95/max per window so "maximum observation lag" has
-  MEASURED evidence, not an estimate. Recorded periodically.
-
-Q8 report (AC-4)? → coverage_report(system, range): % time under observation, gap list with causes,
-  max observation lag observed, methodology note — exportable diligence artifact.
-
-Q9 tenant isolation? → all three tables are tenant-scoped -> RLS (migration 036) + register in the
-  TEN-001 schema-completeness guard + docs/TENANT_ISOLATION.md.
-
-## Deviations
-- DEV-1 (owner-locked scope): AC-1's live-adapter heartbeat EMISSION is deferred (STORY-406 absent).
-  The checkpoint interface + all gap/lag/report logic ships; wiring a real adapter is follow-on.
+- [x] verify    (change-debrief.html regenerated; independent reviewer + security-auditor below)
+- [ ] sell       (n/a)
 
 ## Review outcomes (both agents)
-- Reviewer VERDICT: REQUEST-CHANGES -> resolved. Security-auditor VERDICT: FAIL -> resolved.
-- B1 (reviewer BLOCKER): AC-3 hash-chain linkage was missing AND undisclosed. Fixed: ObservationGap
-  gets content_hash + prev_hash (migration ALTER + model), finalized on close/create-closed, chained
-  per tenant; verify_gap_chain added. Pinned by test_gap_chain_finalizes_and_detects_tamper.
-- SF (security FAIL): CheckpointIn strings unbounded -> PII could be smuggled into watermark_position
-  (INV-2 breach). Fixed: max_length=255 + opaque-token pattern. FND-046 (pinned regression).
-- SF (reviewer): coverage % double-counted overlapping gaps. Fixed: _merge_intervals union.
-  Pinned by test_coverage_union_no_double_count.
-- SF (reviewer): max_observation_lag_ms ignored the report window. Fixed: bounded by recorded_at.
-- NH: _aware in detect_saro_outage/declare_maintenance; duration_seconds BigInteger; out-of-window
-  gaps excluded from the report list.
+- security-auditor: PASS (INV-2 enforced every path; tenant isolation intact; fail-open; no new write surface).
+- reviewer: REQUEST-CHANGES → ALL resolved in-PR:
+  - SF1 (session-poison race): record_checkpoint wrapped add→flush→commit in try/except IntegrityError
+    → rollback → None (collision surfaced at AUTOFLUSH, not just commit — the FND-047 test caught that).
+    Logged FND-047 (pinned) + ledger + manifest.
+  - SF2 (unbounded sweep): detect_gaps now GROUP BY (tenant,system,adapter) max(watermark) DB-side;
+    only stale keys fetch a row. NOT a recency filter (would hide the stale keys we must detect).
+  - SF3 (quiet-tenant honesty): coverage_report adds observation_events + coverage_attested + caveat;
+    methodology text discloses emission-driven detection. Pinned by test_quiet_window_is_not_attested.
+  - Nits: docstring throttling wording fixed; added concurrent-collision + quiet-window body tests.
 
-## Out of scope (this story)
-- Alerting/paging on gap-open (notifications family)
-- Auto-remediation of adapter failures
-- Coverage SLA contract commitments (this produces the measurement that makes an SLA possible)
-- Live Bedrock adapter heartbeat wiring (STORY-406 dependency — deferred)
+## Discover — the reframe
+COV-001 deferred AC-1's "live-adapter heartbeat emission" pending STORY-406 (a
+Bedrock adapter contract). Recon shows that dependency was a mis-frame: SARO has
+no streaming poller of client model endpoints, and by its non-negotiables it
+never calls external models. SARO's REAL observation event is inbound — a client
+pushes an AI output and SARO audits it:
+  - grc/orchestrator.run_audit_by_id  (evidence-backed GRC evaluation; HAS system_id;
+    already the hook site for DISP-001 + MTR-001, fail-open pattern established)
+  - routers/ingest._run_audit_background (single-output SDK ingest; has source_model +
+    tenant, NO system_id)
+Each completed audit IS proof SARO was observing that system at that time. So AC-1
+is implementable NOW against the real architecture — no fictional adapter needed.
+The checkpoint interface record_checkpoint() already exists and is unit-tested;
+this story WIRES it to the live audit path.
+
+## Decision Log
+Q1 emission sites (owner)? → ALL live audit paths. grc/orchestrator.run_audit_by_id +
+  routers/ingest._run_audit_background + routers/scan.{scan_batch, scan_data_batch}.
+  Each hooks fail-open, matching the established DISP/MTR pattern (local import, try/except,
+  never block or add failure to the audit).
+Q2 granularity (owner)? → COALESCE into time buckets. watermark_position = "obs:{floor(ts /
+  saro_coverage_bucket_seconds)}"; the existing UNIQUE(tenant,system,adapter,watermark) makes
+  the 2nd+ audit in a bucket an idempotent no-op. New config saro_coverage_bucket_seconds=60
+  (< cadence 300 so an active window always leaves a heartbeat).
+Q3 gap sweep (owner)? → ALSO trigger an opportunistic detect_gaps sweep. Fires ONLY when a
+  fresh checkpoint (new bucket) is created — so it's throttled to once/bucket/system, not
+  once/audit. Fail-open, config-gated (saro_coverage_auto_sweep=True). Residual (documented):
+  a fully-quiet tenant never self-sweeps — the existing POST /detect-gaps + a future scheduler
+  cover that; this is opportunistic, not a scheduler.
+
+Q4 identity mapping (mine; INV-2)? → system_id/adapter_id per site, ALL passed through a new
+  _safe_ident() token-guard so free text can NEVER reach the evidence store (INV-2):
+    - GRC:            system_id = sys_id or "unknown",     adapter_id = "grc-evaluation"
+    - ingest:         system_id = source_model (closed vocab), adapter_id = "sdk-ingest"
+    - scan_batch:     system_id = dataset_name (sanitized), adapter_id = "batch-scan"
+    - scan_data_batch:system_id = model_type   (sanitized), adapter_id = "batch-scan"
+  _safe_ident: if value fails ^[A-Za-z0-9:._\-+/=]{1,255}$, collapse to "op_"+sha256[:16]
+  (opaque, deterministic — still coalesces per distinct source, never leaks content).
+
+Q5 honesty of the coverage claim (mine; compliance-guard)? → SARO is push-model: a gap means
+  SARO received NO observations for that (system, adapter) for > cadence. It is NOT a claim
+  the client's system was down. Update coverage_report methodology text + service docstring to
+  say exactly this. No schema change (emission rides existing columns).
+
+## Plan (ordered by tweak-likelihood)
+1. DATA/CONFIG: add saro_coverage_bucket_seconds (60) + saro_coverage_auto_sweep (True) to config.py.
+   Verify: python -c "from config import settings; print(settings.saro_coverage_bucket_seconds)"
+2. SERVICE: observation_coverage_service.emit_observation() + _safe_ident()/_SAFE_TOKEN.
+   Coalesce + fail-open sweep. Update coverage_report methodology text + module docstring (Q5).
+   Verify: pytest tests/test_cov002_live_emission.py -q (new)
+3. WIRING (mechanical, fail-open, matches MTR): 4 call sites emit a checkpoint post-audit.
+   Verify: integration test asserts a checkpoint row after ingest + after run_audit_by_id.
+4. TESTS: tests/test_cov002_live_emission.py — coalescing dedup, _safe_ident INV-2 hashing,
+   sweep opens a gap for a quiet system, fail-open (emit swallows a broken db), per-site wiring.
+   Verify: full gate suite.
+
+## Deviations
+None yet.

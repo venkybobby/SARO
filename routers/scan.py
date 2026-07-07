@@ -321,6 +321,23 @@ def scan_batch(
         # ── Persist audit traces (non-critical — never block the response) ──
         _persist_traces(engine, audit_id, db)
 
+        # STORY-COV-002: a completed batch scan is a live observation. Coalesced + fail-open.
+        try:
+            import services.observation_coverage_service as coverage
+
+            coverage.emit_observation(
+                db,
+                tenant_id=current_user.tenant_id,
+                system_id=payload.dataset_name or "batch",
+                adapter_id="batch-scan",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug(
+                "coverage: scan checkpoint emission failed (audit=%s)",
+                audit_id,
+                exc_info=True,
+            )
+
         # SAR-008: dispatch notification when risk score is high or critical
         _maybe_dispatch_risk_notification(
             db=db,
@@ -498,6 +515,23 @@ def scan_data_batch(
 
         # ── Persist audit traces (non-critical — never block the response) ──
         _persist_traces(engine, audit_id, db)
+
+        # STORY-COV-002: a completed saro_data scan is a live observation. Coalesced + fail-open.
+        try:
+            import services.observation_coverage_service as coverage
+
+            coverage.emit_observation(
+                db,
+                tenant_id=current_user.tenant_id,
+                system_id=payload.model_type or "batch",
+                adapter_id="batch-scan",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug(
+                "coverage: saro_data checkpoint emission failed (audit=%s)",
+                audit_id,
+                exc_info=True,
+            )
 
         logger.info(
             "saro_data audit %s completed: model_type=%s, samples=%d, "

@@ -212,3 +212,8 @@ findings:
     test: tests/regression/test_fnd_046_coverage_watermark_bounded.py
     status: pinned
     quarantine_expires: null
+  - id: FND-047
+    title: "record_checkpoint SELECT-then-INSERT race poisoned the shared session on coalesced concurrent emits (COV-002)"
+    test: tests/regression/test_fnd_047_checkpoint_race_idempotent.py
+    status: pinned
+    quarantine_expires: null
