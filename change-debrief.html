@@ -1,68 +1,73 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-META-001 — Change Debrief</title>
+<title>STORY-DISP-001 — Change Debrief</title>
 <style>
   :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --line:#26304a; }
   * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
   .wrap { max-width:940px; margin:0 auto; padding:32px 20px 80px; } h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
   .sub { color:var(--dim); margin:0 0 16px; } .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:12px 0; }
   code { background:#0c1120; padding:1px 6px; border-radius:5px; color:#bfe6ff; font-size:13px; } table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; } th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--dim); }
-  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); } .warn { background:rgba(232,176,75,.15); color:var(--warn); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); }
   ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
   .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
   .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
+  svg { max-width:100%; height:auto; }
 </style></head><body><div class="wrap">
-  <h1>STORY-META-001 — SARO Self-Audit: Governance of the Governance Tool</h1>
-  <p class="sub">Change debrief · story 5/8 · SOC 2 spine · stacked on <code>story/STORY-TEN-001</code></p>
+  <h1>STORY-DISP-001 — Finding Disposition Lifecycle</h1>
+  <p class="sub">Change debrief · story 6/8 · shelfware-risk P1 · stacked on <code>story/STORY-META-001</code></p>
 
   <h2>1. Context</h2>
-  <div class="card"><p>SARO audits its customers' AI, but its own <code>audit_events</code> table was <b>empty</b> —
-  who viewed evidence, changed rules, or exported what was unanswerable. The 2026-07-04 out-of-band
-  rule mutation would have shown up here, and didn't. META-001 makes SARO survive the scrutiny it
-  applies to others: an <b>immutable, hash-chained</b> trail of privileged actions, plus <b>DB-level
-  capture of out-of-band writes</b> so the API isn't the only thing watched.</p></div>
+  <div class="card"><p>A failed evaluation used to <b>terminate at the finding</b> — there was no
+  acknowledge/remediate/waive lifecycle (the notifications table had 0 rows). An examiner asking
+  "you found this problem; what did you do about it?" had no answer. DISP-001 makes every failed
+  finding enter a tracked disposition lifecycle, because <b>dispositions ARE evidence</b>.</p></div>
 
-  <h2>2. Intuition</h2>
-  <div class="card"><p>Two chains, one table. <b>App-layer</b> events (RULE_PACK_CHANGE, EVIDENCE_ACCESS,
-  EXPORT…) are sealed into a per-tenant SHA-256 chain (reusing the evidence-store discipline) —
-  content-free, metadata only. <b>Out-of-band</b> writes to the rule tables are caught by a
-  statement-level DB trigger that appends a <code>RULE_PACK_CHANGE</code> with <code>actor=db:role</code>,
-  honestly flagged as outside the app chain. Global actions (rule-pack changes aren't tenant-specific)
-  live on a dedicated <b>SYSTEM tenant</b> chain.</p></div>
+  <h2>2. Intuition — the state machine</h2>
+  <div class="card">
+    <svg viewBox="0 0 760 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="disposition state machine">
+      <style>.b{fill:#171e2e;stroke:#26304a} .t{fill:#e6ebf5;font:12px sans-serif} .a{stroke:#5ad1a8;stroke-width:2;fill:none;marker-end:url(#h)} .r{stroke:#e8b04b;stroke-width:2;fill:none;stroke-dasharray:4 3;marker-end:url(#hr)}</style>
+      <defs><marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5ad1a8"/></marker><marker id="hr" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e8b04b"/></marker></defs>
+      <rect class="b" x="10" y="46" width="90" height="34" rx="8"/><text x="34" y="67" class="t">OPEN</text>
+      <path class="a" d="M102,63 L150,63"/>
+      <rect class="b" x="152" y="46" width="128" height="34" rx="8"/><text x="170" y="67" class="t">ACKNOWLEDGED</text>
+      <path class="a" d="M282,55 L330,30"/><rect class="b" x="332" y="12" width="110" height="30" rx="8"/><text x="352" y="32" class="t">REMEDIATED</text>
+      <path class="a" d="M282,63 L330,63"/><rect class="b" x="332" y="48" width="90" height="30" rx="8"/><text x="352" y="68" class="t">WAIVED</text>
+      <path class="a" d="M282,71 L330,96"/><rect class="b" x="332" y="82" width="100" height="30" rx="8"/><text x="352" y="102" class="t">ESCALATED</text>
+      <path class="r" d="M422,58 C520,20 520,110 108,66"/><text x="470" y="30" style="fill:#e8b04b;font:11px sans-serif">waiver expiry → auto-reopen</text>
+    </svg>
+    <p>Forward-only, each hop stamped actor+timestamp and sealed into a per-disposition SHA-256
+    <b>transition log</b> (append-only, trigger-immutable). An expired <code>WAIVED</code> auto-reopens
+    to <code>OPEN</code> — the one backward edge, system-driven — and fires the first real
+    <code>notifications</code> row. De-identified throughout (INV-2): rule/gate/system ids and
+    severity, never observed content.</p>
+  </div>
 
   <h2>3. File-by-file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/033</code></td><td>Extends <code>audit_events</code> (chained schema + id default); immutability trigger; SYSTEM tenant; statement-level out-of-band triggers on the rule tables; 2 RETROACTIVE backfill events. Applied + verified on Supabase.</td></tr>
-    <tr><td><code>services/self_audit.py</code></td><td><code>record_event</code> (per-tenant chain), <code>record_privileged</code> (fail-closed), <code>record_access</code> (fail-open), <code>verify_audit_chain</code>, <code>query_events</code>.</td></tr>
-    <tr><td><code>routers/self_audit.py</code></td><td><code>GET /audit/events</code> (filter + verify + self-referential export), <code>/events/verify</code>; system scope operator-gated.</td></tr>
-    <tr><td>rule_pack_versions / evidence_criteria</td><td>Wire RULE_PACK_CHANGE (publish) + EVIDENCE_ACCESS (read).</td></tr>
+    <tr><td><code>migrations/034</code></td><td><code>dispositions</code> + <code>disposition_transitions</code> (append-only immutability trigger); RLS policy on dispositions. Applied on Supabase.</td></tr>
+    <tr><td><code>services/disposition_service.py</code></td><td>State machine, hash-chained transitions (evf pattern), waiver rules (justification+approver+expiry, four-eyes), <code>expire_waivers</code> (reopen + Notification), recurrence linking, report.</td></tr>
+    <tr><td><code>routers/dispositions.py</code></td><td>acknowledge/remediate/waive/escalate (persona-gated), list, report, bulk-acknowledge (<b>bulk-waive not offered</b>), expire-waivers. Tenant-scoped.</td></tr>
+    <tr><td>TEN-001 doc + guard test</td><td>Registered the new tenant-scoped <code>dispositions</code> table (the schema-completeness guard required it).</td></tr>
   </table>
 
-  <h2>4. Deliberately NOT done</h2>
-  <div class="card"><ul>
-    <li>Full ADMIN_ACTION/AUTH_EVENT wiring + DISPOSITION_ACTION (DISP-001's log) — incremental.</li>
-    <li>SIEM export/streaming, full SOC 2 program, anomaly detection — the story is the spine, not the program.</li>
-    <li>Archival job — retention is config'd (<code>saro_audit_retention_days</code>); the mover is follow-on.</li>
-  </ul></div>
-
-  <h2>5. Risk map</h2>
+  <h2>4. Risk map</h2>
   <table>
-    <tr><th>Risk</th><th>Covering test / disclosure</th><th>State</th></tr>
-    <tr><td>Audit log copies payload content (retention violation)</td><td><code>test_content_free_no_payload</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Trail tampered</td><td><code>test_verify_detects_tamper</code> + DB immutability trigger (verified live)</td><td><span class="tag ok">covered ×2</span></td></tr>
-    <tr><td>Out-of-band rule write invisible</td><td>statement trigger (verified live: UPDATE→db_trigger event)</td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Unauditable privileged action proceeds</td><td><code>test_fail_closed_vs_fail_open</code> (record_privileged raises)</td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Cross-tenant chain read / system scope</td><td><code>test_system_scope_requires_operator</code>; query is tenant-scoped</td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Superuser disables the trigger</td><td>disclosed as residual risk (role separation is the mitigation)</td><td><span class="tag warn">disclosed</span></td></tr>
+    <tr><th>Risk</th><th>Covering test</th><th>State</th></tr>
+    <tr><td>Illegal state jump (e.g. OPEN→REMEDIATED)</td><td><code>test_illegal_transition_rejected</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Transition log tampered</td><td><code>verify_transition_chain</code> + immutability trigger</td><td><span class="tag ok">covered ×2</span></td></tr>
+    <tr><td>Waiver without justification / self-approval</td><td><code>test_waiver_requires_fields_and_four_eyes</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Expired waiver silently persists</td><td><code>test_expired_waiver_reopens_and_notifies</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Duplicate dispositions per finding</td><td><code>test_recurrence_links_to_prior_chain</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Cross-tenant action</td><td><code>test_api_cross_tenant_404</code> + RLS policy</td><td><span class="tag ok">covered</span></td></tr>
   </table>
 
-  <h2>6. Understanding check</h2>
+  <h2>5. Understanding check</h2>
   <div class="quiz">
-    <div class="q"><details><summary>Why does EVIDENCE_ACCESS fail OPEN while a privileged action fails CLOSED?</summary><div class="a">A read is the customer's compliance function doing its job — blocking it because SARO's self-audit hiccuped would harm availability for a benefit (self-audit completeness) that matters less in that moment. A privileged WRITE that can't be audited is exactly what you must not let happen silently, so it fails closed (aborts). The tradeoff is documented, not accidental.</div></details></div>
-    <div class="q"><details><summary>Why do out-of-band (DB-trigger) and backfill events sit OUTSIDE the hash chain?</summary><div class="a">The app-layer chain seals events the service creates in order. A DB trigger firing on a raw SQL write can't compute the Python canonical hash, and backfill events predate the chain entirely. Rather than fake a chain link, they're captured with <code>seq=NULL</code> and honestly flagged (out_of_band / retroactive) — queryable, but excluded from <code>verify_audit_chain</code>. Honesty over a fake-complete chain.</div></details></div>
-    <div class="q"><details><summary>Why does the SYSTEM tenant UUID start with 'a'?</summary><div class="a">An all-numeric UUID string (once dashes are stripped) is a valid number, and SQLite's NUMERIC type affinity coerces it to an integer on readback in the test harness — so <code>uuid.UUID(1)</code> blows up. A leading hex letter keeps it TEXT. Real Postgres UUID columns are unaffected; this is purely a test-harness robustness choice.</div></details></div>
-    <div class="q"><details><summary>How is the trail content-free, and why does it matter?</summary><div class="a">Only metadata is hashed and stored — actor, action class, target id, outcome, timestamp — never the prompt/output/evidence content. An audit log that copied evidence content would itself become a PII-retention liability (INV-2/INV-3), turning the compliance feature into a compliance risk. The <code>metadata</code> passed at call sites is hashes/counts only.</div></details></div>
+    <div class="q"><details><summary>Why does a recurring finding link to the prior disposition instead of creating a new one?</summary><div class="a"><code>create_disposition</code> checks for an ACTIVE disposition with the same (tenant, rule_id, system_id); if found it increments <code>recurrence_count</code> and returns it. Otherwise a re-failing check would spawn unbounded duplicate rows for one underlying problem, drowning the report. Recurrence under an active waiver does NOT auto-escalate in v1 (recorded, not acted on).</div></details></div>
+    <div class="q"><details><summary>How is the expired-waiver reopen a "lineage reference to the expired waiver" if it's the same row?</summary><div class="a">The append-only transition log holds the lineage: the row gets a new <code>WAIVED → OPEN</code> transition with reason "waiver expired {date}", so the full history (opened → acknowledged → waived → reopened) is sealed and verifiable. The waiver fields remain on the row, and the report surfaces the reopened-waiver lineage. No duplicate disposition is created.</div></details></div>
+    <div class="q"><details><summary>Why is bulk-waive forbidden while bulk-acknowledge is allowed?</summary><div class="a">A waiver is an accountable risk-acceptance decision that requires its own justification, approver, and expiry — batching them would let someone rubber-stamp many risk acceptances with one rationale. Acknowledgement is just "I've seen this", so batching it is safe. There is simply no bulk-waive endpoint.</div></details></div>
+    <div class="q"><details><summary>The TEN-001 test failed when this story added a table. Was that a bug?</summary><div class="a">No — it was the schema-completeness guard working exactly as intended. Adding <code>dispositions</code> (a tenant_id-bearing table) without registering it tripped <code>test_every_tenant_scoped_model_is_accounted_for</code>, forcing this story to add the RLS policy (migration 034) and update the isolation inventory. That's how AC-1's "no tenant table relies on zero policies" stays enforced over time.</div></details></div>
   </div>
-  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 425 / integration 102 / regression 99 / bandit). Migration 033 applied + verified on Supabase (immutability, out-of-band trigger, backfill=2). Coverage ratchet + reviewer/security-auditor pending at write time.</p>
+  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 433 / integration 105 / regression 99 / bandit). Migration 034 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
 </div></body></html>

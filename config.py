@@ -69,5 +69,13 @@ class Settings(BaseSettings):
     # Hot-retention floor for audit_events before archival (never silent deletion).
     saro_audit_retention_days: int = 365
 
+    # ── Finding disposition lifecycle (STORY-DISP-001) ───────────────────────
+    # When True, a WAIVED disposition's approver must differ from the acknowledger
+    # AND the waive actor (four-eyes). Per-tenant policy in v1 defaults to this flag.
+    saro_disposition_four_eyes: bool = False
+    # Max waiver horizon (days): a waiver may not indefinitely suppress a finding.
+    # expiry must be in (today, today + this]. Reject past/absurd-future expiries.
+    saro_disposition_max_waiver_days: int = 180
+
 
 settings = Settings()

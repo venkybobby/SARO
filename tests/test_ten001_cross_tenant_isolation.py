@@ -216,6 +216,7 @@ _ACCOUNTED_TENANT_SCOPED = frozenset(
         "github_integrations",
         "hf_sample_queue",
         "tenant_risk_configs",
+        "dispositions",  # STORY-DISP-001 (RLS policy added in migration 034)
     }
 )
 

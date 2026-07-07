@@ -1,70 +1,73 @@
-# STORY-META-001 — SARO Self-Audit: Governance of the Governance Tool
+# STORY-DISP-001 — Finding Disposition Lifecycle
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (recon: audit_events table + AuditEvent ORM model exist (event_type/event_data,
-                  0 rows live); several routers already append unchained events (clients/sso/
-                  remediation/insights/compliance_hub). services/audit_emitter.py is a SEPARATE
-                  in-memory SIEM emitter (Epic 14 governance-runtime allow/block), NOT this table.
-                  grc/evidence.py is the DB-persisted per-tenant hash-chain pattern to reuse.)
+- [x] discover   (recon: Notification model + notification_service (dispatch/generate) exist,
+                  notifications table 0 rows -> DISP is first real consumer; evf_engagement_service
+                  is the state-machine + hash-chained append-only transition-log pattern to mirror
+                  (_build_transition_payload, _compute_transition_hash, _write_transition);
+                  grc_evidence_records is the evidence FK target (UUID); self_audit.record_event
+                  exists for DISPOSITION_ACTION mirroring, META-001)
 - [x] shape      (skipped brainstorm — STORY has ACs; interview -> Decision Log below)
-- [x] preview    (skipped — backend spine + query API; no new UI surface)
+- [x] preview    (skipped — backend lifecycle + report API; no new UI surface designed here)
 - [x] plan
 - [x] build
 - [x] verify    (change-debrief.html generated)
 - [x] sell       (n/a)
 
 ## Decision Log
-Q1 new table or extend audit_events? → EXTEND audit_events (migration 033) with the META-001
-  columns (action_class, target_type, target_id, outcome, actor, seq, prev_hash, event_hash,
-  retroactive), keeping event_type/event_data for the existing unchained writers. New self-audit
-  events use the full chained schema; old writers keep working (append-only).
+Q1 state machine? → forward-only OPEN -> ACKNOWLEDGED -> (REMEDIATED | WAIVED | ESCALATED),
+  mirroring evf_sme_engagements. Terminal states are REMEDIATED/WAIVED/ESCALATED; an expired
+  WAIVED auto-reopens to OPEN with a lineage link (reopened_from_id). Illegal transitions rejected.
 
-Q2 hash-chain mechanism? → REUSE the grc/evidence.py DB pattern (per-tenant seq + content_hash +
-  chain_hash), NOT the in-memory audit_emitter. Content-free: the hashed payload is metadata only
-  (actor, action_class, target, outcome, timestamp) — never payload content (INV-2/INV-3 apply to
-  the audit trail itself; an audit log that copies evidence content is a retention violation).
+Q2 transition log? → append-only disposition_transitions, hash-chained per disposition
+  (event_hash = SHA-256(payload + prev_hash)), immutability trigger — reuse the evf pattern verbatim.
 
-Q3 immutability? → DB trigger rejects UPDATE/DELETE (append-only, like migration 012/025) + the
-  service exposes only record/query/verify. Per-tenant chain (unique(tenant_id, seq)).
+Q3 zero-PHI (INV-2)? → dispositions carry only de-identified finding metadata (evidence_record_id,
+  rule/gate id, system id, severity) — NEVER observed content. Same for transitions.
 
-Q4 fail-closed vs fail-open (edge)? → record_privileged() FAILS CLOSED (raises; the privileged
-  action aborts if unauditable). record_access() FAILS OPEN with a data-quality log (customer's
-  compliance function availability beats SARO's self-audit completeness — documented tradeoff).
+Q4 waiver rules? → WAIVED requires justification text + approver + expiry_date. Four-eyes
+  (approver distinct from acknowledger) is per-tenant config (saro_disposition_four_eyes, default
+  False). Expired waiver -> auto-reopen OPEN with lineage + emit a Notification (AC-3, first consumer).
 
-Q5 which action classes are wired now (scope)? → the story's out-of-scope says "evidence spine, not
-  the program". Wire the classes the codebase surfaces cleanly: RULE_PACK_CHANGE (rule-pack publish),
-  EXPORT + EVIDENCE_ACCESS (evidence-criteria read/export, self-referential EXPORT-of-export).
-  ADMIN_ACTION/AUTH_EVENT get the helper but full wiring is incremental; DISPOSITION_ACTION is
-  DISP-001's log (AC-1 names it a mirror). One event per logical request (bulk = record-count, AC edge).
+Q5 recurrence (edge)? → a duplicate finding (same rule+system) links to the prior disposition chain
+  (recurrence_count++) rather than spawning unbounded duplicates; recurrence under an ACTIVE waiver
+  does NOT auto-escalate in v1 (record it; escalation policy is follow-on).
 
-Q6 out-of-band DB writes (AC-3)? → a DB trigger on eu_ai_act_rules/governance_rules inserts a
-  RULE_PACK_CHANGE audit_event with actor = 'db:'||current_user when rules are written outside the
-  API (the 2026-07-04 path). Residual risk (a superuser can disable the trigger) documented honestly,
-  not pretended away — mitigation is role separation.
+Q6 bulk ops (edge)? → bulk-acknowledge permitted; bulk-waive FORBIDDEN (each waiver needs its own
+  justification). API enforces this.
 
-Q7 backfill (AC edge)? → migration 033 seeds 2 synthetic RETROACTIVE RULE_PACK_CHANGE events
-  referencing the tracked radar migrations, flagged retroactive=TRUE, for the existing tenant — the
-  trail's own first entries demonstrate honest backfill.
+Q7 async / zero eval-path latency (NFR)? → create_disposition is wired into grc.orchestrator
+  run_audit_by_id (after run_audit computes findings, for each FAIL finding) via
+  _open_dispositions_for_failures, wrapped in a fail-open try/except so a creation failure never
+  blocks the evaluation. (Reviewer B1: this wiring was missing in the first cut and is now added.)
 
-Q8 retention (AC-5)? → config saro_audit_retention_days (default 365 hot); archival-not-deletion is
-  the policy — record the intent + a note that the archival job is follow-on (spine, not program).
+Q8 persona gates (AC-5)? → acknowledge/remediate/waive/escalate map per persona; waive-approval
+  authority is per-tenant configurable. v1: risk_officer + ai_auditor + admin may act; compliance_lead
+  read-only; waive-approve requires operator/admin (distinct actor under four-eyes).
+
+Q9 report (AC-4)? → findings count, state breakdown, mean time-to-acknowledge, waivers with
+  justifications + approvers, reopened-waiver lineage — exportable evidence artifact.
+
+Q10 META-001 tie-in? → each transition also records a DISPOSITION_ACTION self-audit event
+  (self_audit.record_access, fail-open) so the disposition log mirrors into the audit spine.
 
 ## Deviations
-None (no plan reversal). Live-apply caught a real bug (audit_events.id had only an ORM-level
-default, so raw-SQL backfill + the out-of-band trigger inserts failed NOT NULL — added
-ALTER COLUMN id SET DEFAULT gen_random_uuid() to the migration). SQLite NUMERIC affinity
-coerced an all-numeric SYSTEM tenant UUID to int on readback -> gave the SYSTEM tenant a
-leading-'a' UUID (Postgres unaffected).
+None (no plan reversal).
 
 ## Review outcomes (both agents)
-- Reviewer VERDICT: APPROVE. Security-auditor VERDICT: PASS. No blockers.
-- Should-fixes addressed in-PR:
-  - Retention config was declared but unused (AC-5) -> added find_archival_candidates +
-    record_retention_sweep (archival-not-deletion: records an ADMIN_ACTION archival event,
-    NEVER deletes). Pinned by test_retention_sweep_records_archival_and_never_deletes.
-  - Postgres-only triggers (immutability AC-2 + out-of-band AC-3) had no CI guard -> added
-    test_migration_033_defines_immutability_and_oob_capture (static DDL guard) complementing
-    the live Supabase verification (immutability rejects UPDATE, out-of-band fires w/ row_count).
-- Nice-to-haves: renamed the shadowing route handler (verify_chain_endpoint); documented the
-  genesis-race window in _chain_tail; moved the self_audit imports to module level.
+- Reviewer VERDICT: REQUEST-CHANGES -> resolved. Security-auditor VERDICT: PASS.
+- B1 (reviewer BLOCKER): AC-1 was unwired (create_disposition had no production caller). Fixed:
+  grc.orchestrator.run_audit_by_id now opens a disposition per FAIL finding (fail-open). Pinned by
+  test_evaluation_failure_opens_disposition. Corrected the untruthful Q7 note.
+- SF (both agents): four-eyes compared the waive-actor, not the acknowledger. Fixed: persist
+  acknowledged_by; four-eyes now requires approver differ from BOTH acknowledger and actor. Pinned by
+  test_four_eyes_blocks_approver_equal_acknowledger.
+- SF (security): unbounded waiver expiry could indefinitely suppress a finding. Fixed:
+  saro_disposition_max_waiver_days (default 180); reject past/absurd-future expiry. Pinned by
+  test_waiver_expiry_bounds.
+- NH (both): reopened_from_id dead + report double-counted reopened rows as active waivers. Fixed:
+  migration comment corrected (lineage lives in the transition log; column reserved); report
+  waivers list now counts only state==WAIVED.
+- NH (both): expire-waivers has no scheduler yet — it is an operator-triggered/cron sweep in v1
+  (documented); automatic per-request reopen is follow-on.

@@ -19,6 +19,7 @@ from typing import Optional
 from sqlalchemy import (
     JSON as SA_JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -615,6 +616,60 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Finding Disposition Lifecycle (STORY-DISP-001)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class Disposition(Base):
+    """A failing finding's tracked disposition. Forward-only state machine;
+    de-identified metadata only (INV-2 — never observed content)."""
+
+    __tablename__ = "dispositions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    evidence_record_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("grc_evidence_records.id", ondelete="SET NULL"), nullable=True
+    )
+    rule_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gate_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    system_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    severity: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # OPEN | ACKNOWLEDGED | REMEDIATED | WAIVED | ESCALATED
+    state: Mapped[str] = mapped_column(String(30), nullable=False, default="OPEN")
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    waiver_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    waiver_approver: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    waiver_expiry: Mapped[date | None] = mapped_column(Date, nullable=True)
+    reopened_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dispositions.id", ondelete="SET NULL"), nullable=True
+    )
+    recurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DispositionTransition(Base):
+    """Append-only, hash-chained log of every disposition state transition."""
+
+    __tablename__ = "disposition_transitions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    disposition_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dispositions.id", ondelete="CASCADE"), nullable=False
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    from_state: Mapped[str] = mapped_column(String(30), nullable=False)
+    to_state: Mapped[str] = mapped_column(String(30), nullable=False)
+    actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
