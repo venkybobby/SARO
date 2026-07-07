@@ -85,5 +85,10 @@ class Settings(BaseSettings):
     # fraction raises a data-quality finding.
     saro_metering_drift_tolerance: float = 0.005
 
+    # ── Observation coverage / gaps (STORY-COV-001) ──────────────────────────
+    # A (system, adapter) whose latest checkpoint is older than this many seconds is
+    # considered blind — a gap opens. Per-adapter cadence + tolerance in one knob (v1).
+    saro_coverage_cadence_seconds: int = 300
+
 
 settings = Settings()

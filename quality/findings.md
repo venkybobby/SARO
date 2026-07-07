@@ -53,6 +53,8 @@ Workflow: log here → root-cause → fix → write `tests/regression/test_fnd_#
 
 | FND-045 | Usage-meter dimension VALUES were unbounded — PHI-free guarantee was key-only | security-auditor (STORY-MTR-001) | 2026-07 | `services/metering_service._validate` bounded dimension KEYS to a closed vocab but performed zero validation on VALUES, which are stored verbatim in the `dimensions` JSONB. A future caller could smuggle raw payload/PII via a value (e.g. `adapter_id="<raw output>"`), structurally undermining AC-1 ("PHI-free by construction, not by redaction"). Fix: `_validate` now requires bounded scalars, a hard 64-char length cap, and a closed per-key value allow-list where defined (`outcome` ∈ {GO, GO_WITH_CONDITIONS, NO_GO, unknown}). Pinned by `test_fnd_045_metering_phi_free_values.py`. | pinned |
 
+| FND-046 | Observation checkpoint watermark_position was unbounded free text — PII could be stored in the coverage evidence (INV-2) | security-auditor (STORY-COV-001) | 2026-07 | `routers/observation_coverage.CheckpointIn` bounded strings with `min_length=1` only (no max/pattern), so a caller could POST a free-text/PII blob as `watermark_position` and it would persist verbatim (≤255 chars on Postgres, unbounded on the SQLite test harness), defeating INV-2 (checkpoints carry positions/timestamps ONLY, never content). Fix: `max_length=255` on all three id/position fields + an opaque-token `pattern` on `watermark_position` so free-text is rejected 422. Pinned by `test_fnd_046_coverage_watermark_bounded.py`. | pinned |
+
 **`verify-pinned`** = fix believed shipped, but no regression test confirms it stays fixed.
 First task of any auth story: convert these to `pinned` by writing the tests.
 

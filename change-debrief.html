@@ -1,63 +1,64 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>STORY-MTR-001 — Change Debrief</title>
+<title>STORY-COV-001 — Change Debrief</title>
 <style>
   :root { --bg:#0f1420; --card:#171e2e; --ink:#e6ebf5; --dim:#9aa7bd; --acc:#5ad1a8; --warn:#e8b04b; --line:#26304a; }
   * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
   .wrap { max-width:940px; margin:0 auto; padding:32px 20px 80px; } h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:18px; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
   .sub { color:var(--dim); margin:0 0 16px; } .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:12px 0; }
   code { background:#0c1120; padding:1px 6px; border-radius:5px; color:#bfe6ff; font-size:13px; } table { width:100%; border-collapse:collapse; margin:8px 0; font-size:13.5px; } th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--dim); }
-  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; } .ok { background:rgba(90,209,168,.15); color:var(--acc); } .warn { background:rgba(232,176,75,.15); color:var(--warn); }
   ul { margin:6px 0 6px 2px; padding-left:20px; } li { margin:3px 0; }
   .quiz summary { cursor:pointer; font-weight:600; } .quiz .a { margin-top:8px; color:var(--dim); border-top:1px dashed var(--line); padding-top:8px; } .quiz .q { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0; }
   .mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:var(--dim); }
 </style></head><body><div class="wrap">
-  <h1>STORY-MTR-001 — PHI-Free Usage Metering</h1>
-  <p class="sub">Change debrief · story 7/8 · commercial foundation P1 · stacked on <code>story/STORY-DISP-001</code></p>
+  <h1>STORY-COV-001 — Observation-Gap (Coverage) Attestations</h1>
+  <p class="sub">Change debrief · story 8/8 (final) · CISO differentiator P1 · stacked on <code>story/STORY-MTR-001</code></p>
 
   <h2>1. Context</h2>
-  <div class="card"><p>There was <b>no consumption tracking</b> — so pricing had no basis, invoices couldn't
-  be substantiated, and renewal conversations had no delivered-value story. MTR-001 adds per-tenant,
-  per-period usage meters. The hard constraint: metering a <b>healthcare</b> product means it must be
-  <b>PHI-free by construction</b> — a meter must be structurally incapable of holding payload content.</p></div>
+  <div class="card"><p>SARO observes AI outputs mirror-async, so it is <b>sometimes blind</b> — an adapter
+  outage, a lag spike, a deploy window. Today that blindness is <b>silent</b>, which an examiner reads
+  as either dishonesty or ignorance. COV-001 turns "when SARO wasn't watching" into <b>first-class
+  evidence</b>: gap records with cause and bounds, a coverage %, and a measured maximum observation
+  lag — converting mirror-async's weakness into a diligence artifact.</p></div>
 
-  <h2>2. Intuition — PHI-free by construction, not by redaction</h2>
-  <div class="card"><p>A meter row is <b>only</b>: tenant, a <b>closed-vocabulary</b> meter key
-  (<code>evaluations_executed</code>, <code>evidence_records_persisted</code>, …), a period bucket, a
-  count, and dimension tags whose <b>keys are a closed set</b> (<code>gate_id, vertical, adapter_id,
-  outcome</code>). There is <b>no free-text column</b>. An unknown meter key or dimension key is
-  rejected at write. So PII can't leak because there's nowhere to put it — redaction isn't even needed.</p>
-  <p>Metering is <b>best-effort, post-evidence-persist</b>: a metering hiccup logs and continues, never
-  blocking or delaying an evaluation (a dropped increment is acceptable; a blocked healthcare
-  evaluation is not). Loss is bounded and <b>measured by daily reconciliation</b> against authoritative
-  row counts — drift beyond 0.5% raises a data-quality finding.</p></div>
+  <h2>2. Intuition + scope</h2>
+  <div class="card"><p>Each observation source emits <b>checkpoints</b> (last-observed watermark position +
+  timestamp). When checkpoints stop advancing past the expected cadence, a <b>gap</b> opens
+  (cause UNKNOWN until diagnosed); when they resume, it closes with duration + watermark delta.
+  De-identified throughout (INV-2): <b>positions and timestamps only, never observed content</b>.
+  SARO even confesses its own downtime (a retroactive <code>SARO_OUTAGE</code> gap on restart).</p>
+  <p><b>Owner-locked scope:</b> this is the <b>adapter-independent core</b>. The live Bedrock-adapter
+  heartbeat <i>emission</i> (STORY-406) doesn't exist yet, so AC-1's live wiring is <b>deferred and
+  documented</b> — the checkpoint interface ships, and a future adapter just calls it.</p></div>
 
   <h2>3. File-by-file</h2>
   <table>
     <tr><th>File</th><th>Change</th></tr>
-    <tr><td><code>migrations/035</code></td><td><code>usage_meters</code> (unique key, RLS), <code>usage_meter_idempotency</code>, <code>usage_statements</code> (immutable trigger, RLS). Applied on Supabase.</td></tr>
-    <tr><td><code>services/metering_service.py</code></td><td>closed-vocab <code>increment</code> (idempotent) + <code>safe_increment</code> (fail-open), <code>record_high_water</code>, <code>generate_statement</code> (hashed, immutable), <code>check_threshold</code> (notify, no cutoff), <code>reconcile</code>.</td></tr>
-    <tr><td>wiring</td><td><code>capture_evidence</code> (evidence_records_persisted, idempotent per record id), <code>run_audit_by_id</code> (evaluations_executed), reproduce endpoint (criteria_reproductions) — all best-effort.</td></tr>
-    <tr><td><code>routers/metering.py</code></td><td><code>GET /usage</code>, <code>POST /statement</code>, <code>GET /reconcile</code> — operator/admin, tenant-scoped.</td></tr>
+    <tr><td><code>migrations/036</code></td><td><code>observation_checkpoints</code> (idempotent unique), <code>observation_gaps</code> (cause CHECK, open-gap partial index), <code>observation_lag_samples</code>; RLS on all 3. Applied on Supabase.</td></tr>
+    <tr><td><code>services/observation_coverage_service.py</code></td><td>checkpoint interface (idempotent, closes gaps on resume), gap detection, diagnose, SARO_OUTAGE self-detect, maintenance, p50/p95/max lag, coverage report.</td></tr>
+    <tr><td><code>routers/observation_coverage.py</code></td><td>POST checkpoint + detect-gaps (operator); GET gaps + report (auditor/CISO). Tenant-scoped.</td></tr>
+    <tr><td>TEN-001 doc + guard</td><td>Registered the 3 new tenant-scoped tables.</td></tr>
   </table>
 
   <h2>4. Risk map</h2>
   <table>
-    <tr><th>Risk</th><th>Covering test</th><th>State</th></tr>
-    <tr><td>PII/payload enters a meter</td><td><code>test_unknown_meter_key_and_dimension_rejected</code></td><td><span class="tag ok">structurally impossible</span></td></tr>
-    <tr><td>Retry double-counts</td><td><code>test_increment_and_idempotency</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Metering failure blocks an evaluation</td><td><code>test_safe_increment_never_raises</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Statement mutated / re-hashed</td><td><code>test_statement_hash_and_immutable_reissue</code> + immutability trigger</td><td><span class="tag ok">covered ×2</span></td></tr>
-    <tr><td>Threshold silently drops evaluations</td><td><code>test_threshold_records_and_notifies_without_cutoff</code></td><td><span class="tag ok">covered</span></td></tr>
-    <tr><td>Silent meter drift</td><td><code>test_reconcile_flags_drift</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><th>Risk</th><th>Covering test / disclosure</th><th>State</th></tr>
+    <tr><td>Duplicate window re-read double-records</td><td><code>test_checkpoint_idempotent_and_gap_opens_when_stale</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Blind period silently unrecorded</td><td><code>detect_gaps</code> + <code>test_...gap_opens_when_stale</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Gap never closes on resume</td><td><code>test_resuming_checkpoint_closes_gap</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Coverage % over-reports (hides a gap)</td><td><code>test_coverage_report_percentage</code> (union of gap intervals; ongoing → window end)</td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>SARO hides its own downtime</td><td><code>test_saro_outage_is_retroactive</code></td><td><span class="tag ok">covered</span></td></tr>
+    <tr><td>Content leaks into a gap record</td><td>schema has positions/timestamps only (INV-2)</td><td><span class="tag ok">by construction</span></td></tr>
+    <tr><td>Live-adapter emission unwired</td><td>owner-locked deferral (STORY-406), documented</td><td><span class="tag warn">deferred</span></td></tr>
   </table>
 
   <h2>5. Understanding check</h2>
   <div class="quiz">
-    <div class="q"><details><summary>Why is "PHI-free by construction" stronger than redacting PII from meters?</summary><div class="a">Redaction is a runtime filter that can be forgotten, bypassed, or imperfect. Here the schema has <b>no free-text field at all</b> — meter keys and dimension keys are both closed sets validated at write, and values are bounded tags/counts. There is literally nowhere for payload content to go, so leakage is a structural impossibility, not a policy you have to enforce.</div></details></div>
-    <div class="q"><details><summary>Why is metering best-effort/fail-open when almost everything else in SARO fails closed?</summary><div class="a">Metering is a commercial/observability concern, not a compliance control. Blocking a healthcare tenant's evaluation because a counter couldn't increment would trade a real safety/availability cost for a billing-accuracy benefit — the wrong trade. A lost increment is acceptable and is caught by reconciliation; a blocked evaluation is not. (Contrast META-001, where privileged WRITES fail closed.)</div></details></div>
-    <div class="q"><details><summary>How does the idempotency key stop double-counting without itself risking cross-tenant issues?</summary><div class="a">Each logical invocation supplies a unique key (e.g. <code>evidence:{record.id}</code>); if the key was seen, the increment is a no-op. Keys embed a tenant-unique identifier (the record UUID), so the global dedup table can't let one tenant's key suppress another's increment.</div></details></div>
-    <div class="q"><details><summary>What does reconciliation actually compare, and what happens on drift?</summary><div class="a">It compares the <code>evidence_records_persisted</code> meter total against the authoritative <code>grc_evidence_records</code> row count for the tenant/period. If the relative drift exceeds the configured tolerance (0.5%), it raises a <code>data_quality</code> notification — so lost best-effort increments are bounded <i>and measured</i>, making the "acceptable loss" claim honest rather than hand-wavy.</div></details></div>
+    <div class="q"><details><summary>Why record gaps at all instead of just reporting uptime %?</summary><div class="a">A bare % is unfalsifiable and reads as marketing. A gap record — {system, adapter, start, end, cause, watermark bounds} — is auditable evidence an examiner can inspect: it says exactly WHEN SARO was blind, for how long, and WHY. Disclosing gaps as evidence is the opposite of hiding them behind an aggregate; it's what turns mirror-async blindness from a liability into honesty.</div></details></div>
+    <div class="q"><details><summary>How is a gap record kept PHI-free by construction?</summary><div class="a">The schema has no content column at all — only <code>system_id</code>/<code>adapter_id</code> identifiers, watermark <b>positions</b> (source-side offsets), and timestamps. A "watermark delta" expresses the range of missed source activity as positions/timestamps, never the missed content itself. There's nowhere for observed payload to land.</div></details></div>
+    <div class="q"><details><summary>Why does SARO open a retroactive gap for its OWN downtime?</summary><div class="a">If SARO crashes, it wasn't observing — and a coverage claim that ignored its own outages would be dishonest. On restart, a checkpoint discontinuity opens a retroactive <code>SARO_OUTAGE</code> gap. The system confesses its downtime rather than letting the gap look like the source's fault (or vanish).</div></details></div>
+    <div class="q"><details><summary>Why is AC-1's live wiring deferred, and is that a hole?</summary><div class="a">AC-1's heartbeat emission depends on STORY-406 (the Bedrock adapter contract), which doesn't exist — the story set stops at 404. Per an owner-locked decision, this story ships the adapter-INDEPENDENT core (the checkpoint interface + all gap/lag/report logic) and defers the live wiring. It's documented in the notes + story out-of-scope, so it's an honest, scoped deferral — a future adapter just calls <code>record_checkpoint</code>.</div></details></div>
   </div>
-  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 444 / integration 107 / regression 99 / bandit). Migration 035 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
+  <p class="mono">Gates 1-3,5,7 green (ruff / mypy / unit 455 / integration 109 / regression 100 / bandit). Migration 036 applied on Supabase. Coverage ratchet + reviewer/security-auditor pending at write time.</p>
 </div></body></html>

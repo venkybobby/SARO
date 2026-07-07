@@ -219,6 +219,9 @@ _ACCOUNTED_TENANT_SCOPED = frozenset(
         "dispositions",  # STORY-DISP-001 (RLS policy added in migration 034)
         "usage_meters",  # STORY-MTR-001 (RLS policy added in migration 035)
         "usage_statements",  # STORY-MTR-001 (RLS policy added in migration 035)
+        "observation_checkpoints",  # STORY-COV-001 (RLS in migration 036)
+        "observation_gaps",  # STORY-COV-001 (RLS in migration 036)
+        "observation_lag_samples",  # STORY-COV-001 (RLS in migration 036)
     }
 )
 

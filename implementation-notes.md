@@ -1,68 +1,74 @@
-# STORY-MTR-001 — PHI-Free Usage Metering
+# STORY-COV-001 — Observation-Gap (Coverage) Attestations
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (recon: Notification model + notification_service exist; evf_expiry_notifications
-                  idempotency_key UNIQUE pattern to reuse; grc_evidence_records is the authoritative
-                  count source for reconciliation; DISP-001 async-post-evidence posture is the model;
-                  RPV-002 reproduce endpoint is a metered surface (criteria_reproductions);
-                  TEN-001 schema-completeness guard will require registering the new tenant table)
+- [x] discover   (recon: no STORY-406 adapter exists (stories stop at 404) -> AC-1 live-adapter
+                  heartbeat wiring is DEFERRED per the owner decision; grc/evidence hash-chain +
+                  self_audit + metering patterns available to reuse; INV-2 = positions/timestamps
+                  only, never content; TEN-001 schema-completeness guard requires registering new
+                  tenant tables)
 - [x] shape      (skipped brainstorm — STORY has ACs; interview -> Decision Log below)
-- [x] preview    (skipped — backend meters + statement API; no new UI surface)
+- [x] preview    (skipped — backend coverage engine + report API; no new UI surface)
 - [x] plan
 - [x] build
 - [x] verify    (change-debrief.html generated)
 - [x] sell       (n/a)
 
 ## Decision Log
-Q1 PHI-free by construction (AC-1)? → meter records carry ONLY: tenant_id, meter_key (closed set),
-  period_bucket, count, and dimension tags from a CLOSED vocabulary (gate_id, vertical, adapter_id,
-  outcome). NO free-text fields — validated at write; unknown meter_key or dimension key raises.
-  PHI leakage is structurally impossible (INV-2 by construction, not by redaction).
+Q1 scope (owner-locked)? → build the ADAPTER-INDEPENDENT core: checkpoint interface, gap records
+  with cause classes, SARO_OUTAGE self-detect, lag p50/p95/max, coverage report. DEFER AC-1's live
+  Bedrock-adapter heartbeat emission until STORY-406 (the adapter contract) exists. The checkpoint
+  DATA MODEL + record_checkpoint() ARE in scope so a future adapter just calls them.
 
-Q2 meter set (v1)? → evaluations_executed, attestations_issued, evidence_records_persisted,
-  coverage_report_generations, criteria_reproductions, active_observed_systems (high-water per
-  period), adapter_observation_volume (COUNT ONLY, never content).
+Q2 checkpoint (AC-1 core)? → observation_checkpoints: {tenant, system, adapter, watermark_position,
+  watermark_timestamp, recorded_at}. Idempotent per (tenant, system, adapter, watermark_position) so
+  duplicate window re-reads don't double-record (evf_expiry_notifications idempotency pattern).
 
-Q3 async posture (AC-2, NFR)? → increments emitted post-evidence-persist, best-effort; a metering
-  failure NEVER fails/delays an evaluation (lost increments acceptable; blocked evals are not).
-  Loss is bounded + measured by reconciliation (AC-5).
+Q3 gap lifecycle (AC-2/AC-3)? → when the latest checkpoint for a (system, adapter) is older than the
+  configured cadence + tolerance and no gap is open, open an observation_gap with cause UNKNOWN
+  (until diagnosed). Cause classes: ADAPTER_FAILURE | SOURCE_UNAVAILABLE | CREDENTIAL_EXPIRY |
+  DEPLOY_WINDOW | LAG_EXCEEDED | PLANNED_MAINTENANCE | SARO_OUTAGE | UNKNOWN. A resuming checkpoint
+  closes the open gap with duration + watermark delta (positions/timestamps only — never content).
+  AC-3 "links into the evidence hash chain": on FINALIZATION (close / created-closed) each gap gets a
+  content_hash + prev_hash chaining per tenant (reviewer B1 — added; verify_gap_chain detects tamper).
 
-Q4 idempotency (edge)? → idempotency_key per logical invocation (UNIQUE) so retries don't
-  double-count — reuse the evf_expiry_notifications pattern. Multi-tenant shared rule-pack reads are
-  NOT metered (cost of goods, not usage).
+Q4 zero-PHI (INV-2/INV-3)? → gap + checkpoint records carry positions and timestamps ONLY. No
+  observed content, ever. Watermark deltas are expressed as positions/timestamps.
 
-Q5 usage statement (AC-3)? → per-tenant, per-period artifact: meter totals, period, generation
-  timestamp, content_hash (usage statements are evidence too — disputes are audits). UTC period
-  bucketing at emission (tenant-local display is presentation-layer). Immutable once issued;
-  corrections are new adjustment records, never edits.
+Q5 SARO self-outage (edge)? → detect_saro_outage(): on boot, a checkpoint-discontinuity beyond
+  tolerance opens a RETROACTIVE gap with cause SARO_OUTAGE — the system confesses its own downtime.
 
-Q6 thresholds (AC-4)? → threshold-crossing events recorded + a Notification emitted; v1 RECORDS and
-  NOTIFIES, does NOT enforce cutoffs (never silently drop a healthcare tenant's evaluations).
-  Config saro_metering_thresholds is per-meter soft limits.
+Q6 planned maintenance (edge)? → declare_maintenance() pre-creates a gap with cause
+  PLANNED_MAINTENANCE + approver. Planned gaps are still gaps (counted in coverage).
 
-Q7 reconciliation (AC-5)? → daily cross-check of meter totals vs authoritative row counts
-  (grc_evidence_records for evidence_records_persisted; dispositions/attestations where applicable);
-  drift beyond 0.5% raises a data-quality finding (Notification type='data_quality').
+Q7 lag (AC-5)? → observation_lag_samples: p50/p95/max per window so "maximum observation lag" has
+  MEASURED evidence, not an estimate. Recorded periodically.
 
-Q8 tenant isolation? → usage_meters is tenant-scoped -> RLS policy (migration 035) + register in the
-  TEN-001 schema-completeness guard + docs/TENANT_ISOLATION.md (the guard enforces this).
+Q8 report (AC-4)? → coverage_report(system, range): % time under observation, gap list with causes,
+  max observation lag observed, methodology note — exportable diligence artifact.
+
+Q9 tenant isolation? → all three tables are tenant-scoped -> RLS (migration 036) + register in the
+  TEN-001 schema-completeness guard + docs/TENANT_ISOLATION.md.
 
 ## Deviations
-None (no plan reversal).
+- DEV-1 (owner-locked scope): AC-1's live-adapter heartbeat EMISSION is deferred (STORY-406 absent).
+  The checkpoint interface + all gap/lag/report logic ships; wiring a real adapter is follow-on.
 
 ## Review outcomes (both agents)
-- Reviewer VERDICT: REQUEST-CHANGES -> resolved. Security-auditor VERDICT: PASS.
-- B1 (reviewer BLOCKER): reconcile compared a period-scoped meter vs an ALL-TIME authoritative
-  count -> false positive once a tenant spans >1 period. Fixed: authoritative count is period-scoped
-  via _period_range(created_at). Pinned by test_reconcile_is_period_scoped.
-- SF (reviewer): check_threshold had no runtime caller (AC-4 half-delivered). Fixed: wired into
-  safe_increment (best-effort, post-increment). Pinned by test_safe_increment_fires_threshold.
-- SF (reviewer): evaluations_executed metered without an idempotency key -> retry double-count.
-  Fixed: idempotency_key=f"eval:{record.id}". Pinned by test_eval_style_idempotency_dedup.
-- SF (reviewer): daily reconcile has no scheduler -> documented as out-of-scope (endpoint = manual
-  trigger; cron/CI wiring is ops follow-on).
-- SF (security): dimension VALUES were unbounded (PHI-free was key-only). Fixed: bounded scalars +
-  64-char cap + closed per-key allow-lists. FND-045 (pinned regression).
-- NH: limit==0 treated as unset -> `if limit is None`; period query param validated (422 on bad
-  format); TENANT_ISOLATION/migration doc corrected (idempotency keys must be globally unique).
+- Reviewer VERDICT: REQUEST-CHANGES -> resolved. Security-auditor VERDICT: FAIL -> resolved.
+- B1 (reviewer BLOCKER): AC-3 hash-chain linkage was missing AND undisclosed. Fixed: ObservationGap
+  gets content_hash + prev_hash (migration ALTER + model), finalized on close/create-closed, chained
+  per tenant; verify_gap_chain added. Pinned by test_gap_chain_finalizes_and_detects_tamper.
+- SF (security FAIL): CheckpointIn strings unbounded -> PII could be smuggled into watermark_position
+  (INV-2 breach). Fixed: max_length=255 + opaque-token pattern. FND-046 (pinned regression).
+- SF (reviewer): coverage % double-counted overlapping gaps. Fixed: _merge_intervals union.
+  Pinned by test_coverage_union_no_double_count.
+- SF (reviewer): max_observation_lag_ms ignored the report window. Fixed: bounded by recorded_at.
+- NH: _aware in detect_saro_outage/declare_maintenance; duration_seconds BigInteger; out-of-window
+  gaps excluded from the report list.
+
+## Out of scope (this story)
+- Alerting/paging on gap-open (notifications family)
+- Auto-remediation of adapter failures
+- Coverage SLA contract commitments (this produces the measurement that makes an SLA possible)
+- Live Bedrock adapter heartbeat wiring (STORY-406 dependency — deferred)

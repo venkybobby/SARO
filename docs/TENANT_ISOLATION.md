@@ -57,6 +57,7 @@ tenant-scoped table has a tenant-isolation policy — no table relies on "RLS en
 | disposition_transitions | child (scoped via parent disposition) | — (no tenant_id; API scopes the parent) | API filter (parent) |
 | usage_meters, usage_statements | ✔ | ✔ (migration 035) | API filter + RLS (DiD) |
 | usage_meter_idempotency | global (idempotency keys must be GLOBALLY unique — e.g. `evidence:{uuid}`) | — (no tenant_id) | globally-unique keys |
+| observation_checkpoints, observation_gaps, observation_lag_samples | ✔ | ✔ (migration 036) | API filter + RLS (DiD) |
 
 Global / reference tables (**no** `tenant_id` — intentionally shared, single copy for all tenants,
 so RLS policies are deliberately absent):

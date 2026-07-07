@@ -18,6 +18,7 @@ from typing import Optional
 
 from sqlalchemy import (
     JSON as SA_JSON,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -722,6 +723,78 @@ class UsageStatement(Base):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "period_bucket", name="ux_usage_statements"),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Observation-Gap (Coverage) Attestations (STORY-COV-001)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ObservationCheckpoint(Base):
+    """Heartbeat/watermark marker — last-observed source position + timestamp.
+    De-identified (INV-2): positions and timestamps only, never observed content."""
+
+    __tablename__ = "observation_checkpoints"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    system_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    watermark_position: Mapped[str] = mapped_column(String(255), nullable=False)
+    watermark_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "system_id", "adapter_id", "watermark_position",
+                         name="ux_observation_checkpoints"),
+    )
+
+
+class ObservationGap(Base):
+    """A first-class coverage gap: when SARO was NOT observing, with cause + bounds."""
+
+    __tablename__ = "observation_gaps"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    system_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    gap_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    gap_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cause_class: Mapped[str] = mapped_column(String(40), nullable=False, default="UNKNOWN")
+    detection_method: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    watermark_start: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    watermark_end: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    approver: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    retroactive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Evidence hash chain (AC-3): finalized gaps chain per tenant like any attestation.
+    # Computed when a gap is finalized (closed / created-closed); NULL while still open.
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ObservationLagSample(Base):
+    """p50/p95/max observation lag per window — measured evidence for 'maximum lag'."""
+
+    __tablename__ = "observation_lag_samples"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    system_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    window_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
+    p50_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    p95_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "system_id", "adapter_id", "window_bucket",
+                         name="ux_observation_lag"),
     )
 
 

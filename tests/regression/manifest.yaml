@@ -207,3 +207,8 @@ findings:
     test: tests/regression/test_fnd_045_metering_phi_free_values.py
     status: pinned
     quarantine_expires: null
+  - id: FND-046
+    title: "Observation checkpoint watermark_position was unbounded free text — PII in coverage evidence (COV-001)"
+    test: tests/regression/test_fnd_046_coverage_watermark_bounded.py
+    status: pinned
+    quarantine_expires: null
