@@ -67,6 +67,20 @@ any tampered snapshot is detected and identified by version id.
 | Item | Reference |
 |---|---|
 | Immutability pattern | evf_qco_registry, evf_publication_events (FR-EVF-10/20/21) |
+| Status vocabulary | migrations/029_radar_scan1_validation_status_columns.sql (exported from live radar migration) |
+| SME gate | GRC SME Validation Requirements |
+| Examiner demand | synthetic-examiner Phase 3 (provenance, tamper-evidence) |
+
+### AC → tests → files
+| AC | Tests | Implementation |
+|---|---|---|
+| AC-1 publish creates immutable snapshot (version, content_hash, counts, prev_hash, chain) | `test_publish_creates_snapshot_with_required_fields`, `test_publish_chains_prev_hash_to_latest`, `test_publish_and_list_and_verify` | `services/rule_pack_snapshot_service.publish_snapshot`; `migrations/028_rule_pack_snapshots.sql`; `models.RulePackSnapshot` |
+| AC-2 published snapshot immutable | `test_service_guard_rejects_mutation` (service); DB trigger verified on Supabase | `update_snapshot_version` guard; migration 028 `trg_rule_pack_snapshots_immutable` |
+| AC-3 SME-only; DRAFT/NULL blocks with listing; LEGACY caveat behind flag | `test_draft_rows_block_publish_with_listing`, `test_null_status_fails_closed_as_draft`, `test_legacy_included_with_caveat_when_flag_on`, `test_legacy_excluded_when_flag_off`, `test_retired_rows_excluded_not_blocking`, `test_publish_blocked_by_draft_returns_409_with_listing` | `_classify`, `_build_manifest`, `DraftRowsPresentError`; `config.saro_snapshot_include_legacy`; `migrations/029_*` |
+| AC-4 machine-readable diff (added/updated/retired) | `test_diff_reports_added_updated_retired`, `test_diff_reports_status_retirement_as_retired` | `diff_against_latest` |
+| AC-5 chain verify detects tamper | `test_verify_chain_clean`, `test_verify_chain_detects_tamper`, `test_verify_chain_detects_manifest_tamper`, `test_fnd_039_rpv_snapshot_integrity` | `verify_chain` (record + content_hash re-derivation); `_ordered_chain` |
+| Edges (empty publish, semver monotonic, invalid semver, deterministic hash, chain order) | `test_empty_publish_rejected`, `test_version_must_strictly_increase`, `test_invalid_semver_rejected`, `test_row_hash_is_deterministic_and_order_independent`, `test_chain_order_follows_hash_links` | `_resolve_version`, `EmptyPublishError`, `_canonical_row` |
+| API | `tests/test_rpv_snapshots_api.py` (publish/list/verify/diff, 409 on draft, 403 for reader persona) | `routers/rule_pack_versions.py` |
 | Status vocabulary | Migration radar_scan1_validation_status_columns |
 | SME gate | GRC SME Validation Requirements |
 | Examiner demand | synthetic-examiner Phase 3 (provenance, tamper-evidence) |

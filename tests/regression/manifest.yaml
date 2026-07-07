@@ -172,3 +172,43 @@ findings:
     test: tests/regression/test_fnd_036_repair_bad_merge_import.py
     status: pinned
     quarantine_expires: null
+  - id: FND-039
+    title: "RPV-001 verify_chain trusted stored content_hash — manifest tampering undetectable (AC-5 hole)"
+    test: tests/regression/test_fnd_039_rpv_snapshot_integrity.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-040
+    title: "RPV-002 reproduce_criteria returned snapshot_content outside the hash chain — tamperable while valid"
+    test: tests/regression/test_fnd_040_rpv_reproduction_integrity.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-041
+    title: "RPV-002 pin in _PAYLOAD_FIELDS would false-fail every pre-RPV-002 evidence chain (AC-4)"
+    test: tests/regression/test_fnd_041_evidence_pin_backcompat.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-042
+    title: "Scoring engine served DRAFT/RETIRED obligation text as authoritative in AppliedRuleOut + TRACE (CHUB-011)"
+    test: tests/regression/test_fnd_042_engine_excludes_draft_rules.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-043
+    title: "SSO can self-assign privileged ai_auditor/admin persona unlocking the draft toggle (pre-existing; forward)"
+    test: tests/regression/test_fnd_043_sso_persona_allowlist.py
+    status: open
+    quarantine_expires: null
+  - id: FND-044
+    title: "Hardcoded default HMAC secret on the TRACE evidence-export path (pre-existing; forward)"
+    test: tests/regression/test_fnd_044_export_hmac_secret_required.py
+    status: open
+    quarantine_expires: null
+  - id: FND-045
+    title: "Usage-meter dimension VALUES were unbounded — PHI-free guarantee was key-only (MTR-001)"
+    test: tests/regression/test_fnd_045_metering_phi_free_values.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-046
+    title: "Observation checkpoint watermark_position was unbounded free text — PII in coverage evidence (COV-001)"
+    test: tests/regression/test_fnd_046_coverage_watermark_bounded.py
+    status: pinned
+    quarantine_expires: null

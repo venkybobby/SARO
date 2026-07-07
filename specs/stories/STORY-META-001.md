@@ -87,3 +87,18 @@ Then archival — never silent deletion — with archival events recorded.
 | Out-of-band precedent | This session's MCP-applied migrations |
 | Procurement demand | design-partner-wargamer PROCUREMENT persona; SOC 2 path |
 | Zero-PHI in audit trail | INV-2 / INV-3 |
+
+### AC → tests → files
+| AC | Tests | Implementation |
+|---|---|---|
+| AC-1 chained content-free events per action class | `test_events_chain_per_tenant`, `test_content_free_no_payload`, `test_publish_records_rule_pack_change_and_query_api`, `test_evidence_read_records_evidence_access` | `services/self_audit.record_event`; `migrations/033`; `models.AuditEvent` |
+| AC-2 immutable + hash-chained; tamper detected | `test_verify_detects_tamper` (service) + DB trigger verified on Supabase | `verify_audit_chain`; migration 033 immutability trigger |
+| AC-3 out-of-band DB writes captured | verified on Supabase (UPDATE → db_trigger event, row_count) | migration 033 `audit_events_capture_rule_write` statement triggers |
+| AC-4 filtered query + verify; export self-references | `test_query_filters`, `test_export_is_self_referential`, `test_system_scope_requires_operator` | `routers/self_audit.py`; `query_events` |
+| Edge fail-closed vs fail-open; backfill retroactive | `test_fail_closed_vs_fail_open`; backfill=2 verified on Supabase | `record_privileged`/`record_access`; migration 033 backfill |
+| Wiring | integration tests above | `rule_pack_versions.py` (RULE_PACK_CHANGE), `evidence_criteria.py` (EVIDENCE_ACCESS) |
+
+**Scope note:** delivers the audit *spine* (immutable chained store + query/verify + out-of-band
+capture + backfill) with representative wiring (RULE_PACK_CHANGE, EVIDENCE_ACCESS, EXPORT); full
+ADMIN_ACTION/AUTH_EVENT wiring and DISPOSITION_ACTION (DISP-001's log) are incremental. Retention
+(AC-5) is config'd (`saro_audit_retention_days`); the archival job is follow-on ("spine, not program").

@@ -73,3 +73,13 @@ version-keyed immutable cache is permitted.
 | Evidence hash chain | Existing evidence-record integrity design (SEC Proof lineage) |
 | Honest-gap disclosure | Gap #4 pattern; synthetic-examiner Phase 4 |
 | Examiner question | "Which rule version did this attestation use?" |
+
+### AC → tests → files
+| AC | Tests | Implementation |
+|---|---|---|
+| AC-1 evidence pins version+hash inside its content hash | `test_capture_pins_version_and_hash`, `test_pin_is_inside_content_hash`, `test_fnd_041_evidence_pin_backcompat` (legacy back-compat) | `grc/evidence.py` (`_PIN_FIELDS`, conditional `canonical_payload`, `capture_evidence`); `migrations/030`; `models.GRCEvidenceRecord` |
+| AC-2 STRICT/PERMISSIVE + integrity gate, never working copy | `test_permissive_pins_latest_published`, `test_strict_no_version_refuses`, `test_strict_refuses_on_working_copy_drift`, `test_broken_chain_refuses_in_both_modes` | `resolve_pinned_version`; `config.saro_rule_pack_eval_mode` |
+| AC-3 reproduce full frozen content + integrity cross-check | `test_reproduce_returns_frozen_content_after_mutation`, `test_reproduce_version_and_evidence_criteria`, `test_fnd_040_rpv_reproduction_integrity` | `reproduce_criteria` (+ `_hash_row_payload` manifest cross-check); `snapshot_content`; `routers/rule_pack_versions.py` `/{version}/reproduce` |
+| AC-4 PRE-VERSIONING for NULL pin, verbatim | `test_capture_pre_versioning_when_unpublished`, `test_evidence_criteria_pre_versioning` | `routers/evidence_criteria.py` |
+| AC-5 per-invocation resolution, no payload-keyed cache | covered by AC-2 resolver tests (resolution derives from published snapshots only) | `resolve_pinned_version` |
+| Security | `test_evidence_criteria_cross_tenant_is_404`, `test_reproduce_route_not_shadowed_by_version_route` | `routers/evidence_criteria.py` (tenant-scoped via `get_evidence`) |

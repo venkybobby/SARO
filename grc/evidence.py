@@ -42,7 +42,8 @@ REQUIRED_PROVENANCE_FIELDS = (
     "captured_at",
 )
 
-# Fields included in the deterministic content hash.
+# Fields included in the deterministic content hash. UNCHANGED across RPV-002 so
+# pre-RPV-002 records verify identically (see _PIN_FIELDS for the additive pin).
 _PAYLOAD_FIELDS = (
     "output_id",
     "system_id",
@@ -54,6 +55,16 @@ _PAYLOAD_FIELDS = (
     "confidence",
     "consumer",
     "captured_at",
+)
+
+# STORY-RPV-002: the rule-pack criteria pin. Hashed so it is tamper-evident (an
+# examiner can trust the version this attestation was evaluated against), but folded
+# in ONLY when present — a NULL pin (pre-RPV-002 record, or a PERMISSIVE unpinned
+# capture) serializes exactly as a legacy payload did, so historical content_hashes
+# still verify (reviewer B1 / AC-4). Never remove or reorder existing fields.
+_PIN_FIELDS = (
+    "rule_pack_version_id",
+    "rule_pack_content_hash",
 )
 
 
@@ -85,8 +96,16 @@ def _json_default(value: Any) -> Any:
 
 
 def canonical_payload(data: dict[str, Any]) -> str:
-    """Deterministic (stable key order) JSON serialization of the payload."""
+    """Deterministic (stable key order) JSON serialization of the payload.
+
+    The rule-pack pin fields are appended ONLY when non-NULL, so a record without a
+    pin serializes byte-for-byte as it did before RPV-002 — historical content_hashes
+    keep verifying (reviewer B1).
+    """
     payload = {f: data.get(f) for f in _PAYLOAD_FIELDS}
+    for f in _PIN_FIELDS:
+        if data.get(f) is not None:
+            payload[f] = data.get(f)
     return json.dumps(payload, sort_keys=True, default=_json_default)
 
 
@@ -123,6 +142,18 @@ def capture_evidence(
     data = capture.model_dump()
     if data.get("captured_at") is None:
         data["captured_at"] = datetime.now(tz=timezone.utc)
+
+    # STORY-RPV-002 (AC-1/AC-2/AC-5): resolve the rule-pack version in force and pin
+    # it onto the record (inside the content hash). Resolution is per invocation and
+    # derives only from published snapshots, never the working copy. STRICT mode may
+    # refuse here (no published version / working-copy drift) or raise on a broken
+    # chain — both propagate so an unpinnable evaluation is not silently persisted.
+    from services.rule_pack_snapshot_service import resolve_pinned_version
+
+    version_id, version_hash = resolve_pinned_version(db)
+    data["rule_pack_version_id"] = version_id
+    data["rule_pack_content_hash"] = version_hash
+
     content_hash = compute_content_hash(data)
     prev_chain_hash, last_seq = _chain_tail(db, tenant_id)
     chain_hash = compute_chain_hash(content_hash, prev_chain_hash)
@@ -138,6 +169,15 @@ def capture_evidence(
     db.add(record)
     db.commit()
     db.refresh(record)
+
+    # STORY-MTR-001: meter evidence persistence (PHI-free, best-effort, post-commit —
+    # a metering failure must never fail/delay evaluation). Idempotent per record id.
+    import services.metering_service as metering
+
+    metering.safe_increment(
+        db, tenant_id=tenant_id, meter_key=metering.EVIDENCE_RECORDS_PERSISTED,
+        idempotency_key=f"evidence:{record.id}",
+    )
     return record
 
 
@@ -155,7 +195,12 @@ def get_evidence(
 
 
 def _record_to_payload(record: GRCEvidenceRecord) -> dict[str, Any]:
-    return {f: getattr(record, f) for f in _PAYLOAD_FIELDS}
+    data = {f: getattr(record, f) for f in _PAYLOAD_FIELDS}
+    # Surface the pin so canonical_payload folds it in when present; absent/NULL
+    # pins are skipped by canonical_payload, preserving legacy verification.
+    for f in _PIN_FIELDS:
+        data[f] = getattr(record, f, None)
+    return data
 
 
 class ChainVerification(BaseModel):

@@ -71,3 +71,13 @@ as a sales/diligence artifact (sales-engineer skill corpus item).
 | Buyer objection | design-partner-wargamer CISO persona; Hale deal conditions |
 | Sales artifact | sales-engineer grounding corpus |
 | Deployment posture | SummitCare us-east-1 VPC / PrivateLink decisions |
+
+### AC → deliverable → tests/files
+| AC | Deliverable | Reference |
+|---|---|---|
+| AC-1 every tenant-scoped table has a policy; inventory artifact | migration 032 (7 zero-policy tables) + inventory table | `migrations/032_tenant_isolation_policies.sql`; `docs/TENANT_ISOLATION.md` §2 |
+| AC-2 API-layer scoping independent of RLS; fail-closed | pre-existing `.filter(tenant_id==current_user.tenant_id)`; proven | `test_absent_tenant_context_fails_closed` |
+| AC-3 TENANT-B cross-tenant suite, every FastAPI path, CI | cross-tenant suite | `tests/test_ten001_cross_tenant_isolation.py` (5 tests) |
+| AC-4 decision forced + recorded = (a) FastAPI-only | decision recorded; (b) not implemented | `docs/TENANT_ISOLATION.md` §1 |
+| AC-5 Tenant Isolation Report | architecture + inventory + matrix + provenance + residual risks | `docs/TENANT_ISOLATION.md` |
+| Edges (global tables, integer-PK volume, RLS inert) | disclosed | `docs/TENANT_ISOLATION.md` §4 |

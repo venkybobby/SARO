@@ -64,6 +64,10 @@ attestations) and drift beyond 0.5% raises a data-quality finding.
 - Pricing model itself (list price, tiers) — commercial workstream
 - Payment/invoicing integration (Stripe et al.)
 - Customer-facing usage dashboard (follow-on; statement artifact first)
+- The DAILY scheduler that invokes reconciliation (AC-5 cadence). v1 ships the
+  reconciliation LOGIC + an operator-triggered endpoint (`GET /api/v1/metering/reconcile`);
+  wiring it to a cron/CI schedule is an ops/deploy follow-on. Threshold checks (AC-4) DO
+  fire at runtime (wired into `safe_increment`).
 
 ## NFRs
 - Metering adds zero synchronous latency to evaluation path
@@ -77,3 +81,13 @@ attestations) and drift beyond 0.5% raises a data-quality finding.
 | Idempotency | evf_expiry_notifications |
 | Statements as evidence | Hash discipline (SEC Proof lineage) |
 | Deal condition | Hale exercise: pricing/packaging conditions |
+
+### AC → tests → files
+| AC | Tests | Implementation |
+|---|---|---|
+| AC-1 PHI-free closed vocabulary | `test_unknown_meter_key_and_dimension_rejected` | `metering_service._validate`, `METER_KEYS`, `DIMENSION_KEYS`; `migrations/035` |
+| AC-2 async idempotent, never blocks eval | `test_increment_and_idempotency`, `test_safe_increment_never_raises`, `test_capture_evidence_meters_persistence` | `increment`/`safe_increment`; wiring in `grc/evidence.py`, `grc/orchestrator.py`, `rule_pack_versions.py` |
+| AC-3 immutable hashed statement | `test_statement_hash_and_immutable_reissue` | `generate_statement`; migration 035 immutability trigger; `POST /metering/statement` |
+| AC-4 threshold notify, no cutoff | `test_threshold_records_and_notifies_without_cutoff` | `check_threshold`; `config.saro_metering_thresholds` |
+| AC-5 reconciliation drift → data-quality | `test_reconcile_flags_drift` | `reconcile`; `config.saro_metering_drift_tolerance` |
+| Edge high-water; tenant isolation | `test_high_water_mark`, `test_api_requires_privilege`, TEN-001 guard | `record_high_water`; RLS + registry |

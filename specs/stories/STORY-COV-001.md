@@ -81,3 +81,17 @@ observation lag" has measured evidence, not an estimate.
 | Idempotency pattern | evf_expiry_notifications |
 | CISO objection | design-partner-wargamer: "what is your maximum observation lag?" |
 | Philosophy fit | Interagency guidance: evidence as byproduct; honest-gaps requirement (EVF-002 AC-5) |
+
+### AC → tests → files
+| AC | Tests | Implementation |
+|---|---|---|
+| AC-1 checkpoint interface (heartbeat/watermark) | `test_checkpoint_idempotent_and_gap_opens_when_stale`, `test_api_checkpoint_and_report` | `record_checkpoint`; `migrations/036`; `ObservationCheckpoint`. **Live-adapter emission DEFERRED (STORY-406).** |
+| AC-2 gap opens (cause UNKNOWN); diagnose | `test_checkpoint_idempotent...`, `test_diagnose_gap_sets_cause` | `detect_gaps`, `diagnose_gap` |
+| AC-3 resume closes gap w/ duration + watermark delta | `test_resuming_checkpoint_closes_gap` | `record_checkpoint` → `_close_gap` |
+| AC-4 coverage report (%, gaps, max lag, methodology) | `test_coverage_report_percentage`, `test_api_checkpoint_and_report` | `coverage_report`; `GET /observation-coverage/report` |
+| AC-5 lag p50/p95/max measured | `test_lag_percentiles` | `record_lag_sample` |
+| Edge SARO_OUTAGE / maintenance / idempotent re-read | `test_saro_outage_is_retroactive`, `test_planned_maintenance_has_approver` | `detect_saro_outage`, `declare_maintenance` |
+| Tenant tables registered | TEN-001 guard | migration 036 RLS + `docs/TENANT_ISOLATION.md` |
+
+**Deferred (owner-locked):** AC-1's live Bedrock-adapter heartbeat emission — STORY-406 (adapter
+contract) does not exist. The checkpoint interface ships; wiring a real adapter is follow-on.

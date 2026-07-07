@@ -4,6 +4,7 @@ Aggregates rows from EUAIActRule and NISTControl ORM tables plus static
 AIGP/ISO 42001 entries.  All sort/filter logic lives here so the router
 and the Streamlit tab stay thin.
 """
+
 from __future__ import annotations
 
 import unicodedata
@@ -13,6 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models import EUAIActRule, NISTControl
+from services import rule_visibility
 
 # ── Ordinal risk level map (Critical > High > Medium > Low > N/A) ─────────────
 
@@ -24,7 +26,13 @@ RISK_ORDINAL: dict[str, int] = {
     "N/A": 0,
 }
 
-_SEVERITY_TO_RISK: dict[int, str] = {5: "Critical", 4: "High", 3: "Medium", 2: "Low", 1: "Low"}
+_SEVERITY_TO_RISK: dict[int, str] = {
+    5: "Critical",
+    4: "High",
+    3: "Medium",
+    2: "Low",
+    1: "Low",
+}
 
 # Static rows for AIGP and ISO 42001 (not yet in DB tables)
 _STATIC_ROWS: list[dict[str, Any]] = [
@@ -95,45 +103,64 @@ def _nist_severity_to_risk(severity: int | None) -> str:
     return _SEVERITY_TO_RISK.get(severity or 0, "Low")
 
 
-def get_matrix_rows(db: Session) -> list[dict[str, Any]]:
-    """Return all compliance matrix rows aggregated from DB + static sources."""
+def get_matrix_rows(db: Session, *, show_drafts: bool = False) -> list[dict[str, Any]]:
+    """Return all compliance matrix rows aggregated from DB + static sources.
+
+    STORY-CHUB-011: DRAFT_UNVALIDATED / RETIRED / NULL-status rule rows are excluded
+    server-side by default so unvalidated regulatory mappings are never presented as
+    authoritative. ``show_drafts=True`` (internal personas only — enforced by the
+    router) returns them with an internal-only ``validation_badge`` for the UI.
+    """
     rows: list[dict[str, Any]] = []
 
     try:
         # EU AI Act rows — actual columns: article_number, title, risk_level (string)
         for rule in db.query(EUAIActRule).all():
+            status = rule.validation_status
+            if not show_drafts and not rule_visibility.is_visible_by_default(status):
+                continue
             last_upd = rule.last_updated
             last_upd_str = last_upd.date().isoformat() if last_upd is not None else None
             risk = rule.risk_level if rule.risk_level in RISK_ORDINAL else "Medium"
-            rows.append({
-                "id": f"EUAI-{rule.id}",
-                "regulation_name": "EU AI Act",
-                "article_section": rule.article_number or "—",
-                "requirement_summary": rule.title or "",
-                "risk_level": risk,
-                "status": "In Progress",
-                "coverage_pct": None,
-                "last_updated": last_upd_str,
-                "assigned_owner": None,
-                "notes": None,
-            })
+            rows.append(
+                {
+                    "id": f"EUAI-{rule.id}",
+                    "regulation_name": "EU AI Act",
+                    "article_section": rule.article_number or "—",
+                    "requirement_summary": rule.title or "",
+                    "risk_level": risk,
+                    "status": "In Progress",
+                    "coverage_pct": None,
+                    "last_updated": last_upd_str,
+                    "assigned_owner": None,
+                    "notes": None,
+                    # Internal-only badge; None in the default customer view.
+                    "validation_badge": rule_visibility.badge_for(status)
+                    if show_drafts
+                    else None,
+                }
+            )
 
         # NIST RMF rows — actual columns: subcategory_id, function_name, description
         for ctrl in db.query(NISTControl).all():
             last_upd = ctrl.last_updated
             last_upd_str = last_upd.date().isoformat() if last_upd is not None else None
-            rows.append({
-                "id": ctrl.subcategory_id or f"NIST-{ctrl.id}",
-                "regulation_name": "NIST AI RMF",
-                "article_section": ctrl.function_name or "—",
-                "requirement_summary": ctrl.description or "",
-                "risk_level": "Medium",
-                "status": "Evidence Supported",
-                "coverage_pct": None,
-                "last_updated": last_upd_str,
-                "assigned_owner": None,
-                "notes": None,
-            })
+            rows.append(
+                {
+                    "id": ctrl.subcategory_id or f"NIST-{ctrl.id}",
+                    "regulation_name": "NIST AI RMF",
+                    "article_section": ctrl.function_name or "—",
+                    "requirement_summary": ctrl.description or "",
+                    "risk_level": "Medium",
+                    "status": "Evidence Supported",
+                    "coverage_pct": None,
+                    "last_updated": last_upd_str,
+                    "assigned_owner": None,
+                    "notes": None,
+                    # NIST has no validation lifecycle column -> always visible, no badge.
+                    "validation_badge": None,
+                }
+            )
     except Exception:
         # DB schema mismatch or missing table — serve static-only rows
         pass
@@ -144,11 +171,13 @@ def get_matrix_rows(db: Session) -> list[dict[str, Any]]:
 
 # ── Normalise string for case-insensitive / accent-insensitive sort ───────────
 
+
 def _nfkd(s: str) -> str:
     return unicodedata.normalize("NFKD", s).casefold()
 
 
 # ── Sort helpers ──────────────────────────────────────────────────────────────
+
 
 def _sort_key_risk(row: dict[str, Any], asc: bool):
     rl = row.get("risk_level")

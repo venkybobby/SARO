@@ -7,6 +7,7 @@ POST /api/v1/aims/documents/{doc_id}/link/{audit_id}   — link audit
 DELETE /api/v1/aims/documents/{doc_id}/link/{audit_id} — unlink audit
 GET  /api/v1/aims/documents/{doc_id}/evidence-pack     — evidence JSON
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/api/v1/aims", tags=["aims"])
 # AI models/systems for a tenant.  We surface the same data that backs the
 # AIMS document evidence pack — enriched with model-centric metadata.
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/models",
@@ -61,26 +63,31 @@ def list_aims_models(
 
     models_out = []
     for doc in docs:
-        models_out.append({
-            "model_id": str(doc.id),
-            "name": doc.title,
-            "version": doc.version,
-            "effective_date": doc.effective_date.isoformat() if doc.effective_date else None,
-            "owner_email": doc.owner_email,
-            "linked_audit_count": len(doc.linked_audit_ids or []),
-            "risk_tier": "high",          # default — override once risk_tier column added
-            "lifecycle_stage": "production",
-            "framework_coverage": ["ISO-42001", "EU-AI-ACT-2024"],
-            "created_at": doc.created_at.isoformat() if doc.created_at else None,
-        })
+        models_out.append(
+            {
+                "model_id": str(doc.id),
+                "name": doc.title,
+                "version": doc.version,
+                "effective_date": doc.effective_date.isoformat()
+                if doc.effective_date
+                else None,
+                "owner_email": doc.owner_email,
+                "linked_audit_count": len(doc.linked_audit_ids or []),
+                "risk_tier": "high",  # default — override once risk_tier column added
+                "lifecycle_stage": "production",
+                "framework_coverage": ["ISO-42001", "EU-AI-ACT-2024"],
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            }
+        )
 
     return {
         "models": models_out,
         "total": len(models_out),
         "tenant_id": str(effective_tenant),
         "note": "Model registry derived from AIMS document lifecycle records. "
-                "Evidence-based — human review required for classification decisions.",
+        "Evidence-based — human review required for classification decisions.",
     }
+
 
 _ALLOWED_PERSONAS = {"compliance_lead", "ai_auditor"}
 
@@ -97,10 +104,14 @@ def _check_aims_permission(user: User) -> None:
         )
 
 
-def _get_doc_or_404(doc_id: uuid.UUID, tenant_id: uuid.UUID, db: Session) -> AIMSDocument:
+def _get_doc_or_404(
+    doc_id: uuid.UUID, tenant_id: uuid.UUID, db: Session
+) -> AIMSDocument:
     doc = db.get(AIMSDocument, doc_id)
     if not doc or doc.tenant_id != tenant_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AIMS document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="AIMS document not found"
+        )
     return doc
 
 
@@ -219,21 +230,19 @@ def get_evidence_pack(
     doc_out = AIMSDocumentOut.model_validate(doc)
 
     linked_audits: list[dict[str, Any]] = []
-    for audit_id_str in (doc.linked_audit_ids or []):
+    for audit_id_str in doc.linked_audit_ids or []:
         try:
             audit_id = uuid.UUID(audit_id_str)
         except ValueError:
             continue
         audit = db.get(Audit, audit_id)
-        if not audit:
+        # STORY-TEN-001 defense-in-depth: recheck tenant even though link_audit only
+        # links same-tenant audits — this is the one Audit fetch that lacked the filter.
+        if not audit or audit.tenant_id != current_user.tenant_id:
             continue
 
         report = db.query(ScanReport).filter(ScanReport.audit_id == audit_id).first()
-        traces = (
-            db.query(AuditTrace)
-            .filter(AuditTrace.audit_id == audit_id)
-            .all()
-        )
+        traces = db.query(AuditTrace).filter(AuditTrace.audit_id == audit_id).all()
 
         # Compliance rules with rule_pack_version
         applied_rules = [
@@ -248,17 +257,23 @@ def get_evidence_pack(
             if t.check_type == "compliance_rule"
         ]
 
-        linked_audits.append({
-            "audit_id": audit_id_str,
-            "dataset_name": audit.dataset_name,
-            "completed_at": audit.completed_at.isoformat() if audit.completed_at else None,
-            "status": audit.status,
-            "overall_risk_score": report.overall_risk_score if report else None,
-            "mit_coverage_score": report.mit_coverage_score if report else None,
-            "confidence_score": report.confidence_score if report else None,
-            "gate_summary": report.report_json.get("gates") if report and report.report_json else [],
-            "applied_rules": applied_rules,
-        })
+        linked_audits.append(
+            {
+                "audit_id": audit_id_str,
+                "dataset_name": audit.dataset_name,
+                "completed_at": audit.completed_at.isoformat()
+                if audit.completed_at
+                else None,
+                "status": audit.status,
+                "overall_risk_score": report.overall_risk_score if report else None,
+                "mit_coverage_score": report.mit_coverage_score if report else None,
+                "confidence_score": report.confidence_score if report else None,
+                "gate_summary": report.report_json.get("gates")
+                if report and report.report_json
+                else [],
+                "applied_rules": applied_rules,
+            }
+        )
 
     return AIMSEvidencePackOut(
         document=doc_out,

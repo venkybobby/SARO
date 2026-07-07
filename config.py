@@ -42,5 +42,53 @@ class Settings(BaseSettings):
     # ── Notifications ────────────────────────────────────────────────────────
     sendgrid_api_key: str | None = None
 
+    # ── Rule-pack versioning (STORY-RPV-001) ─────────────────────────────────
+    # When TRUE, LEGACY_UNREVIEWED (and status-less, e.g. NIST) rule rows are
+    # includable in a published snapshot, carrying a version-level caveat. When
+    # FALSE, only SME_VALIDATED rows are includable. DRAFT_UNVALIDATED / RETIRED
+    # are never includable regardless of this flag.
+    saro_snapshot_include_legacy: bool = True
+
+    # ── Rule-pack evaluation pin (STORY-RPV-002) ─────────────────────────────
+    # PERMISSIVE: pin the latest PUBLISHED snapshot (never the working copy); if
+    #   none published, pin is None (PRE-VERSIONING) and evaluation proceeds.
+    # STRICT: refuse to evaluate when no version is published or the working copy
+    #   has drifted from the latest published version beyond tolerance.
+    # A broken snapshot chain refuses in BOTH modes (integrity incident).
+    saro_rule_pack_eval_mode: str = "PERMISSIVE"
+
+    # ── Rule-pack visibility on customer surfaces (STORY-CHUB-011) ────────────
+    # When True, LEGACY_UNREVIEWED rule rows are visible in default customer views
+    # (provisionally-visible legacy), carrying a "pending validation" indicator that
+    # is shown to internal personas only. When False, legacy rows are hidden from
+    # default views too. DRAFT_UNVALIDATED / RETIRED / NULL are never in default
+    # views regardless of this flag.
+    saro_show_legacy_rules: bool = True
+
+    # ── SARO self-audit spine (STORY-META-001) ───────────────────────────────
+    # Hot-retention floor for audit_events before archival (never silent deletion).
+    saro_audit_retention_days: int = 365
+
+    # ── Finding disposition lifecycle (STORY-DISP-001) ───────────────────────
+    # When True, a WAIVED disposition's approver must differ from the acknowledger
+    # AND the waive actor (four-eyes). Per-tenant policy in v1 defaults to this flag.
+    saro_disposition_four_eyes: bool = False
+    # Max waiver horizon (days): a waiver may not indefinitely suppress a finding.
+    # expiry must be in (today, today + this]. Reject past/absurd-future expiries.
+    saro_disposition_max_waiver_days: int = 180
+
+    # ── PHI-free usage metering (STORY-MTR-001) ──────────────────────────────
+    # Per-meter soft thresholds: crossing RECORDS + NOTIFIES; it never enforces a
+    # cutoff (v1 never silently drops evaluations). {} means no thresholds configured.
+    saro_metering_thresholds: dict = {}
+    # Reconciliation drift tolerance: meter total vs authoritative count beyond this
+    # fraction raises a data-quality finding.
+    saro_metering_drift_tolerance: float = 0.005
+
+    # ── Observation coverage / gaps (STORY-COV-001) ──────────────────────────
+    # A (system, adapter) whose latest checkpoint is older than this many seconds is
+    # considered blind — a gap opens. Per-adapter cadence + tolerance in one knob (v1).
+    saro_coverage_cadence_seconds: int = 300
+
 
 settings = Settings()

@@ -14,6 +14,7 @@ STORY-304, slots in at Phase 2 without changing this interface).
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -33,6 +34,8 @@ from grc.scoring import (
     score_risk,
     validate_disposition,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _evidence_field(evidence: Any, field: str) -> Any:
@@ -204,9 +207,54 @@ def run_audit_by_id(db, *, tenant_id: uuid.UUID, output_id: str) -> dict[str, An
             purpose = entry.purpose if entry else None
         except (ValueError, TypeError):
             purpose = None
-    return run_audit(
+    result = run_audit(
         output_id,
         record,
         system_id=str(sys_id) if sys_id else None,
         registry_purpose=purpose,
     )
+    # STORY-DISP-001 AC-1: a failing evaluation opens a tracked disposition linked to
+    # the evidence record. Fail-open — a disposition failure must never block the audit
+    # (NFR: zero added latency/failure to the evaluation path).
+    _open_dispositions_for_failures(db, tenant_id, record, result, sys_id)
+
+    # STORY-MTR-001: meter the evaluation (PHI-free, best-effort). Outcome dimension is a
+    # closed-vocabulary tag derived from the gate recommendation.
+    try:
+        import services.metering_service as metering
+
+        # Idempotency key per evaluation invocation so a retried audit doesn't
+        # double-count (AC-2 edge). Keyed on the evidence record when present.
+        idem = f"eval:{getattr(record, 'id', None)}" if record is not None else None
+        metering.safe_increment(
+            db, tenant_id=tenant_id, meter_key=metering.EVALUATIONS_EXECUTED,
+            idempotency_key=idem,
+            dimensions={"outcome": str(result.get("gate_recommendation") or "unknown")},
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return result
+
+
+def _open_dispositions_for_failures(db, tenant_id, record, result, sys_id) -> None:
+    """Open an OPEN disposition for each FAIL finding (de-identified; recurrence-deduped)."""
+    if record is None:
+        return
+    try:
+        import services.disposition_service as disp_svc
+
+        for finding in result.get("findings", []):
+            if finding.get("disposition") != FAIL:
+                continue
+            disp_svc.create_disposition(
+                db,
+                tenant_id=tenant_id,
+                evidence_record_id=getattr(record, "id", None),
+                rule_id=str(finding.get("check") or finding.get("id") or "unknown"),
+                gate_id=str((finding.get("risk") or {}).get("gate") or ""),
+                system_id=str(sys_id) if sys_id else None,
+                severity=str((finding.get("risk") or {}).get("band") or ""),
+                actor="system:evaluation",
+            )
+    except Exception as exc:  # noqa: BLE001 — never block the evaluation path
+        logger.warning("disposition open-on-failure failed (continuing): %s", exc)
