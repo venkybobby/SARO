@@ -357,6 +357,101 @@ def detect_gaps(
     return opened
 
 
+def reconcile_backfill_gaps(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    system_id: str,
+    adapter_id: str,
+    window_start: datetime,
+    window_end: datetime,
+    cadence_seconds: int,
+) -> list[ObservationGap]:
+    """Detect INTERIOR observation gaps across a closed historical backfill window (STORY-406).
+
+    ``detect_gaps`` is a live cadence-vs-*now* monitor: it opens a gap only when a stream's
+    LATEST checkpoint is stale relative to the present. It cannot see a gap that sits BETWEEN
+    two already-past checkpoints — which is exactly the shape a backfill/replay produces (a
+    historical log corpus with a missing hour, both sides observed). This walks the ordered
+    checkpoints for one (tenant, system, adapter) stream inside ``[window_start, window_end)``
+    and opens an already-closed :class:`ObservationGap` for every inter-checkpoint interval
+    longer than ``cadence_seconds``. Each gap is chained into the tenant's gap evidence hash
+    chain (AC-3), identical to a live-detected gap, so backfill coverage is attestable.
+
+    Scope: interior inter-observation gaps only. Coverage before the first / after the last
+    observation is defined by the observed corpus itself, not fabricated against the window
+    bounds. ``cadence_seconds`` is passed explicitly (an adapter/backfill concern) rather than
+    read from the live-tail global, so a replay can use a coarser heartbeat cadence than the
+    live path. Idempotent: an interval whose start already carries a reconciliation gap is
+    skipped, so re-running a replay never double-opens.
+    """
+    start, end = _aware(window_start), _aware(window_end)
+    cps = (
+        db.query(ObservationCheckpoint)
+        .filter(
+            ObservationCheckpoint.tenant_id == tenant_id,
+            ObservationCheckpoint.system_id == system_id,
+            ObservationCheckpoint.adapter_id == adapter_id,
+            ObservationCheckpoint.watermark_timestamp >= start,
+            ObservationCheckpoint.watermark_timestamp < end,
+        )
+        # FND (code review): a secondary key is required — ties in watermark_timestamp
+        # occur in practice (e.g. two records land in the same second) and Postgres gives
+        # no ordering guarantee for tied rows without one. SQLite happens to preserve
+        # insertion order, which masked this in tests. watermark_position is unique per
+        # (tenant, system, adapter) row (the checkpoint UNIQUE constraint), so ordering by
+        # it breaks ties deterministically and keeps replay byte-for-byte reproducible.
+        .order_by(
+            ObservationCheckpoint.watermark_timestamp.asc(),
+            ObservationCheckpoint.watermark_position.asc(),
+        )
+        .all()
+    )
+
+    opened: list[ObservationGap] = []
+    for prev, cur in zip(cps, cps[1:]):
+        prev_ts, cur_ts = (
+            _aware(prev.watermark_timestamp),
+            _aware(cur.watermark_timestamp),
+        )
+        if (cur_ts - prev_ts).total_seconds() <= cadence_seconds:
+            continue
+        # Idempotency: a reconciliation gap starting exactly here already exists → skip.
+        exists = (
+            db.query(ObservationGap.id)
+            .filter(
+                ObservationGap.tenant_id == tenant_id,
+                ObservationGap.system_id == system_id,
+                ObservationGap.adapter_id == adapter_id,
+                ObservationGap.gap_start == prev.watermark_timestamp,
+                ObservationGap.detection_method == "backfill_reconciliation",
+            )
+            .first()
+        )
+        if exists is not None:
+            continue
+        gap = ObservationGap(
+            tenant_id=tenant_id,
+            system_id=system_id,
+            adapter_id=adapter_id,
+            gap_start=prev_ts,
+            gap_end=cur_ts,
+            cause_class=UNKNOWN,
+            detection_method="backfill_reconciliation",
+            watermark_start=prev.watermark_position,
+            watermark_end=cur.watermark_position,
+            duration_seconds=int((cur_ts - prev_ts).total_seconds()),
+        )
+        db.add(gap)
+        db.flush()
+        _finalize_gap_hash(db, gap)  # created-closed → chain immediately (AC-3)
+        opened.append(gap)
+    db.commit()
+    for g in opened:
+        db.refresh(g)
+    return opened
+
+
 def diagnose_gap(db: Session, gap_id: uuid.UUID, cause_class: str) -> ObservationGap:
     """Set a diagnosed cause on an UNKNOWN gap (AC-2)."""
     if cause_class not in CAUSE_CLASSES:

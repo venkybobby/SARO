@@ -3,160 +3,208 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STORY-406 — Bedrock Invocation-Log Adapter · Change Debrief</title>
+<title>STORY-407 — Demo Corpus Builder — Change Debrief</title>
 <style>
-  :root { --bg:#0f1420; --card:#171d2b; --ink:#e7ecf5; --mut:#9aa7bd; --line:#2a3550;
-          --ok:#3ecf8e; --warn:#f4b942; --bad:#f47174; --accent:#6ea8fe; }
-  @media (prefers-color-scheme: light) {
-    :root { --bg:#f5f7fb; --card:#fff; --ink:#131722; --mut:#5a6577; --line:#dde3ee;
-            --ok:#12855a; --warn:#a9720a; --bad:#c1362f; --accent:#2563eb; }
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink);
-         font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .wrap { max-width:960px; margin:0 auto; padding:32px 20px 80px; }
-  h1 { font-size:26px; margin:0 0 4px; }
-  h2 { font-size:19px; margin:34px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--line); }
-  .sub { color:var(--mut); margin:0 0 8px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:12px 0; }
-  code { background:rgba(120,140,180,.16); padding:1px 6px; border-radius:5px; font-size:.9em; }
-  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:14px; }
-  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--mut); font-weight:600; }
-  .tag { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; font-weight:600; }
-  .t-ok { background:rgba(62,207,142,.16); color:var(--ok); }
-  .t-warn { background:rgba(244,185,66,.16); color:var(--warn); }
-  .t-bad { background:rgba(244,113,116,.16); color:var(--bad); }
-  ul { margin:6px 0 6px 2px; padding-left:20px; }
-  li { margin:4px 0; }
-  .quiz details { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:10px 0; }
-  .quiz summary { cursor:pointer; font-weight:600; }
-  .quiz .a { margin-top:8px; color:var(--mut); border-left:3px solid var(--accent); padding-left:12px; }
-  .flow { width:100%; height:auto; }
-  .mut { color:var(--mut); }
-  .kicker { text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--accent); font-weight:700; }
+  :root { --ink:#1a1d23; --sub:#5b6270; --line:#e4e7ec; --bg:#fafbfc; --accent:#3d5afe;
+          --good:#1a7f4e; --warn:#b45309; --pill:#eef1f6; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink);
+         background: var(--bg); line-height: 1.55; max-width: 960px; margin: 0 auto; padding: 40px 24px 100px; }
+  h1 { font-size: 1.7rem; margin-bottom: 4px; }
+  h2 { font-size: 1.2rem; margin-top: 48px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+  h3 { font-size: 1.02rem; margin-top: 28px; }
+  .sub { color: var(--sub); margin-top: 0; }
+  .pill { display:inline-block; background: var(--pill); border-radius: 999px; padding: 2px 10px;
+          font-size: 0.78rem; color: var(--sub); margin-right: 6px; }
+  code, pre { font-family: "SF Mono", Consolas, monospace; font-size: 0.86rem; }
+  code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; }
+  pre { background: #12141a; color: #d6deeb; padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 0.9rem; vertical-align: top; }
+  th { color: var(--sub); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .03em; }
+  .file { font-family: "SF Mono", Consolas, monospace; font-size: 0.85rem; }
+  .tag-new { color: var(--good); font-weight: 600; }
+  .tag-mod { color: var(--accent); font-weight: 600; }
+  .callout { border-left: 3px solid var(--accent); background: #eef1ff; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .callout.warn { border-color: var(--warn); background: #fff6ea; }
+  .callout.good { border-color: var(--good); background: #ecfaf2; }
+  .deviation { border-left: 3px solid var(--warn); background: #fff6ea; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 10px 0; }
+  .risk-table td:nth-child(2) { font-weight: 600; }
+  .quiz { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 4px 20px 18px; margin-top: 14px; }
+  .q { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  .q:last-child { border-bottom: none; }
+  .q p.question { font-weight: 600; margin-bottom: 8px; }
+  .reveal { cursor: pointer; color: var(--accent); font-size: 0.88rem; user-select: none; }
+  .answer { display: none; margin-top: 8px; padding: 10px 14px; background: #f4f6fb; border-radius: 6px; font-size: 0.9rem; }
+  .answer.show { display: block; }
+  svg { max-width: 100%; height: auto; }
+  .legend { font-size: 0.78rem; color: var(--sub); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="kicker">Change Debrief · Lifecycle VERIFY stage</div>
-  <h1>STORY-406 — Bedrock Invocation-Log Adapter</h1>
-  <p class="sub">Read-only adapter · backfill audit + observation coverage · PR #112 · branch <code>claude/bedrock-adapter-schema-3lz3yl</code></p>
 
-  <h2>1 · Context — why this exists (plain language)</h2>
-  <div class="card">
-    <p>SARO scores AI output it is <em>given</em>; it never calls a model itself. Customers running agents on
-    <strong>AWS Bedrock</strong> already emit <strong>model-invocation logs</strong> (to CloudWatch/S3). This adapter reads
-    those logs — after the fact — and feeds them into SARO's two evidence streams:</p>
-    <ul>
-      <li><strong>Audit</strong>: turn each logged invocation's prompt + response into a scored risk audit.</li>
-      <li><strong>Coverage</strong>: emit a heartbeat proving <em>when SARO was observing</em> a system.</li>
-    </ul>
-    <p><code>migrations/036</code> and <code>STORY-COV-001</code> both deferred this "live Bedrock heartbeat" to STORY-406 —
-    this PR is that deferred half, in <strong>backfill</strong> (historical replay) form. Live-tail is spec'd but follow-on.</p>
-  </div>
+<h1>STORY-407 — Demo Corpus Builder</h1>
+<p class="sub">Synthetic Bedrock invocation logs for the SummitCare demo &nbsp;·&nbsp; branch <code>story/STORY-407-demo-corpus-builder</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
+<span class="pill">9 files changed</span><span class="pill">STORY-336 guard: green</span><span class="pill">STORY-406: reused, not modified</span><span class="pill">reviewer: APPROVE (after fixes)</span><span class="pill">security-auditor: PASS (after fixes)</span>
 
-  <h2>2 · Intuition — the one idea that makes it click</h2>
-  <div class="card">
-    <p>The whole design turns on <strong>one seam</strong>: <strong>coverage never touches a message body; audit may.</strong>
-    That is SARO's INV-2 invariant (evidence carries positions/timestamps, never observed content). We make it
-    <em>structural</em>, not a promise: <code>emit_coverage()</code> is handed only an <code>Envelope</code>
-    (modelId, cursor, timestamp) — it is physically incapable of reading a prompt. The audit branch is a separate
-    function that resolves bodies (inline, or S3) behind an allowlist-guarded fetch.</p>
-    <svg class="flow" viewBox="0 0 900 250" role="img" aria-label="before and after data flow">
-      <style>
-        .b{fill:var(--card);stroke:var(--line);stroke-width:1.5}
-        .lbl{fill:var(--ink);font:13px sans-serif}.mut{fill:var(--mut);font:11px sans-serif}
-        .ar{stroke:var(--accent);stroke-width:2;fill:none;marker-end:url(#h)}
-        .bad{stroke:var(--bad)} .ok{stroke:var(--ok)}
-      </style>
-      <defs><marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
-        <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
-      <text x="10" y="20" class="mut">BEFORE — heartbeat emission deferred (migration 036 / COV-001 AC-1)</text>
-      <rect class="b" x="10" y="34" width="150" height="42" rx="8"/><text x="24" y="60" class="lbl">Bedrock logs</text>
-      <rect class="b" x="360" y="34" width="180" height="42" rx="8"/><text x="374" y="60" class="lbl">coverage store</text>
-      <path class="ar bad" stroke-dasharray="5 4" d="M162,55 L358,55"/>
-      <text x="200" y="48" class="mut">— no adapter —</text>
-
-      <text x="10" y="120" class="mut">AFTER — STORY-406 adapter, two branches, one seam</text>
-      <rect class="b" x="10" y="134" width="150" height="52" rx="8"/><text x="24" y="158" class="lbl">Bedrock log</text><text x="24" y="174" class="mut">(cursor, raw)</text>
-      <rect class="b" x="235" y="110" width="170" height="40" rx="8"/><text x="249" y="135" class="lbl">parse_envelope</text>
-      <rect class="b" x="235" y="172" width="170" height="40" rx="8"/><text x="249" y="197" class="lbl">build_audit_submission</text>
-      <path class="ar" d="M162,150 L233,130"/><path class="ar" d="M162,170 L233,192"/>
-      <rect class="b" x="470" y="110" width="160" height="40" rx="8"/><text x="484" y="135" class="lbl">emit_coverage</text>
-      <rect class="b" x="470" y="172" width="160" height="40" rx="8"/><text x="484" y="197" class="lbl">submit_audit_sync</text>
-      <path class="ar ok" d="M407,130 L468,130"/><path class="ar" d="M407,192 L468,192"/>
-      <rect class="b" x="700" y="110" width="180" height="40" rx="8"/><text x="714" y="135" class="lbl">observation_checkpoints</text>
-      <rect class="b" x="700" y="172" width="180" height="40" rx="8"/><text x="714" y="197" class="lbl">audits + ScanReport</text>
-      <path class="ar ok" d="M632,130 L698,130"/><path class="ar" d="M632,192 L698,192"/>
-      <text x="470" y="234" class="mut">green path = envelope-only (no body ever) — INV-2 structural</text>
-    </svg>
-  </div>
-
-  <h2>3 · File-by-file</h2>
-  <div class="card">
-    <table>
-      <tr><th>File</th><th>What</th></tr>
-      <tr><td><code>adapters/bedrock/records.py</code></td><td>Typed <code>Envelope</code> (body-free), <code>AuditSubmission</code>, <code>BedrockAdapterConfig</code> (carries <code>allowed_s3_buckets</code> allowlist + size caps).</td></tr>
-      <tr><td><code>adapters/bedrock/parse.py</code></td><td>Pure parsing: envelope, Converse + InvokeModel prompt/output extractors, <code>map_source_model</code>, <code>validate_s3_path</code> (SSRF guard), inline size cap, bounded tool-result recursion.</td></tr>
-      <tr><td><code>adapters/bedrock/replay.py</code></td><td>Backfill orchestration: envelope-only <code>emit_coverage</code> (cursor watermark via <code>_safe_ident</code>), guarded S3 resolver (size-capped), per-record fail-soft, duplicate-cursor audit idempotency.</td></tr>
-      <tr><td><code>services/audit_submission.py</code></td><td>Synchronous engine submission (default audit sink); initial insert + engine run both in try/rollback so one bad record can't poison the shared session.</td></tr>
-      <tr><td><code>routers/ingest.py</code></td><td>Added <code>"bedrock"</code> to the <code>_SOURCE_MODELS</code> enum (D1). <span class="mut">One line; unrelated pre-existing format drift left untouched.</span></td></tr>
-      <tr><td><code>grc/guards/external_model.py</code></td><td>Added <code>adapters</code> to the STORY-336 scanned product dirs — the guard now enforces the no-external-model invariant on this package.</td></tr>
-      <tr><td><code>tests/test_story406_bedrock_adapter.py</code></td><td>24 tests: AC-1..6, edges, and every review-finding regression.</td></tr>
-      <tr><td><code>specs/stories/STORY-406.md</code>, <code>implementation-notes.md</code></td><td>Story spec (Given/When/Then ACs) + lifecycle notes / Decision Log / review-finding ledger.</td></tr>
-    </table>
-    <p class="mut"><strong>Logged deviation (D4):</strong> chose a standalone sync submission service over refactoring the HTTP route's
-    background task to share it — avoids disturbing the hot path; consolidation is a follow-up.</p>
-  </div>
-
-  <h2>4 · Deliberately NOT done</h2>
-  <div class="card">
-    <ul>
-      <li><strong>Live-tail</strong> — spec'd; backfill ships first (reuses the same cursor primitive).</li>
-      <li><strong>RP-* evaluability rules</strong> (RP-TOOL-SCOPE, RP-OBS-COMPLETE, …) — follow-on; also blocked by the
-      <code>rule_packs/loader.py</code> vs shipped-YAML schema mismatch. The adapter <em>emits</em> the data
-      (<code>toolConfig</code>/<code>toolUse</code>/<code>stopReason</code>/truncation) those rules will consume.</li>
-      <li><strong>Enforcement-level claims</strong> — logs show <em>intended</em> model actions, not executed ones. Claim ceiling
-      recorded: "model-invocation-level evidence" only.</li>
-      <li><strong><code>_persist_traces</code> relocation</strong> — pre-existing 5-call-site pattern; out of scope (logged).</li>
-    </ul>
-  </div>
-
-  <h2>5 · Risk map — each risk → its covering test</h2>
-  <div class="card">
-    <table>
-      <tr><th>Risk</th><th>Status</th><th>Covering test / control</th></tr>
-      <tr><td>Coverage leaks body content (INV-2 break)</td><td><span class="tag t-ok">covered</span></td><td>Structural: <code>emit_coverage</code> takes only <code>Envelope</code>; <code>test_coverage_never_reads_body_inv2</code> (landmine resolver never called).</td></tr>
-      <tr><td>SSRF / confused-deputy via untrusted <code>s3Path</code></td><td><span class="tag t-ok">covered</span></td><td><code>validate_s3_path</code> scheme + bucket allowlist; <code>test_s3_body_denied_when_bucket_not_allowlisted</code>.</td></tr>
-      <tr><td>Memory DoS from huge body</td><td><span class="tag t-ok">covered</span></td><td>Inline + S3 size caps; <code>test_oversized_inline_body_rejected</code>.</td></tr>
-      <tr><td>One bad record aborts the corpus / poisons session</td><td><span class="tag t-ok">covered</span></td><td>Per-record try/rollback; <code>test_malformed_record_skipped_not_aborting</code>.</td></tr>
-      <tr><td>Re-running a backfill double-audits</td><td><span class="tag t-ok">covered</span></td><td>Duplicate-cursor gate; <code>test_backfill_idempotent_per_cursor</code> asserts second pass submits 0.</td></tr>
-      <tr><td>New external-model call sneaks onto product path</td><td><span class="tag t-ok">covered</span></td><td><code>adapters</code> now in STORY-336 scan; <code>test_adapters_in_product_scan_and_clean</code>.</td></tr>
-      <tr><td>Live Postgres RLS behaves unlike SQLite test harness</td><td><span class="tag t-warn">residual</span></td><td>Tenant isolation relies on RLS (migration 036); unit tests use SQLite. Mitigated by CI's fresh-Postgres migrations job; true RLS path exercised there.</td></tr>
-    </table>
-  </div>
-
-  <h2>6 · Understanding check</h2>
-  <p class="mut">Reveal each answer after you've committed to one.</p>
-  <div class="quiz">
-    <details><summary>Q1. Why can <code>emit_coverage</code> not leak a prompt, even if a future dev is careless?</summary>
-      <div class="a">Because its signature accepts only an <code>Envelope</code> — a body-free type built by <code>parse_envelope</code>, which reads only envelope keys. There is no message body in scope to leak. INV-2 is enforced by the type boundary, not by discipline.</div></details>
-    <details><summary>Q2. What breaks if we used <code>emit_observation</code> instead of <code>record_checkpoint</code> for backfill?</summary>
-      <div class="a"><code>emit_observation</code> overrides the watermark with a <em>time bucket</em> (<code>obs:{floor(ts/bucket)}</code>). Replaying a historical corpus would collapse many distinct records into one bucket and lose resumability. Backfill needs the monotonic <em>cursor</em> as the watermark — that's why the adapter calls <code>record_checkpoint</code> directly.</div></details>
-    <details><summary>Q3. Audit idempotency "rides the coverage duplicate signal." What does that require, and what breaks if violated?</summary>
-      <div class="a">It requires <code>do_coverage=True</code> (the backfill default): a re-seen cursor is detected as a duplicate <em>checkpoint</em>, which then skips the re-audit. If you ran <code>do_audit=True, do_coverage=False</code> and replayed twice, you'd duplicate Audit/ScanReport rows and re-run the engine. Documented in code + notes.</div></details>
-    <details><summary>Q4. Why is <code>boto3</code> lazy-imported inside the resolver rather than at module top?</summary>
-      <div class="a">boto3 is an optional dependency (commented out in <code>requirements.txt</code>). Lazy import keeps the parser + coverage branch dependency-free and unit-testable without AWS, and means importing the adapter never pulls boto3. It also keeps S3 reach confined to one function.</div></details>
-    <details><summary>Q5. A crafted log record sets <code>inputBodyS3Path: s3://attacker-bucket/secret</code>. What happens?</summary>
-      <div class="a"><code>validate_s3_path</code> rejects it — <code>attacker-bucket</code> is not in the operator's <code>allowed_s3_buckets</code> allowlist (deny-by-default), raising <code>S3PathNotAllowed</code>. The record fails soft (tallied as an audit error); no fetch with SARO's credentials occurs. This is the confused-deputy defense.</div></details>
-    <details><summary>Q6. How does the adapter stay clean under the STORY-336 no-external-model guard, given it deals with Bedrock?</summary>
-      <div class="a">It only ever reaches AWS <em>S3 object storage</em> (<code>boto3.client("s3")</code>), never a model-inference endpoint, and contains no <code>bedrock</code>-runtime literal (the guard scans string constants, incl. docstrings). <code>adapters</code> is in the guard's scanned dirs, so this is enforced, not asserted.</div></details>
-    <details><summary>Q7. Why does <code>source_model</code> collapse non-Claude Bedrock models to <code>"bedrock"</code> instead of naming each?</summary>
-      <div class="a">D1: widening the enum per model is a maintenance treadmill for zero audit value. The exact model is never lost — it lives in <code>system_id</code> (=modelId) and <code>metadata.modelId</code>. The enum stays a small, stable adapter-family filter; <code>anthropic.*</code>→<code>"claude"</code> still holds.</div></details>
-  </div>
-
-  <p class="mut" style="margin-top:30px">Gates at time of debrief: ruff ok · mypy ok · unit+integration ok · regression ok · STORY-336 ok · STORY-337 ok · bandit 0 · full suite 1633 passed · coverage 87.9% (ratchet holds) · independent reviewer + security-auditor findings all resolved pre-commit.</p>
+<h2>Why this exists</h2>
+<p>SummitCare's demo needs to run on SARO's real Bedrock ingestion path without touching any client PHI. That requires demo traffic that (a) looks byte-for-byte like a real AWS Bedrock invocation log, (b) is seeded with <em>known</em> findings so every rehearsal is identical, and (c) contains one deliberate blind spot so SARO's coverage-gap attestation has something real to show. This story builds the generator that produces that traffic.</p>
+<div class="callout">
+<strong>Scope correction made mid-build:</strong> the story as written assumed STORY-406 (the Bedrock adapter) and STORY-405 (eval core) didn't exist yet. Recon against current <code>main</code> — not stale memory — found STORY-406 was already built, reviewed, and merged (<code>adapters/bedrock/</code>, 656 lines, its own test suite, PR #112). This story therefore did <strong>not</strong> rebuild the adapter. It filled the one real gap (an S3-log discovery/reader) and built the generator on top of the real, existing pipeline.
 </div>
+
+<h2>Intuition — how the pieces fit</h2>
+<p>Four independent pieces, chained by file format and by API, not by code coupling:</p>
+<svg viewBox="0 0 900 230" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3d5afe"/>
+    </marker>
+  </defs>
+  <g font-size="12" fill="#1a1d23">
+    <rect x="10" y="70" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="95" y="98" text-anchor="middle" font-weight="600">demo_corpus_builder.py</text>
+    <text x="95" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · manifest-driven</text>
+    <text x="95" y="128" text-anchor="middle" font-size="10" fill="#5b6270">writes gzip NDJSON → S3 layout</text>
+
+    <rect x="230" y="70" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="315" y="98" text-anchor="middle" font-weight="600">adapters/bedrock/source.py</text>
+    <text x="315" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · discover + gunzip</text>
+    <text x="315" y="128" text-anchor="middle" font-size="10" fill="#5b6270">→ (cursor, raw) pairs</text>
+
+    <rect x="450" y="20" width="190" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="545" y="48" text-anchor="middle" font-weight="600">replay_backfill()</text>
+    <text x="545" y="64" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING (STORY-406, main)</text>
+    <text x="545" y="78" text-anchor="middle" font-size="10" fill="#5b6270">coverage branch: envelope only</text>
+
+    <rect x="450" y="120" width="190" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="545" y="148" text-anchor="middle" font-weight="600">SARoEngine</text>
+    <text x="545" y="164" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING (engine.py)</text>
+    <text x="545" y="178" text-anchor="middle" font-size="10" fill="#5b6270">audit branch: bodies → findings</text>
+
+    <rect x="690" y="70" width="190" height="70" rx="8" fill="#fff6ea" stroke="#b45309"/>
+    <text x="785" y="98" text-anchor="middle" font-weight="600">reconcile_backfill_gaps()</text>
+    <text x="785" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · 1 function added</text>
+    <text x="785" y="128" text-anchor="middle" font-size="10" fill="#5b6270">interior gap → attestation</text>
+
+    <line x1="180" y1="105" x2="228" y2="105" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="400" y1="90" x2="448" y2="60" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="400" y1="120" x2="448" y2="150" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="640" y1="55" x2="688" y2="90" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <text x="95" y="200" text-anchor="middle" font-size="10" fill="#5b6270">"the real Bedrock format,</text>
+    <text x="95" y="213" text-anchor="middle" font-size="10" fill="#5b6270">on disk or in S3"</text>
+  </g>
+</svg>
+<p class="legend">Green = new this story. Blue = existing/reused, untouched. Orange = one new function added to an existing file.</p>
+
+<h2>File-by-file</h2>
+<table>
+  <tr><th>File</th><th>Status</th><th>What / why</th></tr>
+  <tr><td class="file">scripts/demo_corpus_builder.py</td><td class="tag-new">NEW</td>
+      <td>CLI generator. Reads the manifest, resolves planted scenarios from <em>existing</em> fixtures, screens clean traffic against the engine's own <code>_RISK_SIGNALS</code> tables, batches records per hour, gzips deterministically, writes local or uploads to S3. <code>account_id</code>/<code>region</code> validated at the manifest boundary (security review).</td></tr>
+  <tr><td class="file">scripts/demo_manifest.yaml</td><td class="tag-new">NEW</td>
+      <td>The single source of demo composition — window, cadence, clean-traffic count, 6 planted use cases, the gap window.</td></tr>
+  <tr><td class="file">adapters/bedrock/source.py</td><td class="tag-new">NEW</td>
+      <td>The one real gap this story found: turns an S3/local key layout into the <code>(cursor, raw)</code> pairs <code>replay_backfill()</code> expects. Hardened in security review: key-shape validation + resolved-path containment (path traversal), a separate bounded-decompression cap (decompression bomb), and streamed local reads.</td></tr>
+  <tr><td class="file">adapters/bedrock/__init__.py</td><td class="tag-mod">MODIFIED</td>
+      <td>Exports the 6 new <code>source.py</code> names.</td></tr>
+  <tr><td class="file">services/observation_coverage_service.py</td><td class="tag-mod">MODIFIED</td>
+      <td>One new function, <code>reconcile_backfill_gaps()</code>, for interior-gap detection over a closed historical window (the existing <code>detect_gaps()</code> is a live cadence-vs-<em>now</em> monitor and can't see this shape). Fixed in code review: added a secondary sort key so tied checkpoint timestamps reconcile deterministically instead of depending on DB row order.</td></tr>
+  <tr><td class="file">tests/fixtures/bedrock/model_invocation_log.schema.json</td><td class="tag-new">NEW</td>
+      <td>JSON Schema for one Bedrock invocation-log record, built field-by-field from the official AWS docs (fetched live), with source URL + retrieval date recorded.</td></tr>
+  <tr><td class="file">tests/test_story407_demo_corpus_builder.py</td><td class="tag-new">NEW</td>
+      <td>17 tests: schema validation, S3-layout + hourly batching, byte-determinism, seed-sensitivity, source-reader round-trip, guard-cleanliness, the full engine E2E, and 7 security/correctness regression tests (path traversal, decompression bomb, size caps, manifest validation, tied-timestamp determinism).</td></tr>
+  <tr><td class="file">specs/stories/STORY-407.md</td><td class="tag-new">NEW</td>
+      <td>Retroactive spec with Given/When/Then ACs and a full traceability table — added in response to a code-review finding that no spec file existed for this story.</td></tr>
+</table>
+
+<h2>What the E2E test actually proves</h2>
+<div class="callout good">
+Build → discover S3-layout objects → gunzip/parse → <code>replay_backfill()</code> (real STORY-406 code) → real <code>SARoEngine.run_output_audit()</code> per record → assert exactly <strong>UC-1, UC-2, UC-6</strong> fire (Privacy&nbsp;&amp;&nbsp;Security, Misinformation, AI&nbsp;System&nbsp;Safety respectively) and nothing else does → <code>reconcile_backfill_gaps()</code> → assert exactly one gap, containing the declared missing hour → coverage report shows <code>coverage_attested=True</code>.
+</div>
+
+<h3>The 6 planted use cases</h3>
+<table>
+  <tr><th>UC</th><th>Scenario</th><th>Fires today?</th><th>Why</th></tr>
+  <tr><td>UC-1</td><td>PHI leakage</td><td class="tag-new">Yes</td><td>Fixture keyword hits Privacy &amp; Security</td></tr>
+  <tr><td>UC-2</td><td>Hallucinated clinical guidance</td><td class="tag-new">Yes</td><td>Fixture keyword hits Misinformation</td></tr>
+  <tr><td>UC-3</td><td>Missing disclaimer</td><td class="tag-mod">Planted only</td><td>No such rule exists yet</td></tr>
+  <tr><td>UC-4</td><td>Prompt-injection evidence</td><td class="tag-mod">Planted only</td><td>RP-INJ-BOUNDARY is a future Wave-2 rule</td></tr>
+  <tr><td>UC-5</td><td>Off-allowlist modelId</td><td class="tag-mod">Planted only</td><td>Content engine doesn't evaluate the envelope; needs a future modelId-allowlist rule</td></tr>
+  <tr><td>UC-6</td><td>Deliberate false positive</td><td class="tag-new">Yes</td><td>Benign "crashed on CI" trips AI System Safety — showcases the FP-dismissal workflow</td></tr>
+</table>
+<p>This split was an explicit owner decision, not an oversight: plant all 6 for demo completeness, but gate the <em>automated</em> pass/fail on the 3 that a real rule fires today.</p>
+
+<h2>Deviations from a literal reading of the story</h2>
+<div class="deviation">
+<strong>STORY-406 was NOT rebuilt.</strong> The story spec assumed it didn't exist. Recon found it fully built, reviewed, and merged. Rebuilding would have duplicated 656 lines of already-reviewed, security-hardened code for no benefit.
+</div>
+<div class="deviation">
+<strong>Gap window reported is wider than the declared 1-hour gap.</strong> The manifest declares a missing hour <code>03:00–04:00</code>; the reconciled gap reports as <code>02:00–04:00</code> because heartbeats sit at the top of each hour and <code>gap_start</code> anchors to the <em>last</em> observation before the gap — identical semantics to the existing live <code>detect_gaps()</code>. Not a bug; the test asserts containment, not exact equality.
+</div>
+<div class="deviation">
+<strong>Coverage stream keyed on a single primary model.</strong> STORY-406 keys each coverage stream by full <code>modelId</code>. The manifest pins one <code>primary_model_id</code> so the coverage stream stays continuous and the gap attestation reads as exactly one legible gap.
+</div>
+<div class="deviation">
+<strong>Mid-review correction: "one checkpoint per hour" was wrong.</strong> An early design note claimed the builder guarantees one coverage checkpoint per populated hour. Code review caught that <code>emit_coverage</code> (existing STORY-406 code) actually writes one checkpoint <em>per record</em> — this manifest's 66 records land as 1–2 checkpoints per hour. Correctness was never affected (the gap-detection logic doesn't depend on the false "one per hour" claim), but the design note was corrected, and this surfaced a real, separate bug: no secondary sort key for tied checkpoint timestamps (see Risk map).
+</div>
+
+<h2>What was deliberately NOT done</h2>
+<ul>
+<li>No CloudWatch Logs delivery path (P2, explicitly out of scope in the story).</li>
+<li>No live-tail/streaming replay — backfill only, per STORY-406's own scope.</li>
+<li>No new rule packs authored for UC-3/4/5 — owner decision, tracked as separate future stories.</li>
+<li>No UI — CLI only, per the story's Non-Goals.</li>
+<li>Did not touch <code>adapters/bedrock/{parse,records,replay}.py</code> or its existing test suite — verified all its existing tests still pass unmodified.</li>
+</ul>
+
+<h2>Risk map</h2>
+<table class="risk-table">
+  <tr><th>Risk</th><th>Covered by</th></tr>
+  <tr><td>Corpus accidentally contains real-looking PHI</td><td><code>test_synthetic_provenance_on_every_record</code> — every record carries the synthetic accountId + requestMetadata markers, and every planted "PHI" scenario traces to a checked-in fabricated fixture</td></tr>
+  <tr><td>Non-determinism (flaky demo rehearsals)</td><td><code>test_determinism_byte_identical_for_same_seed</code> + 3 independent manual two-run rehearsals (byte-diff clean each time, including post-security-fix)</td></tr>
+  <tr><td>Clean traffic accidentally trips a finding</td><td><code>_risk_signal_hit()</code> screens the benign pool against the engine's own signal tables before use; E2E asserts zero clean findings</td></tr>
+  <tr><td>New adapter code reaches a hosted-model endpoint (STORY-336)</td><td><code>test_source_reader_is_guard_clean</code> + full guard run — both green</td></tr>
+  <tr><td><strong>Path traversal in the new S3-layout reader</strong> (security-auditor HIGH, verified experimentally)</td><td>Fixed: key-shape validation + resolved-path containment check in <code>LocalLogStore.read_bytes</code>/<code>S3LogStore.read_bytes</code>. Pinned by <code>test_local_store_rejects_path_traversal_key</code>, <code>test_local_store_rejects_malformed_key_shape</code></td></tr>
+  <tr><td><strong>Decompression bomb</strong> (security-auditor HIGH, verified: 150KB→339MB expansion)</td><td>Fixed: <code>_bounded_gunzip()</code> enforces <code>MAX_DECOMPRESSED_BYTES</code> via incremental read, separate from the compressed-size cap. Pinned by <code>test_bounded_gunzip_rejects_decompression_bomb</code></td></tr>
+  <tr><td>Local reads not streamed (cap checked only after full read)</td><td>Fixed: <code>LocalLogStore.read_bytes</code> now streams with early abort, matching <code>S3LogStore</code>'s discipline. Pinned by <code>test_local_store_enforces_object_size_cap</code></td></tr>
+  <tr><td>Unsanitized manifest fields flow into output file paths</td><td>Fixed: <code>account_id</code>/<code>region</code> validated at the manifest-load boundary. Pinned by <code>test_manifest_account_id_and_region_are_validated</code></td></tr>
+  <tr><td><strong>Non-deterministic gap reconciliation on tied timestamps</strong> (reviewer MAJOR, verified: this exact manifest has 5 tied pairs)</td><td>Fixed: <code>reconcile_backfill_gaps</code> now sorts on <code>(watermark_timestamp, watermark_position)</code>. Pinned by <code>test_reconcile_backfill_gaps_is_deterministic_on_tied_timestamps</code></td></tr>
+  <tr><td>Coverage heartbeat leaks message content (INV-2)</td><td>Not modified — <code>emit_coverage()</code> still takes only an <code>Envelope</code>, structurally incapable of seeing a body</td></tr>
+</table>
+<div class="callout warn">
+<strong>Known residual (informational only, not a blocker):</strong> <code>ObservationGap</code> has no UNIQUE constraint (unlike <code>ObservationCheckpoint</code>), so in theory two concurrent reconciliation calls for the same stream could race. Pre-existing in the coverage module generally (not introduced or worsened here); security-auditor flagged it for a future FND against the module, not this story.
+</div>
+
+<h2>Independent review outcomes</h2>
+<p><strong>security-auditor:</strong> initial verdict FAIL (2 HIGH: path traversal, decompression bomb; 1 MEDIUM: unstreamed local reads; 1 LOW: manifest path injection) — all four fixed and pinned with regression tests, re-verified PASS.</p>
+<p><strong>reviewer:</strong> initial verdict REQUEST CHANGES (process: security fixes existed only in the working tree at review time, now committed; 1 MAJOR: non-deterministic gap tiebreak, verified this manifest actually has 5 tied pairs; 2 MINOR: mypy annotation gap, inaccurate design note; 1 process note: missing spec file) — all fixed; the reviewer's "what's genuinely solid" section separately confirmed the full 1643-test suite passes with no regressions and the E2E test's engine-state reset is load-bearing, not decorative.</p>
+
+<h2>Understanding check</h2>
+<div class="quiz" id="quiz">
+  <div class="q"><p class="question">1. Why wasn't the Bedrock adapter (STORY-406) rebuilt as part of this story?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer">It was already built, reviewed, and merged on <code>origin/main</code> (PR #112) — 656 lines with its own passing test suite. Recon against current code (not stale session memory) found this. Rebuilding would duplicate already-hardened security controls for zero benefit.</div></div>
+  <div class="q"><p class="question">2. Two checkpoints can share the exact same <code>watermark_timestamp</code> in this manifest. Why does that matter, and how was it fixed?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer">Without a secondary sort key, which of the tied rows counts as "before" the other is undefined on Postgres (SQLite happened to preserve insertion order, masking the bug in tests). That could non-deterministically flip which watermark_position a gap's boundary records, breaking the byte-for-byte reproducibility this whole story depends on. Fixed by sorting on <code>(watermark_timestamp, watermark_position)</code> — the position is unique per stream, so ties break the same way every time.</div></div>
+  <div class="q"><p class="question">3. What's the difference between the two size caps in <code>adapters/bedrock/source.py</code>, and why are both needed?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer"><code>MAX_OBJECT_BYTES</code> bounds the compressed bytes read from disk/S3; <code>MAX_DECOMPRESSED_BYTES</code> separately bounds the decompressed output. A small, well-under-the-first-cap gzip object can still expand to gigabytes on decompression (a "decompression bomb") — verified experimentally during security review (150KB compressed → 339MB decompressed). Capping only the compressed size does nothing to stop that.</div></div>
+  <div class="q"><p class="question">4. Why is UC-5 (off-allowlist modelId) planted but not asserted as firing?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer">The content engine (Gate 3 keyword/regex scan) evaluates prompt+output text — it never looks at the envelope's <code>modelId</code>. Detecting an off-allowlist model requires a rule that doesn't exist yet. UC-5 is included in the corpus for demo completeness but the automated E2E check only asserts on use cases with a real firing rule today.</div></div>
+  <div class="q"><p class="question">5. What stops a benign clean-traffic sentence from accidentally becoming a "finding" in the demo?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer"><code>_risk_signal_hit()</code> in the builder imports the engine's own <code>_RISK_SIGNALS</code> keyword/regex tables and screens every candidate benign-pool sentence against them before it's used as clean traffic.</div></div>
+  <div class="q"><p class="question">6. A malicious log key like <code>"../../../../etc/passwd"</code> is handed to <code>LocalLogStore.read_bytes</code>. What stops it from reading a file outside the demo output directory?</p>
+    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
+    <div class="answer">Two independent checks: the key must match the exact Bedrock layout shape (a regex that a "<code>..</code>" segment cannot satisfy), and separately the resolved path is checked for containment under the store root before any read. Either check alone would likely catch this specific case, but both together are defense-in-depth against a future caller that constructs keys differently.</div></div>
+</div>
+
+<script>
+function toggle(el){ const a = el.nextElementSibling; a.classList.toggle('show'); }
+</script>
 </body>
 </html>
