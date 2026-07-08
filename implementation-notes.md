@@ -4,11 +4,11 @@ Stage: standard
 ## Lifecycle
 - [x] discover   (adapter subsystem is new — no `adapters/` package existed; territory mapped below)
 - [x] shape      (1a brainstorm skipped — change is specified by the evaluability-gate results doc; 1b interview answered by user, Decision Log below)
-- [ ] preview    (skipped — backend-only, no user-facing surface)
-- [ ] plan
-- [ ] build
-- [ ] verify
-- [ ] sell       (n/a — not design-partner-facing this pass; SummitCare demo is a follow-on)
+- [x] preview    (skipped — backend-only, no user-facing surface)
+- [x] plan       (numbered plan by tweak-likelihood; confirmed defaults D4/D5 before BUILD)
+- [x] build      (gates 1–7 green; see below)
+- [x] verify     (trigger fired — 3+ files + STORY-336/INV-2 locked invariants; `change-debrief.html` produced)
+- [x] sell       (n/a — not design-partner-facing this pass; SummitCare demo is a follow-on)
 
 ## Context / Source of truth
 Input = evaluability-gate results (`saro-evaluability-gate-results.md`, provided by user).
@@ -57,10 +57,6 @@ Enforcement-level claims require a future harness adapter.
 | D4 | How does the backfill audit branch submit to the engine? | New standalone `services/audit_submission.submit_audit_sync` (synchronous — backfill has no request context). Existing HTTP route `_run_audit_background` left UNTOUCHED (conservative: don't disturb the hot path). Adapter takes an injected `submit` callable; default wires to the service. | Adapter is unit-testable with a fake `submit`; no routers/ hot-path refactor. Mild duplication of row-creation logic vs the route — logged as a follow-up consolidation candidate. |
 | D5 | Scope of THIS story? | Adapter core only (AC-1..6). RP-* rules are follow-on (also blocked by rule-pack loader/schema mismatch). Adapter emits `toolConfig`/`toolUse`/`stopReason`/truncation into `metadata` so Wave-1 rules can consume it later. | Bounded, reviewable story; claim ceiling preserved. |
 | D6 | boto3 dependency (not installed; optional in requirements.txt) | Lazy-import boto3 ONLY in the default S3 resolver; parser + coverage branch stay dependency-free. S3 resolver is injected → tests never need AWS. | INV-2 becomes STRUCTURAL: `emit_coverage` takes only an `Envelope`, so it *cannot* read a body. Coverage branch also never imports boto3. |
-
-## Lifecycle (cont.)
-- [x] build
-- [x] verify (gates 1–7 green; independent reviewer + security-auditor run pre-commit)
 
 ## Deviations
 - D4 conservative variant chosen: standalone sync submission service instead of refactoring
