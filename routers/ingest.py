@@ -33,7 +33,9 @@ _SARO_API_URL = __import__("os").environ.get("SARO_API_URL", "http://localhost:8
 
 # ── S-101 Schemas ─────────────────────────────────────────────────────────────
 
-_SOURCE_MODELS = Literal["grok", "claude", "openai", "sierra", "internal", "unknown"]
+_SOURCE_MODELS = Literal[
+    "grok", "claude", "openai", "sierra", "internal", "bedrock", "unknown"
+]
 
 _VERTICALS = Literal[
     "healthcare", "finance", "legal", "hr", "customer_support",

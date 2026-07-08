@@ -124,7 +124,13 @@ DEFAULT_ALLOWLIST: frozenset[str] = frozenset(
 
 # Product package directories scanned in full. ``middleware`` is a namespace
 # package (no __init__) but is unambiguously runtime (main.py imports it).
-PRODUCT_PACKAGE_DIRS: tuple[str, ...] = ("grc", "routers", "services", "middleware")
+PRODUCT_PACKAGE_DIRS: tuple[str, ...] = (
+    "grc",
+    "routers",
+    "services",
+    "middleware",
+    "adapters",
+)
 
 # Repo-relative path prefixes never scanned: the guard itself (it defines the
 # denylists as data) and pyc/git noise.
