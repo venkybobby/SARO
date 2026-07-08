@@ -1,0 +1,118 @@
+# SARO Demo Corpus Manifest — SummitCare synthetic Bedrock invocation logs (STORY-407)
+#
+# This manifest is the SINGLE source of demo composition. scripts/demo_corpus_builder.py
+# is driven entirely by this file — there are NO hardcoded scenarios in the script (FR-3).
+#
+# Provenance / anti-overclaiming (ADR-004, FR-6): every record this manifest produces is
+# SYNTHETIC. Two self-evident markers make that unambiguous in the data itself:
+#   1. accountId 999888777666 — a synthetic AWS account id that is not a real SummitCare account.
+#   2. requestMetadata.environment = "demo-synthetic", requestMetadata.source = "saro-evidence-corpus".
+# No client PHI is present anywhere (pre-BAA hard gate). Planted "PHI" is fabricated test data
+# drawn from the checked-in Evidence Corpus fixtures (rule packs + tests/fixtures/fp_baseline).
+#
+# Determinism (FR-3 / AC-3.1): given this manifest + a fixed --seed, two runs produce
+# byte-identical output. Changing only --seed re-rolls requestIds and clean-traffic sampling
+# but NOT planted placement (AC-3.2).
+
+seed: 42
+
+# Bedrock envelope constants (FR-1). Synthetic account; real region/schema shape.
+schema_version: "1.0"
+account_id: "999888777666"
+region: "us-east-1"
+
+# Observation window (FR-3). Demo day (2026-07-08) minus 48h. Fixed ISO-8601 UTC so the
+# corpus is reproducible and the demo script can reference exact timestamps.
+window:
+  start: "2026-07-06T00:00:00Z"
+  end:   "2026-07-08T00:00:00Z"
+
+# Coverage cadence used by the backfill gap reconciliation (STORY-406). One heartbeat is
+# emitted per populated hour (objects are hour-batched, AC-2.3); an inter-heartbeat interval
+# LONGER than this cadence is reported as an observation gap. 3600s => the deliberate missing
+# hour below is the ONLY interval that exceeds cadence, so exactly one gap is attested.
+cadence_seconds: 3600
+
+# Approved Anthropic-on-Bedrock model ids for this demo tenant. UC-5 deliberately uses a
+# modelId OUTSIDE this list. NOTE: the modelId-allowlist rule is a future story — the current
+# content engine does not evaluate the envelope, so UC-5 is PLANTED but does not yet fire
+# (STORY-407 owner decision: plant all 6, gate the automated assertion to firing rules).
+allowed_model_ids:
+  - "anthropic.claude-3-sonnet-20240229-v1:0"
+  - "anthropic.claude-3-haiku-20240307-v1:0"
+  - "anthropic.claude-3-5-sonnet-20240620-v1:0"
+  - "anthropic.claude-sonnet-4-20250514-v1:0"
+
+# The single production model for this demo tenant. STORY-406 keys each observation-coverage
+# stream by the full modelId (system_id = modelId). Using ONE production model for clean +
+# planted traffic keeps a single continuous coverage stream, so the observation-gap attestation
+# reads as exactly one legible gap; mixing models would fracture the stream into many. UC-5's
+# off-allowlist record is its own single-record stream (no interior interval → no spurious gap).
+primary_model_id: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+
+# Clean traffic (label=clean). Sampled deterministically from the checked-in benign corpus
+# (tests/fixtures/fp_baseline/corpus.json -> benign_pool), guaranteed to produce ZERO findings.
+# The builder places >=1 clean record in EVERY non-gap hour of the window so the only coverage
+# gap is the deliberate one below. count must be >= (window hours - gap hours).
+clean_traffic:
+  count: 60
+  source: "fp_baseline:benign_pool"
+
+# Planted scenarios (FR-4). One record each, sourced from existing Evidence Corpus fixtures
+# with known ground-truth labels. `corpus_id` is resolved by the builder's evidence-corpus
+# resolver against the LIVE rule packs / fp_baseline (no new scenario content is authored).
+# `expected`: "fires" = the demo rule pack fires a finding today (asserted in the E2E check);
+#             "planted_pending_rule" = planted for demo completeness but no firing rule yet
+#             (documented; NOT asserted). `at` must fall in a populated (non-gap) hour.
+planted:
+  - use_case: UC-1                      # PHI leakage in AI output
+    corpus_id: "fp_baseline:Privacy & Security/3"   # "...the patient's medical record and PHI."
+    at: "2026-07-06T02:00:00Z"
+    operation: InvokeModel
+    expected: fires
+    # ADR-004 (AC-4.2): the clinical wrapper uses an unmistakably fictional patient identity —
+    # "Riverpetal Q. Moonbeam-Testcase" — so nobody in the demo room can mistake it for real PHI.
+    patient_name: "Riverpetal Q. Moonbeam-Testcase"
+    note: "Fabricated PHI from fp_baseline Privacy positive; fictional patient name is demo framing."
+
+  - use_case: UC-2                      # Hallucinated clinical guidance
+    corpus_id: "fp_baseline:Misinformation/5"        # "...a debunked lie about the treatment's safety."
+    at: "2026-07-06T09:00:00Z"
+    operation: Converse
+    expected: fires
+    note: "Fires the Misinformation domain (hallucination signals)."
+
+  - use_case: UC-3                      # Missing required disclaimer
+    corpus_id: "synthetic:clinical_no_disclaimer"    # benign clinical answer, no signal keyword
+    at: "2026-07-06T15:00:00Z"
+    operation: Converse
+    expected: planted_pending_rule
+    note: "No missing-disclaimer rule exists yet — planted for demo; separate rule story required."
+
+  - use_case: UC-4                      # Prompt-injection evidence in output
+    corpus_id: "synthetic:prompt_injection_echo"     # injection text, no existing keyword signal
+    at: "2026-07-06T21:00:00Z"
+    operation: Converse
+    expected: planted_pending_rule
+    note: "RP-INJ-BOUNDARY is Wave-2 (depends on STORY-335) — planted; not yet firing."
+
+  - use_case: UC-5                      # Unapproved model version (off-allowlist modelId)
+    corpus_id: "synthetic:benign_offmodel"           # benign output; the SIGNAL is the envelope
+    at: "2026-07-07T10:00:00Z"
+    operation: InvokeModel
+    model_id: "anthropic.claude-instant-v1"          # deliberately NOT in allowed_model_ids
+    expected: planted_pending_rule
+    note: "Envelope-level violation. Content engine ignores modelId — modelId-allowlist rule is future."
+
+  - use_case: UC-6                      # Deliberate false positive (benign output trips a rule)
+    corpus_id: "fp_baseline:hard_negative:AI System Safety/2"  # "The build crashed on CI..."
+    at: "2026-07-07T18:00:00Z"
+    operation: InvokeModel
+    expected: fires
+    note: "Benign engineering status that trips the AI-System-Safety keyword scan (crash); in the demo this finding is dispositioned as dismissed — showcases the false-positive workflow."
+
+# Deliberate observation gap (FR-5). No log objects are written for this hour; clean traffic
+# exists on both sides, so the coverage attestation reports exactly this gap (AC-5.1).
+observation_gap:
+  start: "2026-07-07T03:00:00Z"
+  end:   "2026-07-07T04:00:00Z"

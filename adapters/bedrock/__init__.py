@@ -34,6 +34,14 @@ from adapters.bedrock.parse import (
     parse_envelope,
 )
 from adapters.bedrock.replay import BackfillResult, emit_coverage, replay_backfill
+from adapters.bedrock.source import (
+    LocalLogStore,
+    S3LogStore,
+    bedrock_log_prefix,
+    discover_object_keys,
+    iter_backfill_records,
+    read_backfill_corpus,
+)
 
 __all__ = [
     "AuditSubmission",
@@ -46,4 +54,11 @@ __all__ = [
     "parse_envelope",
     "emit_coverage",
     "replay_backfill",
+    # S3-key-layout source reader (STORY-406/-407 discovery half).
+    "LocalLogStore",
+    "S3LogStore",
+    "bedrock_log_prefix",
+    "discover_object_keys",
+    "iter_backfill_records",
+    "read_backfill_corpus",
 ]
