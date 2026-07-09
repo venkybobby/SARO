@@ -161,8 +161,10 @@ class TestEngineTracing:
         e.run_audit(batch, uuid.uuid4())
         traces = e.get_traces()
         gate3_traces = [t for t in traces if t["gate_id"] == 3 and t["check_type"] == "risk_domain"]
-        # Should have one trace per MIT domain (7 domains)
-        assert len(gate3_traces) == 7
+        # Should have one trace per MIT domain (8 domains — STORY-411 added
+        # "Governance & Compliance"; it still gets a "pass" trace on the batch path
+        # since no envelope metadata is available there)
+        assert len(gate3_traces) == 8
 
     def test_all_traces_have_required_keys(self):
         e = self._make_engine_no_db()

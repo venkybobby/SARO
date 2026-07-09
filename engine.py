@@ -68,6 +68,12 @@ from rule_packs.loader import (
     build_domain_trigger_map,
     load_all_packs,
 )
+from rule_packs.envelope_loader import (
+    EnvelopeAllowlistLoadError,
+    EnvelopeAllowlistRule,
+    is_model_allowed,
+    load_envelope_allowlist,
+)
 from services import rule_visibility
 from schemas import (
     AppliedRuleOut,
@@ -99,6 +105,10 @@ MIN_SAMPLES: int = int(os.environ.get("MIN_BATCH_SAMPLES", "50"))
 BAYESIAN_PRIOR: float = float(os.environ.get("BAYESIAN_PRIOR_ALPHA", "0.5"))
 INCIDENT_TOP_K: int = int(os.environ.get("INCIDENT_TOP_K", "5"))
 CI_LEVEL: float = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.95"))
+# STORY-411: bound on modelId/requestId stored in an envelope finding's detail_json —
+# matches adapters/bedrock/parse.py's MAX_INLINE_BODY_CHARS precedent (cap untrusted
+# envelope fields before storage, regardless of source-adapter guarantees).
+_MAX_ENVELOPE_FIELD_CHARS: int = 256
 
 # SPEC-E4: Bayesian prior weight for domain calibration from incident corpus
 PRIOR_WEIGHT: float = float(os.environ.get("BAYESIAN_PRIOR_WEIGHT", "5.0"))
@@ -127,6 +137,10 @@ _MIT_DOMAIN_DEFINITIONS: dict[str, str] = {
     "Human-Computer Interaction": "Content that uses deceptive design patterns, manipulates users, or exploits cognitive vulnerabilities.",
     "Socioeconomic & Environmental": "Content that promotes or describes significant negative socioeconomic or environmental impacts.",
     "AI System Safety": "Content describing AI system failures, safety-critical errors, or autonomous system accidents.",
+    # STORY-411: envelope-only domain — not evaluated by the Gate-3 LLM judge (which
+    # only ever sees prompt/output text), but present so _MIT_DOMAIN_DEFINITIONS stays
+    # a complete map over MIT_DOMAINS for any generic consumer that iterates it.
+    "Governance & Compliance": "An AI model version outside the tenant's approved allowlist served production traffic.",
 }
 
 # MIT risk domain identifiers — matches the `domain` column in mit_risks
@@ -138,6 +152,9 @@ MIT_DOMAINS: list[str] = [
     "Human-Computer Interaction",
     "Socioeconomic & Environmental",
     "AI System Safety",
+    # STORY-411: envelope-only domain — fed exclusively by _evaluate_envelope_allowlist,
+    # never by _RISK_SIGNALS keyword scanning. No content-scan surface of its own.
+    "Governance & Compliance",
 ]
 
 # Keyword/regex risk signals per MIT domain.
@@ -559,6 +576,15 @@ _REMEDIATIONS: dict[str, dict[str, str]] = {
             "NIST MANAGE 4.1",
         ],
     },
+    "Governance & Compliance": {
+        "suggestion": (
+            "Confirm the model serving production traffic is on the tenant's approved "
+            "allowlist. Review the model provisioning process to prevent unapproved "
+            "model versions from reaching production."
+        ),
+        "priority": "high",
+        "related_controls": ["EU AI Act Art. 9", "NIST GOVERN 1.1"],
+    },
 }
 
 
@@ -583,6 +609,9 @@ class _SampleFlag:
     signal: str  # keyword or pattern that matched
     weight: float
     text: str = ""  # PII-redacted sample fragment, for the Gate-3 LLM judge (STORY-101)
+    # STORY-411: structured context for envelope-derived flags (observed_model_id,
+    # rule_id, rule_pack_version, request_id) — None for ordinary content flags.
+    detail: dict[str, Any] | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -640,6 +669,11 @@ _DOMAIN_REMEDIATION_HINTS: dict[str, str] = {
         "Implement robustness testing, fail-safes, and monitoring. "
         "Define incident response procedures. Reference: EU AI Act Art. 9, NIST MANAGE 3.2."
     ),
+    "Governance & Compliance": (
+        "Confirm the model serving production traffic is on the tenant's approved "
+        "allowlist before further use. Reference: EU AI Act Art. 9 (risk management "
+        "system), NIST AI RMF GOVERN 1.1 (governance policies)."
+    ),
 }
 
 
@@ -669,6 +703,13 @@ class SARoEngine:
         # CF-02: load versioned rule packs and build compliance trigger map
         self._rule_packs: list[RulePack] = load_all_packs()
         self._compliance_triggers = build_domain_trigger_map(self._rule_packs)
+        # STORY-411: envelope-only allowlist rule — warn-and-continue on a missing/
+        # malformed pack (mirrors load_all_packs' philosophy), never crashes engine init.
+        self._envelope_allowlist_rule: EnvelopeAllowlistRule | None = None
+        try:
+            self._envelope_allowlist_rule = load_envelope_allowlist()
+        except (EnvelopeAllowlistLoadError, OSError) as exc:
+            logger.warning("Could not load envelope allowlist rule pack: %s", exc)
         # SARO-006: compute and cache rule pack hash at init time
         self._rule_pack_hash: str = self._compute_rule_pack_hash()
         # SPEC-E4: compute calibrated Bayesian priors from incident corpus
@@ -1100,6 +1141,7 @@ class SARoEngine:
         raw_output: str,
         prompt: str | None = None,
         source_model: str = "Unknown",
+        metadata: dict[str, Any] | None = None,
     ) -> AuditReportOut:
         """
         Universal single-output audit — model-agnostic, zero batch required.
@@ -1109,6 +1151,7 @@ class SARoEngine:
           Gate 1 (Data Quality) → Skipped  (not applicable for single outputs)
           Gate 2 (Fairness)     → Skipped  (requires batch + demographic groups)
           Gate 3 (Risk Classification)  → Full MIT taxonomy signal scan
+                                         + envelope-only allowlist check (STORY-411)
           Gate 4 (Compliance Mapping)   → Full NIST / EU AI Act / AIGP / ISO
 
         Confidence is capped at 0.80 to signal that single-output audits have
@@ -1176,6 +1219,10 @@ class SARoEngine:
 
         # Gate 3: Risk Classification (full MIT taxonomy on combined text)
         flags, gate3 = self._gate3_risk_classification(batch)
+        # STORY-411: envelope-only allowlist check, appended before trace/scoring
+        # consume `flags` so it flows through the SAME machinery as a content
+        # finding (AC-2.2 TRACE View drill-down parity) with no special-casing.
+        flags = flags + self._evaluate_envelope_allowlist(metadata)
         gates.append(gate3)
         self._record_gate3_domain_traces(flags, gate3)
 
@@ -1404,8 +1451,10 @@ class SARoEngine:
         risk_config: "RiskConfigIn | None" = None,
     ) -> tuple[list[_SampleFlag], _GateResult]:
         """
-        Classify each sample against the 7 MIT risk domains using keyword and
-        regex pattern matching.  Returns per-sample flags and a gate result.
+        Classify each sample against the content-scan MIT risk domains (keyword and
+        regex pattern matching — excludes "Governance & Compliance", which is
+        envelope-only, see _evaluate_envelope_allowlist). Returns per-sample flags
+        and a gate result.
 
         SARO-003: accepts risk_config to apply tenant weight overrides and
         keyword suppressions without mutating the global _RISK_SIGNALS.
@@ -1789,7 +1838,12 @@ class SARoEngine:
         domain_flags: dict[str, list[dict]] = defaultdict(list)
         for f in flags:
             domain_flags[f.domain].append(
-                {"sample_id": f.sample_id, "signal": f.signal, "weight": f.weight}
+                {
+                    "sample_id": f.sample_id,
+                    "signal": f.signal,
+                    "weight": f.weight,
+                    "detail": f.detail,
+                }
             )
 
         for domain in MIT_DOMAINS:
@@ -1833,6 +1887,59 @@ class SARoEngine:
                     "top_sample_ids": top_sample_ids,
                 }
             )
+
+    def _evaluate_envelope_allowlist(
+        self, metadata: dict[str, Any] | None
+    ) -> list[_SampleFlag]:
+        """Envelope-only evaluation (STORY-411 FR-1) — reads `metadata` alone, never a
+        body (INV-2 discipline). Returns zero or one `_SampleFlag` for the model-ID
+        allowlist rule; appends the matching `_sample_findings` entry itself so
+        SampleFinding persistence works the same as a content-scan finding (AC-1.1).
+
+        No-ops (returns []) when: no rule pack loaded, no metadata, or no `modelId`
+        (single-output callers that don't pass metadata are unaffected — AC-1.2's
+        "content evaluation proceeds unchanged" holds trivially since flags is
+        simply not extended).
+        """
+        rule = self._envelope_allowlist_rule
+        if rule is None or not metadata:
+            return []
+        model_id = metadata.get("modelId")
+        if not model_id or is_model_allowed(rule, model_id):
+            return []
+
+        # security-auditor (STORY-411 verify): a malformed/adversarial log record
+        # could carry an oversized modelId/requestId; cap before storage, matching
+        # the MAX_INLINE_BODY_CHARS precedent in adapters/bedrock/parse.py.
+        model_id_capped = str(model_id)[:_MAX_ENVELOPE_FIELD_CHARS]
+        request_id = metadata.get("requestId")
+        request_id_capped = (
+            str(request_id)[:_MAX_ENVELOPE_FIELD_CHARS] if request_id else None
+        )
+        detail = {
+            "observed_model_id": model_id_capped,
+            "rule_id": rule.rule_id,
+            "rule_pack_version": rule.version,
+            "request_id": request_id_capped,
+        }
+        flag = _SampleFlag(
+            sample_id=request_id_capped or "envelope",
+            domain=rule.domain_trigger,
+            signal=rule.rule_id,
+            weight=0.85,
+            text=rule.title,  # ADR-004-safe, observable-only (AC-3.1)
+            detail=detail,
+        )
+        self._sample_findings.append(
+            {
+                "sample_id": flag.sample_id,
+                "domain": flag.domain,
+                "matched_signal": flag.signal,
+                "matched_text_fragment": flag.text,
+                "weight": flag.weight,
+            }
+        )
+        return [flag]
 
     def _record_explain_trace(
         self,

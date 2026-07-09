@@ -50,11 +50,12 @@ re-rolls `requestId`s and clean-traffic sampling but not planted-scenario placem
 Given the corpus is ingested via `adapters/bedrock/source.py` + `replay_backfill()` and
 evaluated by the real `SARoEngine`, Then exactly the use cases with an existing firing
 rule produce findings — UC-1 (PHI, Privacy & Security), UC-2 (hallucination,
-Misinformation), UC-6 (benign false-positive, AI System Safety) — and clean traffic
-produces zero findings. UC-3 (missing disclaimer), UC-4 (prompt-injection), UC-5
-(off-allowlist modelId) are planted for demo completeness but have no firing rule yet;
-documented as blocked on separate rule stories, not asserted by the automated check
-(owner decision — plant all 6, gate the assertion to what actually fires today).
+Misinformation), UC-5 (off-allowlist modelId, Governance & Compliance — **fires as of
+STORY-411**), UC-6 (benign false-positive, AI System Safety) — and clean traffic
+produces zero findings. UC-3 (missing disclaimer) and UC-4 (prompt-injection) are
+planted for demo completeness but have no firing rule yet; documented as blocked on
+separate rule stories, not asserted by the automated check (owner decision — plant all
+6, gate the assertion to what actually fires today).
 
 **AC-5 — Observation gap.**
 Given the manifest's declared gap window, Then no log objects exist for that hour, clean
@@ -93,7 +94,8 @@ unconditionally, on both the planted and clean-traffic code paths.
 - CloudWatch Logs delivery variant (P2).
 - Streaming/near-real-time replay mode (P2).
 - Multi-tenant demo dataset / second synthetic accountId (P2).
-- Authoring new rules for UC-3/UC-4/UC-5 (separate future stories).
+- Authoring new rules for UC-3/UC-4 (separate future stories). UC-5's envelope-allowlist
+  rule shipped in STORY-411.
 - Rebuilding or modifying the STORY-406 adapter (`records.py`/`parse.py`/`replay.py`) —
   reused as-is, its existing test suite verified still green.
 

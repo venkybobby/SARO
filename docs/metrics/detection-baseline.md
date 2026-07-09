@@ -13,6 +13,7 @@
 | Human-Computer Interaction | 0.86 | 0.75 | 6 | 1 | 2 | 129 | 138 |
 | Socioeconomic & Environmental | 0.67 | 1.00 | 8 | 4 | 0 | 126 | 138 |
 | AI System Safety | 0.57 | 0.80 | 8 | 6 | 2 | 122 | 138 |
+| Governance & Compliance | n/a | n/a | 0 | 0 | 0 | 138 | 138 |
 
 **Interpretation.** Low precision in a domain means broad keywords (e.g. *fail*, *error*,
 *private*, *attack*) over-trigger on benign text — candidates for regex tightening. Low

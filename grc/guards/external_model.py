@@ -130,6 +130,10 @@ PRODUCT_PACKAGE_DIRS: tuple[str, ...] = (
     "services",
     "middleware",
     "adapters",
+    # STORY-411: rule_packs/envelope_loader.py is new runtime code (envelope-only
+    # allowlist evaluation) — added so it's provably under the no-external-model
+    # guard, matching STORY-407's precedent of adding "adapters" here.
+    "rule_packs",
 )
 
 # Repo-relative path prefixes never scanned: the guard itself (it defines the

@@ -105,6 +105,7 @@ def submit_audit_sync(
             raw_output=raw_output,
             prompt=prompt,
             source_model=source_model,
+            metadata=metadata,
         )
 
         db.add(
