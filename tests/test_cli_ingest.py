@@ -130,6 +130,7 @@ def test_local_source_parity(tmp_path):
     assert fired_categories == {
         "Privacy & Security",
         "Misinformation",
+        "Governance & Compliance",
         "AI System Safety",
     }
     assert out["coverage_attested"] is True
@@ -214,6 +215,7 @@ def test_s3_source_parity(tmp_path, monkeypatch):
     assert fired_categories == {
         "Privacy & Security",
         "Misinformation",
+        "Governance & Compliance",
         "AI System Safety",
     }
     assert out["coverage_attested"] is True
