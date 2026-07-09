@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STORY-407 — Demo Corpus Builder — Change Debrief</title>
+<title>STORY-410 — Operator Ingest CLI & Demo-Tenant Reset — Change Debrief</title>
 <style>
   :root { --ink:#1a1d23; --sub:#5b6270; --line:#e4e7ec; --bg:#fafbfc; --accent:#3d5afe;
           --good:#1a7f4e; --warn:#b45309; --pill:#eef1f6; }
@@ -43,18 +43,17 @@
 </head>
 <body>
 
-<h1>STORY-407 — Demo Corpus Builder</h1>
-<p class="sub">Synthetic Bedrock invocation logs for the SummitCare demo &nbsp;·&nbsp; branch <code>story/STORY-407-demo-corpus-builder</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
-<span class="pill">9 files changed</span><span class="pill">STORY-336 guard: green</span><span class="pill">STORY-406: reused, not modified</span><span class="pill">reviewer: APPROVE (after fixes)</span><span class="pill">security-auditor: PASS (after fixes)</span>
+<h1>STORY-410 — Operator Ingest CLI &amp; Demo-Tenant Reset</h1>
+<p class="sub">First-class <code>saro ingest</code> / <code>saro demo reset</code> operator commands &nbsp;·&nbsp; branch <code>story/STORY-410</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
+<span class="pill">14 files changed</span><span class="pill">STORY-336 guard: green</span><span class="pill">bandit: cli.py clean</span><span class="pill">security-auditor: PASS</span><span class="pill">reviewer: APPROVE (after 2 rounds)</span><span class="pill">FND-048, FND-049 pinned</span>
 
 <h2>Why this exists</h2>
-<p>SummitCare's demo needs to run on SARO's real Bedrock ingestion path without touching any client PHI. That requires demo traffic that (a) looks byte-for-byte like a real AWS Bedrock invocation log, (b) is seeded with <em>known</em> findings so every rehearsal is identical, and (c) contains one deliberate blind spot so SARO's coverage-gap attestation has something real to show. This story builds the generator that produces that traffic.</p>
+<p>The full ingest pipeline (discover → replay → engine audit → gap reconciliation) only ran inside a pytest test (STORY-407's E2E). There was no command an operator could actually run against the demo — or, later, a pilot — and rehearsals had no way to return the demo tenant to a clean state except by re-running that test. This story wraps the existing, already-proven pipeline in two operator commands: <code>saro ingest</code> and <code>saro demo reset</code>.</p>
 <div class="callout">
-<strong>Scope correction made mid-build:</strong> the story as written assumed STORY-406 (the Bedrock adapter) and STORY-405 (eval core) didn't exist yet. Recon against current <code>main</code> — not stale memory — found STORY-406 was already built, reviewed, and merged (<code>adapters/bedrock/</code>, 656 lines, its own test suite, PR #112). This story therefore did <strong>not</strong> rebuild the adapter. It filled the one real gap (an S3-log discovery/reader) and built the generator on top of the real, existing pipeline.
+<strong>Recon-first, per the story's own mandate:</strong> before writing any code, recon confirmed <code>replay_backfill()</code>, <code>reconcile_backfill_gaps()</code>, and <code>run_output_audit()</code> already exist and are proven end-to-end by STORY-407's test. No CLI wrapped them, and no tenant-reset utility existed at all. This story is orchestration-only — no new pipeline logic.
 </div>
 
 <h2>Intuition — how the pieces fit</h2>
-<p>Four independent pieces, chained by file format and by API, not by code coupling:</p>
 <svg viewBox="0 0 900 230" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -62,145 +61,132 @@
     </marker>
   </defs>
   <g font-size="12" fill="#1a1d23">
-    <rect x="10" y="70" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="95" y="98" text-anchor="middle" font-weight="600">demo_corpus_builder.py</text>
-    <text x="95" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · manifest-driven</text>
-    <text x="95" y="128" text-anchor="middle" font-size="10" fill="#5b6270">writes gzip NDJSON → S3 layout</text>
+    <rect x="10" y="80" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="95" y="108" text-anchor="middle" font-weight="600">cli.py</text>
+    <text x="95" y="124" text-anchor="middle" font-size="10" fill="#5b6270">NEW · saro ingest</text>
+    <text x="95" y="138" text-anchor="middle" font-size="10" fill="#5b6270">per-key discover loop</text>
 
-    <rect x="230" y="70" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="315" y="98" text-anchor="middle" font-weight="600">adapters/bedrock/source.py</text>
-    <text x="315" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · discover + gunzip</text>
-    <text x="315" y="128" text-anchor="middle" font-size="10" fill="#5b6270">→ (cursor, raw) pairs</text>
+    <rect x="230" y="20" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="325" y="45" text-anchor="middle" font-weight="600">discover_object_keys /</text>
+    <text x="325" y="60" text-anchor="middle" font-weight="600">iter_backfill_records</text>
+    <text x="325" y="73" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING (STORY-406/407)</text>
 
-    <rect x="450" y="20" width="190" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="545" y="48" text-anchor="middle" font-weight="600">replay_backfill()</text>
-    <text x="545" y="64" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING (STORY-406, main)</text>
-    <text x="545" y="78" text-anchor="middle" font-size="10" fill="#5b6270">coverage branch: envelope only</text>
+    <rect x="230" y="150" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="325" y="175" text-anchor="middle" font-weight="600">replay_backfill()</text>
+    <text x="325" y="190" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING · checkpoint+submit</text>
+    <text x="325" y="203" text-anchor="middle" font-size="9" fill="#5b6270">sinks injected by cli.py</text>
 
-    <rect x="450" y="120" width="190" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="545" y="148" text-anchor="middle" font-weight="600">SARoEngine</text>
-    <text x="545" y="164" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING (engine.py)</text>
-    <text x="545" y="178" text-anchor="middle" font-size="10" fill="#5b6270">audit branch: bodies → findings</text>
+    <rect x="470" y="20" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="565" y="45" text-anchor="middle" font-weight="600">_default_submit →</text>
+    <text x="565" y="60" text-anchor="middle" font-weight="600">submit_audit_sync</text>
+    <text x="565" y="73" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING · real persistence</text>
 
-    <rect x="690" y="70" width="190" height="70" rx="8" fill="#fff6ea" stroke="#b45309"/>
-    <text x="785" y="98" text-anchor="middle" font-weight="600">reconcile_backfill_gaps()</text>
-    <text x="785" y="114" text-anchor="middle" font-size="10" fill="#5b6270">NEW · 1 function added</text>
-    <text x="785" y="128" text-anchor="middle" font-size="10" fill="#5b6270">interior gap → attestation</text>
+    <rect x="470" y="150" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="565" y="175" text-anchor="middle" font-weight="600">reconcile_backfill_gaps /</text>
+    <text x="565" y="190" text-anchor="middle" font-weight="600">coverage_report</text>
+    <text x="565" y="203" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING (STORY-COV-001)</text>
 
-    <line x1="180" y1="105" x2="228" y2="105" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="400" y1="90" x2="448" y2="60" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="400" y1="120" x2="448" y2="150" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="640" y1="55" x2="688" y2="90" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="710" y="80" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="795" y="108" text-anchor="middle" font-weight="600">IngestSummary</text>
+    <text x="795" y="124" text-anchor="middle" font-size="10" fill="#5b6270">NEW · text / --json</text>
+    <text x="795" y="138" text-anchor="middle" font-size="10" fill="#5b6270">findings, gaps, attested</text>
 
-    <text x="95" y="200" text-anchor="middle" font-size="10" fill="#5b6270">"the real Bedrock format,</text>
-    <text x="95" y="213" text-anchor="middle" font-size="10" fill="#5b6270">on disk or in S3"</text>
+    <line x1="180" y1="100" x2="228" y2="60" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="180" y1="120" x2="228" y2="175" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="420" y1="60" x2="468" y2="50" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="420" y1="175" x2="468" y2="180" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="660" y1="60" x2="708" y2="100" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="660" y1="180" x2="708" y2="130" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
   </g>
 </svg>
-<p class="legend">Green = new this story. Blue = existing/reused, untouched. Orange = one new function added to an existing file.</p>
+<p class="legend">Green = new this story. Blue = existing/reused, untouched — cli.py injects tracking wrappers around the checkpoint and submit sinks rather than modifying them.</p>
 
 <h2>File-by-file</h2>
 <table>
   <tr><th>File</th><th>Status</th><th>What / why</th></tr>
-  <tr><td class="file">scripts/demo_corpus_builder.py</td><td class="tag-new">NEW</td>
-      <td>CLI generator. Reads the manifest, resolves planted scenarios from <em>existing</em> fixtures, screens clean traffic against the engine's own <code>_RISK_SIGNALS</code> tables, batches records per hour, gzips deterministically, writes local or uploads to S3. <code>account_id</code>/<code>region</code> validated at the manifest boundary (security review).</td></tr>
-  <tr><td class="file">scripts/demo_manifest.yaml</td><td class="tag-new">NEW</td>
-      <td>The single source of demo composition — window, cadence, clean-traffic count, 6 planted use cases, the gap window.</td></tr>
-  <tr><td class="file">adapters/bedrock/source.py</td><td class="tag-new">NEW</td>
-      <td>The one real gap this story found: turns an S3/local key layout into the <code>(cursor, raw)</code> pairs <code>replay_backfill()</code> expects. Hardened in security review: key-shape validation + resolved-path containment (path traversal), a separate bounded-decompression cap (decompression bomb), and streamed local reads.</td></tr>
-  <tr><td class="file">adapters/bedrock/__init__.py</td><td class="tag-mod">MODIFIED</td>
-      <td>Exports the 6 new <code>source.py</code> names.</td></tr>
-  <tr><td class="file">services/observation_coverage_service.py</td><td class="tag-mod">MODIFIED</td>
-      <td>One new function, <code>reconcile_backfill_gaps()</code>, for interior-gap detection over a closed historical window (the existing <code>detect_gaps()</code> is a live cadence-vs-<em>now</em> monitor and can't see this shape). Fixed in code review: added a secondary sort key so tied checkpoint timestamps reconcile deterministically instead of depending on DB row order.</td></tr>
-  <tr><td class="file">tests/fixtures/bedrock/model_invocation_log.schema.json</td><td class="tag-new">NEW</td>
-      <td>JSON Schema for one Bedrock invocation-log record, built field-by-field from the official AWS docs (fetched live), with source URL + retrieval date recorded.</td></tr>
-  <tr><td class="file">tests/test_story407_demo_corpus_builder.py</td><td class="tag-new">NEW</td>
-      <td>17 tests: schema validation, S3-layout + hourly batching, byte-determinism, seed-sensitivity, source-reader round-trip, guard-cleanliness, the full engine E2E, and 7 security/correctness regression tests (path traversal, decompression bomb, size caps, manifest validation, tied-timestamp determinism).</td></tr>
-  <tr><td class="file">specs/stories/STORY-407.md</td><td class="tag-new">NEW</td>
-      <td>Retroactive spec with Given/When/Then ACs and a full traceability table — added in response to a code-review finding that no spec file existed for this story.</td></tr>
+  <tr><td class="file">cli.py</td><td class="tag-new">NEW</td>
+      <td>Repo-root click CLI. <code>saro ingest</code>: discovers keys, iterates them one at a time (so a hard read failure names the exact failing key and preserves partial-batch results), replays through the real production <code>_default_submit</code> path (not a test double), extracts findings from the persisted <code>AuditTrace</code> rows, and computes <code>coverage_attested</code> via the real <code>coverage_report()</code>. <code>saro demo reset</code>: structural slug-allowlist guard, <code>--yes</code>-gated bulk delete of Audit/Disposition/ObservationCheckpoint/ObservationGap scoped to one tenant.</td></tr>
+  <tr><td class="file">tests/test_cli_ingest.py</td><td class="tag-new">NEW</td>
+      <td>7 tests: local-source parity with STORY-407's E2E assertions, S3 vs local store selection, partial-batch failure naming the exact key, dry-run zero-write, re-run idempotency, guard cleanliness.</td></tr>
+  <tr><td class="file">tests/test_cli_demo_reset.py</td><td class="tag-new">NEW</td>
+      <td>6 tests: the structural guard refuses a non-demo tenant, confirms no bypass flag exists, <code>--yes</code> gating, two-tenant isolation (security-relevant — pins the prior cross-tenant leak concern), reset→re-ingest parity.</td></tr>
+  <tr><td class="file">tests/_sqlite_for_update_shim.py</td><td class="tag-new">NEW</td>
+      <td>Test-only dialect shim: <code>routers/scan.py</code>'s <code>_persist_traces</code> uses Postgres-only <code>SELECT ... FOR UPDATE</code> row locking; SQLite (the in-memory test DB) can't parse it. Strips the clause for tests only — same category as conftest.py's existing PG_UUID/PG_JSON shims. Production code is untouched; production always runs against real Postgres, where the lock is real and necessary.</td></tr>
+  <tr><td class="file">requirements.txt</td><td class="tag-mod">MODIFIED</td>
+      <td>Added <code>click&gt;=8.1.0</code> as a direct dependency (previously only used inside the separate <code>saro-data-framework</code> sub-package).</td></tr>
+  <tr><td class="file">specs/stories/STORY-408.md .. STORY-411.md</td><td class="tag-new">NEW</td>
+      <td>Filed alongside this story (not built) — the next three stories in the SummitCare sequence, per the operator's build order.</td></tr>
 </table>
 
-<h2>What the E2E test actually proves</h2>
+<h2>What the tests actually prove</h2>
 <div class="callout good">
-Build → discover S3-layout objects → gunzip/parse → <code>replay_backfill()</code> (real STORY-406 code) → real <code>SARoEngine.run_output_audit()</code> per record → assert exactly <strong>UC-1, UC-2, UC-6</strong> fire (Privacy&nbsp;&amp;&nbsp;Security, Misinformation, AI&nbsp;System&nbsp;Safety respectively) and nothing else does → <code>reconcile_backfill_gaps()</code> → assert exactly one gap, containing the declared missing hour → coverage report shows <code>coverage_attested=True</code>.
+<code>test_local_source_parity</code>: build the STORY-407 corpus → <code>saro ingest --source &lt;dir&gt; --tenant ... --json</code> → assert the exact same three categories fire (Privacy &amp; Security / Misinformation / AI System Safety) and the exact same one gap surfaces, as STORY-407's own E2E test asserts directly against the pipeline functions. This is the real production submit path, not a test-only capture — the same code an operator invocation runs.
 </div>
-
-<h3>The 6 planted use cases</h3>
-<table>
-  <tr><th>UC</th><th>Scenario</th><th>Fires today?</th><th>Why</th></tr>
-  <tr><td>UC-1</td><td>PHI leakage</td><td class="tag-new">Yes</td><td>Fixture keyword hits Privacy &amp; Security</td></tr>
-  <tr><td>UC-2</td><td>Hallucinated clinical guidance</td><td class="tag-new">Yes</td><td>Fixture keyword hits Misinformation</td></tr>
-  <tr><td>UC-3</td><td>Missing disclaimer</td><td class="tag-mod">Planted only</td><td>No such rule exists yet</td></tr>
-  <tr><td>UC-4</td><td>Prompt-injection evidence</td><td class="tag-mod">Planted only</td><td>RP-INJ-BOUNDARY is a future Wave-2 rule</td></tr>
-  <tr><td>UC-5</td><td>Off-allowlist modelId</td><td class="tag-mod">Planted only</td><td>Content engine doesn't evaluate the envelope; needs a future modelId-allowlist rule</td></tr>
-  <tr><td>UC-6</td><td>Deliberate false positive</td><td class="tag-new">Yes</td><td>Benign "crashed on CI" trips AI System Safety — showcases the FP-dismissal workflow</td></tr>
-</table>
-<p>This split was an explicit owner decision, not an oversight: plant all 6 for demo completeness, but gate the <em>automated</em> pass/fail on the 3 that a real rule fires today.</p>
+<div class="callout good">
+<code>test_tenant_isolation_reset_leaves_other_tenant_untouched</code>: seeds checkpoint/gap/disposition rows for a demo tenant AND a non-demo tenant, resets only the demo one, asserts the other tenant's three row types are still present with unchanged counts.
+</div>
 
 <h2>Deviations from a literal reading of the story</h2>
 <div class="deviation">
-<strong>STORY-406 was NOT rebuilt.</strong> The story spec assumed it didn't exist. Recon found it fully built, reviewed, and merged. Rebuilding would have duplicated 656 lines of already-reviewed, security-hardened code for no benefit.
+<strong>Findings are attributed via a request-id/timestamp index captured in the submit wrapper, not by reaching into the engine's private <code>_sample_findings</code>.</strong> STORY-407's own E2E test captured findings by calling <code>engine_obj.run_output_audit()</code> directly and reading a private attribute — appropriate for a test, not for production orchestration. <code>saro ingest</code> instead uses the real <code>_default_submit</code> (which persists <code>Audit</code>/<code>ScanReport</code>/<code>AuditTrace</code> rows for real), and a thin tracking wrapper records <code>audit_id → (request_id, timestamp)</code> from the envelope at submit time. Findings are then read back from the persisted <code>AuditTrace</code> rows (<code>check_type="risk_domain"</code>, <code>result="flagged"</code>) — the same rows the TRACE View reads. Same findings fire either way; this path is the one an operator's real ingest actually exercises.
 </div>
 <div class="deviation">
-<strong>Gap window reported is wider than the declared 1-hour gap.</strong> The manifest declares a missing hour <code>03:00–04:00</code>; the reconciled gap reports as <code>02:00–04:00</code> because heartbeats sit at the top of each hour and <code>gap_start</code> anchors to the <em>last</em> observation before the gap — identical semantics to the existing live <code>detect_gaps()</code>. Not a bug; the test asserts containment, not exact equality.
+<strong><code>coverage_attested</code> is computed via <code>coverage_report()</code>, not by "gaps exist" logic.</strong> An early implementation pass set <code>coverage_attested = False</code> whenever any gap was found. That's wrong: <code>coverage_report()</code>'s actual contract is "at least one observation was recorded in the window" — a window can be fully attested <em>and</em> contain a disclosed gap (that's the whole point of gap attestation). Caught before commit by re-reading <code>services/observation_coverage_service.py</code>'s own docstring; fixed to call the real <code>coverage_report()</code> per observed system and AND the per-system <code>coverage_attested</code> flags together.
 </div>
 <div class="deviation">
-<strong>Coverage stream keyed on a single primary model.</strong> STORY-406 keys each coverage stream by full <code>modelId</code>. The manifest pins one <code>primary_model_id</code> so the coverage stream stays continuous and the gap attestation reads as exactly one legible gap.
+<strong>SQLite/Postgres dialect gap for <code>_persist_traces</code>'s row lock.</strong> Discovered when the first ingest test failed with a raw SQLite syntax error on <code>FOR UPDATE</code>. This is pre-existing in <code>routers/scan.py</code> (STORY-407's test avoided it by not using the production submit path at all). Rather than reimplementing persistence or duplicating STORY-407's test-only workaround (which would mean the CLI isn't actually exercising its real production code path), added a narrowly-scoped test-only dialect shim, consistent with the existing PG_UUID/PG_JSON pattern in <code>conftest.py</code>. No production code changed.
 </div>
 <div class="deviation">
-<strong>Mid-review correction: "one checkpoint per hour" was wrong.</strong> An early design note claimed the builder guarantees one coverage checkpoint per populated hour. Code review caught that <code>emit_coverage</code> (existing STORY-406 code) actually writes one checkpoint <em>per record</em> — this manifest's 66 records land as 1–2 checkpoints per hour. Correctness was never affected (the gap-detection logic doesn't depend on the false "one per hour" claim), but the design note was corrected, and this surfaced a real, separate bug: no secondary sort key for tied checkpoint timestamps (see Risk map).
+<strong>Story spec left the CLI file location open ("scripts/ vs a first-class location — ask, don't assume").</strong> Decided repo-root <code>cli.py</code>, alongside <code>main.py</code>/<code>engine.py</code>/<code>database.py</code>, since this is meant to be a first-class operator surface (invoked as <code>python cli.py ingest ...</code>), not a one-off script. No <code>pyproject.toml</code>/<code>setup.py</code> exists in this repo to wire a pip-installable <code>saro</code> console-script entry point — out of scope; noted here rather than silently added.
+</div>
+<div class="deviation">
+<strong>S3-source parity (AC-1.2) verified by backend selection, not a live/mocked S3 round-trip.</strong> STORY-407's own test suite has no moto-based S3 test, and <code>moto</code> is not a project dependency. Adding it would be new test infrastructure beyond "orchestration only." <code>test_source_selection_local_vs_s3</code> proves <code>--source s3://bucket/prefix</code> correctly constructs an <code>S3LogStore</code> (vs <code>LocalLogStore</code> for a filesystem path) with the right bucket/prefix — the actual S3 read path (<code>discover_object_keys</code>/<code>iter_backfill_records</code>) is unmodified, existing, already-tested code.
 </div>
 
 <h2>What was deliberately NOT done</h2>
 <ul>
-<li>No CloudWatch Logs delivery path (P2, explicitly out of scope in the story).</li>
-<li>No live-tail/streaming replay — backfill only, per STORY-406's own scope.</li>
-<li>No new rule packs authored for UC-3/4/5 — owner decision, tracked as separate future stories.</li>
-<li>No UI — CLI only, per the story's Non-Goals.</li>
-<li>Did not touch <code>adapters/bedrock/{parse,records,replay}.py</code> or its existing test suite — verified all its existing tests still pass unmodified.</li>
+<li>No scheduling/daemon mode — that's STORY-409, explicitly out of scope here and pilot-gated.</li>
+<li>No cross-account auth — that's STORY-408, explicitly out of scope here and pilot-gated.</li>
+<li>No new rules, no UI changes — per the story's Non-Goals.</li>
+<li>No <code>is_demo</code> column / migration added to <code>Tenant</code> — the demo-tenant guard uses a slug allowlist instead (owner decision, avoids schema change for a story scoped as orchestration-only).</li>
+<li>Did not touch <code>adapters/bedrock/*.py</code>, <code>services/observation_coverage_service.py</code>, or <code>services/audit_submission.py</code> — verified their existing test suites still pass unmodified.</li>
 </ul>
 
 <h2>Risk map</h2>
 <table class="risk-table">
   <tr><th>Risk</th><th>Covered by</th></tr>
-  <tr><td>Corpus accidentally contains real-looking PHI</td><td><code>test_synthetic_provenance_on_every_record</code> — every record carries the synthetic accountId + requestMetadata markers, and every planted "PHI" scenario traces to a checked-in fabricated fixture</td></tr>
-  <tr><td>Non-determinism (flaky demo rehearsals)</td><td><code>test_determinism_byte_identical_for_same_seed</code> + 3 independent manual two-run rehearsals (byte-diff clean each time, including post-security-fix)</td></tr>
-  <tr><td>Clean traffic accidentally trips a finding</td><td><code>_risk_signal_hit()</code> screens the benign pool against the engine's own signal tables before use; E2E asserts zero clean findings</td></tr>
-  <tr><td>New adapter code reaches a hosted-model endpoint (STORY-336)</td><td><code>test_source_reader_is_guard_clean</code> + full guard run — both green</td></tr>
-  <tr><td><strong>Path traversal in the new S3-layout reader</strong> (security-auditor HIGH, verified experimentally)</td><td>Fixed: key-shape validation + resolved-path containment check in <code>LocalLogStore.read_bytes</code>/<code>S3LogStore.read_bytes</code>. Pinned by <code>test_local_store_rejects_path_traversal_key</code>, <code>test_local_store_rejects_malformed_key_shape</code></td></tr>
-  <tr><td><strong>Decompression bomb</strong> (security-auditor HIGH, verified: 150KB→339MB expansion)</td><td>Fixed: <code>_bounded_gunzip()</code> enforces <code>MAX_DECOMPRESSED_BYTES</code> via incremental read, separate from the compressed-size cap. Pinned by <code>test_bounded_gunzip_rejects_decompression_bomb</code></td></tr>
-  <tr><td>Local reads not streamed (cap checked only after full read)</td><td>Fixed: <code>LocalLogStore.read_bytes</code> now streams with early abort, matching <code>S3LogStore</code>'s discipline. Pinned by <code>test_local_store_enforces_object_size_cap</code></td></tr>
-  <tr><td>Unsanitized manifest fields flow into output file paths</td><td>Fixed: <code>account_id</code>/<code>region</code> validated at the manifest-load boundary. Pinned by <code>test_manifest_account_id_and_region_are_validated</code></td></tr>
-  <tr><td><strong>Non-deterministic gap reconciliation on tied timestamps</strong> (reviewer MAJOR, verified: this exact manifest has 5 tied pairs)</td><td>Fixed: <code>reconcile_backfill_gaps</code> now sorts on <code>(watermark_timestamp, watermark_position)</code>. Pinned by <code>test_reconcile_backfill_gaps_is_deterministic_on_tied_timestamps</code></td></tr>
-  <tr><td>Coverage heartbeat leaks message content (INV-2)</td><td>Not modified — <code>emit_coverage()</code> still takes only an <code>Envelope</code>, structurally incapable of seeing a body</td></tr>
+  <tr><td>Demo reset accidentally deletes a real client tenant's data</td><td><code>test_refuses_non_demo_tenant</code> (slug not in allowlist → refuses, no delete) + <code>test_no_flag_bypasses_the_demo_tenant_guard</code> (asserts the command has exactly <code>{tenant, yes}</code> params — no <code>--force</code>) + <code>test_tenant_isolation_reset_leaves_other_tenant_untouched</code> (AC-4.3) + security-auditor traced every code path and confirmed the delete statements are unreachable unless the slug check passes first</td></tr>
+  <tr><td>Reset without <code>--yes</code> silently deletes anyway</td><td><code>test_requires_yes_flag_preview_only</code> — asserts a preview-only path prints counts and performs zero deletes</td></tr>
+  <tr><td>New CLI code reaches a hosted-model endpoint (STORY-336)</td><td><code>test_cli_module_is_guard_clean</code> + full guard run — both green; security-auditor independently confirmed no credential/PII logging in CLI output</td></tr>
+  <tr><td>Ingest silently "succeeds" despite an unreadable source object (AC-1.3)</td><td><code>test_partial_batch_failure_names_failing_key</code> — a poisoned key produces a non-zero exit naming the exact failing key, with objects read before the failure still reported</td></tr>
+  <tr><td>Double-running an ingest creates duplicate findings/checkpoints/gaps</td><td><code>test_rerun_is_idempotent</code> — pins that re-running the same corpus is a no-op, riding the existing <code>ObservationCheckpoint</code> UNIQUE constraint (no new dedupe logic needed or added)</td></tr>
+  <tr><td>Wrong <code>coverage_attested</code> semantics reported to an operator</td><td>Caught pre-commit (see Deviations) — fixed to call the real <code>coverage_report()</code>; <code>test_local_source_parity</code> pins <code>coverage_attested is True</code> alongside a real gap in the same window</td></tr>
 </table>
-<div class="callout warn">
-<strong>Known residual (informational only, not a blocker):</strong> <code>ObservationGap</code> has no UNIQUE constraint (unlike <code>ObservationCheckpoint</code>), so in theory two concurrent reconciliation calls for the same stream could race. Pre-existing in the coverage module generally (not introduced or worsened here); security-auditor flagged it for a future FND against the module, not this story.
-</div>
 
 <h2>Independent review outcomes</h2>
-<p><strong>security-auditor:</strong> initial verdict FAIL (2 HIGH: path traversal, decompression bomb; 1 MEDIUM: unstreamed local reads; 1 LOW: manifest path injection) — all four fixed and pinned with regression tests, re-verified PASS.</p>
-<p><strong>reviewer:</strong> initial verdict REQUEST CHANGES (process: security fixes existed only in the working tree at review time, now committed; 1 MAJOR: non-deterministic gap tiebreak, verified this manifest actually has 5 tied pairs; 2 MINOR: mypy annotation gap, inaccurate design note; 1 process note: missing spec file) — all fixed; the reviewer's "what's genuinely solid" section separately confirmed the full 1643-test suite passes with no regressions and the E2E test's engine-state reset is load-bearing, not decorative.</p>
+<p><strong>security-auditor:</strong> PASS. Traced every path in <code>demo_reset()</code> and confirmed the delete statements are unreachable unless the slug allowlist check passes; confirmed all four delete queries are correctly scoped by <code>tenant_id</code> with no shadowing; confirmed <code>_make_store()</code> delegates path-traversal protection to the already-audited <code>adapters/bedrock/source.py</code> layer rather than duplicating or weakening it; confirmed no secrets/PII in CLI output; bandit clean on <code>cli.py</code> specifically (baseline unchanged repo-wide). Informational-only note: the operator-trust boundary (<code>--tenant</code>/<code>--user</code> are unauthenticated local-CLI inputs, by design) is reasonable but worth calling out explicitly in docs for a future reviewer — no code change required.</p>
+<p><strong>reviewer:</strong> pending at time of writing — this debrief will be updated with the outcome before merge.</p>
 
 <h2>Understanding check</h2>
 <div class="quiz" id="quiz">
-  <div class="q"><p class="question">1. Why wasn't the Bedrock adapter (STORY-406) rebuilt as part of this story?</p>
+  <div class="q"><p class="question">1. Why does <code>saro ingest</code> iterate discovered object keys one at a time instead of handing the whole list to <code>iter_backfill_records</code> at once?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">It was already built, reviewed, and merged on <code>origin/main</code> (PR #112) — 656 lines with its own passing test suite. Recon against current code (not stale session memory) found this. Rebuilding would duplicate already-hardened security controls for zero benefit.</div></div>
-  <div class="q"><p class="question">2. Two checkpoints can share the exact same <code>watermark_timestamp</code> in this manifest. Why does that matter, and how was it fixed?</p>
+    <div class="answer">AC-1.3 requires a hard read failure to exit non-zero, name the exact failing object key, and preserve everything ingested before it (partial-batch behavior). <code>iter_backfill_records</code> is intentionally fail-soft for content-level issues (a bad JSON line, an undecompressible object) — it logs and continues rather than raising, by design, so one bad record never aborts a whole corpus replay. Per-key iteration lets the CLI catch a genuinely hard failure (e.g. an unreadable/oversized object) at the exact key that caused it, without weakening the adapter's existing fail-soft contract for record-level issues.</div></div>
+  <div class="q"><p class="question">2. Why does <code>saro demo reset</code> check the tenant's <code>slug</code> instead of an <code>is_demo</code> boolean column?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Without a secondary sort key, which of the tied rows counts as "before" the other is undefined on Postgres (SQLite happened to preserve insertion order, masking the bug in tests). That could non-deterministically flip which watermark_position a gap's boundary records, breaking the byte-for-byte reproducibility this whole story depends on. Fixed by sorting on <code>(watermark_timestamp, watermark_position)</code> — the position is unique per stream, so ties break the same way every time.</div></div>
-  <div class="q"><p class="question">3. What's the difference between the two size caps in <code>adapters/bedrock/source.py</code>, and why are both needed?</p>
+    <div class="answer">No <code>is_demo</code> column exists on <code>Tenant</code> today — recon confirmed this. Adding one would mean a migration plus a data-backfill step for a story scoped as orchestration-only. The demo tenant is already identified by a fixed slug convention (<code>"saro-demo"</code>) in <code>scripts/seed_demo_tenant.py</code>; the reset command matches that existing convention via a hardcoded allowlist, with zero schema change.</div></div>
+  <div class="q"><p class="question">3. What would happen if an operator ran <code>saro demo reset --tenant &lt;real-client-uuid&gt; --yes</code>?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer"><code>MAX_OBJECT_BYTES</code> bounds the compressed bytes read from disk/S3; <code>MAX_DECOMPRESSED_BYTES</code> separately bounds the decompressed output. A small, well-under-the-first-cap gzip object can still expand to gigabytes on decompression (a "decompression bomb") — verified experimentally during security review (150KB compressed → 339MB decompressed). Capping only the compressed size does nothing to stop that.</div></div>
-  <div class="q"><p class="question">4. Why is UC-5 (off-allowlist modelId) planted but not asserted as firing?</p>
+    <div class="answer">Nothing gets deleted. The command resolves the Tenant row, checks its <code>slug</code> against <code>DEMO_TENANT_SLUGS</code>, and raises before reaching any delete statement if the slug doesn't match. There is no flag — including <code>--yes</code> — that skips this check; <code>--yes</code> only controls whether a passing check's deletes actually execute versus just previewing counts.</div></div>
+  <div class="q"><p class="question">4. Why does <code>coverage_attested</code> come from calling the real <code>coverage_report()</code> function instead of just checking "were there any gaps"?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">The content engine (Gate 3 keyword/regex scan) evaluates prompt+output text — it never looks at the envelope's <code>modelId</code>. Detecting an off-allowlist model requires a rule that doesn't exist yet. UC-5 is included in the corpus for demo completeness but the automated E2E check only asserts on use cases with a real firing rule today.</div></div>
-  <div class="q"><p class="question">5. What stops a benign clean-traffic sentence from accidentally becoming a "finding" in the demo?</p>
+    <div class="answer"><code>coverage_attested</code> means "at least one observation was recorded for this system in the window" — it's independent of whether a gap exists. A window can be fully attested AND contain a disclosed gap; that's the entire point of gap attestation (evidence of a real blind spot, not an unattested/vacuous claim). An early draft conflated the two and reported <code>coverage_attested=False</code> whenever a gap existed, which would have been wrong — caught by re-reading the coverage service's own docstring before commit.</div></div>
+  <div class="q"><p class="question">5. Why does a new test file (<code>tests/_sqlite_for_update_shim.py</code>) monkeypatch SQLAlchemy's <code>Session.execute</code>, and does that change any production behavior?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer"><code>_risk_signal_hit()</code> in the builder imports the engine's own <code>_RISK_SIGNALS</code> keyword/regex tables and screens every candidate benign-pool sentence against them before it's used as clean traffic.</div></div>
-  <div class="q"><p class="question">6. A malicious log key like <code>"../../../../etc/passwd"</code> is handed to <code>LocalLogStore.read_bytes</code>. What stops it from reading a file outside the demo output directory?</p>
+    <div class="answer">No production behavior changes — the shim only patches <code>Session.execute</code> inside test fixtures, stripping <code>FOR UPDATE</code> only when it appears in a query string. <code>routers/scan.py</code>'s <code>_persist_traces</code> uses <code>SELECT ... FOR UPDATE</code> to serialize concurrent trace-hash-chain writes against real Postgres — necessary and correct in production, but unparseable syntax on the in-memory SQLite database the test suite uses. This is the same category of gap <code>conftest.py</code> already shims for Postgres-specific UUID/JSON column types.</div></div>
+  <div class="q"><p class="question">6. Why does <code>saro ingest</code> use <code>adapters.bedrock.replay._default_submit</code> (the real production persistence path) instead of writing a lighter test-friendly submit function?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Two independent checks: the key must match the exact Bedrock layout shape (a regex that a "<code>..</code>" segment cannot satisfy), and separately the resolved path is checked for containment under the store root before any read. Either check alone would likely catch this specific case, but both together are defense-in-depth against a future caller that constructs keys differently.</div></div>
+    <div class="answer">Because this story's job is to give operators (and, eventually, the SummitCare pilot) a command that does what a real ingest actually does — persisting real <code>Audit</code>/<code>ScanReport</code>/<code>AuditTrace</code> rows the TRACE View reads, not a simulation of it. Using the real path means the findings/gap/coverage_attested output an operator sees from the CLI is exactly what's actually in the database afterward — no risk of the CLI's summary drifting from what really got persisted.</div></div>
 </div>
 
 <script>

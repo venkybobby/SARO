@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+"""SARO operator CLI (STORY-410) — ingest orchestration + demo-tenant reset.
+
+Orchestration only: every pipeline step below already exists and is proven by
+the STORY-407 E2E test (tests/test_story407_demo_corpus_builder.py). This file
+wraps discover -> replay_backfill -> engine audit -> reconcile_backfill_gaps in
+a first-class operator command, and adds a demo-tenant-scoped reset so
+rehearsals can return to a clean state deterministically.
+
+    python cli.py ingest --adapter bedrock --source {s3://bucket[/prefix] | ./path} \\
+                          --tenant <tenant_id> --window <ISO8601>..<ISO8601> [--dry-run] [--json]
+    python cli.py demo reset --tenant <tenant_id> --yes
+
+Guard cleanliness (FR-5): this module imports only adapters/services/engine/models
+code already covered by the STORY-336 no-external-model guard — no provider SDKs,
+no bodies passed into coverage code paths.
+"""
+
+from __future__ import annotations
+
+import json as _json
+import sys
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Optional
+
+import click
+
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from adapters.bedrock import (  # noqa: E402
+    BedrockAdapterConfig,
+    LocalLogStore,
+    S3LogStore,
+    discover_object_keys,
+    iter_backfill_records,
+    replay_backfill,
+)
+from adapters.bedrock.replay import _default_submit  # noqa: E402
+
+# Demo-tenant structural guard (STORY-410 Decision Log Q2): no `is_demo` column
+# exists on Tenant. This matches scripts/seed_demo_tenant.py's slug convention.
+# There is no flag or override that bypasses this allowlist — `saro demo reset`
+# refuses outright for any tenant whose slug is not in it (AC-4.1).
+DEMO_TENANT_SLUGS = frozenset({"saro-demo"})
+
+# Defaults matching the STORY-407 demo corpus (scripts/demo_manifest.yaml). A
+# real client source (STORY-408) will carry its own account/region in per-tenant
+# config; these are overridable flags so the demo path needs no extra options.
+_DEFAULT_ACCOUNT_ID = "999888777666"
+_DEFAULT_REGION = "us-east-1"
+_DEFAULT_ADAPTER = "bedrock"
+_DEFAULT_CADENCE_SECONDS = 3600
+
+
+class CliError(click.ClickException):
+    """A CLI-level failure with a clear, operator-facing message."""
+
+
+# ── shared helpers ──────────────────────────────────────────────────────────
+
+
+def _parse_window(window: str) -> tuple[datetime, datetime]:
+    start_s, sep, end_s = window.partition("..")
+    if not sep or not start_s or not end_s:
+        raise click.BadParameter(
+            "must be ISO8601start..ISO8601end (e.g. 2026-07-06T00:00:00Z..2026-07-08T00:00:00Z)",
+            param_hint="--window",
+        )
+    try:
+        start = datetime.fromisoformat(start_s.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(end_s.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--window") from exc
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    return start, end
+
+
+def _parse_uuid(value: str, param_hint: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint=param_hint) from exc
+
+
+def _make_store(source: str):
+    if source.startswith("s3://"):
+        rest = source[len("s3://") :]
+        bucket, _, prefix = rest.partition("/")
+        if not bucket:
+            raise click.BadParameter(
+                "s3:// source must include a bucket", param_hint="--source"
+            )
+        return S3LogStore(bucket, prefix_root=prefix)
+    path = Path(source)
+    if not path.exists():
+        raise CliError(f"source path does not exist: {source!r}")
+    return LocalLogStore(path)
+
+
+def _resolve_operator_user_id(db, tenant_id: uuid.UUID) -> uuid.UUID:
+    from models import User
+
+    user = db.query(User).filter(User.tenant_id == tenant_id).first()
+    if user is None:
+        raise CliError(
+            f"no user found for tenant {tenant_id}; pass --user explicitly to attribute this ingest"
+        )
+    return user.id
+
+
+def _session_factory():
+    from database import _get_session_factory
+
+    return _get_session_factory()
+
+
+# ── ingest summary shape (FR-2) ─────────────────────────────────────────────
+
+
+@dataclass
+class IngestFinding:
+    request_id: str
+    timestamp: Optional[str]
+    category: str
+
+
+@dataclass
+class IngestSummary:
+    source: str
+    tenant_id: str
+    window_start: str
+    window_end: str
+    dry_run: bool = False
+    objects_discovered: int = 0
+    records_parsed: int = 0
+    audits_submitted: int = 0
+    audits_skipped_duplicate: int = 0
+    malformed: int = 0
+    audit_errors: int = 0
+    findings: list[IngestFinding] = field(default_factory=list)
+    gaps: list[dict[str, Any]] = field(default_factory=list)
+    coverage_attested: Optional[bool] = None
+    elapsed_seconds: float = 0.0
+    failed_key: Optional[str] = None
+    error: Optional[str] = None
+    partial: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "tenant_id": self.tenant_id,
+            "window_start": self.window_start,
+            "window_end": self.window_end,
+            "dry_run": self.dry_run,
+            "objects_discovered": self.objects_discovered,
+            "records_parsed": self.records_parsed,
+            "audits_submitted": self.audits_submitted,
+            "audits_skipped_duplicate": self.audits_skipped_duplicate,
+            "malformed": self.malformed,
+            "audit_errors": self.audit_errors,
+            "findings_by_category": self._findings_by_category(),
+            "gaps": self.gaps,
+            "coverage_attested": self.coverage_attested,
+            "elapsed_seconds": round(self.elapsed_seconds, 3),
+            "failed_key": self.failed_key,
+            "error": self.error,
+            "partial": self.partial,
+        }
+
+    def _findings_by_category(self) -> dict[str, list[dict[str, Optional[str]]]]:
+        by_cat: dict[str, list[dict[str, Optional[str]]]] = {}
+        for f in self.findings:
+            by_cat.setdefault(f.category, []).append(
+                {"request_id": f.request_id, "timestamp": f.timestamp}
+            )
+        return by_cat
+
+    def render_text(self) -> str:
+        lines = [
+            f"source:              {self.source}",
+            f"tenant:              {self.tenant_id}",
+            f"window:              {self.window_start} .. {self.window_end}",
+            f"dry_run:             {self.dry_run}",
+            f"objects discovered:  {self.objects_discovered}",
+            f"records parsed:      {self.records_parsed}",
+        ]
+        if not self.dry_run:
+            lines += [
+                f"audits submitted:    {self.audits_submitted}",
+                f"audits deduped:      {self.audits_skipped_duplicate}",
+                f"malformed records:   {self.malformed}",
+                f"audit errors:        {self.audit_errors}",
+                f"findings ({sum(len(v) for v in self._findings_by_category().values())}):",
+            ]
+            for category, items in sorted(self._findings_by_category().items()):
+                lines.append(f"  {category}:")
+                for item in items:
+                    lines.append(
+                        f"    - requestId={item['request_id']} at={item['timestamp']}"
+                    )
+            lines.append(f"gaps ({len(self.gaps)}):")
+            for g in self.gaps:
+                lines.append(
+                    f"  - {g['gap_start']} .. {g['gap_end']} ({g['system_id']})"
+                )
+            lines.append(f"coverage_attested:   {self.coverage_attested}")
+        lines.append(f"elapsed:             {self.elapsed_seconds:.3f}s")
+        if self.failed_key:
+            lines.append(f"FAILED at key:       {self.failed_key}")
+            lines.append(f"error:               {self.error}")
+        return "\n".join(lines)
+
+
+def _run_ingest(
+    *,
+    source: str,
+    tenant_id: uuid.UUID,
+    window_start: datetime,
+    window_end: datetime,
+    dry_run: bool,
+    account_id: str,
+    region: str,
+    adapter_id: str,
+    cadence_seconds: int,
+    user_id: Optional[uuid.UUID],
+    vertical: str,
+) -> IngestSummary:
+    from models import AuditTrace
+    from services.observation_coverage_service import (
+        coverage_report,
+        record_checkpoint,
+        reconcile_backfill_gaps,
+    )
+
+    t0 = time.monotonic()
+    summary = IngestSummary(
+        source=source,
+        tenant_id=str(tenant_id),
+        window_start=window_start.isoformat(),
+        window_end=window_end.isoformat(),
+        dry_run=dry_run,
+    )
+
+    store = _make_store(source)
+    try:
+        keys = discover_object_keys(
+            store,
+            account_id=account_id,
+            region=region,
+            window_start=window_start,
+            window_end=window_end,
+        )
+    except Exception as exc:  # noqa: BLE001 — surfaced as a clear CLI failure, not a raw traceback
+        raise CliError(f"failed to discover objects under {source!r}: {exc}") from exc
+    summary.objects_discovered = len(keys)
+
+    # AC-1.3: iterate per object key so a hard read failure (unreadable source)
+    # identifies the exact failing key and preserves everything ingested before it
+    # (partial-batch behavior), rather than aborting the whole discovered set.
+    records: list[tuple[str, dict[str, Any]]] = []
+    ingested_keys = 0
+    for key in keys:
+        try:
+            key_records = list(iter_backfill_records(store, [key]))
+        except Exception as exc:  # noqa: BLE001 — surfaced as a clear CLI failure below
+            summary.failed_key = key
+            summary.error = str(exc)
+            summary.partial = True
+            break
+        records.extend(key_records)
+        ingested_keys += 1
+    summary.records_parsed = len(records)
+
+    if dry_run:
+        summary.elapsed_seconds = time.monotonic() - t0
+        if summary.failed_key:
+            raise CliError(
+                f"failed to read object {summary.failed_key!r}: {summary.error} "
+                f"({ingested_keys}/{len(keys)} objects read before failure)"
+            )
+        return summary
+
+    Session = _session_factory()
+    db = Session()
+    try:
+        if user_id is None:
+            user_id = _resolve_operator_user_id(db, tenant_id)
+
+        config = BedrockAdapterConfig(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            vertical=vertical,
+            adapter_id=adapter_id,
+        )
+
+        seen_systems: set[tuple[str, str]] = set()
+
+        def _tracking_checkpoint(db_, **kwargs):
+            seen_systems.add((kwargs["system_id"], kwargs["adapter_id"]))
+            return record_checkpoint(db_, **kwargs)
+
+        audit_index: dict[uuid.UUID, tuple[str, Optional[str]]] = {}
+
+        def _tracking_submit(db_, submission, config_, envelope):
+            audit_id = _default_submit(db_, submission, config_, envelope)
+            audit_index[audit_id] = (
+                envelope.request_id,
+                envelope.timestamp.isoformat() if envelope.timestamp else None,
+            )
+            return audit_id
+
+        result = replay_backfill(
+            db,
+            records,
+            config,
+            checkpoint=_tracking_checkpoint,
+            submit=_tracking_submit,
+        )
+        summary.audits_submitted = result.audits_submitted
+        summary.audits_skipped_duplicate = result.audits_skipped_duplicate
+        summary.malformed = result.malformed
+        summary.audit_errors = result.audit_errors
+
+        if audit_index:
+            traces = (
+                db.query(AuditTrace)
+                .filter(
+                    AuditTrace.audit_id.in_(audit_index.keys()),
+                    AuditTrace.check_type == "risk_domain",
+                    AuditTrace.result == "flagged",
+                )
+                .all()
+            )
+            for t in traces:
+                info = audit_index.get(t.audit_id)
+                if info is None:
+                    continue
+                request_id, timestamp = info
+                summary.findings.append(
+                    IngestFinding(
+                        request_id=request_id,
+                        timestamp=timestamp,
+                        category=t.check_name,
+                    )
+                )
+
+        gaps: list[dict[str, Any]] = []
+        attested_flags: list[bool] = []
+        for system_id, adp_id in sorted(seen_systems):
+            for gap in reconcile_backfill_gaps(
+                db,
+                tenant_id=tenant_id,
+                system_id=system_id,
+                adapter_id=adp_id,
+                window_start=window_start,
+                window_end=window_end,
+                cadence_seconds=cadence_seconds,
+            ):
+                gaps.append(
+                    {
+                        "system_id": system_id,
+                        "adapter_id": adp_id,
+                        "gap_start": gap.gap_start.isoformat(),
+                        "gap_end": gap.gap_end.isoformat() if gap.gap_end else None,
+                    }
+                )
+            report = coverage_report(db, tenant_id, system_id, window_start, window_end)
+            attested_flags.append(bool(report["coverage_attested"]))
+        summary.gaps = gaps
+        # coverage_attested means "at least one observation was recorded for every
+        # ingested system in this window" (services/observation_coverage_service.py
+        # coverage_report) — it is independent of whether gaps were found; a window
+        # can be fully attested AND contain a disclosed gap (that is the point).
+        summary.coverage_attested = all(attested_flags) if attested_flags else None
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    summary.elapsed_seconds = time.monotonic() - t0
+
+    if summary.failed_key:
+        raise CliError(
+            f"failed to read object {summary.failed_key!r}: {summary.error} "
+            f"({ingested_keys}/{len(keys)} objects ingested before failure; "
+            f"{summary.audits_submitted} audits submitted from objects read so far)"
+        )
+    if summary.audit_errors:
+        raise CliError(
+            f"{summary.audit_errors} record(s) failed engine audit during ingest — "
+            "see logs for detail; objects ingested before the failure are reported above"
+        )
+    return summary
+
+
+# ── CLI ──────────────────────────────────────────────────────────────────────
+
+
+@click.group()
+@click.version_option(version="1.0.0", prog_name="saro")
+def cli() -> None:
+    """SARO operator CLI — backfill ingest + demo-tenant reset (STORY-410)."""
+
+
+@cli.command()
+@click.option(
+    "--adapter", default=_DEFAULT_ADAPTER, show_default=True, help="Adapter name."
+)
+@click.option(
+    "--source", required=True, help="s3://bucket[/prefix] or a local directory path."
+)
+@click.option("--tenant", required=True, help="Tenant UUID to ingest into.")
+@click.option("--window", required=True, help="ISO8601start..ISO8601end")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Discover + parse only; write nothing.",
+)
+@click.option(
+    "--json", "as_json", is_flag=True, default=False, help="Emit machine-readable JSON."
+)
+@click.option("--account-id", default=_DEFAULT_ACCOUNT_ID, show_default=True)
+@click.option("--region", default=_DEFAULT_REGION, show_default=True)
+@click.option(
+    "--cadence-seconds", default=_DEFAULT_CADENCE_SECONDS, show_default=True, type=int
+)
+@click.option("--vertical", default="general", show_default=True)
+@click.option(
+    "--user", "user", default=None, help="Operator user UUID to attribute audits to."
+)
+def ingest(
+    adapter: str,
+    source: str,
+    tenant: str,
+    window: str,
+    dry_run: bool,
+    as_json: bool,
+    account_id: str,
+    region: str,
+    cadence_seconds: int,
+    vertical: str,
+    user: Optional[str],
+) -> None:
+    """Run the full backfill pipeline: discover -> replay -> audit -> reconcile."""
+    if adapter != "bedrock":
+        raise click.BadParameter(
+            f"unsupported adapter {adapter!r} (only 'bedrock' today)",
+            param_hint="--adapter",
+        )
+    tenant_id = _parse_uuid(tenant, "--tenant")
+    user_id = _parse_uuid(user, "--user") if user else None
+    window_start, window_end = _parse_window(window)
+
+    try:
+        summary = _run_ingest(
+            source=source,
+            tenant_id=tenant_id,
+            window_start=window_start,
+            window_end=window_end,
+            dry_run=dry_run,
+            account_id=account_id,
+            region=region,
+            adapter_id=adapter,
+            cadence_seconds=cadence_seconds,
+            user_id=user_id,
+            vertical=vertical,
+        )
+    except CliError as exc:
+        # Partial-batch behavior (AC-1.3): still surface what was ingested before exiting non-zero.
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
+    if as_json:
+        click.echo(_json.dumps(summary.to_dict(), indent=2))
+    else:
+        click.echo(summary.render_text())
+
+
+@cli.group()
+def demo() -> None:
+    """Demo-tenant operations."""
+
+
+@demo.command("reset")
+@click.option(
+    "--tenant", required=True, help="Tenant UUID to reset. Must be a demo tenant."
+)
+@click.option("--yes", is_flag=True, default=False, help="Actually perform the delete.")
+def demo_reset(tenant: str, yes: bool) -> None:
+    """Delete findings, dispositions, checkpoints, and gaps for a demo tenant only.
+
+    AC-4.1: refuses structurally unless the tenant's slug is in DEMO_TENANT_SLUGS.
+    There is no flag combination that resets a non-demo tenant.
+    """
+    from models import (
+        Audit,
+        AuditEvent,
+        Disposition,
+        Notification,
+        ObservationCheckpoint,
+        ObservationGap,
+        Tenant,
+    )
+
+    tenant_id = _parse_uuid(tenant, "--tenant")
+
+    # Audit cascades to ScanReport/AuditMetadata/AuditTrace via DB-level ON DELETE
+    # CASCADE (models.py) — bulk .delete() bypasses ORM-level cascade, so this relies
+    # on the FK constraint itself. AuditEvent/Notification are deleted explicitly:
+    # they are not children of Audit (e.g. disposition actions write AuditEvent rows
+    # independently), so AC-4.4's "reset -> re-ingest reproduces a first-run ingest"
+    # would otherwise leave a stale self-audit/notification trail behind after reset.
+    tenant_scoped_models = (
+        Audit,
+        Disposition,
+        ObservationCheckpoint,
+        ObservationGap,
+        AuditEvent,
+        Notification,
+    )
+
+    Session = _session_factory()
+    db = Session()
+    try:
+        t = db.get(Tenant, tenant_id)
+        if t is None:
+            raise CliError(f"tenant not found: {tenant_id}")
+        if t.slug not in DEMO_TENANT_SLUGS:
+            raise CliError(
+                f"refusing to reset tenant {tenant_id} (slug={t.slug!r}): "
+                f"not in the demo-tenant allowlist {sorted(DEMO_TENANT_SLUGS)}"
+            )
+
+        counts = {
+            model.__tablename__: db.query(model)
+            .filter(model.tenant_id == tenant_id)
+            .count()
+            for model in tenant_scoped_models
+        }
+
+        if not yes:
+            click.echo(f"Would delete for tenant {tenant_id} (slug={t.slug}):")
+            for k, v in counts.items():
+                click.echo(f"  {k}: {v}")
+            click.echo("Pass --yes to actually delete.")
+            return
+
+        for model in tenant_scoped_models:
+            db.query(model).filter(model.tenant_id == tenant_id).delete(
+                synchronize_session=False
+            )
+        db.commit()
+
+        click.echo(f"Reset tenant {tenant_id} (slug={t.slug}):")
+        for k, v in counts.items():
+            click.echo(f"  deleted {v} {k}")
+    except CliError:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    cli()
