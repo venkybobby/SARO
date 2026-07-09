@@ -227,3 +227,8 @@ findings:
     test: tests/regression/test_fnd_049_ingest_discover_failure_is_clear_error.py
     status: pinned
     quarantine_expires: null
+  - id: FND-050
+    title: "submit_audit_sync silently dropped metadata instead of forwarding it to run_output_audit (STORY-411)"
+    test: tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py
+    status: pinned
+    quarantine_expires: null

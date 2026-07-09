@@ -245,6 +245,7 @@ def test_e2e_exactly_covered_findings_fire_and_gap_is_attested(tmp_path):
             raw_output=submission.raw_output,
             prompt=submission.prompt,
             source_model=submission.source_model,
+            metadata=submission.metadata,
         )
         fired[envelope.request_id] = sorted(
             {f["domain"] for f in engine_obj._sample_findings}
@@ -257,12 +258,13 @@ def test_e2e_exactly_covered_findings_fire_and_gap_is_attested(tmp_path):
     assert result.malformed == 0 and result.audit_errors == 0
     assert result.checkpoints_written == summary.record_count
 
-    # Exactly the COVERED planted use cases fire; UC-3/4/5 and all clean fire nothing.
+    # Exactly the COVERED planted use cases fire; UC-3/4 and all clean fire nothing.
+    # STORY-411: UC-5 (off-allowlist modelId) now fires via envelope evaluation.
     uc_by_rid = {p.request_id: p for p in summary.planted}
     fired_ucs = {
         uc_by_rid[r].use_case for r, doms in fired.items() if r in uc_by_rid and doms
     }
-    assert fired_ucs == {"UC-1", "UC-2", "UC-6"}
+    assert fired_ucs == {"UC-1", "UC-2", "UC-5", "UC-6"}
     assert fired[
         next(p.request_id for p in summary.planted if p.use_case == "UC-1")
     ] == ["Privacy & Security"]
@@ -270,17 +272,20 @@ def test_e2e_exactly_covered_findings_fire_and_gap_is_attested(tmp_path):
         next(p.request_id for p in summary.planted if p.use_case == "UC-2")
     ] == ["Misinformation"]
     assert fired[
+        next(p.request_id for p in summary.planted if p.use_case == "UC-5")
+    ] == ["Governance & Compliance"]
+    assert fired[
         next(p.request_id for p in summary.planted if p.use_case == "UC-6")
     ] == ["AI System Safety"]
     # Planted-pending-rule use cases are present in the corpus but fire nothing.
-    for uc in ("UC-3", "UC-4", "UC-5"):
+    for uc in ("UC-3", "UC-4"):
         rid = next(p.request_id for p in summary.planted if p.use_case == uc)
         assert fired[rid] == []
-    # Clean traffic produces zero findings.
+    # Clean traffic produces zero findings (all clean modelIds are on the allowlist).
     clean_rids = [r for r in fired if r not in uc_by_rid]
     assert clean_rids and all(fired[r] == [] for r in clean_rids)
     # Total records with a finding == the number of covered planted UCs.
-    assert sum(1 for doms in fired.values() if doms) == 3
+    assert sum(1 for doms in fired.values() if doms) == 4
 
     # AC-5.1: the deliberate gap surfaces in the coverage attestation. Coverage is keyed
     # by modelId (the primary production model carries the continuous stream).

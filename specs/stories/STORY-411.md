@@ -1,6 +1,7 @@
 # STORY-411 — Model-Allowlist Envelope Rule (fires UC-5)
 
-**Status:** Ready for build — **DEMO-CRITICAL, build second**
+**Status:** done — see Traceability + Decision Log below (implementation-notes.md has the full Decision Log/Deviations)
+**Status (original):** Ready for build — **DEMO-CRITICAL, build second**
 **Depends on:** STORY-405 (eval core), STORY-407 (corpus with UC-5 planted); rule-pack temporal-integrity story (versioning conventions)
 **Delivery rule:** Integrated into the single SARO repo.
 
@@ -51,6 +52,24 @@ Allowlist lives in the versioned rule pack (not in ad-hoc config), so findings a
 - [ ] STORY-336 guard green; INV-2 untouched (envelope stage sees no bodies beyond what the engine contract already permits)
 - [ ] Full existing suite passes
 
-## Open Questions (blocking)
-1. Risk-category mapping for envelope findings (existing taxonomy value or new category?). (Venky)
-2. Where per-tenant allowlist content lives given rule packs are versioned artifacts — is the allowlist rule instantiated per tenant, or is the pack tenant-specific already? Follow existing rule-pack tenancy convention; ask if ambiguous. (Recon → Venky)
+## Open Questions (blocking) — resolved
+1. Risk-category mapping: **new "Governance & Compliance" MIT_DOMAINS entry** — owner chose this over the recommended reuse of "AI System Safety", accepting the added surface (a new taxonomy category, fed exclusively by envelope evaluation, never content-scan keywords).
+2. Allowlist location: **in the versioned rule pack itself, global** — matches FR-2's own design directive; rule packs are global (not per-tenant) throughout this repo, and this story didn't invent per-tenant config. New dedicated `rule_packs/envelope_loader.py` + `rule_packs/envelope/1.0.0/envelope_allowlist.yaml` (the existing `rule_packs/loader.py` is a compliance-citation mapper with no field for a model-ID list).
+
+## Traceability (AC → test → file)
+
+| AC | Test | File |
+|---|---|---|
+| AC-1.1 | `test_off_allowlist_model_fires_exactly_one_governance_finding` | `tests/test_engine_envelope_allowlist.py` |
+| AC-1.2 | `test_on_allowlist_model_fires_no_envelope_finding` | `tests/test_engine_envelope_allowlist.py` |
+| AC-1.3 | `test_deterministic_same_input_same_finding` | `tests/test_engine_envelope_allowlist.py` |
+| AC-2.1 | `test_exact_match_allowed`, `test_off_allowlist_model_is_not_allowed`, `test_prefix_match_checked_only_when_no_exact_match`, `test_empty_or_none_model_id_is_not_allowed` | `tests/test_envelope_loader.py` |
+| AC-2.2 | `test_finding_records_model_id_rule_id_version_and_request_id` | `tests/test_engine_envelope_allowlist.py` |
+| AC-2.3 | `test_hash_is_deterministic_and_changes_with_content` (no time-travel mechanism exists repo-wide; deterministic-by-construction, see Decision Log Q re: temporal integrity) | `tests/test_envelope_loader.py` |
+| AC-3.1 | `test_finding_language_is_observable_only_adr_004` | `tests/test_engine_envelope_allowlist.py` |
+| AC-4.1 | `rule_packs/envelope/1.0.0/envelope_allowlist.yaml` (allowlist sourced from `scripts/demo_manifest.yaml`) | — |
+| AC-4.2 | `test_e2e_exactly_covered_findings_fire_and_gap_is_attested` (updated: 4 UCs) | `tests/test_story407_demo_corpus_builder.py` |
+| AC-4.3 | STORY-407.md UC table updated | `specs/stories/STORY-407.md` |
+| Backward compat | `test_no_metadata_is_a_no_op_backward_compat` | `tests/test_engine_envelope_allowlist.py` |
+| security-auditor LOW | `test_oversized_model_id_and_request_id_are_truncated_before_storage` | `tests/test_engine_envelope_allowlist.py` |
+| FND-050 (review-found) | `test_submit_audit_sync_forwards_metadata_to_run_output_audit` | `tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py` |

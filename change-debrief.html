@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STORY-410 — Operator Ingest CLI & Demo-Tenant Reset — Change Debrief</title>
+<title>STORY-411 — Model-Allowlist Envelope Rule — Change Debrief</title>
 <style>
   :root { --ink:#1a1d23; --sub:#5b6270; --line:#e4e7ec; --bg:#fafbfc; --accent:#3d5afe;
           --good:#1a7f4e; --warn:#b45309; --pill:#eef1f6; }
@@ -43,150 +43,146 @@
 </head>
 <body>
 
-<h1>STORY-410 — Operator Ingest CLI &amp; Demo-Tenant Reset</h1>
-<p class="sub">First-class <code>saro ingest</code> / <code>saro demo reset</code> operator commands &nbsp;·&nbsp; branch <code>story/STORY-410</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
-<span class="pill">14 files changed</span><span class="pill">STORY-336 guard: green</span><span class="pill">bandit: cli.py clean</span><span class="pill">security-auditor: PASS</span><span class="pill">reviewer: APPROVE (after 2 rounds)</span><span class="pill">FND-048, FND-049 pinned</span>
+<h1>STORY-411 — Model-Allowlist Envelope Rule</h1>
+<p class="sub">Fires UC-5 — SARO's engine can now see the log envelope, not just prompt/output text &nbsp;·&nbsp; branch <code>story/STORY-411</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
+<span class="pill">14 files changed</span><span class="pill">STORY-336 guard: green (rule_packs/ now scanned)</span><span class="pill">security-auditor: PASS (2 low/info, fixed)</span><span class="pill">reviewer: 1 round, FND-050 + 3 minors fixed</span><span class="pill">FND-050 pinned</span>
 
 <h2>Why this exists</h2>
-<p>The full ingest pipeline (discover → replay → engine audit → gap reconciliation) only ran inside a pytest test (STORY-407's E2E). There was no command an operator could actually run against the demo — or, later, a pilot — and rehearsals had no way to return the demo tenant to a clean state except by re-running that test. This story wraps the existing, already-proven pipeline in two operator commands: <code>saro ingest</code> and <code>saro demo reset</code>.</p>
+<p>UC-5 in the demo corpus (an off-allowlist Bedrock <code>modelId</code>) was planted since STORY-407 but never fired — SARO's content engine (Gate 3) only ever reads <code>prompt</code>+<code>raw_output</code> text, never the log envelope. "An unapproved model served production traffic" is one of the most visceral governance findings for a healthcare risk officer, and SARO was structurally blind to it. This story gives the engine one narrow new capability: evaluate an envelope attribute (<code>modelId</code>) against a versioned allowlist rule.</p>
 <div class="callout">
-<strong>Recon-first, per the story's own mandate:</strong> before writing any code, recon confirmed <code>replay_backfill()</code>, <code>reconcile_backfill_gaps()</code>, and <code>run_output_audit()</code> already exist and are proven end-to-end by STORY-407's test. No CLI wrapped them, and no tenant-reset utility existed at all. This story is orchestration-only — no new pipeline logic.
+<strong>The actual root-cause gap wasn't in the engine's capabilities — it was one dropped kwarg.</strong> <code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> had received <code>metadata</code> (which already carried <code>modelId</code>/<code>requestId</code>, built by the STORY-406 adapter) as a parameter since STORY-406 shipped — but silently never forwarded it into <code>engine_obj.run_output_audit(...)</code>. Everything upstream already carried the data the engine needed; the engine just never received it. Fixing that one line, plus giving the engine somewhere to route it, is the whole story. Logged as <strong>FND-050</strong> since it's a genuine bug fix, not just new feature wiring.
 </div>
 
 <h2>Intuition — how the pieces fit</h2>
-<svg viewBox="0 0 900 230" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#3d5afe"/>
     </marker>
   </defs>
   <g font-size="12" fill="#1a1d23">
-    <rect x="10" y="80" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="95" y="108" text-anchor="middle" font-weight="600">cli.py</text>
-    <text x="95" y="124" text-anchor="middle" font-size="10" fill="#5b6270">NEW · saro ingest</text>
-    <text x="95" y="138" text-anchor="middle" font-size="10" fill="#5b6270">per-key discover loop</text>
+    <rect x="10" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="110" y="45" text-anchor="middle" font-weight="600">build_audit_submission()</text>
+    <text x="110" y="60" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING — already builds metadata</text>
+    <text x="110" y="73" text-anchor="middle" font-size="10" fill="#5b6270">{modelId, requestId, ...}</text>
 
-    <rect x="230" y="20" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="325" y="45" text-anchor="middle" font-weight="600">discover_object_keys /</text>
-    <text x="325" y="60" text-anchor="middle" font-weight="600">iter_backfill_records</text>
-    <text x="325" y="73" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING (STORY-406/407)</text>
+    <rect x="10" y="150" width="200" height="70" rx="8" fill="#fff6ea" stroke="#b45309"/>
+    <text x="110" y="175" text-anchor="middle" font-weight="600">submit_audit_sync()</text>
+    <text x="110" y="191" text-anchor="middle" font-size="10" fill="#5b6270">FND-050 fix: forward metadata</text>
+    <text x="110" y="205" text-anchor="middle" font-size="10" fill="#5b6270">(was silently dropped)</text>
 
-    <rect x="230" y="150" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="325" y="175" text-anchor="middle" font-weight="600">replay_backfill()</text>
-    <text x="325" y="190" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING · checkpoint+submit</text>
-    <text x="325" y="203" text-anchor="middle" font-size="9" fill="#5b6270">sinks injected by cli.py</text>
+    <rect x="260" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="360" y="175" text-anchor="middle" font-weight="600">run_output_audit(metadata=)</text>
+    <text x="360" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW optional param</text>
+    <text x="360" y="205" text-anchor="middle" font-size="10" fill="#5b6270">backward-compatible no-op if absent</text>
 
-    <rect x="470" y="20" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="565" y="45" text-anchor="middle" font-weight="600">_default_submit →</text>
-    <text x="565" y="60" text-anchor="middle" font-weight="600">submit_audit_sync</text>
-    <text x="565" y="73" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING · real persistence</text>
+    <rect x="510" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
+    <text x="610" y="175" text-anchor="middle" font-weight="600">_evaluate_envelope_allowlist()</text>
+    <text x="610" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW · reads envelope ONLY</text>
+    <text x="610" y="205" text-anchor="middle" font-size="10" fill="#5b6270">never a body (INV-2)</text>
 
-    <rect x="470" y="150" width="190" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="565" y="175" text-anchor="middle" font-weight="600">reconcile_backfill_gaps /</text>
-    <text x="565" y="190" text-anchor="middle" font-weight="600">coverage_report</text>
-    <text x="565" y="203" text-anchor="middle" font-size="9" fill="#5b6270">EXISTING (STORY-COV-001)</text>
+    <rect x="510" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="610" y="45" text-anchor="middle" font-weight="600">envelope_loader.py</text>
+    <text x="610" y="60" text-anchor="middle" font-size="10" fill="#5b6270">NEW · versioned allowlist pack</text>
+    <text x="610" y="73" text-anchor="middle" font-size="10" fill="#5b6270">exact-then-prefix modelId match</text>
 
-    <rect x="710" y="80" width="170" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="795" y="108" text-anchor="middle" font-weight="600">IngestSummary</text>
-    <text x="795" y="124" text-anchor="middle" font-size="10" fill="#5b6270">NEW · text / --json</text>
-    <text x="795" y="138" text-anchor="middle" font-size="10" fill="#5b6270">findings, gaps, attested</text>
+    <rect x="760" y="150" width="130" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
+    <text x="825" y="175" text-anchor="middle" font-weight="600">flags list</text>
+    <text x="825" y="191" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING machinery</text>
+    <text x="825" y="205" text-anchor="middle" font-size="10" fill="#5b6270">trace/score/coverage</text>
 
-    <line x1="180" y1="100" x2="228" y2="60" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="180" y1="120" x2="228" y2="175" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="420" y1="60" x2="468" y2="50" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="420" y1="175" x2="468" y2="180" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="660" y1="60" x2="708" y2="100" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="660" y1="180" x2="708" y2="130" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="110" y1="80" x2="110" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="210" y1="185" x2="258" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="460" y1="185" x2="508" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="610" y1="80" x2="610" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+    <line x1="710" y1="185" x2="758" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <text x="450" y="250" text-anchor="middle" font-size="10" fill="#5b6270">The envelope finding joins the SAME flags list a content finding would — no special-casing downstream (TRACE View parity, AC-2.2).</text>
   </g>
 </svg>
-<p class="legend">Green = new this story. Blue = existing/reused, untouched — cli.py injects tracking wrappers around the checkpoint and submit sinks rather than modifying them.</p>
+<p class="legend">Orange = a genuine bug fix (FND-050). Blue = existing code, untouched. Green = new this story.</p>
 
 <h2>File-by-file</h2>
 <table>
   <tr><th>File</th><th>Status</th><th>What / why</th></tr>
-  <tr><td class="file">cli.py</td><td class="tag-new">NEW</td>
-      <td>Repo-root click CLI. <code>saro ingest</code>: discovers keys, iterates them one at a time (so a hard read failure names the exact failing key and preserves partial-batch results), replays through the real production <code>_default_submit</code> path (not a test double), extracts findings from the persisted <code>AuditTrace</code> rows, and computes <code>coverage_attested</code> via the real <code>coverage_report()</code>. <code>saro demo reset</code>: structural slug-allowlist guard, <code>--yes</code>-gated bulk delete of Audit/Disposition/ObservationCheckpoint/ObservationGap scoped to one tenant.</td></tr>
-  <tr><td class="file">tests/test_cli_ingest.py</td><td class="tag-new">NEW</td>
-      <td>7 tests: local-source parity with STORY-407's E2E assertions, S3 vs local store selection, partial-batch failure naming the exact key, dry-run zero-write, re-run idempotency, guard cleanliness.</td></tr>
-  <tr><td class="file">tests/test_cli_demo_reset.py</td><td class="tag-new">NEW</td>
-      <td>6 tests: the structural guard refuses a non-demo tenant, confirms no bypass flag exists, <code>--yes</code> gating, two-tenant isolation (security-relevant — pins the prior cross-tenant leak concern), reset→re-ingest parity.</td></tr>
-  <tr><td class="file">tests/_sqlite_for_update_shim.py</td><td class="tag-new">NEW</td>
-      <td>Test-only dialect shim: <code>routers/scan.py</code>'s <code>_persist_traces</code> uses Postgres-only <code>SELECT ... FOR UPDATE</code> row locking; SQLite (the in-memory test DB) can't parse it. Strips the clause for tests only — same category as conftest.py's existing PG_UUID/PG_JSON shims. Production code is untouched; production always runs against real Postgres, where the lock is real and necessary.</td></tr>
-  <tr><td class="file">requirements.txt</td><td class="tag-mod">MODIFIED</td>
-      <td>Added <code>click&gt;=8.1.0</code> as a direct dependency (previously only used inside the separate <code>saro-data-framework</code> sub-package).</td></tr>
-  <tr><td class="file">specs/stories/STORY-408.md .. STORY-411.md</td><td class="tag-new">NEW</td>
-      <td>Filed alongside this story (not built) — the next three stories in the SummitCare sequence, per the operator's build order.</td></tr>
+  <tr><td class="file">rule_packs/envelope_loader.py</td><td class="tag-new">NEW</td>
+      <td>Small dedicated loader — distinct from <code>rule_packs/loader.py</code> (a compliance-citation mapper with no field for a model-ID list). Exact-then-prefix <code>modelId</code> matching, separate SHA-256 hash so no other audit's existing hash-chain evidence changes meaning.</td></tr>
+  <tr><td class="file">rule_packs/envelope/1.0.0/envelope_allowlist.yaml</td><td class="tag-new">NEW</td>
+      <td>The versioned rule: <code>allowed_model_ids</code> sourced from <code>scripts/demo_manifest.yaml</code>'s existing list (STORY-407 had already anticipated this rule).</td></tr>
+  <tr><td class="file">engine.py</td><td class="tag-mod">MODIFIED</td>
+      <td>New <code>"Governance & Compliance"</code> MIT domain (fed exclusively by the envelope check, never content scanning). New <code>_evaluate_envelope_allowlist()</code>, hooked in right after Gate-3 classification so the finding flows through existing trace/scoring/coverage machinery. <code>_SampleFlag.detail</code> (optional) carries observed modelId/rule_id/rule-pack version/requestId into <code>AuditTrace.detail_json</code>. <code>run_output_audit</code> gained an optional <code>metadata</code> param (backward-compatible). <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> caps stored envelope fields (security-auditor LOW fix).</td></tr>
+  <tr><td class="file">services/audit_submission.py</td><td class="tag-mod">MODIFIED</td>
+      <td><strong>FND-050 fix</strong> — one line: forward <code>metadata=metadata</code> into <code>run_output_audit(...)</code> instead of silently dropping it.</td></tr>
+  <tr><td class="file">grc/guards/external_model.py</td><td class="tag-mod">MODIFIED</td>
+      <td>Added <code>"rule_packs"</code> to the STORY-336 guard's scanned package dirs — the new loader is now provably free of external-model calls, matching STORY-407's precedent for <code>adapters/</code>.</td></tr>
+  <tr><td class="file">tests/test_envelope_loader.py, tests/test_engine_envelope_allowlist.py</td><td class="tag-new">NEW</td>
+      <td>13 tests: exact/prefix matching, malformed-pack error, hash determinism, exactly-one-finding, no-finding-when-allowlisted, backward-compat no-op, determinism/byte-stability, detail-field completeness, ADR-004 language, oversized-field truncation.</td></tr>
+  <tr><td class="file">tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py</td><td class="tag-new">NEW</td>
+      <td>Pins the FND-050 fix independent of the envelope feature — a fake engine capturing kwargs, asserting <code>metadata</code> is forwarded.</td></tr>
+  <tr><td class="file">tests/test_story407_demo_corpus_builder.py</td><td class="tag-mod">MODIFIED</td>
+      <td>E2E's custom submit callback now threads <code>metadata=submission.metadata</code>; fired-UC assertion updated from 3 to 4 (UC-5 now fires, category "Governance &amp; Compliance").</td></tr>
+  <tr><td class="file">tests/test_new_features.py, tests/test_specs.py-adjacent (engine.py fix)</td><td class="tag-mod">MODIFIED</td>
+      <td>Two pre-existing tests broke from the taxonomy expansion (hardcoded domain count, missing LLM-judge domain definition) — fixed, not weakened.</td></tr>
+  <tr><td class="file">specs/stories/STORY-407.md</td><td class="tag-mod">MODIFIED</td>
+      <td>UC table updated: UC-5 moved from "planted only" to "fires" (AC-4.3).</td></tr>
 </table>
-
-<h2>What the tests actually prove</h2>
-<div class="callout good">
-<code>test_local_source_parity</code>: build the STORY-407 corpus → <code>saro ingest --source &lt;dir&gt; --tenant ... --json</code> → assert the exact same three categories fire (Privacy &amp; Security / Misinformation / AI System Safety) and the exact same one gap surfaces, as STORY-407's own E2E test asserts directly against the pipeline functions. This is the real production submit path, not a test-only capture — the same code an operator invocation runs.
-</div>
-<div class="callout good">
-<code>test_tenant_isolation_reset_leaves_other_tenant_untouched</code>: seeds checkpoint/gap/disposition rows for a demo tenant AND a non-demo tenant, resets only the demo one, asserts the other tenant's three row types are still present with unchanged counts.
-</div>
 
 <h2>Deviations from a literal reading of the story</h2>
 <div class="deviation">
-<strong>Findings are attributed via a request-id/timestamp index captured in the submit wrapper, not by reaching into the engine's private <code>_sample_findings</code>.</strong> STORY-407's own E2E test captured findings by calling <code>engine_obj.run_output_audit()</code> directly and reading a private attribute — appropriate for a test, not for production orchestration. <code>saro ingest</code> instead uses the real <code>_default_submit</code> (which persists <code>Audit</code>/<code>ScanReport</code>/<code>AuditTrace</code> rows for real), and a thin tracking wrapper records <code>audit_id → (request_id, timestamp)</code> from the envelope at submit time. Findings are then read back from the persisted <code>AuditTrace</code> rows (<code>check_type="risk_domain"</code>, <code>result="flagged"</code>) — the same rows the TRACE View reads. Same findings fire either way; this path is the one an operator's real ingest actually exercises.
+<strong>Taxonomy expansion had ripple effects beyond engine.py.</strong> Adding <code>"Governance & Compliance"</code> to <code>MIT_DOMAINS</code> broke a hardcoded <code>len(gate3_traces) == 7</code> assertion and a domain-definitions completeness check — both legitimate consequences of the owner's Q1 choice (a new taxonomy category, not reuse of "AI System Safety"), not implementation bugs. Fixed, not silenced. <code>docs/metrics/detection-baseline.md</code> auto-regenerated with a correct <code>n/a</code> row for the new envelope-only domain.
 </div>
 <div class="deviation">
-<strong><code>coverage_attested</code> is computed via <code>coverage_report()</code>, not by "gaps exist" logic.</strong> An early implementation pass set <code>coverage_attested = False</code> whenever any gap was found. That's wrong: <code>coverage_report()</code>'s actual contract is "at least one observation was recorded in the window" — a window can be fully attested <em>and</em> contain a disclosed gap (that's the whole point of gap attestation). Caught before commit by re-reading <code>services/observation_coverage_service.py</code>'s own docstring; fixed to call the real <code>coverage_report()</code> per observed system and AND the per-system <code>coverage_attested</code> flags together.
+<strong>reviewer round 1 (REQUEST CHANGES) — blocker: the fix shipped without its own regression test.</strong> The <code>submit_audit_sync</code> metadata-drop is a genuine bug fix (not just feature wiring), and the repo's own standard requires a pinning test for every bug fix. Fixed: filed an FND with a dedicated test independent of the envelope feature, so a future refactor of that call site can't silently drop <code>metadata</code> again undetected. <strong>Renumbering at merge:</strong> originally filed as FND-048; STORY-410 (a parallel branch off the same main baseline) independently claimed FND-048/049 for unrelated findings and merged first (PR #114) — resolved at rebase by renumbering to <strong>FND-050</strong>.
 </div>
 <div class="deviation">
-<strong>SQLite/Postgres dialect gap for <code>_persist_traces</code>'s row lock.</strong> Discovered when the first ingest test failed with a raw SQLite syntax error on <code>FOR UPDATE</code>. This is pre-existing in <code>routers/scan.py</code> (STORY-407's test avoided it by not using the production submit path at all). Rather than reimplementing persistence or duplicating STORY-407's test-only workaround (which would mean the CLI isn't actually exercising its real production code path), added a narrowly-scoped test-only dialect shim, consistent with the existing PG_UUID/PG_JSON pattern in <code>conftest.py</code>. No production code changed.
-</div>
-<div class="deviation">
-<strong>Story spec left the CLI file location open ("scripts/ vs a first-class location — ask, don't assume").</strong> Decided repo-root <code>cli.py</code>, alongside <code>main.py</code>/<code>engine.py</code>/<code>database.py</code>, since this is meant to be a first-class operator surface (invoked as <code>python cli.py ingest ...</code>), not a one-off script. No <code>pyproject.toml</code>/<code>setup.py</code> exists in this repo to wire a pip-installable <code>saro</code> console-script entry point — out of scope; noted here rather than silently added.
-</div>
-<div class="deviation">
-<strong>S3-source parity (AC-1.2) verified by backend selection, not a live/mocked S3 round-trip.</strong> STORY-407's own test suite has no moto-based S3 test, and <code>moto</code> is not a project dependency. Adding it would be new test infrastructure beyond "orchestration only." <code>test_source_selection_local_vs_s3</code> proves <code>--source s3://bucket/prefix</code> correctly constructs an <code>S3LogStore</code> (vs <code>LocalLogStore</code> for a filesystem path) with the right bucket/prefix — the actual S3 read path (<code>discover_object_keys</code>/<code>iter_backfill_records</code>) is unmodified, existing, already-tested code.
+<strong>security-auditor LOW: unbounded envelope-field length.</strong> <code>modelId</code>/<code>requestId</code> flowed into <code>AuditTrace.detail_json</code> with no cap, unlike prompt/output body text. Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS = 256</code>, applied before storage.
 </div>
 
 <h2>What was deliberately NOT done</h2>
 <ul>
-<li>No scheduling/daemon mode — that's STORY-409, explicitly out of scope here and pilot-gated.</li>
-<li>No cross-account auth — that's STORY-408, explicitly out of scope here and pilot-gated.</li>
-<li>No new rules, no UI changes — per the story's Non-Goals.</li>
-<li>No <code>is_demo</code> column / migration added to <code>Tenant</code> — the demo-tenant guard uses a slug allowlist instead (owner decision, avoids schema change for a story scoped as orchestration-only).</li>
-<li>Did not touch <code>adapters/bedrock/*.py</code>, <code>services/observation_coverage_service.py</code>, or <code>services/audit_submission.py</code> — verified their existing test suites still pass unmodified.</li>
+<li>No general-purpose envelope rule DSL — one rule type, exact-then-prefix matching, per the story's own Non-Goals ("resist generalizing").</li>
+<li>No UC-3/UC-4 rules (disclaimer, prompt-injection) — separately tracked Wave-2, owner decision stands.</li>
+<li>No per-tenant allowlist table — the allowlist lives in the global versioned rule pack, matching FR-2's explicit design directive and every other rule type's existing convention (owner-confirmed).</li>
+<li>No UI for editing allowlists — configuration only, per Non-Goals.</li>
+<li>No tenant-isolation regression test for the envelope path — accepted (security-auditor INFO): it reuses the existing tenant-scoped <code>AuditTrace</code> query surface, no new query path introduced.</li>
 </ul>
 
 <h2>Risk map</h2>
 <table class="risk-table">
   <tr><th>Risk</th><th>Covered by</th></tr>
-  <tr><td>Demo reset accidentally deletes a real client tenant's data</td><td><code>test_refuses_non_demo_tenant</code> (slug not in allowlist → refuses, no delete) + <code>test_no_flag_bypasses_the_demo_tenant_guard</code> (asserts the command has exactly <code>{tenant, yes}</code> params — no <code>--force</code>) + <code>test_tenant_isolation_reset_leaves_other_tenant_untouched</code> (AC-4.3) + security-auditor traced every code path and confirmed the delete statements are unreachable unless the slug check passes first</td></tr>
-  <tr><td>Reset without <code>--yes</code> silently deletes anyway</td><td><code>test_requires_yes_flag_preview_only</code> — asserts a preview-only path prints counts and performs zero deletes</td></tr>
-  <tr><td>New CLI code reaches a hosted-model endpoint (STORY-336)</td><td><code>test_cli_module_is_guard_clean</code> + full guard run — both green; security-auditor independently confirmed no credential/PII logging in CLI output</td></tr>
-  <tr><td>Ingest silently "succeeds" despite an unreadable source object (AC-1.3)</td><td><code>test_partial_batch_failure_names_failing_key</code> — a poisoned key produces a non-zero exit naming the exact failing key, with objects read before the failure still reported</td></tr>
-  <tr><td>Double-running an ingest creates duplicate findings/checkpoints/gaps</td><td><code>test_rerun_is_idempotent</code> — pins that re-running the same corpus is a no-op, riding the existing <code>ObservationCheckpoint</code> UNIQUE constraint (no new dedupe logic needed or added)</td></tr>
-  <tr><td>Wrong <code>coverage_attested</code> semantics reported to an operator</td><td>Caught pre-commit (see Deviations) — fixed to call the real <code>coverage_report()</code>; <code>test_local_source_parity</code> pins <code>coverage_attested is True</code> alongside a real gap in the same window</td></tr>
+  <tr><td>Adding a new MIT domain silently breaks something else that assumes exactly 7 domains</td><td>reviewer independently grepped every <code>MIT_DOMAINS</code>/<code>_RISK_SIGNALS</code>/<code>_COMPLIANCE_TRIGGERS</code>/<code>_REMEDIATIONS</code> usage repo-wide and confirmed the two breakages found (and fixed) were the only ones; full 1663-test suite passes</td></tr>
+  <tr><td><code>run_output_audit</code>'s new <code>metadata</code> param breaks an existing caller</td><td>Optional, defaults to <code>None</code> — reviewer verified every existing call site (<code>routers/scan.py</code>, <code>routers/ingest.py</code>, the STORY-406/COV-002 test stub engines) never passes it, so behavior is unchanged for them</td></tr>
+  <tr><td>Envelope finding doesn't get TRACE View drill-down parity with content findings (AC-2.2)</td><td>Flows through the exact same <code>_record_gate3_domain_traces</code> mechanism as a content finding — no new check_type, no frontend changes needed; pinned by <code>test_finding_records_model_id_rule_id_version_and_request_id</code></td></tr>
+  <tr><td>Finding language overclaims intent (ADR-004)</td><td>Verbatim story-specified title "Model not on approved allowlist for this tenant"; pinned by <code>test_finding_language_is_observable_only_adr_004</code>; reviewer independently confirmed no forbidden phrasing</td></tr>
+  <tr><td><strong>Oversized/adversarial modelId or requestId bloats stored evidence</strong> (security-auditor LOW)</td><td>Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> cap; pinned by <code>test_oversized_model_id_and_request_id_are_truncated_before_storage</code></td></tr>
+  <tr><td><strong>The actual root-cause bug (metadata silently dropped) ships without a regression test</strong> (reviewer blocker)</td><td>Fixed: FND-050 + dedicated pinning test independent of the envelope feature</td></tr>
+  <tr><td>Guard regression — new rule_packs code reaches a hosted-model endpoint</td><td><code>rule_packs</code> added to STORY-336's scanned dirs; guard green; bandit clean on all touched files, baseline unchanged repo-wide</td></tr>
 </table>
 
 <h2>Independent review outcomes</h2>
-<p><strong>security-auditor:</strong> PASS. Traced every path in <code>demo_reset()</code> and confirmed the delete statements are unreachable unless the slug allowlist check passes; confirmed all four delete queries are correctly scoped by <code>tenant_id</code> with no shadowing; confirmed <code>_make_store()</code> delegates path-traversal protection to the already-audited <code>adapters/bedrock/source.py</code> layer rather than duplicating or weakening it; confirmed no secrets/PII in CLI output; bandit clean on <code>cli.py</code> specifically (baseline unchanged repo-wide). Informational-only note: the operator-trust boundary (<code>--tenant</code>/<code>--user</code> are unauthenticated local-CLI inputs, by design) is reasonable but worth calling out explicitly in docs for a future reviewer — no code change required.</p>
-<p><strong>reviewer:</strong> pending at time of writing — this debrief will be updated with the outcome before merge.</p>
+<p><strong>security-auditor:</strong> PASS. Confirmed <code>yaml.safe_load</code> (no deserialization risk), no SQL/XSS injection surface, INV-2 preserved (metadata never contains prompt/output body text), no secrets in the diff. 1 LOW (unbounded field length, fixed) + 1 INFO (tenant-isolation test gap, accepted) — neither blocking.</p>
+<p><strong>reviewer:</strong> REQUEST CHANGES on round 1 — 1 blocker (FND-050's own regression test missing) + 3 minors (stale "7 domains" docstring, misleading glob-style YAML comment, a scope note on the sibling spec files). All four fixed; reviewer separately confirmed the envelope-evaluation ordering, exact-then-prefix matching, and backward-compatibility of the new <code>metadata</code> parameter by reading and running the code directly, not just trusting the notes.</p>
 
 <h2>Understanding check</h2>
 <div class="quiz" id="quiz">
-  <div class="q"><p class="question">1. Why does <code>saro ingest</code> iterate discovered object keys one at a time instead of handing the whole list to <code>iter_backfill_records</code> at once?</p>
+  <div class="q"><p class="question">1. What was the ACTUAL root cause of UC-5 never firing, and why did fixing that one line matter more than the new engine capability?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">AC-1.3 requires a hard read failure to exit non-zero, name the exact failing object key, and preserve everything ingested before it (partial-batch behavior). <code>iter_backfill_records</code> is intentionally fail-soft for content-level issues (a bad JSON line, an undecompressible object) — it logs and continues rather than raising, by design, so one bad record never aborts a whole corpus replay. Per-key iteration lets the CLI catch a genuinely hard failure (e.g. an unreadable/oversized object) at the exact key that caused it, without weakening the adapter's existing fail-soft contract for record-level issues.</div></div>
-  <div class="q"><p class="question">2. Why does <code>saro demo reset</code> check the tenant's <code>slug</code> instead of an <code>is_demo</code> boolean column?</p>
+    <div class="answer"><code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> already received <code>metadata</code> (with <code>modelId</code>/<code>requestId</code> built by the STORY-406 adapter) as a parameter — it just never forwarded it into <code>engine_obj.run_output_audit(...)</code>. The engine could never see envelope data no matter how sophisticated its evaluation logic was, because the data never reached it. Fixing that one dropped kwarg (FND-050) is what actually closes the gap; the new <code>_evaluate_envelope_allowlist</code> logic is meaningless without it.</div></div>
+  <div class="q"><p class="question">2. Why does the new "Governance & Compliance" domain never get a `_RISK_SIGNALS` entry?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">No <code>is_demo</code> column exists on <code>Tenant</code> today — recon confirmed this. Adding one would mean a migration plus a data-backfill step for a story scoped as orchestration-only. The demo tenant is already identified by a fixed slug convention (<code>"saro-demo"</code>) in <code>scripts/seed_demo_tenant.py</code>; the reset command matches that existing convention via a hardcoded allowlist, with zero schema change.</div></div>
-  <div class="q"><p class="question">3. What would happen if an operator ran <code>saro demo reset --tenant &lt;real-client-uuid&gt; --yes</code>?</p>
+    <div class="answer">It's fed exclusively by envelope evaluation (modelId against an allowlist), never by keyword/regex text scanning. Giving it a `_RISK_SIGNALS` entry would mean ordinary prompt/output text could accidentally trip a "governance" finding, which isn't the intent — this domain represents a structural/configuration violation, not a content risk.</div></div>
+  <div class="q"><p class="question">3. Why does `_evaluate_envelope_allowlist`'s result get appended to the SAME `flags` list Gate 3's content scan produces, instead of being recorded through a separate mechanism?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Nothing gets deleted. The command resolves the Tenant row, checks its <code>slug</code> against <code>DEMO_TENANT_SLUGS</code>, and raises before reaching any delete statement if the slug doesn't match. There is no flag — including <code>--yes</code> — that skips this check; <code>--yes</code> only controls whether a passing check's deletes actually execute versus just previewing counts.</div></div>
-  <div class="q"><p class="question">4. Why does <code>coverage_attested</code> come from calling the real <code>coverage_report()</code> function instead of just checking "were there any gaps"?</p>
+    <div class="answer">AC-2.2 requires "TRACE View drill-down parity with content findings" — by joining the same list before <code>_record_gate3_domain_traces</code>/Gate 4/scoring consume it, the envelope finding automatically gets the same AuditTrace shape, the same compliance-mapping attempt, and the same Bayesian/coverage scoring treatment as any content finding, with zero new code in any of those downstream functions.</div></div>
+  <div class="q"><p class="question">4. What would happen if an operator's Bedrock log record had a 10KB `modelId` string (malformed or adversarial)?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer"><code>coverage_attested</code> means "at least one observation was recorded for this system in the window" — it's independent of whether a gap exists. A window can be fully attested AND contain a disclosed gap; that's the entire point of gap attestation (evidence of a real blind spot, not an unattested/vacuous claim). An early draft conflated the two and reported <code>coverage_attested=False</code> whenever a gap existed, which would have been wrong — caught by re-reading the coverage service's own docstring before commit.</div></div>
-  <div class="q"><p class="question">5. Why does a new test file (<code>tests/_sqlite_for_update_shim.py</code>) monkeypatch SQLAlchemy's <code>Session.execute</code>, and does that change any production behavior?</p>
+    <div class="answer">Before the security-auditor's fix, it would have been stored verbatim in `AuditTrace.detail_json` — a storage/response-payload bloat risk (not SQL injection or XSS, since the value is ORM-parameterized and React auto-escapes on render). Now `_MAX_ENVELOPE_FIELD_CHARS=256` truncates it before storage, matching the existing `MAX_INLINE_BODY_CHARS` precedent for body text.</div></div>
+  <div class="q"><p class="question">5. Why did adding one new MIT domain break two unrelated tests, and was that a bug in this story's implementation?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">No production behavior changes — the shim only patches <code>Session.execute</code> inside test fixtures, stripping <code>FOR UPDATE</code> only when it appears in a query string. <code>routers/scan.py</code>'s <code>_persist_traces</code> uses <code>SELECT ... FOR UPDATE</code> to serialize concurrent trace-hash-chain writes against real Postgres — necessary and correct in production, but unparseable syntax on the in-memory SQLite database the test suite uses. This is the same category of gap <code>conftest.py</code> already shims for Postgres-specific UUID/JSON column types.</div></div>
-  <div class="q"><p class="question">6. Why does <code>saro ingest</code> use <code>adapters.bedrock.replay._default_submit</code> (the real production persistence path) instead of writing a lighter test-friendly submit function?</p>
+    <div class="answer">Not a bug — a legitimate consequence of the owner's choice (Q1: add a new taxonomy category rather than reuse "AI System Safety"). One test hardcoded "7 domains" as a trace-count assertion; another required every `MIT_DOMAINS` entry to have a `_MIT_DOMAIN_DEFINITIONS` entry (used by the Gate-3 LLM judge prompt). Both were fixed to reflect the new, correct reality (8 domains) rather than weakened or skipped.</div></div>
+  <div class="q"><p class="question">6. Two parallel branches (STORY-410 and STORY-411) both created an FND-048. How was that resolved?</p>
     <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Because this story's job is to give operators (and, eventually, the SummitCare pilot) a command that does what a real ingest actually does — persisting real <code>Audit</code>/<code>ScanReport</code>/<code>AuditTrace</code> rows the TRACE View reads, not a simulation of it. Using the real path means the findings/gap/coverage_attested output an operator sees from the CLI is exactly what's actually in the database afterward — no risk of the CLI's summary drifting from what really got persisted.</div></div>
+    <div class="answer">Both branches were created from the same point on `main` (where the highest existing FND was FND-047), and each independently logged its own next-available finding as FND-048 without visibility into the other's in-flight work. STORY-410 merged first (PR #114); at rebase time, STORY-411's finding (ledger row, manifest entry, test filename) was renumbered to FND-050 so both stories' findings coexist without collision.</div></div>
 </div>
 
 <script>

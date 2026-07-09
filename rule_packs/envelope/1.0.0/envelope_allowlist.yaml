@@ -1,0 +1,32 @@
+# Envelope-level rule pack (STORY-411) — model-ID allowlist.
+#
+# Distinct from rule_packs/{framework}/{version}/rules.yaml (compliance-citation
+# rules attached to an already-content-triggered MIT domain). This pack detects a
+# condition from the log ENVELOPE alone (modelId) — it never reads prompt/output
+# bodies (INV-2 discipline preserved: same seam as the coverage branch).
+#
+# allowed_model_ids: exact match, closed vocabulary.
+# allowed_model_id_prefixes: prefix match via plain str.startswith (e.g. an entry
+# of "anthropic.claude-3-" matches "anthropic.claude-3-opus-..."). No wildcard
+# character needed or supported — do NOT add a trailing "*", it would be matched
+# literally. Checked only if no exact match. Empty here; not needed for the demo.
+
+name: envelope-allowlist
+version: "1.0.0"
+rule_id: "ENV-MODEL-ALLOWLIST-1"
+domain_trigger: "Governance & Compliance"
+title: "Model not on approved allowlist for this tenant"
+obligation: >
+  Confirm the model serving production traffic is on the tenant's approved
+  allowlist before further use. Reference: EU AI Act Art. 9 (risk management
+  system), NIST AI RMF GOVERN 1.1 (governance policies).
+
+# Sourced from scripts/demo_manifest.yaml's allowed_model_ids (STORY-407) — kept
+# in sync manually; both are demo-tenant configuration, not independently owned.
+allowed_model_ids:
+  - "anthropic.claude-3-sonnet-20240229-v1:0"
+  - "anthropic.claude-3-haiku-20240307-v1:0"
+  - "anthropic.claude-3-5-sonnet-20240620-v1:0"
+  - "anthropic.claude-sonnet-4-20250514-v1:0"
+
+allowed_model_id_prefixes: []
