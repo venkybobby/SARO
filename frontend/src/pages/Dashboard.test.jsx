@@ -25,9 +25,18 @@ const WHATS_CHANGED = {
   new_audits_count: 3,
 };
 
+const COVERAGE = { overall_coverage_pct: 82.5, framework_count: 4, total_rules: 40 };
+const AUDITS_PAGE = [
+  { id: "1", created_at: new Date().toISOString() },
+  { id: "2", created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: "3", created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }, // outside the 7d window
+];
+
 function routedFetch(url) {
   if (url.includes("/risk/summary")) return Promise.resolve({ ok: true, json: () => Promise.resolve(SUMMARY) });
   if (url.includes("/risk/whats-changed")) return Promise.resolve({ ok: true, json: () => Promise.resolve(WHATS_CHANGED) });
+  if (url.includes("/compliance-matrix/coverage")) return Promise.resolve({ ok: true, json: () => Promise.resolve(COVERAGE) });
+  if (url.includes("/audits")) return Promise.resolve({ ok: true, json: () => Promise.resolve(AUDITS_PAGE) });
   return Promise.resolve({ ok: true, json: () => Promise.resolve([]) }); // drift-alerts etc.
 }
 
@@ -82,6 +91,60 @@ describe("Dashboard — FND-023: fabricated KPI deltas removed, real trend wired
   it("PERSONA_KPIS no longer hardcodes delta literals", () => {
     expect(SOURCE).not.toMatch(/delta:\s*[+-]?\d/);
     expect(SOURCE).not.toMatch(/since last period/);
+  });
+});
+
+describe("Dashboard — STORY-413: no placeholder KPI tiles", () => {
+  it("AC-1: no fabricated tile values render (Controls Overdue, Readiness %, etc.)", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Risk Posture")).toBeTruthy());
+    expect(screen.queryByText("Controls Overdue")).toBeNull();
+    expect(screen.queryByText("Readiness %")).toBeNull();
+    expect(screen.queryByText(/sample — not yet wired to live data/i)).toBeNull();
+  });
+
+  it("AC-1: source no longer contains a placeholder mechanism or the stale caption", () => {
+    expect(SOURCE).not.toMatch(/placeholder\s*:\s*true/);
+    expect(SOURCE).not.toMatch(/sample — not yet wired to live data/);
+  });
+
+  it("AC-2: Audits (7d) and Coverage % render live values from their endpoints, for demo and operator personas", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Audits (7d)")).toBeTruthy());
+    expect(screen.getByText("Coverage %")).toBeTruthy();
+    // AUDITS_PAGE has 2 of 3 records inside the 7-day window.
+    await waitFor(() => expect(screen.getByText("2")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("82.5%")).toBeTruthy());
+  });
+
+  it("AC-2: operator persona also gets both live tiles", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "operator" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Audits (7d)")).toBeTruthy());
+    expect(screen.getByText("Coverage %")).toBeTruthy();
+  });
+
+  it("AC-3: a failed Coverage % fetch renders an explicit Unavailable state, never a stale/default number", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/compliance-matrix/coverage")) {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      }
+      return routedFetch(String(url));
+    }));
+    render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Coverage %")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Unavailable")).toBeTruthy());
+  });
+
+  it("AC-3: a failed Audits (7d) fetch renders Unavailable, not zero (zero would look like a real measurement)", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/audits")) {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      }
+      return routedFetch(String(url));
+    }));
+    render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Audits (7d)")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Unavailable")).toBeTruthy());
   });
 });
 

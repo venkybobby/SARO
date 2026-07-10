@@ -1,4 +1,4 @@
-<title>STORY-412 change debrief</title>
+<title>STORY-413 change debrief</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
   h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 40px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
@@ -16,176 +16,105 @@
   svg text { font-family: -apple-system, sans-serif; }
 </style>
 
-<h1>STORY-412 — Demo surface trim: every visible tab must survive a click</h1>
-<p><em>Ownership review demo-readiness pack — P0 blocker #2. Paired with the UC-5 manifest reconciliation and FND-051 (incidental).</em></p>
+<h1>STORY-413 — Dashboard placeholder KPIs: real, hidden, or honestly impossible</h1>
+<p><em>Ownership review demo-readiness pack — P0 blocker #3. Pairs with STORY-412.</em></p>
 
 <h2>Context — why this exists</h2>
 <div class="card">
-<p>The public <code>/demo</code> route is the AI-Auditor persona's first (and often only) look at SARO. A prospect who clicks
-one thing off the happy path and hits a blank screen or a 403 reads as "this product is half-built" — regardless of how
-good the core scoring is. The story's own framing: <em>"the demo must show fewer things that all work, not more things
-that mostly work."</em></p>
-<p>Investigating the stated premise ("Sidebar renders the compliance_lead tab set, causing 403s") turned up something
-worse: the demo route had <strong>no navigation at all</strong>. <code>DemoEntry.jsx</code> rendered a bare
-<code>Dashboard</code> component with <code>onNavigate</code> left <code>undefined</code> — every quick-action button was a
-silent no-op. There was nothing to 403 on because there was nothing to click.</p>
+<p>The Dashboard is the demo's opening frame, and the AI Auditor is the deal-killer persona. 8 KPI tiles across the 4
+personas (<code>Controls Overdue</code>, <code>Readiness %</code>, <code>Drift Alerts</code>, <code>Rule Pack Version</code>,
+<code>Coverage Gap %</code>, <code>Failed Scans</code>, <code>Queue Depth</code>, <code>Due This Week</code>) were hardcoded
+literals captioned "sample — not yet wired to live data." A fabricated compliance number with a fine-print disclaimer is
+exactly the overclaiming pattern ADR-004 exists to forbid — and it was already flagged and returned in a prior screen
+review, which is why this story's AC-4 exists: fence it so it can't regenerate.</p>
 </div>
 
-<h2>Intuition — before / after</h2>
+<h2>Intuition</h2>
 <div class="card">
-<svg viewBox="0 0 860 260" width="100%" height="260">
-  <text x="20" y="20" font-size="13" font-weight="700" fill="#991b1b">BEFORE</text>
-  <rect x="20" y="35" width="180" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
-  <text x="110" y="65" font-size="12" text-anchor="middle" fill="#7f1d1d">GET /demo/token</text>
-  <line x1="200" y1="60" x2="250" y2="60" stroke="#991b1b" stroke-width="2" marker-end="url(#arrow)"/>
-  <rect x="250" y="35" width="180" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
-  <text x="340" y="58" font-size="12" text-anchor="middle" fill="#7f1d1d">DemoEntry</text>
-  <text x="340" y="72" font-size="10" text-anchor="middle" fill="#7f1d1d">renders bare Dashboard</text>
-  <line x1="430" y1="60" x2="480" y2="60" stroke="#991b1b" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
-  <rect x="480" y="35" width="200" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
-  <text x="580" y="58" font-size="12" text-anchor="middle" fill="#7f1d1d">quick-action buttons</text>
-  <text x="580" y="72" font-size="10" text-anchor="middle" fill="#7f1d1d">onNavigate === undefined → no-op</text>
+<svg viewBox="0 0 860 190" width="100%" height="190">
+  <text x="20" y="20" font-size="13" font-weight="700" fill="#991b1b">BEFORE — every persona</text>
+  <rect x="20" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="185" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="260" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="260" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
+  <rect x="350" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="425" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="515" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="590" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="590" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
 
-  <text x="20" y="140" font-size="13" font-weight="700" fill="#166534">AFTER</text>
-  <rect x="20" y="155" width="180" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
-  <text x="110" y="185" font-size="12" text-anchor="middle" fill="#14532d">GET /demo/token</text>
-  <line x1="200" y1="180" x2="250" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
-  <rect x="250" y="155" width="180" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
-  <text x="340" y="178" font-size="12" text-anchor="middle" fill="#14532d">DemoEntry</text>
-  <text x="340" y="192" font-size="10" text-anchor="middle" fill="#14532d">renders AppShell(synthetic user)</text>
-  <line x1="430" y1="180" x2="480" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
-  <rect x="480" y="155" width="200" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
-  <text x="580" y="178" font-size="12" text-anchor="middle" fill="#14532d">Sidebar (DEMO_TABS)</text>
-  <text x="580" y="192" font-size="10" text-anchor="middle" fill="#14532d">dashboard · trace_view · compliance_hub · reports</text>
-  <line x1="680" y1="180" x2="730" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
-  <rect x="730" y="155" width="110" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
-  <text x="785" y="178" font-size="12" text-anchor="middle" fill="#14532d">real pages</text>
-  <text x="785" y="192" font-size="10" text-anchor="middle" fill="#14532d">all endpoints 200</text>
-  <defs>
-    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#991b1b"/></marker>
-    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#166534"/></marker>
-  </defs>
+  <text x="20" y="120" font-size="13" font-weight="700" fill="#166534">AFTER — every persona</text>
+  <rect x="20" y="135" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="160" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="185" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="260" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Audits (7d)</text><text x="260" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
+  <rect x="350" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="425" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Coverage %</text><text x="425" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
+  <text x="530" y="160" font-size="11" fill="#64748b">(fake tile simply gone —</text>
+  <text x="530" y="173" font-size="9" fill="#64748b">no data, no tile)</text>
 </svg>
-<p style="margin-top:10px">Mental model: <code>AppShell</code> (Sidebar + page router) used to live only inside the authenticated
-<code>/app</code> route, defined inline in <code>App.jsx</code>. It's now a standalone component both the authenticated route
-and the public demo route render — the demo session is just "AppShell with a synthetic <code>role=demo_viewer</code> user,"
-not a special-cased second UI.</p>
+<p style="margin-top:10px">Mental model: a tile now has exactly three states — a real measurement, a loading skeleton, or an
+explicit "Unavailable." There is no fourth state where a number renders with nothing real behind it.</p>
 </div>
 
 <h2>File-by-file</h2>
 <table>
 <tr><th>File</th><th>What changed</th></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/components/AppShell.jsx</code></td>
-<td><code>AppShell</code> extracted verbatim out of <code>App.jsx</code> (page routing, <code>PAGE_COMPONENTS</code>, the
-onboarding wizard) so <code>DemoEntry.jsx</code> can render it without a circular import back into <code>App.jsx</code>.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/App.jsx</code></td>
-<td>Shrunk to token/session state + routing; imports <code>AppShell</code> from its new file instead of defining it.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/DemoEntry.jsx</code></td>
-<td>Renders <code>AppShell</code> (with a synthetic <code>user</code> built from the decoded demo JWT) instead of a bare
-<code>Dashboard</code>. <code>onSignOut</code> reloads the page (closest sane meaning for a public read-only demo).</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/Sidebar.jsx</code></td>
-<td>New <code>isDemo = user?.role === "demo_viewer"</code> check overrides <code>PERSONA_TABS</code> with the
-<code>DEMO_TABS</code> whitelist, regardless of persona. Non-demo path is byte-for-byte unchanged.</td></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/config/demoTabs.json</code></td>
-<td>The single shared whitelist (<code>["dashboard","trace_view","compliance_hub","reports"]</code>) — imported by
-Sidebar.jsx and loaded by the backend contract test, so the two can't drift apart.</td></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/utils/jwt.js</code></td>
-<td><code>parseJwt</code> extracted once, replacing three near-identical inline copies.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>routers/demo.py</code></td>
-<td>Demo JWT now also carries <code>persona_role: "compliance_lead"</code> — <strong>provably inert for
-authorization</strong> (<code>auth.py</code> already hardcodes this server-side for any <code>demo_viewer</code> token); kept
-so the token's explicit claims match what it actually grants.</td></tr>
-<tr><td><span class="tag new">NEW</span><code>tests/regression/test_story_412_demo_tab_endpoint_census.py</code></td>
-<td>Mints a real demo JWT via the live endpoint, asserts every GET each DEMO_TABS page fires on load returns 200 (AC-1),
-and that two write actions (<code>POST /ingest</code>, <code>PUT /compliance/readiness/{key}</code> — the one write button a
-demo visitor can actually click) still 403 (AC-4).</td></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/components/Sidebar.test.jsx</code></td>
-<td>AC-2 (demo whitelist render), AC-3 (switcher hidden for demo), AC-5 (compliance_lead / risk_officer / ai_auditor /
-operator / admin tab sets unchanged).</td></tr>
-<tr><td><span class="tag finding">FND-051</span><code>main.py</code>, <code>tests/regression/test_fnd_051_*.py</code></td>
-<td>Incidental: <code>evf_sprint2_router</code>'s generic <code>GET /qco/{qco_id}</code> was registered before
-<code>evf_sprint3_router</code>'s static <code>GET /qco/expiry-alerts</code>, shadowing it for <strong>every caller</strong>
-(422 on every hit) — not demo-specific. Swapped registration order; pinned both directions.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.jsx</code></td>
+<td><code>PERSONA_KPIS</code>: all 8 <code>placeholder: true</code> tiles removed outright (not hidden — removed from the
+data). Two new hooks, <code>useAuditsLast7d</code> (fetches <code>/api/v1/audits?limit=200</code>, counts client-side
+within a 7-day window — no server-side date filter exists) and <code>useCoveragePct</code> (fetches
+<code>/api/v1/compliance-matrix/coverage</code>), appended as two live tiles for <strong>every</strong> persona.
+<code>deriveKpis</code>' hardcoded array indices updated to match the shorter arrays. The KPI grid extracted into a
+standalone, exported <code>KpiRow</code> component for isolated layout testing.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>scripts/check_no_placeholder_kpi_tiles.py</code> +
+<code>tests/test_story413_no_placeholder_kpi_tiles.py</code></td>
+<td>AC-4's fence: a pure-Python regex scan of <code>Dashboard.jsx</code> for <code>placeholder: true</code> or the stale
+caption string, wired into <code>quality-gates.yml</code> (mirrors <code>check_citations.py</code>'s established
+pattern — the CI job has no Node/npm setup, so this has to be a Python-side check of the <code>.jsx</code> source).</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/pages/KpiRow.test.jsx</code></td>
+<td>AC-5: renders <code>KpiRow</code> directly with synthetic 2/3/4-item arrays — no dependency on which persona happens
+to produce which tile count.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.test.jsx</code></td>
+<td>New STORY-413 suite: AC-1 (no placeholder tiles/caption render or exist in source), AC-2 (Audits/Coverage render live
+values for demo <em>and</em> operator personas), AC-3 (a failed fetch on either tile renders "Unavailable," never zero
+or a stale number).</td></tr>
+<tr><td><span class="tag finding">FND-052</span><code>quality/findings.md</code>,
+<code>tests/regression/manifest.yaml</code></td>
+<td>Logged, not fixed: <code>operator</code>'s "Avg Score" tile (value <code>41</code>) is <em>also</em> fake but was
+never flagged with <code>placeholder: true</code> and isn't in this story's named list of 8. Its correct semantics
+(average of what, over what window) is a product question, not a mechanical one — filed as <code>status: open</code>
+rather than guessed at silently.</td></tr>
 </table>
-
-<h2>Round 2 — independent reviewer REQUEST CHANGES, addressed</h2>
-<div class="card">
-<p>Round 1's DEMO_TABS filter only trimmed <em>Sidebar's own button list</em>. The reviewer reproduced, with a real demo
-token, that any in-page <code>onNavigate</code> call could still reach an off-whitelist page and 403 — TraceView's
-always-visible "How SARO Reasons" link (→ Trust Center → a <code>super_admin</code>/<code>operator</code>-only endpoint) and
-ComplianceHub's readiness checkbox (rendered enabled for a read-only session, 403s on click, blanks the whole card).
-Both are the exact failure mode this story exists to prevent, one click deeper than the Sidebar.</p>
-<table>
-<tr><th>File</th><th>Fix</th></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/AppShell.jsx</code></td>
-<td>The real fix: <code>navigateNow</code> — the single choke point ALL navigation flows through — now no-ops any
-target outside <code>DEMO_TABS</code> for <code>role === "demo_viewer"</code>. Closes this class of bug for every
-current and future off-whitelist link, not just the two reproduced.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/TraceView.jsx</code></td>
-<td>"How SARO Reasons ↗" hidden for demo sessions — belt-and-suspenders so the click does nothing <em>visible</em>
-rather than a guarded-but-silent no-op.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/ComplianceHub.jsx</code></td>
-<td>Now accepts the <code>user</code> prop (previously dropped despite AppShell already passing it). Readiness checkbox
-adds <code>|| !!user?.read_only</code> to its <code>disabled</code> condition; <code>toggleReadiness</code> itself
-early-returns on <code>read_only</code> too.</td></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/components/AppShell.test.jsx</code></td>
-<td>Pins the navigation guard directly: a demo session's off-whitelist <code>onNavigate</code> call is a no-op; an
-on-whitelist one still works; a non-demo session is unaffected (regression).</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>tests/regression/test_story_412_demo_tab_endpoint_census.py</code></td>
-<td>[MAJOR, reviewer] Dropped two <code>dashboard</code> endpoint entries that STORY-413 (unshipped) will add —
-Dashboard.jsx doesn't call them yet; the census test now asserts only what's actually true today.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/Sidebar.test.jsx</code></td>
-<td>[MINOR, reviewer] AC-5's regression suite now covers all 6 personas' full tab sets (<code>admin</code> and
-<code>super_admin</code> were previously only smoke-tested for the switcher).</td></tr>
-</table>
-</div>
 
 <h2>Deliberately NOT done</h2>
 <div class="card">
 <ul>
-<li>Did not widen any <code>require_role</code> gate to admit <code>demo_viewer</code> — explicit out-of-scope per the story.</li>
-<li>Did not fix <code>routers/compliance_hub.py:138</code>'s <code>persona_required</code> varargs bug — confirmed live, but a
-distinct defect per the story's own instruction to file it separately (and irrelevant here: <code>ComplianceHub.jsx</code>
-doesn't call that endpoint).</li>
-<li>Did not build a rate limit for <code>GET /api/v1/demo/token</code> — pre-existing, unauthenticated, unlimited
-issuance; flagged by the security-auditor as INFO, out of this story's scope, not touched by this diff.</li>
+<li>Did not build backend endpoints for Controls Overdue, Drift Alerts, Queue Depth, Readiness %, Failed Scans, or Due
+This Week — explicit out-of-scope; if the data doesn't exist, the tile doesn't exist.</li>
+<li>Did not fix FND-052 (Avg Score) — logged as a new finding pending a product decision, not silently patched with a
+guessed semantic.</li>
+<li>Did not touch LiveFeed, EngineScores, or RegCoverage — audited for the same pattern per AC-4's spirit, none found;
+confirmed clean, no changes needed.</li>
 </ul>
 </div>
 
 <h2>Risk map</h2>
 <table>
 <tr><th>Risk</th><th>Covering test / mitigation</th></tr>
-<tr><td>A DEMO_TABS page's on-load GET 403s in production</td><td><code>test_demo_token_grants_200_on_every_tab_endpoint</code> — mints a <em>real</em> JWT via the live endpoint, not a mocked one</td></tr>
-<tr><td>Demo whitelist and Sidebar's actual tab set drift apart over time</td><td><code>test_demo_tabs_fixture_matches_the_endpoint_census</code> + both consumers reading the same <code>demoTabs.json</code></td></tr>
-<tr><td>Non-demo persona tab sets silently regress</td><td><code>Sidebar.test.jsx</code> AC-5 suite (6 personas), full frontend suite green</td></tr>
-<tr><td>A page's in-page <code>onNavigate</code> call (not just Sidebar's buttons) reaches an off-whitelist, 403ing page</td><td><code>AppShell.test.jsx</code> pins the <code>navigateNow</code> guard directly; TraceView's link hidden and ComplianceHub's write disabled address the two concrete repros</td></tr>
-<tr><td>Demo token gains write access via the new <code>persona_role</code> claim</td><td>Independent security-auditor verified the claim is inert (server hardcodes it already); AC-4 tests pin both write surfaces reachable from DEMO_TABS pages</td></tr>
-<tr><td>FND-051 router reorder shadows something in the other direction</td><td><code>test_qco_by_id_route_still_reachable</code> asserts the generic route still resolves correctly post-swap</td></tr>
-<tr><td>AppShell extraction silently drops/changes behavior</td><td>Independent reviewer diffed the moved code against git history; full 180-test frontend suite + FND-007 pinning test (relocated, still green) unchanged</td></tr>
+<tr><td>A placeholder tile regenerates in a future PR</td><td><code>scripts/check_no_placeholder_kpi_tiles.py</code>, wired into CI (<code>quality-gates.yml</code>), plus its own red/green self-test</td></tr>
+<tr><td>Audits (7d) / Coverage % show a fabricated number instead of "Unavailable" on fetch failure</td><td><code>Dashboard.test.jsx</code> AC-3 cases stub a 500 response for each endpoint independently</td></tr>
+<tr><td>deriveKpis' hardcoded array indices silently point at the wrong tile after the array shrank</td><td>Full 196-test frontend suite green, including every existing persona-specific KPI assertion (FND-021/022/023) unchanged</td></tr>
+<tr><td>KPI row layout breaks at some tile count</td><td><code>KpiRow.test.jsx</code> — direct synthetic 2/3/4-item renders</td></tr>
+<tr><td>A second unflagged fake tile (Avg Score) ships unnoticed</td><td>Found and logged as FND-052 rather than missed; not silently left undocumented</td></tr>
 </table>
 
 <h2>Quiz</h2>
 <div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q1. Why does DemoEntry.jsx need to render AppShell instead of just adding an onNavigate handler to the standalone Dashboard?</strong>
-  <div class="quiz-a">Because the story's whole premise — a Sidebar with a DEMO_TABS whitelist — requires Sidebar to actually be rendered. AppShell is the only place Sidebar mounts; without it there's no navigation surface to trim in the first place.</div>
+  <strong>Q1. Why does "Audits (7d)" need its own fetch to /api/v1/audits instead of reusing the audit_count already returned by /api/v1/risk/summary?</strong>
+  <div class="quiz-a">audit_count is an unwindowed total (services/risk_service.py: len(audit_records), no date filter) — labeling a total "(7d)" would itself be an ADR-004 overclaim. The /api/v1/audits list endpoint has no server-side date-range param either, so the fix fetches a bounded page (limit=200, the endpoint's max) and counts client-side within a real 7-day window.</div>
 </div>
 <div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q2. If you deleted the <code>persona_role: "compliance_lead"</code> line from routers/demo.py, would any endpoint start returning 403 for the demo token?</strong>
-  <div class="quiz-a">No. auth.py's get_current_user hardcodes persona_role="compliance_lead" server-side for any role="demo_viewer" token regardless of the JWT's own claim — confirmed independently by the security-auditor. The line is there for claim/behavior consistency, not access.</div>
+  <strong>Q2. Why was KpiRow exported instead of just tested through the full Dashboard component?</strong>
+  <div class="quiz-a">No real persona naturally produces exactly 2 visible tiles post-STORY-413 (ai_auditor=3, the rest=4), and a fetch failure changes a tile's content, not the tile count. Testing the row in isolation with synthetic arrays covers the "2 tiles" case AC-5 asks for without depending on persona-count coincidence.</div>
 </div>
 <div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q3. Why is demoTabs.json a separate file instead of a constant inside Sidebar.jsx?</strong>
-  <div class="quiz-a">AC-1 requires the frontend whitelist and the backend contract test to read from one shared source so they can't drift apart — Python can't import a .jsx module, but both can load a JSON file.</div>
+  <strong>Q3. What would break if a future PR added a new KPI tile with placeholder: true back into PERSONA_KPIS?</strong>
+  <div class="quiz-a">CI would fail on the new "No placeholder KPI tiles on the Dashboard (STORY-413)" step — the regex scan (scripts/check_no_placeholder_kpi_tiles.py) catches the literal placeholder: true text in Dashboard.jsx before it can ship, independent of any component test remembering to check for it.</div>
 </div>
 <div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q4. What would break if FND-051's router swap had gone the other way (evf_sprint2 after evf_sprint3, but evf_sprint3 also had a generic path)?</strong>
-  <div class="quiz-a">It would just move the shadowing bug rather than fix it. This wasn't the case here — evf_sprint3 has no generic /qco/{...} pattern, confirmed by reading its full route list before swapping, and pinned by a test asserting the generic route still resolves post-swap.</div>
-</div>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q5. A demo visitor opens devtools and manually sets activePage to "upload" in React state. What stops them from reaching the real Upload page?</strong>
-  <div class="quiz-a">Nothing client-side — DEMO_TABS is a UI convenience, not a security boundary. The real control is that every backend endpoint keeps its own auth dependency (require_role, require_write_access, etc.); a client-side bypass would render the Upload page's chrome but every write it attempts still 403s server-side.</div>
-</div>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q6. Why does the AC-4 test PUT to /compliance/readiness/{key} in addition to POST /ingest?</strong>
-  <div class="quiz-a">/ingest is gated by role (demo_viewer was never in its allowlist) — a weaker test of read_only enforcement specifically. The readiness toggle is the one write button an actual DEMO_TABS page renders, and its gate (require_write_persona) checks read_only first — a more direct regression pin for what a demo visitor could try to click.</div>
+  <strong>Q4. Why wasn't "Avg Score" (operator persona) just fixed at the same time, since it's the exact same failure mode?</strong>
+  <div class="quiz-a">Its correct meaning was never specified — average risk score per audit? per week? which window? Guessing and shipping a number would risk a different kind of overclaim (a "real-looking" number that doesn't actually mean what its label implies). Logged as FND-052 (status: open) so it's tracked and requires an explicit product decision rather than a silent implementation guess.</div>
 </div>

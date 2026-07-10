@@ -157,6 +157,36 @@ function KpiCard({ label, value, severity, size, icon: Icon, loading, sub, onCli
 }
 
 /**
+ * STORY-413 AC-5: the KPI grid, extracted so its layout resilience (2, 3, or
+ * 4 tiles, no orphan gaps) is testable independent of persona/fetch state.
+ * `repeat(auto-fit, minmax(200px, 1fr))` already reflows for any item count —
+ * this component exists to pin that behavior, not to add new layout logic.
+ */
+export function KpiRow({ kpis, loading, onDrill }) {
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: "var(--space-4)",
+      marginBottom: "var(--space-6)",
+    }}>
+      {kpis.map((kpi, i) => (
+        <KpiCard
+          key={kpi.label || i}
+          size={kpi.size}
+          label={kpi.label}
+          value={kpi.value}
+          severity={kpi.severity}
+          icon={kpi.icon}
+          loading={kpi.loading ?? loading}
+          onClick={onDrill ? () => onDrill(kpi) : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * Real 7-day trend line backed by /api/v1/risk/whats-changed.
  * Replaces the previously fabricated per-card trend arrows — a measured-change
  * claim must be backed by data in a compliance product.
@@ -297,32 +327,26 @@ const qaBtn = (bg) => ({
 
 // Persona-specific KPI configurations (STORY-006).
 // Deltas removed (FND-023): a fabricated per-card trend arrow must be backed by
-// data — the real 7-day trend is shown once in <TrendLine/>. Values marked
-// `placeholder: true` are template defaults with no backing endpoint yet; the
-// live values below are overridden from /risk/summary in deriveKpis().
+// data — the real 7-day trend is shown once in <TrendLine/>. STORY-413: a tile
+// with no backing endpoint is not rendered at all — no placeholder mechanism,
+// no "sample" caption. Every value below is overridden from /risk/summary in
+// deriveKpis(); the two tiles every persona gets from live data
+// (Audits (7d), Coverage %) are appended separately — see useAuditsLast7d /
+// useCoveragePct and the KpiRow render below.
 const PERSONA_KPIS = {
   compliance_lead: [
     { label: "EVF Frameworks",    value: 4,   severity: "info",     icon: Shield },
-    { label: "Controls Overdue",  value: 5,   severity: "high",     icon: AlertTriangle, placeholder: true },
     { label: "Scans This Week",   value: 12,  severity: "low",      icon: Clock },
-    { label: "Readiness %",       value: "68%", severity: "medium", icon: Sparkles, placeholder: true },
   ],
   risk_officer: [
     { size: "large", label: "Critical Risks",  value: 12,  severity: "critical", icon: ShieldAlert },
-    { label: "Due This Week",    value: 8,   severity: "high",     icon: Clock, placeholder: true },
-    { label: "Controls Overdue", value: 5,   severity: "medium",   icon: AlertTriangle, placeholder: true },
     { label: "Remediation %",    value: "54%", severity: "low",    icon: Sparkles },
   ],
   ai_auditor: [
     { label: "Scans Today",       value: 7,   severity: "info",     icon: Clock },
-    { label: "Rule Pack Version", value: "v3.1", severity: "info",  icon: Shield, placeholder: true },
-    { label: "Drift Alerts",      value: 2,   severity: "high",     icon: AlertTriangle, placeholder: true },
-    { label: "Coverage Gap %",    value: "18%", severity: "medium", icon: Sparkles, placeholder: true },
   ],
   operator: [
     { label: "Scans Today",       value: 7,   severity: "info",     icon: Clock },
-    { label: "Failed Scans",      value: 1,   severity: "high",     icon: AlertTriangle, placeholder: true },
-    { label: "Queue Depth",       value: 3,   severity: "medium",   icon: Sparkles, placeholder: true },
     { label: "Avg Score",         value: 41,  severity: "low",      icon: ShieldAlert },
   ],
 };
@@ -390,7 +414,58 @@ function useWhatsChanged(token) {
   return delta;
 }
 
-/** Maps the live risk summary onto the persona's KPI card template. */
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** STORY-413: "Audits (7d)" tile. /api/v1/audits has no server-side date-range
+ * filter, so this fetches the endpoint's max page (limit=200, already sorted
+ * created_at desc) and counts client-side. A tenant with >200 audits in 7
+ * days would undercount — acceptable at current demo/pilot data volumes; a
+ * real windowed-count endpoint is a post-pilot backlog item, not this story's. */
+function useAuditsLast7d(token) {
+  const [state, setState] = useState({ value: null, loading: true, error: false });
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setState({ value: null, loading: true, error: false });
+    fetch("/api/v1/audits?limit=200", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((rows) => {
+        if (cancelled) return;
+        const cutoff = Date.now() - SEVEN_DAYS_MS;
+        const count = (Array.isArray(rows) ? rows : []).filter(
+          (a) => a.created_at && new Date(a.created_at).getTime() >= cutoff
+        ).length;
+        setState({ value: count, loading: false, error: false });
+      })
+      .catch(() => { if (!cancelled) setState({ value: null, loading: false, error: true }); });
+    return () => { cancelled = true; };
+  }, [token]);
+  return state;
+}
+
+/** STORY-413: "Coverage %" tile — real INV-2 envelope coverage. */
+function useCoveragePct(token) {
+  const [state, setState] = useState({ value: null, loading: true, error: false });
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setState({ value: null, loading: true, error: false });
+    fetch("/api/v1/compliance-matrix/coverage", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((d) => {
+        if (cancelled) return;
+        setState({ value: d?.overall_coverage_pct ?? null, loading: false, error: false });
+      })
+      .catch(() => { if (!cancelled) setState({ value: null, loading: false, error: true }); });
+    return () => { cancelled = true; };
+  }, [token]);
+  return state;
+}
+
+/** Maps the live risk summary onto the persona's KPI card template.
+ * STORY-413: indices shifted when the placeholder tiles were removed —
+ * base[0]/base[1] below are NOT positional coincidence, they're the
+ * (now-shorter) PERSONA_KPIS arrays' only remaining slots per persona. */
 function deriveKpis(data, persona) {
   const base = (PERSONA_KPIS[persona] || PERSONA_KPIS.operator).map((kpi) => ({ ...kpi }));
   const criticalCount = data.critical_findings_count;
@@ -399,12 +474,15 @@ function deriveKpis(data, persona) {
 
   if (persona === "risk_officer" || persona === "admin" || persona === "super_admin") {
     // base[0] is "Critical Risks" — bind to the critical count so value matches label.
-    if (criticalCount != null) { base[0].value = criticalCount; base[0].placeholder = false; }
-    if (remediationPct != null) { base[3].value = `${remediationPct}%`; base[3].placeholder = false; }
+    if (criticalCount != null) { base[0].value = criticalCount; }
+    // base[1] is "Remediation %".
+    if (remediationPct != null) { base[1].value = `${remediationPct}%`; }
   } else if (persona === "compliance_lead") {
-    if (auditCount != null) { base[2].value = auditCount; base[2].placeholder = false; }
+    // base[1] is "Scans This Week".
+    if (auditCount != null) { base[1].value = auditCount; }
   } else {
-    if (auditCount != null) { base[0].value = auditCount; base[0].placeholder = false; }
+    // base[0] is "Scans Today".
+    if (auditCount != null) { base[0].value = auditCount; }
   }
   return base;
 }
@@ -456,11 +534,34 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
 
   const { data, loading, refetch } = useDashboardData(token, () => setDegraded(true));
   const whatsChanged = useWhatsChanged(token);
+  const auditsLast7d = useAuditsLast7d(token);
+  const coveragePct  = useCoveragePct(token);
 
   const kpis    = data ? deriveKpis(data, persona)    : [];
   const posture = data ? derivePosture(data)           : { postureLevel: "HIGH", riskScore: "—", openRisks: "—", lastUpdated: "—" };
   const drill   = PERSONA_DRILL[persona] || "risk_register";
   const isEmpty = data && (data.audit_count === 0);
+
+  // STORY-413: real data for every persona — never a fabricated number, never
+  // hidden. AC-2 loading skeleton while pending; AC-3 explicit "Unavailable"
+  // on fetch failure, never a stale/default value.
+  const allKpis = [
+    ...kpis,
+    {
+      label: "Audits (7d)",
+      value: auditsLast7d.error ? "Unavailable" : auditsLast7d.value,
+      severity: auditsLast7d.error ? "high" : "info",
+      icon: Clock,
+      loading: auditsLast7d.loading,
+    },
+    {
+      label: "Coverage %",
+      value: coveragePct.error ? "Unavailable" : (coveragePct.value != null ? `${coveragePct.value}%` : coveragePct.value),
+      severity: coveragePct.error ? "high" : "info",
+      icon: Shield,
+      loading: coveragePct.loading,
+    },
+  ];
 
   if (!token) {
     return (
@@ -538,27 +639,9 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
             {/* Real 7-day trend (replaces fabricated per-card deltas) */}
             <TrendLine data={whatsChanged} />
 
-            {/* KPI cards — persona-specific (STORY-006) */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "var(--space-4)",
-              marginBottom: "var(--space-6)",
-            }}>
-              {kpis.map((kpi, i) => (
-                <KpiCard
-                  key={i}
-                  size={kpi.size}
-                  label={kpi.label}
-                  value={kpi.value}
-                  severity={kpi.severity}
-                  icon={kpi.icon}
-                  loading={loading}
-                  sub={kpi.placeholder ? "sample — not yet wired to live data" : undefined}
-                  onClick={() => onNavigate?.(drill)}
-                />
-              ))}
-            </div>
+            {/* KPI cards — persona-specific (STORY-006) + Audits (7d) / Coverage %,
+                real data for every persona (STORY-413) */}
+            <KpiRow kpis={allKpis} loading={loading} onDrill={() => onNavigate?.(drill)} />
 
             {/* Quick actions — persona-specific (single block; the duplicate was removed, FND-021) */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
