@@ -33,6 +33,14 @@ def main() -> int:
         if _PLACEHOLDER_FLAG.search(line):
             violations.append(f"Dashboard.jsx:{i}: hardcoded placeholder KPI tile: {line.strip()[:100]}")
 
+    # Per-line matching alone can be defeated by wrapping `placeholder:` and
+    # `true` across two lines (a per-line regex can never see the newline
+    # between them). A whitespace-collapsed whole-file pass catches that case
+    # too — no line number to report, but it still fails the build.
+    collapsed = re.sub(r"\s+", " ", text)
+    if not violations and _PLACEHOLDER_FLAG.search(collapsed):
+        violations.append("Dashboard.jsx: a placeholder: true tile split across multiple lines evaded the per-line scan")
+
     if _STALE_CAPTION in text:
         violations.append(f'Dashboard.jsx: stale "{_STALE_CAPTION}" caption string still present')
 

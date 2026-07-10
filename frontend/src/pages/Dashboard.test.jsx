@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import Dashboard from "./Dashboard";
 
 const SOURCE_PATH = path.resolve(__dirname, "./Dashboard.jsx");
@@ -145,6 +145,66 @@ describe("Dashboard — STORY-413: no placeholder KPI tiles", () => {
     render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
     await waitFor(() => expect(screen.getByText("Audits (7d)")).toBeTruthy());
     await waitFor(() => expect(screen.getByText("Unavailable")).toBeTruthy());
+  });
+});
+
+/** The KpiCard container for a given label — label span's grandparent
+ * (span -> header row div -> card div, per KpiCard's render structure). */
+function kpiCard(label) {
+  return screen.getByText(label).parentElement.parentElement;
+}
+
+describe("Dashboard — STORY-413 round 2: deriveKpis index mapping is correct, not just present", () => {
+  // Reviewer-caught gap: page-wide presence assertions pass even if deriveKpis writes the
+  // live value into the wrong array slot (a swapped-index bug) — the swapped value still
+  // renders SOMEWHERE on the page, just under the wrong label, and an unscoped
+  // queryByText(wrongValue) check can false-fail against a DIFFERENT tile that legitimately
+  // shows that value. These scope every assertion to the specific tile's own card via
+  // `within()`, so a swap is caught regardless of what else renders elsewhere on the page.
+  it("compliance_lead: 'Scans This Week' shows the live audit_count (5), not the static default (12)", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/risk/summary")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ...SUMMARY, audit_count: 5 }) });
+      }
+      return routedFetch(String(url));
+    }));
+    render(<Dashboard token="t" user={{ persona_role: "compliance_lead" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Scans This Week")).toBeTruthy());
+    const card = kpiCard("Scans This Week");
+    await waitFor(() => expect(within(card).getByText("5")).toBeTruthy());
+    expect(within(card).queryByText("12")).toBeNull();
+  });
+
+  it("risk_officer: 'Critical Risks' shows critical_findings_count (3), not the static default (12) or remediation_pct (40%)", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "risk_officer" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Critical Risks")).toBeTruthy());
+    const card = kpiCard("Critical Risks");
+    await waitFor(() => expect(within(card).getByText("3")).toBeTruthy());
+    expect(within(card).queryByText("12")).toBeNull();
+    expect(within(card).queryByText("40%")).toBeNull();
+  });
+
+  it("risk_officer: 'Remediation %' shows remediation_pct (40%), not the static default (54%) or critical_findings_count (3)", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "risk_officer" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Remediation %")).toBeTruthy());
+    const card = kpiCard("Remediation %");
+    await waitFor(() => expect(within(card).getByText("40%")).toBeTruthy());
+    expect(within(card).queryByText("54%")).toBeNull();
+    expect(within(card).queryByText("3")).toBeNull();
+  });
+
+  it("ai_auditor: 'Scans Today' shows the live audit_count (9), not the static default (7)", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/risk/summary")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ...SUMMARY, audit_count: 9 }) });
+      }
+      return routedFetch(String(url));
+    }));
+    render(<Dashboard token="t" user={{ persona_role: "ai_auditor" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Scans Today")).toBeTruthy());
+    const card = kpiCard("Scans Today");
+    await waitFor(() => expect(within(card).getByText("9")).toBeTruthy());
+    expect(within(card).queryByText("7")).toBeNull();
   });
 });
 

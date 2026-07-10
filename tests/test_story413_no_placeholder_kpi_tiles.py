@@ -37,3 +37,15 @@ def test_guard_fails_on_a_synthetic_regression(tmp_path, monkeypatch):
     fake.write_text('{ label: "Fake", value: 1, placeholder: true }', encoding="utf-8")
     monkeypatch.setattr(guard, "DASHBOARD", fake)
     assert guard.main() == 1
+
+
+def test_guard_fails_on_placeholder_flag_split_across_lines(tmp_path, monkeypatch):
+    """Reviewer-caught bypass (STORY-413 round 2): a per-line-only regex scan
+    can't see a `placeholder:` / `true` pair wrapped across two lines, since
+    the newline between them is never inside any single line string."""
+    import scripts.check_no_placeholder_kpi_tiles as guard
+
+    fake = tmp_path / "Dashboard.jsx"
+    fake.write_text('{ label: "Fake", value: 1, placeholder:\n    true }', encoding="utf-8")
+    monkeypatch.setattr(guard, "DASHBOARD", fake)
+    assert guard.main() == 1
