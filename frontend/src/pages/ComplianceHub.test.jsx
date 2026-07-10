@@ -422,6 +422,25 @@ describe("STORY-CHUB-004: Readiness Checklist hydrates from endpoint", () => {
       )
     );
   });
+
+  it("FND-054 / STORY-412: a read-only session (demo token) sees the checkbox disabled and never PUTs, even for an editable item", async () => {
+    const user = userEvent.setup();
+    const fetchMock = routeFetch({
+      "/compliance-matrix/coverage": { json: COVERAGE_3FW },
+      "validation-status": { json: [] },
+      "/api/v1/audits": { json: [] },
+      "/api/v1/compliance/readiness": { json: READINESS },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComplianceHub token="t" tenantId="ten-1" user={{ role: "demo_viewer", read_only: true }} />);
+    const risk = await screen.findByLabelText(/Risk assessments completed/);
+    expect(risk).toBeDisabled();
+    await user.click(risk);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/compliance/readiness/risk_assessments_completed"),
+      expect.objectContaining({ method: "PUT" })
+    );
+  });
 });
 
 describe("STORY-CHUB-007: design-system refactor", () => {
