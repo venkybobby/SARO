@@ -540,10 +540,16 @@ def _print_summary(summary: DemoCorpusSummary) -> None:
             f"  {p.use_case:5s} [{mark}] {p.request_id}  @ {p.at}  {p.operation:12s} {p.model_id}"
         )
     lines.append("")
+    pending = [p.use_case for p in summary.planted if p.expected != "fires"]
+    pending_sentence = (
+        f"{'/'.join(pending)} are planted for demo completeness but have no firing rule yet "
+        "(separate rule stories)."
+        if pending
+        else "All planted use cases have firing rules."
+    )
     lines.append(
         f"Automated assertion covers the FIRES use cases: {', '.join(summary.firing_use_cases)}. "
-        "UC-3/UC-4/UC-5 are planted for demo completeness but have no firing rule yet "
-        "(separate rule stories)."
+        + pending_sentence
     )
     lines.append("")
     logger.info("\n".join(lines))
