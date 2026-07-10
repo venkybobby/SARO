@@ -40,16 +40,24 @@ worth logging (FND-052 discovery mid-build; Q1's original round scope broadened 
 every persona, not just operator/demo). → filled in.
 
 ## Plan
-1. `frontend/src/pages/Dashboard.test.jsx` — change `SUMMARY.audit_count` to 7; add
-   `risk_officer` value assertions (Critical Risks=3 present/12 absent, Remediation
-   %=40% present/54% absent); add `compliance_lead` Scans This Week=7 present/12 absent.
+1. `frontend/src/pages/Dashboard.test.jsx` — as-built: left the shared `SUMMARY.audit_count`
+   at 12 (changing it globally would have created a NEW collision — `open_findings_count`
+   is 7, and `screen.getByText` throws on multiple matches). Instead, each new mapping test
+   uses a per-test `vi.stubGlobal` fetch override with a fixture value distinct from every
+   static default AND every other number on that render (`compliance_lead`: 5;
+   `ai_auditor`: 9), plus `within(kpiCard(label))`-scoped assertions so a legitimate value
+   on a sibling tile can't cause a false pass/fail. `risk_officer` needed no override —
+   its fixture (`critical_findings_count: 3`, `remediation_pct: 40`) already differs from
+   both static defaults (12, "54%").
 2. `scripts/check_no_placeholder_kpi_tiles.py` — whitespace-collapsed whole-file
    secondary check.
 3. `tests/test_story413_no_placeholder_kpi_tiles.py` — extend the guard's own red/green
    self-test to cover the multi-line-split case specifically (this is what the reviewer
    actually reproduced — pin it, not just the fix).
 4. Fill in `implementation-notes.md` round-1 Deviations (done — this file).
-5. Re-run full gate suite.
+5. Re-run full gate suite; verify by re-injecting the reviewer's exact bug and confirming
+   the new tests go red, then green again on correct code (done — round-2 reviewer
+   independently reproduced this too and returned APPROVE).
 
 ## Deviations
 1. FND-052 (operator's "Avg Score" tile, also fake, not in the story's named 8) was
