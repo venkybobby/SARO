@@ -108,6 +108,38 @@ operator / admin tab sets unchanged).</td></tr>
 (422 on every hit) — not demo-specific. Swapped registration order; pinned both directions.</td></tr>
 </table>
 
+<h2>Round 2 — independent reviewer REQUEST CHANGES, addressed</h2>
+<div class="card">
+<p>Round 1's DEMO_TABS filter only trimmed <em>Sidebar's own button list</em>. The reviewer reproduced, with a real demo
+token, that any in-page <code>onNavigate</code> call could still reach an off-whitelist page and 403 — TraceView's
+always-visible "How SARO Reasons" link (→ Trust Center → a <code>super_admin</code>/<code>operator</code>-only endpoint) and
+ComplianceHub's readiness checkbox (rendered enabled for a read-only session, 403s on click, blanks the whole card).
+Both are the exact failure mode this story exists to prevent, one click deeper than the Sidebar.</p>
+<table>
+<tr><th>File</th><th>Fix</th></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/AppShell.jsx</code></td>
+<td>The real fix: <code>navigateNow</code> — the single choke point ALL navigation flows through — now no-ops any
+target outside <code>DEMO_TABS</code> for <code>role === "demo_viewer"</code>. Closes this class of bug for every
+current and future off-whitelist link, not just the two reproduced.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/TraceView.jsx</code></td>
+<td>"How SARO Reasons ↗" hidden for demo sessions — belt-and-suspenders so the click does nothing <em>visible</em>
+rather than a guarded-but-silent no-op.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/ComplianceHub.jsx</code></td>
+<td>Now accepts the <code>user</code> prop (previously dropped despite AppShell already passing it). Readiness checkbox
+adds <code>|| !!user?.read_only</code> to its <code>disabled</code> condition; <code>toggleReadiness</code> itself
+early-returns on <code>read_only</code> too.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/components/AppShell.test.jsx</code></td>
+<td>Pins the navigation guard directly: a demo session's off-whitelist <code>onNavigate</code> call is a no-op; an
+on-whitelist one still works; a non-demo session is unaffected (regression).</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>tests/regression/test_story_412_demo_tab_endpoint_census.py</code></td>
+<td>[MAJOR, reviewer] Dropped two <code>dashboard</code> endpoint entries that STORY-413 (unshipped) will add —
+Dashboard.jsx doesn't call them yet; the census test now asserts only what's actually true today.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/Sidebar.test.jsx</code></td>
+<td>[MINOR, reviewer] AC-5's regression suite now covers all 6 personas' full tab sets (<code>admin</code> and
+<code>super_admin</code> were previously only smoke-tested for the switcher).</td></tr>
+</table>
+</div>
+
 <h2>Deliberately NOT done</h2>
 <div class="card">
 <ul>
@@ -125,7 +157,8 @@ issuance; flagged by the security-auditor as INFO, out of this story's scope, no
 <tr><th>Risk</th><th>Covering test / mitigation</th></tr>
 <tr><td>A DEMO_TABS page's on-load GET 403s in production</td><td><code>test_demo_token_grants_200_on_every_tab_endpoint</code> — mints a <em>real</em> JWT via the live endpoint, not a mocked one</td></tr>
 <tr><td>Demo whitelist and Sidebar's actual tab set drift apart over time</td><td><code>test_demo_tabs_fixture_matches_the_endpoint_census</code> + both consumers reading the same <code>demoTabs.json</code></td></tr>
-<tr><td>Non-demo persona tab sets silently regress</td><td><code>Sidebar.test.jsx</code> AC-5 suite (5 personas), full 180-test frontend suite green</td></tr>
+<tr><td>Non-demo persona tab sets silently regress</td><td><code>Sidebar.test.jsx</code> AC-5 suite (6 personas), full frontend suite green</td></tr>
+<tr><td>A page's in-page <code>onNavigate</code> call (not just Sidebar's buttons) reaches an off-whitelist, 403ing page</td><td><code>AppShell.test.jsx</code> pins the <code>navigateNow</code> guard directly; TraceView's link hidden and ComplianceHub's write disabled address the two concrete repros</td></tr>
 <tr><td>Demo token gains write access via the new <code>persona_role</code> claim</td><td>Independent security-auditor verified the claim is inert (server hardcodes it already); AC-4 tests pin both write surfaces reachable from DEMO_TABS pages</td></tr>
 <tr><td>FND-051 router reorder shadows something in the other direction</td><td><code>test_qco_by_id_route_still_reachable</code> asserts the generic route still resolves correctly post-swap</td></tr>
 <tr><td>AppShell extraction silently drops/changes behavior</td><td>Independent reviewer diffed the moved code against git history; full 180-test frontend suite + FND-007 pinning test (relocated, still green) unchanged</td></tr>

@@ -57,7 +57,11 @@ DEMO_TABS: list[str] = json.loads(_DEMO_TABS_PATH.read_text())
 
 # Every GET each DEMO_TABS page fires on load, cited file:line in
 # implementation-notes.md's Discover section:
-#   dashboard:       Dashboard.jsx:203,364,384 + STORY-413's audits/coverage tiles
+#   dashboard:       Dashboard.jsx:203,364,384 — as of STORY-412 alone. STORY-413
+#                      ("Dashboard placeholder KPIs") will wire /api/v1/audits and
+#                      /api/v1/compliance-matrix/coverage into two new tiles; that
+#                      story's own build must extend this list when it does, not
+#                      before — Dashboard.jsx does not call either endpoint yet.
 #   trace_view:       TraceView.jsx:157 (recent-list — the only on-mount GET;
 #                      detail fetches only fire after a user picks an audit)
 #   compliance_hub:   ComplianceHub.jsx loadCoverage/loadStatuses/loadAudits/
@@ -69,8 +73,6 @@ _TAB_ENDPOINTS: dict[str, list[str]] = {
         "/api/v1/risk/summary",
         "/api/v1/risk/whats-changed",
         "/api/v1/rules/drift-alerts",
-        "/api/v1/audits?limit=5",
-        "/api/v1/compliance-matrix/coverage",
     ],
     "trace_view": [
         "/api/v1/audits?limit=10&sort=desc",

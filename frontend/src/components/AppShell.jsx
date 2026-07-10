@@ -11,6 +11,7 @@ import { ConfirmDialog } from "./ui/index.jsx";
 import { useDirtyNavGuard } from "../hooks/useDirtyNavGuard.js";
 import { TRACE_METHODOLOGY_READY } from "../config/traceGate";
 import { parseJwt } from "../utils/jwt.js";
+import DEMO_TABS from "../config/demoTabs.json";
 
 // Lazy-load pages
 const Dashboard     = lazy(() => import("../pages/Dashboard"));
@@ -220,10 +221,17 @@ export default function AppShell({ token, user, onSignOut, onUserUpdate, toast }
 
   const PageComponent = PAGE_COMPONENTS[activePage] || Dashboard;
 
+  // STORY-412: DEMO_TABS trims Sidebar's own button list, but any page can still
+  // call onNavigate(page) directly (e.g. TraceView's "How SARO Reasons" link).
+  // The real enforcement has to live here, at the one place all navigation flows
+  // through — otherwise an off-whitelist page renders and 403s on its own fetches.
+  const isDemo = user?.role === "demo_viewer";
+
   const navigateNow = useCallback((page, payload) => {
+    if (isDemo && !DEMO_TABS.includes(page)) return;
     setActivePage(page);
     setNavPayload(payload || null);
-  }, []);
+  }, [isDemo]);
 
   const { pendingNav, registerDirtyGuard, handleNavigate, confirmNav, cancelNav } = useDirtyNavGuard(navigateNow);
 

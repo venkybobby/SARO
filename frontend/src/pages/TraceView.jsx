@@ -276,14 +276,19 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
         title="TRACE View"
         subtitle="Inspect an audit's 6-step TRACE pipeline timeline and pull signed evidence for the audit file."
         actions={
-          /* STORY-TRACE-005 / ADR-004: methodology transparency affordance, always visible */
-          <button
-            type="button"
-            onClick={() => onNavigate?.("how_saro_reasons")}
-            style={{ background: "none", border: "none", padding: 0, color: "var(--color-info)", cursor: "pointer", fontSize: "var(--text-sm)", textDecoration: "underline" }}
-          >
-            How SARO Reasons ↗
-          </button>
+          /* STORY-TRACE-005 / ADR-004: methodology transparency affordance, always visible
+             for real sessions. STORY-412: hidden for demo — it points at Trust Center,
+             which isn't in DEMO_TABS and 403s on a demo token before AppShell's
+             navigation guard even gets a chance to no-op the click. */
+          user?.role !== "demo_viewer" && (
+            <button
+              type="button"
+              onClick={() => onNavigate?.("how_saro_reasons")}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--color-info)", cursor: "pointer", fontSize: "var(--text-sm)", textDecoration: "underline" }}
+            >
+              How SARO Reasons ↗
+            </button>
+          )
         }
       />
 

@@ -78,6 +78,13 @@ describe("Sidebar — STORY-412 AC-5: non-demo tab sets unchanged", () => {
     risk_officer:    ["Dashboard", "Risk Register", "TRACE View", "AI Insights", "Reports"],
     ai_auditor:      ["Dashboard", "TRACE View", "Rule Packs", "Coverage Gap", "Remediation", "Drift Alerts", "Upload & Scan", "Knowledge Portal"],
     operator:        ["Dashboard", "Upload & Scan", "TRACE View", "Remediation", "Knowledge Portal"],
+    admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs", "Coverage Gap",
+            "Remediation", "Drift Alerts", "AIMS", "Onboarding", "Upload & Scan", "Admin Settings",
+            "Evaluations", "EVF Status", "Risk Register", "AI Insights", "Reports", "Settings",
+            "Knowledge Portal"],
+    super_admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs", "Coverage Gap",
+                  "Remediation", "Drift Alerts", "AIMS", "Onboarding", "Upload & Scan", "Admin Settings",
+                  "Evaluations", "Risk Register", "AI Insights", "Reports", "Settings"],
   };
 
   for (const [persona, expectedLabels] of Object.entries(PERSONA_EXPECTED)) {
