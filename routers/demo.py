@@ -185,12 +185,17 @@ async def get_demo_token() -> dict:
     from jose import jwt as _jwt
 
     payload = {
-        "sub":       demo_tenant_id,
-        "tenant_id": demo_tenant_id,
-        "role":      "demo_viewer",
-        "read_only": True,
-        "exp":       datetime.now(tz=timezone.utc) + timedelta(hours=4),
-        "iat":       datetime.now(tz=timezone.utc),
+        "sub":           demo_tenant_id,
+        "tenant_id":     demo_tenant_id,
+        "role":          "demo_viewer",
+        # STORY-412: gives the demo session a persona so role-or-persona gates
+        # (e.g. Sidebar's ROLE_LABELS, any future persona-gated panel) resolve
+        # to something meaningful. Sidebar's DEMO_TABS whitelist is keyed off
+        # role alone, so this never widens which endpoints the token can hit.
+        "persona_role":  "compliance_lead",
+        "read_only":     True,
+        "exp":           datetime.now(tz=timezone.utc) + timedelta(hours=4),
+        "iat":           datetime.now(tz=timezone.utc),
     }
     token = _jwt.encode(payload, _secret_key(), algorithm=_algorithm())
     logger.info("demo_token_issued")

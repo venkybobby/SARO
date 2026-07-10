@@ -1,192 +1,158 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STORY-411 — Model-Allowlist Envelope Rule — Change Debrief</title>
+<title>STORY-412 change debrief</title>
 <style>
-  :root { --ink:#1a1d23; --sub:#5b6270; --line:#e4e7ec; --bg:#fafbfc; --accent:#3d5afe;
-          --good:#1a7f4e; --warn:#b45309; --pill:#eef1f6; }
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink);
-         background: var(--bg); line-height: 1.55; max-width: 960px; margin: 0 auto; padding: 40px 24px 100px; }
-  h1 { font-size: 1.7rem; margin-bottom: 4px; }
-  h2 { font-size: 1.2rem; margin-top: 48px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
-  h3 { font-size: 1.02rem; margin-top: 28px; }
-  .sub { color: var(--sub); margin-top: 0; }
-  .pill { display:inline-block; background: var(--pill); border-radius: 999px; padding: 2px 10px;
-          font-size: 0.78rem; color: var(--sub); margin-right: 6px; }
-  code, pre { font-family: "SF Mono", Consolas, monospace; font-size: 0.86rem; }
-  code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; }
-  pre { background: #12141a; color: #d6deeb; padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 0.9rem; vertical-align: top; }
-  th { color: var(--sub); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .03em; }
-  .file { font-family: "SF Mono", Consolas, monospace; font-size: 0.85rem; }
-  .tag-new { color: var(--good); font-weight: 600; }
-  .tag-mod { color: var(--accent); font-weight: 600; }
-  .callout { border-left: 3px solid var(--accent); background: #eef1ff; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
-  .callout.warn { border-color: var(--warn); background: #fff6ea; }
-  .callout.good { border-color: var(--good); background: #ecfaf2; }
-  .deviation { border-left: 3px solid var(--warn); background: #fff6ea; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 10px 0; }
-  .risk-table td:nth-child(2) { font-weight: 600; }
-  .quiz { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 4px 20px 18px; margin-top: 14px; }
-  .q { border-bottom: 1px solid var(--line); padding: 16px 0; }
-  .q:last-child { border-bottom: none; }
-  .q p.question { font-weight: 600; margin-bottom: 8px; }
-  .reveal { cursor: pointer; color: var(--accent); font-size: 0.88rem; user-select: none; }
-  .answer { display: none; margin-top: 8px; padding: 10px 14px; background: #f4f6fb; border-radius: 6px; font-size: 0.9rem; }
-  .answer.show { display: block; }
-  svg { max-width: 100%; height: auto; }
-  .legend { font-size: 0.78rem; color: var(--sub); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
+  h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 40px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
+  code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 14px 0; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+  .tag.new { background: #dcfce7; color: #166534; } .tag.mod { background: #fef3c7; color: #92400e; }
+  .tag.finding { background: #fee2e2; color: #991b1b; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th { background: #f1f5f9; }
+  .quiz-q { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin: 10px 0; cursor: pointer; }
+  .quiz-a { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155; }
+  .quiz-q.open .quiz-a { display: block; }
+  svg text { font-family: -apple-system, sans-serif; }
 </style>
-</head>
-<body>
 
-<h1>STORY-411 — Model-Allowlist Envelope Rule</h1>
-<p class="sub">Fires UC-5 — SARO's engine can now see the log envelope, not just prompt/output text &nbsp;·&nbsp; branch <code>story/STORY-411</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
-<span class="pill">14 files changed</span><span class="pill">STORY-336 guard: green (rule_packs/ now scanned)</span><span class="pill">security-auditor: PASS (2 low/info, fixed)</span><span class="pill">reviewer: 1 round, FND-050 + 3 minors fixed</span><span class="pill">FND-050 pinned</span>
+<h1>STORY-412 — Demo surface trim: every visible tab must survive a click</h1>
+<p><em>Ownership review demo-readiness pack — P0 blocker #2. Paired with the UC-5 manifest reconciliation and FND-051 (incidental).</em></p>
 
-<h2>Why this exists</h2>
-<p>UC-5 in the demo corpus (an off-allowlist Bedrock <code>modelId</code>) was planted since STORY-407 but never fired — SARO's content engine (Gate 3) only ever reads <code>prompt</code>+<code>raw_output</code> text, never the log envelope. "An unapproved model served production traffic" is one of the most visceral governance findings for a healthcare risk officer, and SARO was structurally blind to it. This story gives the engine one narrow new capability: evaluate an envelope attribute (<code>modelId</code>) against a versioned allowlist rule.</p>
-<div class="callout">
-<strong>The actual root-cause gap wasn't in the engine's capabilities — it was one dropped kwarg.</strong> <code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> had received <code>metadata</code> (which already carried <code>modelId</code>/<code>requestId</code>, built by the STORY-406 adapter) as a parameter since STORY-406 shipped — but silently never forwarded it into <code>engine_obj.run_output_audit(...)</code>. Everything upstream already carried the data the engine needed; the engine just never received it. Fixing that one line, plus giving the engine somewhere to route it, is the whole story. Logged as <strong>FND-050</strong> since it's a genuine bug fix, not just new feature wiring.
+<h2>Context — why this exists</h2>
+<div class="card">
+<p>The public <code>/demo</code> route is the AI-Auditor persona's first (and often only) look at SARO. A prospect who clicks
+one thing off the happy path and hits a blank screen or a 403 reads as "this product is half-built" — regardless of how
+good the core scoring is. The story's own framing: <em>"the demo must show fewer things that all work, not more things
+that mostly work."</em></p>
+<p>Investigating the stated premise ("Sidebar renders the compliance_lead tab set, causing 403s") turned up something
+worse: the demo route had <strong>no navigation at all</strong>. <code>DemoEntry.jsx</code> rendered a bare
+<code>Dashboard</code> component with <code>onNavigate</code> left <code>undefined</code> — every quick-action button was a
+silent no-op. There was nothing to 403 on because there was nothing to click.</p>
 </div>
 
-<h2>Intuition — how the pieces fit</h2>
-<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
+<h2>Intuition — before / after</h2>
+<div class="card">
+<svg viewBox="0 0 860 260" width="100%" height="260">
+  <text x="20" y="20" font-size="13" font-weight="700" fill="#991b1b">BEFORE</text>
+  <rect x="20" y="35" width="180" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
+  <text x="110" y="65" font-size="12" text-anchor="middle" fill="#7f1d1d">GET /demo/token</text>
+  <line x1="200" y1="60" x2="250" y2="60" stroke="#991b1b" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="250" y="35" width="180" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
+  <text x="340" y="58" font-size="12" text-anchor="middle" fill="#7f1d1d">DemoEntry</text>
+  <text x="340" y="72" font-size="10" text-anchor="middle" fill="#7f1d1d">renders bare Dashboard</text>
+  <line x1="430" y1="60" x2="480" y2="60" stroke="#991b1b" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <rect x="480" y="35" width="200" height="50" rx="8" fill="#fee2e2" stroke="#fca5a5"/>
+  <text x="580" y="58" font-size="12" text-anchor="middle" fill="#7f1d1d">quick-action buttons</text>
+  <text x="580" y="72" font-size="10" text-anchor="middle" fill="#7f1d1d">onNavigate === undefined → no-op</text>
+
+  <text x="20" y="140" font-size="13" font-weight="700" fill="#166534">AFTER</text>
+  <rect x="20" y="155" width="180" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
+  <text x="110" y="185" font-size="12" text-anchor="middle" fill="#14532d">GET /demo/token</text>
+  <line x1="200" y1="180" x2="250" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="250" y="155" width="180" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
+  <text x="340" y="178" font-size="12" text-anchor="middle" fill="#14532d">DemoEntry</text>
+  <text x="340" y="192" font-size="10" text-anchor="middle" fill="#14532d">renders AppShell(synthetic user)</text>
+  <line x1="430" y1="180" x2="480" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="480" y="155" width="200" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
+  <text x="580" y="178" font-size="12" text-anchor="middle" fill="#14532d">Sidebar (DEMO_TABS)</text>
+  <text x="580" y="192" font-size="10" text-anchor="middle" fill="#14532d">dashboard · trace_view · compliance_hub · reports</text>
+  <line x1="680" y1="180" x2="730" y2="180" stroke="#166534" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="730" y="155" width="110" height="50" rx="8" fill="#dcfce7" stroke="#86efac"/>
+  <text x="785" y="178" font-size="12" text-anchor="middle" fill="#14532d">real pages</text>
+  <text x="785" y="192" font-size="10" text-anchor="middle" fill="#14532d">all endpoints 200</text>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#3d5afe"/>
-    </marker>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#991b1b"/></marker>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#166534"/></marker>
   </defs>
-  <g font-size="12" fill="#1a1d23">
-    <rect x="10" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="110" y="45" text-anchor="middle" font-weight="600">build_audit_submission()</text>
-    <text x="110" y="60" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING — already builds metadata</text>
-    <text x="110" y="73" text-anchor="middle" font-size="10" fill="#5b6270">{modelId, requestId, ...}</text>
-
-    <rect x="10" y="150" width="200" height="70" rx="8" fill="#fff6ea" stroke="#b45309"/>
-    <text x="110" y="175" text-anchor="middle" font-weight="600">submit_audit_sync()</text>
-    <text x="110" y="191" text-anchor="middle" font-size="10" fill="#5b6270">FND-050 fix: forward metadata</text>
-    <text x="110" y="205" text-anchor="middle" font-size="10" fill="#5b6270">(was silently dropped)</text>
-
-    <rect x="260" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="360" y="175" text-anchor="middle" font-weight="600">run_output_audit(metadata=)</text>
-    <text x="360" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW optional param</text>
-    <text x="360" y="205" text-anchor="middle" font-size="10" fill="#5b6270">backward-compatible no-op if absent</text>
-
-    <rect x="510" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="610" y="175" text-anchor="middle" font-weight="600">_evaluate_envelope_allowlist()</text>
-    <text x="610" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW · reads envelope ONLY</text>
-    <text x="610" y="205" text-anchor="middle" font-size="10" fill="#5b6270">never a body (INV-2)</text>
-
-    <rect x="510" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="610" y="45" text-anchor="middle" font-weight="600">envelope_loader.py</text>
-    <text x="610" y="60" text-anchor="middle" font-size="10" fill="#5b6270">NEW · versioned allowlist pack</text>
-    <text x="610" y="73" text-anchor="middle" font-size="10" fill="#5b6270">exact-then-prefix modelId match</text>
-
-    <rect x="760" y="150" width="130" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="825" y="175" text-anchor="middle" font-weight="600">flags list</text>
-    <text x="825" y="191" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING machinery</text>
-    <text x="825" y="205" text-anchor="middle" font-size="10" fill="#5b6270">trace/score/coverage</text>
-
-    <line x1="110" y1="80" x2="110" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="210" y1="185" x2="258" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="460" y1="185" x2="508" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="610" y1="80" x2="610" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="710" y1="185" x2="758" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-
-    <text x="450" y="250" text-anchor="middle" font-size="10" fill="#5b6270">The envelope finding joins the SAME flags list a content finding would — no special-casing downstream (TRACE View parity, AC-2.2).</text>
-  </g>
 </svg>
-<p class="legend">Orange = a genuine bug fix (FND-050). Blue = existing code, untouched. Green = new this story.</p>
+<p style="margin-top:10px">Mental model: <code>AppShell</code> (Sidebar + page router) used to live only inside the authenticated
+<code>/app</code> route, defined inline in <code>App.jsx</code>. It's now a standalone component both the authenticated route
+and the public demo route render — the demo session is just "AppShell with a synthetic <code>role=demo_viewer</code> user,"
+not a special-cased second UI.</p>
+</div>
 
 <h2>File-by-file</h2>
 <table>
-  <tr><th>File</th><th>Status</th><th>What / why</th></tr>
-  <tr><td class="file">rule_packs/envelope_loader.py</td><td class="tag-new">NEW</td>
-      <td>Small dedicated loader — distinct from <code>rule_packs/loader.py</code> (a compliance-citation mapper with no field for a model-ID list). Exact-then-prefix <code>modelId</code> matching, separate SHA-256 hash so no other audit's existing hash-chain evidence changes meaning.</td></tr>
-  <tr><td class="file">rule_packs/envelope/1.0.0/envelope_allowlist.yaml</td><td class="tag-new">NEW</td>
-      <td>The versioned rule: <code>allowed_model_ids</code> sourced from <code>scripts/demo_manifest.yaml</code>'s existing list (STORY-407 had already anticipated this rule).</td></tr>
-  <tr><td class="file">engine.py</td><td class="tag-mod">MODIFIED</td>
-      <td>New <code>"Governance & Compliance"</code> MIT domain (fed exclusively by the envelope check, never content scanning). New <code>_evaluate_envelope_allowlist()</code>, hooked in right after Gate-3 classification so the finding flows through existing trace/scoring/coverage machinery. <code>_SampleFlag.detail</code> (optional) carries observed modelId/rule_id/rule-pack version/requestId into <code>AuditTrace.detail_json</code>. <code>run_output_audit</code> gained an optional <code>metadata</code> param (backward-compatible). <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> caps stored envelope fields (security-auditor LOW fix).</td></tr>
-  <tr><td class="file">services/audit_submission.py</td><td class="tag-mod">MODIFIED</td>
-      <td><strong>FND-050 fix</strong> — one line: forward <code>metadata=metadata</code> into <code>run_output_audit(...)</code> instead of silently dropping it.</td></tr>
-  <tr><td class="file">grc/guards/external_model.py</td><td class="tag-mod">MODIFIED</td>
-      <td>Added <code>"rule_packs"</code> to the STORY-336 guard's scanned package dirs — the new loader is now provably free of external-model calls, matching STORY-407's precedent for <code>adapters/</code>.</td></tr>
-  <tr><td class="file">tests/test_envelope_loader.py, tests/test_engine_envelope_allowlist.py</td><td class="tag-new">NEW</td>
-      <td>13 tests: exact/prefix matching, malformed-pack error, hash determinism, exactly-one-finding, no-finding-when-allowlisted, backward-compat no-op, determinism/byte-stability, detail-field completeness, ADR-004 language, oversized-field truncation.</td></tr>
-  <tr><td class="file">tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py</td><td class="tag-new">NEW</td>
-      <td>Pins the FND-050 fix independent of the envelope feature — a fake engine capturing kwargs, asserting <code>metadata</code> is forwarded.</td></tr>
-  <tr><td class="file">tests/test_story407_demo_corpus_builder.py</td><td class="tag-mod">MODIFIED</td>
-      <td>E2E's custom submit callback now threads <code>metadata=submission.metadata</code>; fired-UC assertion updated from 3 to 4 (UC-5 now fires, category "Governance &amp; Compliance").</td></tr>
-  <tr><td class="file">tests/test_new_features.py, tests/test_specs.py-adjacent (engine.py fix)</td><td class="tag-mod">MODIFIED</td>
-      <td>Two pre-existing tests broke from the taxonomy expansion (hardcoded domain count, missing LLM-judge domain definition) — fixed, not weakened.</td></tr>
-  <tr><td class="file">specs/stories/STORY-407.md</td><td class="tag-mod">MODIFIED</td>
-      <td>UC table updated: UC-5 moved from "planted only" to "fires" (AC-4.3).</td></tr>
+<tr><th>File</th><th>What changed</th></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/components/AppShell.jsx</code></td>
+<td><code>AppShell</code> extracted verbatim out of <code>App.jsx</code> (page routing, <code>PAGE_COMPONENTS</code>, the
+onboarding wizard) so <code>DemoEntry.jsx</code> can render it without a circular import back into <code>App.jsx</code>.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/App.jsx</code></td>
+<td>Shrunk to token/session state + routing; imports <code>AppShell</code> from its new file instead of defining it.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/DemoEntry.jsx</code></td>
+<td>Renders <code>AppShell</code> (with a synthetic <code>user</code> built from the decoded demo JWT) instead of a bare
+<code>Dashboard</code>. <code>onSignOut</code> reloads the page (closest sane meaning for a public read-only demo).</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/components/Sidebar.jsx</code></td>
+<td>New <code>isDemo = user?.role === "demo_viewer"</code> check overrides <code>PERSONA_TABS</code> with the
+<code>DEMO_TABS</code> whitelist, regardless of persona. Non-demo path is byte-for-byte unchanged.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/config/demoTabs.json</code></td>
+<td>The single shared whitelist (<code>["dashboard","trace_view","compliance_hub","reports"]</code>) — imported by
+Sidebar.jsx and loaded by the backend contract test, so the two can't drift apart.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/utils/jwt.js</code></td>
+<td><code>parseJwt</code> extracted once, replacing three near-identical inline copies.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>routers/demo.py</code></td>
+<td>Demo JWT now also carries <code>persona_role: "compliance_lead"</code> — <strong>provably inert for
+authorization</strong> (<code>auth.py</code> already hardcodes this server-side for any <code>demo_viewer</code> token); kept
+so the token's explicit claims match what it actually grants.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>tests/regression/test_story_412_demo_tab_endpoint_census.py</code></td>
+<td>Mints a real demo JWT via the live endpoint, asserts every GET each DEMO_TABS page fires on load returns 200 (AC-1),
+and that two write actions (<code>POST /ingest</code>, <code>PUT /compliance/readiness/{key}</code> — the one write button a
+demo visitor can actually click) still 403 (AC-4).</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/components/Sidebar.test.jsx</code></td>
+<td>AC-2 (demo whitelist render), AC-3 (switcher hidden for demo), AC-5 (compliance_lead / risk_officer / ai_auditor /
+operator / admin tab sets unchanged).</td></tr>
+<tr><td><span class="tag finding">FND-051</span><code>main.py</code>, <code>tests/regression/test_fnd_051_*.py</code></td>
+<td>Incidental: <code>evf_sprint2_router</code>'s generic <code>GET /qco/{qco_id}</code> was registered before
+<code>evf_sprint3_router</code>'s static <code>GET /qco/expiry-alerts</code>, shadowing it for <strong>every caller</strong>
+(422 on every hit) — not demo-specific. Swapped registration order; pinned both directions.</td></tr>
 </table>
 
-<h2>Deviations from a literal reading of the story</h2>
-<div class="deviation">
-<strong>Taxonomy expansion had ripple effects beyond engine.py.</strong> Adding <code>"Governance & Compliance"</code> to <code>MIT_DOMAINS</code> broke a hardcoded <code>len(gate3_traces) == 7</code> assertion and a domain-definitions completeness check — both legitimate consequences of the owner's Q1 choice (a new taxonomy category, not reuse of "AI System Safety"), not implementation bugs. Fixed, not silenced. <code>docs/metrics/detection-baseline.md</code> auto-regenerated with a correct <code>n/a</code> row for the new envelope-only domain.
-</div>
-<div class="deviation">
-<strong>reviewer round 1 (REQUEST CHANGES) — blocker: the fix shipped without its own regression test.</strong> The <code>submit_audit_sync</code> metadata-drop is a genuine bug fix (not just feature wiring), and the repo's own standard requires a pinning test for every bug fix. Fixed: filed an FND with a dedicated test independent of the envelope feature, so a future refactor of that call site can't silently drop <code>metadata</code> again undetected. <strong>Renumbering at merge:</strong> originally filed as FND-048; STORY-410 (a parallel branch off the same main baseline) independently claimed FND-048/049 for unrelated findings and merged first (PR #114) — resolved at rebase by renumbering to <strong>FND-050</strong>.
-</div>
-<div class="deviation">
-<strong>security-auditor LOW: unbounded envelope-field length.</strong> <code>modelId</code>/<code>requestId</code> flowed into <code>AuditTrace.detail_json</code> with no cap, unlike prompt/output body text. Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS = 256</code>, applied before storage.
-</div>
-
-<h2>What was deliberately NOT done</h2>
+<h2>Deliberately NOT done</h2>
+<div class="card">
 <ul>
-<li>No general-purpose envelope rule DSL — one rule type, exact-then-prefix matching, per the story's own Non-Goals ("resist generalizing").</li>
-<li>No UC-3/UC-4 rules (disclaimer, prompt-injection) — separately tracked Wave-2, owner decision stands.</li>
-<li>No per-tenant allowlist table — the allowlist lives in the global versioned rule pack, matching FR-2's explicit design directive and every other rule type's existing convention (owner-confirmed).</li>
-<li>No UI for editing allowlists — configuration only, per Non-Goals.</li>
-<li>No tenant-isolation regression test for the envelope path — accepted (security-auditor INFO): it reuses the existing tenant-scoped <code>AuditTrace</code> query surface, no new query path introduced.</li>
+<li>Did not widen any <code>require_role</code> gate to admit <code>demo_viewer</code> — explicit out-of-scope per the story.</li>
+<li>Did not fix <code>routers/compliance_hub.py:138</code>'s <code>persona_required</code> varargs bug — confirmed live, but a
+distinct defect per the story's own instruction to file it separately (and irrelevant here: <code>ComplianceHub.jsx</code>
+doesn't call that endpoint).</li>
+<li>Did not build a rate limit for <code>GET /api/v1/demo/token</code> — pre-existing, unauthenticated, unlimited
+issuance; flagged by the security-auditor as INFO, out of this story's scope, not touched by this diff.</li>
 </ul>
+</div>
 
 <h2>Risk map</h2>
-<table class="risk-table">
-  <tr><th>Risk</th><th>Covered by</th></tr>
-  <tr><td>Adding a new MIT domain silently breaks something else that assumes exactly 7 domains</td><td>reviewer independently grepped every <code>MIT_DOMAINS</code>/<code>_RISK_SIGNALS</code>/<code>_COMPLIANCE_TRIGGERS</code>/<code>_REMEDIATIONS</code> usage repo-wide and confirmed the two breakages found (and fixed) were the only ones; full 1663-test suite passes</td></tr>
-  <tr><td><code>run_output_audit</code>'s new <code>metadata</code> param breaks an existing caller</td><td>Optional, defaults to <code>None</code> — reviewer verified every existing call site (<code>routers/scan.py</code>, <code>routers/ingest.py</code>, the STORY-406/COV-002 test stub engines) never passes it, so behavior is unchanged for them</td></tr>
-  <tr><td>Envelope finding doesn't get TRACE View drill-down parity with content findings (AC-2.2)</td><td>Flows through the exact same <code>_record_gate3_domain_traces</code> mechanism as a content finding — no new check_type, no frontend changes needed; pinned by <code>test_finding_records_model_id_rule_id_version_and_request_id</code></td></tr>
-  <tr><td>Finding language overclaims intent (ADR-004)</td><td>Verbatim story-specified title "Model not on approved allowlist for this tenant"; pinned by <code>test_finding_language_is_observable_only_adr_004</code>; reviewer independently confirmed no forbidden phrasing</td></tr>
-  <tr><td><strong>Oversized/adversarial modelId or requestId bloats stored evidence</strong> (security-auditor LOW)</td><td>Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> cap; pinned by <code>test_oversized_model_id_and_request_id_are_truncated_before_storage</code></td></tr>
-  <tr><td><strong>The actual root-cause bug (metadata silently dropped) ships without a regression test</strong> (reviewer blocker)</td><td>Fixed: FND-050 + dedicated pinning test independent of the envelope feature</td></tr>
-  <tr><td>Guard regression — new rule_packs code reaches a hosted-model endpoint</td><td><code>rule_packs</code> added to STORY-336's scanned dirs; guard green; bandit clean on all touched files, baseline unchanged repo-wide</td></tr>
+<table>
+<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
+<tr><td>A DEMO_TABS page's on-load GET 403s in production</td><td><code>test_demo_token_grants_200_on_every_tab_endpoint</code> — mints a <em>real</em> JWT via the live endpoint, not a mocked one</td></tr>
+<tr><td>Demo whitelist and Sidebar's actual tab set drift apart over time</td><td><code>test_demo_tabs_fixture_matches_the_endpoint_census</code> + both consumers reading the same <code>demoTabs.json</code></td></tr>
+<tr><td>Non-demo persona tab sets silently regress</td><td><code>Sidebar.test.jsx</code> AC-5 suite (5 personas), full 180-test frontend suite green</td></tr>
+<tr><td>Demo token gains write access via the new <code>persona_role</code> claim</td><td>Independent security-auditor verified the claim is inert (server hardcodes it already); AC-4 tests pin both write surfaces reachable from DEMO_TABS pages</td></tr>
+<tr><td>FND-051 router reorder shadows something in the other direction</td><td><code>test_qco_by_id_route_still_reachable</code> asserts the generic route still resolves correctly post-swap</td></tr>
+<tr><td>AppShell extraction silently drops/changes behavior</td><td>Independent reviewer diffed the moved code against git history; full 180-test frontend suite + FND-007 pinning test (relocated, still green) unchanged</td></tr>
 </table>
 
-<h2>Independent review outcomes</h2>
-<p><strong>security-auditor:</strong> PASS. Confirmed <code>yaml.safe_load</code> (no deserialization risk), no SQL/XSS injection surface, INV-2 preserved (metadata never contains prompt/output body text), no secrets in the diff. 1 LOW (unbounded field length, fixed) + 1 INFO (tenant-isolation test gap, accepted) — neither blocking.</p>
-<p><strong>reviewer:</strong> REQUEST CHANGES on round 1 — 1 blocker (FND-050's own regression test missing) + 3 minors (stale "7 domains" docstring, misleading glob-style YAML comment, a scope note on the sibling spec files). All four fixed; reviewer separately confirmed the envelope-evaluation ordering, exact-then-prefix matching, and backward-compatibility of the new <code>metadata</code> parameter by reading and running the code directly, not just trusting the notes.</p>
-
-<h2>Understanding check</h2>
-<div class="quiz" id="quiz">
-  <div class="q"><p class="question">1. What was the ACTUAL root cause of UC-5 never firing, and why did fixing that one line matter more than the new engine capability?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer"><code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> already received <code>metadata</code> (with <code>modelId</code>/<code>requestId</code> built by the STORY-406 adapter) as a parameter — it just never forwarded it into <code>engine_obj.run_output_audit(...)</code>. The engine could never see envelope data no matter how sophisticated its evaluation logic was, because the data never reached it. Fixing that one dropped kwarg (FND-050) is what actually closes the gap; the new <code>_evaluate_envelope_allowlist</code> logic is meaningless without it.</div></div>
-  <div class="q"><p class="question">2. Why does the new "Governance & Compliance" domain never get a `_RISK_SIGNALS` entry?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">It's fed exclusively by envelope evaluation (modelId against an allowlist), never by keyword/regex text scanning. Giving it a `_RISK_SIGNALS` entry would mean ordinary prompt/output text could accidentally trip a "governance" finding, which isn't the intent — this domain represents a structural/configuration violation, not a content risk.</div></div>
-  <div class="q"><p class="question">3. Why does `_evaluate_envelope_allowlist`'s result get appended to the SAME `flags` list Gate 3's content scan produces, instead of being recorded through a separate mechanism?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">AC-2.2 requires "TRACE View drill-down parity with content findings" — by joining the same list before <code>_record_gate3_domain_traces</code>/Gate 4/scoring consume it, the envelope finding automatically gets the same AuditTrace shape, the same compliance-mapping attempt, and the same Bayesian/coverage scoring treatment as any content finding, with zero new code in any of those downstream functions.</div></div>
-  <div class="q"><p class="question">4. What would happen if an operator's Bedrock log record had a 10KB `modelId` string (malformed or adversarial)?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Before the security-auditor's fix, it would have been stored verbatim in `AuditTrace.detail_json` — a storage/response-payload bloat risk (not SQL injection or XSS, since the value is ORM-parameterized and React auto-escapes on render). Now `_MAX_ENVELOPE_FIELD_CHARS=256` truncates it before storage, matching the existing `MAX_INLINE_BODY_CHARS` precedent for body text.</div></div>
-  <div class="q"><p class="question">5. Why did adding one new MIT domain break two unrelated tests, and was that a bug in this story's implementation?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Not a bug — a legitimate consequence of the owner's choice (Q1: add a new taxonomy category rather than reuse "AI System Safety"). One test hardcoded "7 domains" as a trace-count assertion; another required every `MIT_DOMAINS` entry to have a `_MIT_DOMAIN_DEFINITIONS` entry (used by the Gate-3 LLM judge prompt). Both were fixed to reflect the new, correct reality (8 domains) rather than weakened or skipped.</div></div>
-  <div class="q"><p class="question">6. Two parallel branches (STORY-410 and STORY-411) both created an FND-048. How was that resolved?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Both branches were created from the same point on `main` (where the highest existing FND was FND-047), and each independently logged its own next-available finding as FND-048 without visibility into the other's in-flight work. STORY-410 merged first (PR #114); at rebase time, STORY-411's finding (ledger row, manifest entry, test filename) was renumbered to FND-050 so both stories' findings coexist without collision.</div></div>
+<h2>Quiz</h2>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q1. Why does DemoEntry.jsx need to render AppShell instead of just adding an onNavigate handler to the standalone Dashboard?</strong>
+  <div class="quiz-a">Because the story's whole premise — a Sidebar with a DEMO_TABS whitelist — requires Sidebar to actually be rendered. AppShell is the only place Sidebar mounts; without it there's no navigation surface to trim in the first place.</div>
 </div>
-
-<script>
-function toggle(el){ const a = el.nextElementSibling; a.classList.toggle('show'); }
-</script>
-</body>
-</html>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q2. If you deleted the <code>persona_role: "compliance_lead"</code> line from routers/demo.py, would any endpoint start returning 403 for the demo token?</strong>
+  <div class="quiz-a">No. auth.py's get_current_user hardcodes persona_role="compliance_lead" server-side for any role="demo_viewer" token regardless of the JWT's own claim — confirmed independently by the security-auditor. The line is there for claim/behavior consistency, not access.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q3. Why is demoTabs.json a separate file instead of a constant inside Sidebar.jsx?</strong>
+  <div class="quiz-a">AC-1 requires the frontend whitelist and the backend contract test to read from one shared source so they can't drift apart — Python can't import a .jsx module, but both can load a JSON file.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q4. What would break if FND-051's router swap had gone the other way (evf_sprint2 after evf_sprint3, but evf_sprint3 also had a generic path)?</strong>
+  <div class="quiz-a">It would just move the shadowing bug rather than fix it. This wasn't the case here — evf_sprint3 has no generic /qco/{...} pattern, confirmed by reading its full route list before swapping, and pinned by a test asserting the generic route still resolves post-swap.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q5. A demo visitor opens devtools and manually sets activePage to "upload" in React state. What stops them from reaching the real Upload page?</strong>
+  <div class="quiz-a">Nothing client-side — DEMO_TABS is a UI convenience, not a security boundary. The real control is that every backend endpoint keeps its own auth dependency (require_role, require_write_access, etc.); a client-side bypass would render the Upload page's chrome but every write it attempts still 403s server-side.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q6. Why does the AC-4 test PUT to /compliance/readiness/{key} in addition to POST /ingest?</strong>
+  <div class="quiz-a">/ingest is gated by role (demo_viewer was never in its allowlist) — a weaker test of read_only enforcement specifically. The readiness toggle is the one write button an actual DEMO_TABS page renders, and its gate (require_write_persona) checks read_only first — a more direct regression pin for what a demo visitor could try to click.</div>
+</div>

@@ -232,3 +232,8 @@ findings:
     test: tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py
     status: pinned
     quarantine_expires: null
+  - id: FND-051
+    title: "GET /api/v1/evf/qco/expiry-alerts shadowed by evf_sprint2's generic /qco/{qco_id} route (found building STORY-412)"
+    test: tests/regression/test_fnd_051_evf_qco_expiry_alerts_route_shadowed.py
+    status: pinned
+    quarantine_expires: null
