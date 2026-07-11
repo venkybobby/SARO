@@ -347,7 +347,6 @@ const PERSONA_KPIS = {
   ],
   operator: [
     { label: "Scans Today",       value: 7,   severity: "info",     icon: Clock },
-    { label: "Avg Score",         value: 41,  severity: "low",      icon: ShieldAlert },
   ],
 };
 // admin and super_admin see the full risk view (same as risk_officer)

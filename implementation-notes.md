@@ -1,55 +1,58 @@
-# STORY-412 (round 3) — reviewer REQUEST CHANGES fix-up #2
+# FND-052 — remove operator's fake "Avg Score" KPI tile
 Stage: standard
 
 ## Lifecycle
-- [x] discover   — n/a, fixes prescribed by the reviewer's concrete findings
-- [x] shape      — skipped, no new decision
-- [x] preview    — skipped
+- [x] discover   — already done when FND-052 was filed during STORY-413's build (see
+                   quality/findings.md); re-confirmed current Dashboard.jsx state below
+- [x] shape      — user explicitly resolved the open product question ("don't want to
+                   show fake scores in demo") — decision log below
+- [x] preview    — skipped: removing a tile, not adding a new surface
 - [x] plan       — see below
-- [x] build      (all 3 fixes implemented; new ComplianceHub test verified via fault
-                   injection — reverted the fix, confirmed the test failed red, restored,
-                   confirmed green; backend 1694 passed, frontend 201 passed, ruff clean)
-- [x] verify     (findings ledger + manifest consistency tests green; FND-053/FND-054
-                   registered and cross-checked against tests/test_story103_findings_
-                   ledger_consistency.py)
+- [x] build      (tile removed; new regression test verified via fault injection —
+                   re-added the tile, confirmed the test failed red, removed it again,
+                   confirmed green; backend 1694 passed, frontend 202 passed, ruff clean)
+- [x] verify     (findings ledger + manifest consistency tests green; FND-052 now
+                   status: pinned in both files, cross-checked)
 - [ ] sell       — n/a
+
+## Discover — re-confirmed current state (file:line)
+
+- `frontend/src/pages/Dashboard.jsx:348-351`: `PERSONA_KPIS.operator` = `[{label:"Scans
+  Today", value:7,...}, {label:"Avg Score", value:41, severity:"low", icon:ShieldAlert}]`.
+- `deriveKpis` (469-488): the `else` branch (ai_auditor/operator) only ever writes
+  `base[0]` ("Scans Today") from `data.audit_count` — `base[1]` ("Avg Score") is never
+  touched by live data. Confirmed unaffected by removing it (no index shift risk for
+  this branch, since nothing downstream references `base[1]` for these two personas).
+- `admin`/`super_admin` alias `risk_officer`'s array (354-355), not operator's — removal
+  only affects the `operator` persona.
+- The CI guard (`scripts/check_no_placeholder_kpi_tiles.py`) doesn't catch this tile
+  today because it was never flagged `placeholder: true` — that's the original defect
+  FND-052 documents. No guard change needed once the tile itself is gone (nothing left
+  to catch).
 
 ## Decision Log
 
-Q1 (reviewer, blocking): round 1's ComplianceHub read-only-checkbox fix (a confirmed real
-BLOCKER — a 403 that blanked the whole Readiness Checklist card) shipped with zero test
-coverage — `ComplianceHub.test.jsx` was never touched by the round-2 fix commit. → add a
-test asserting the checkbox is disabled and `toggleReadiness` no-ops for
-`user.read_only`/`role === "demo_viewer"`, matching `docs/engineering-standards.md`'s
-"no bug fix without a regression test" rule.
-
-Q2 (reviewer, blocking): neither round-1 finding (both BLOCKER — the `navigateNow`
-off-whitelist navigation gap, and the ComplianceHub checkbox) was logged as an `FND-###`
-row with a `manifest.yaml` entry, unlike `FND-051` (an incidentally-discovered bug in the
-same original commit, which did get the full treatment). Reviewer's precedent citation
-(`FND-004`, `FND-007` register frontend component tests as pins) confirms this is the
-established, expected pattern — not a new bar. → file FND-053 (navigateNow guard,
-pinned by `AppShell.test.jsx`, already exists from round 2 — just needs registering) and
-FND-054 (ComplianceHub read-only checkbox, pinned by the new test from Q1).
-
-Q3 (reviewer, non-blocking but tracked): `test_story_412_demo_tab_endpoint_census.py`'s
-`dashboard` endpoint list is stale — STORY-413 (landed after STORY-412 round 2) wired
-`/api/v1/audits` and `/api/v1/compliance-matrix/coverage` into `Dashboard.jsx`, exactly as
-round 2's own comment said it eventually would, but the census was never extended to match.
-Reviewer independently verified both endpoints already return 200 for a real demo token
-(no live bug), so this is a coverage gap, not an active defect. → extend the list back.
+Q1 (user, resolving FND-052's open product question — "what does Avg Score mean, wire it
+or remove it?"): "Don't want to show fake scores in demo." → **Remove the tile outright**,
+same treatment as the 8 tiles STORY-413 already removed — no invented semantics (average
+of what, over what window, was never specified and still isn't), no backend endpoint
+exists to back it, so per STORY-413's own established rule ("if the data doesn't exist,
+the tile doesn't exist") it comes out. `operator` ends up with 1 persona-specific tile
+(Scans Today) + the 2 universal live tiles (Audits (7d), Coverage %) = 3 visible tiles,
+same count `ai_auditor` already has — no new layout case, `KpiRow`'s existing 3-tile
+coverage (`KpiRow.test.jsx`) already proves this renders correctly.
 
 ## Plan
-1. `frontend/src/pages/ComplianceHub.test.jsx` — add a test rendering with
-   `user={{role:"demo_viewer", read_only:true}}`, asserting the readiness checkbox is
-   `disabled` and no PUT fires on click.
-2. `quality/findings.md` + `tests/regression/manifest.yaml` — add FND-053
-   (`AppShell.test.jsx` pin, already exists) and FND-054 (new `ComplianceHub.test.jsx`
-   case from step 1), both `status: pinned`.
-3. `tests/regression/test_story_412_demo_tab_endpoint_census.py` — add
-   `/api/v1/audits?limit=200` and `/api/v1/compliance-matrix/coverage` back to the
-   `dashboard` tab's endpoint list (STORY-413 now wires both).
-4. Full gate suite; re-dispatch reviewer for round 4 (final).
+1. `frontend/src/pages/Dashboard.jsx` — delete the "Avg Score" tile object from
+   `PERSONA_KPIS.operator`.
+2. `frontend/src/pages/Dashboard.test.jsx` — add a regression assertion: operator
+   persona never renders "Avg Score" (mirrors STORY-413's AC-1 pattern for the other 8).
+3. `quality/findings.md` + `tests/regression/manifest.yaml` — flip FND-052 from
+   `open`/`verify-pinned` (no test) to `status: pinned`, pointing at the new test.
+4. Full gate suite; independent reviewer dispatch (small diff, no auth/routers/rule_packs
+   touched — security-auditor not required per CLAUDE.md's trigger).
+5. New PR (prior branch was merged; per CLAUDE.md, follow-up work restarts the branch
+   from latest main and gets its own PR).
 
 ## Deviations
 None yet.

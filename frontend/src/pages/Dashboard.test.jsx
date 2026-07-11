@@ -123,6 +123,12 @@ describe("Dashboard — STORY-413: no placeholder KPI tiles", () => {
     expect(screen.getByText("Coverage %")).toBeTruthy();
   });
 
+  it("FND-052: operator persona never renders the fake 'Avg Score' tile", async () => {
+    render(<Dashboard token="t" user={{ persona_role: "operator" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Scans Today")).toBeTruthy());
+    expect(screen.queryByText("Avg Score")).toBeNull();
+  });
+
   it("AC-3: a failed Coverage % fetch renders an explicit Unavailable state, never a stale/default number", async () => {
     vi.stubGlobal("fetch", vi.fn((url) => {
       if (String(url).includes("/compliance-matrix/coverage")) {
