@@ -17,7 +17,13 @@ jobs:
     name: Generate isolation evidence
     runs-on: ubuntu-latest
     steps:
+      # Check out over SSH using the dedicated write deploy key so the evidence
+      # commit can be pushed to protected `main`. The ruleset "main branch
+      # protection" grants a DeployKey bypass; the default GITHUB_TOKEN cannot
+      # push to main (and can't be bypassed on a user-owned repo).
       - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.EVIDENCE_DEPLOY_KEY }}
 
       - uses: actions/setup-python@v5
         with:
@@ -52,7 +58,8 @@ jobs:
             echo "No evidence change to commit."
           else
             git commit -m "chore(security): refresh weekly tenant-isolation evidence [skip ci]"
-            git push
+            # Pushes to protected main via the SSH deploy key (ruleset DeployKey bypass).
+            git push origin HEAD:main
           fi
 
       - name: Fail workflow if isolation regressed
