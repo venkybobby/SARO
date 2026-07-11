@@ -232,3 +232,23 @@ findings:
     test: tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py
     status: pinned
     quarantine_expires: null
+  - id: FND-051
+    title: "GET /api/v1/evf/qco/expiry-alerts shadowed by evf_sprint2's generic /qco/{qco_id} route (found building STORY-412)"
+    test: tests/regression/test_fnd_051_evf_qco_expiry_alerts_route_shadowed.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-052
+    title: "Dashboard operator persona's 'Avg Score' KPI tile is a hardcoded fake value (41) with no placeholder flag and no backing endpoint (found building STORY-413)"
+    test: tests/regression/test_fnd_052_dashboard_avg_score_fake_tile.py
+    status: open
+    quarantine_expires: null
+  - id: FND-053
+    title: "AppShell.navigateNow followed off-DEMO_TABS-whitelist navigation for demo sessions (e.g. TraceView's 'How SARO Reasons' link reached a 403'ing Trust Center page) — STORY-412 reviewer round 1 BLOCKER"
+    test: frontend/src/components/AppShell.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-054
+    title: "ComplianceHub's readiness checklist checkbox rendered enabled for a read-only (demo) session; clicking it 403'd and blanked the whole card — STORY-412 reviewer round 1 BLOCKER"
+    test: frontend/src/pages/ComplianceHub.test.jsx
+    status: pinned
+    quarantine_expires: null

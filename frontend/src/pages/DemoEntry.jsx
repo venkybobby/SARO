@@ -1,21 +1,18 @@
 /**
- * S-205B: Demo entry point — auto-fetches the public demo JWT and renders Dashboard.
+ * S-205B: Demo entry point — auto-fetches the public demo JWT and renders the
+ * full AppShell (Sidebar + page router), so the demo session gets real,
+ * clickable navigation instead of a static page. Sidebar trims the nav to
+ * DEMO_TABS for any `role === "demo_viewer"` user (STORY-412).
  * Token is held in React state only (not localStorage); sessionStorage only for tenantId.
  * CRITICAL: Never store the demo JWT in localStorage.
  */
 import React, { useEffect, useState } from "react";
-import Dashboard from "./Dashboard";
+import AppShell from "../components/AppShell.jsx";
+import { ToastContainer } from "../components/ui/index.jsx";
+import { useToast } from "../hooks/useToast.js";
+import { parseJwt } from "../utils/jwt.js";
 
 const SARO_API_URL = process.env.REACT_APP_SARO_API_URL || "";
-
-function parseJwtPayload(token) {
-  try {
-    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(b64));
-  } catch {
-    return {};
-  }
-}
 
 async function fetchDemoToken() {
   const r = await fetch(`${SARO_API_URL}/api/v1/demo/token`);
@@ -24,8 +21,10 @@ async function fetchDemoToken() {
 }
 
 export default function DemoEntry() {
+  const { toasts, dismiss, toast } = useToast();
   const [token,    setToken]    = useState(null);
   const [tenantId, setTenantId] = useState(null);
+  const [user,     setUser]     = useState(null);
   const [error,    setError]    = useState(null);
   const [attempt,  setAttempt]  = useState(0);
 
@@ -36,10 +35,21 @@ export default function DemoEntry() {
       .then((data) => {
         if (cancelled) return;
         const jwt = data.access_token;
-        const payload = parseJwtPayload(jwt);
+        const payload = parseJwt(jwt);
         const tid = payload.tenant_id || payload.sub;
         setToken(jwt);
         setTenantId(tid);
+        setUser({
+          id: tid,
+          tenant_id: tid,
+          role: payload.role || "demo_viewer",
+          // STORY-412: falls back to compliance_lead if the token predates the
+          // persona_role claim — Sidebar's DEMO_TABS filter is keyed off role,
+          // not persona, so this only affects display/label, never access.
+          persona_role: payload.persona_role || "compliance_lead",
+          read_only: payload.read_only ?? true,
+          email: "demo@saro.io",
+        });
         if (tid) sessionStorage.setItem("saro_demo_tenant_id", tid);
       })
       .catch((e) => {
@@ -48,8 +58,19 @@ export default function DemoEntry() {
     return () => { cancelled = true; };
   }, [attempt]);
 
-  if (token && tenantId) {
-    return <Dashboard token={token} tenantId={tenantId} isDemo />;
+  if (token && tenantId && user) {
+    return (
+      <>
+        <AppShell
+          token={token}
+          user={user}
+          onSignOut={() => window.location.reload()}
+          onUserUpdate={setUser}
+          toast={toast}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismiss} />
+      </>
+    );
   }
 
   return (

@@ -3,12 +3,16 @@
  * Dashboard because the page key was never registered in PAGE_COMPONENTS,
  * and RiskDetail's riskId prop was never wired from the nav payload.
  * RiskRegister's View button and AI Insights' Apply flow both depend on it.
+ *
+ * STORY-412: PAGE_COMPONENTS/the page-routing wiring moved from App.jsx into
+ * components/AppShell.jsx (so DemoEntry.jsx can reuse the same shell without
+ * a circular import back into App.jsx) — this test now reads that file.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 
-const SOURCE = readFileSync(path.resolve(__dirname, "./App.jsx"), "utf-8");
+const SOURCE = readFileSync(path.resolve(__dirname, "./components/AppShell.jsx"), "utf-8");
 
 describe("FND-007 — risk_detail page registration", () => {
   it("registers risk_detail in PAGE_COMPONENTS", () => {

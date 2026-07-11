@@ -41,13 +41,18 @@ Run `/saro:compliance-check` on the demo script. Verify:
 
 ## Step 4 — Technical Readiness
 
-- [ ] Latest Koyeb build is healthy — health endpoint returns `{"version": "8.0.0", "status": "healthy"}`
-- [ ] Demo dataset loaded (real fixture data — not mocked)
-- [ ] All four verticals functional: Finance, Healthcare, Technology, Government
-- [ ] Drift Sentinel: can trigger a demo drift event cleanly
-- [ ] TRACE view: renders SHAP scores correctly for Finance vertical
-- [ ] Report generation: Claude API producing compliance report prose
-- [ ] Performance: TRACE p95 < 500ms (run a quick Locust spot check)
+> **SUPERSEDED by [RB-006](RB-006-live-demo-verification.md).** This section referenced Koyeb,
+> Neon, SHAP, and Claude-generated report prose — all stale or contradicting current invariants
+> (stack is frozen on Fly.io + Supabase per PT-012; SARO's core scoring never calls external AI
+> models). Run RB-006 instead. Left here only for history; do not follow the checklist below.
+
+- [ ] ~~Latest Koyeb build is healthy — health endpoint returns `{"version": "8.0.0", "status": "healthy"}`~~
+- [ ] ~~Demo dataset loaded (real fixture data — not mocked)~~
+- [ ] ~~All four verticals functional: Finance, Healthcare, Technology, Government~~
+- [ ] ~~Drift Sentinel: can trigger a demo drift event cleanly~~
+- [ ] ~~TRACE view: renders SHAP scores correctly for Finance vertical~~
+- [ ] ~~Report generation: Claude API producing compliance report prose~~
+- [ ] ~~Performance: TRACE p95 < 500ms (run a quick Locust spot check)~~
 
 ---
 

@@ -349,7 +349,7 @@ function ComplianceCalendar({ token }) {
   );
 }
 
-export default function ComplianceHub({ token, tenantId, onNavigate }) {
+export default function ComplianceHub({ token, tenantId, user, onNavigate }) {
   // CHUB-008: each section tracks its own status so loading / error / empty /
   // success are mutually exclusive and individually retryable.
   const [coverage, setCoverage] = useState(null);
@@ -410,8 +410,12 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
   const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
 
   // CHUB-004: persist a manual item toggle; derived (read-only) items are ignored.
+  // STORY-412: a read-only session (e.g. the public demo token) can't write regardless
+  // of item.editable — services/readiness_service.py has no read_only/role awareness,
+  // so this guard has to live client-side. Mirrored by the checkbox's disabled state
+  // below; kept here too as defense in depth for any other caller of toggleReadiness.
   function toggleReadiness(item) {
-    if (!item.editable) return;
+    if (!item.editable || user?.read_only) return;
     const next = !item.completed;
     fetch(`/api/v1/compliance/readiness/${item.key}`, {
       method: "PUT",
@@ -645,12 +649,12 @@ export default function ComplianceHub({ token, tenantId, onNavigate }) {
                     <label
                       key={item.key}
                       title={item.source || undefined}
-                      style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable ? "pointer" : "default" }}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10, cursor: item.editable && !user?.read_only ? "pointer" : "default" }}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={!item.editable || unknown}
+                        disabled={!item.editable || unknown || !!user?.read_only}
                         onChange={() => toggleReadiness(item)}
                         style={{ marginTop: 2, accentColor: "var(--color-info)" }}
                       />

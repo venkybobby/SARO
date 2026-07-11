@@ -437,8 +437,13 @@ app.include_router(hf_processor_router)
 app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)
 app.include_router(evf_router)
-app.include_router(evf_sprint2_router)
+# FND-051: evf_sprint3's static "/qco/expiry-alerts" must be registered before
+# evf_sprint2's "/qco/{qco_id}" — both share the /api/v1/evf prefix, and
+# FastAPI matches routes in registration order, so the generic path-param
+# route was shadowing the static one (expiry-alerts was parsed as a qco_id
+# and 422'd on every call).
 app.include_router(evf_sprint3_router)
+app.include_router(evf_sprint2_router)
 app.include_router(readiness_router)
 app.include_router(evaluations_router)
 app.include_router(systems_router)

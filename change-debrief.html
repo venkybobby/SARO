@@ -1,192 +1,120 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STORY-411 — Model-Allowlist Envelope Rule — Change Debrief</title>
+<title>STORY-413 change debrief</title>
 <style>
-  :root { --ink:#1a1d23; --sub:#5b6270; --line:#e4e7ec; --bg:#fafbfc; --accent:#3d5afe;
-          --good:#1a7f4e; --warn:#b45309; --pill:#eef1f6; }
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink);
-         background: var(--bg); line-height: 1.55; max-width: 960px; margin: 0 auto; padding: 40px 24px 100px; }
-  h1 { font-size: 1.7rem; margin-bottom: 4px; }
-  h2 { font-size: 1.2rem; margin-top: 48px; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
-  h3 { font-size: 1.02rem; margin-top: 28px; }
-  .sub { color: var(--sub); margin-top: 0; }
-  .pill { display:inline-block; background: var(--pill); border-radius: 999px; padding: 2px 10px;
-          font-size: 0.78rem; color: var(--sub); margin-right: 6px; }
-  code, pre { font-family: "SF Mono", Consolas, monospace; font-size: 0.86rem; }
-  code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; }
-  pre { background: #12141a; color: #d6deeb; padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 0.9rem; vertical-align: top; }
-  th { color: var(--sub); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .03em; }
-  .file { font-family: "SF Mono", Consolas, monospace; font-size: 0.85rem; }
-  .tag-new { color: var(--good); font-weight: 600; }
-  .tag-mod { color: var(--accent); font-weight: 600; }
-  .callout { border-left: 3px solid var(--accent); background: #eef1ff; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
-  .callout.warn { border-color: var(--warn); background: #fff6ea; }
-  .callout.good { border-color: var(--good); background: #ecfaf2; }
-  .deviation { border-left: 3px solid var(--warn); background: #fff6ea; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 10px 0; }
-  .risk-table td:nth-child(2) { font-weight: 600; }
-  .quiz { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 4px 20px 18px; margin-top: 14px; }
-  .q { border-bottom: 1px solid var(--line); padding: 16px 0; }
-  .q:last-child { border-bottom: none; }
-  .q p.question { font-weight: 600; margin-bottom: 8px; }
-  .reveal { cursor: pointer; color: var(--accent); font-size: 0.88rem; user-select: none; }
-  .answer { display: none; margin-top: 8px; padding: 10px 14px; background: #f4f6fb; border-radius: 6px; font-size: 0.9rem; }
-  .answer.show { display: block; }
-  svg { max-width: 100%; height: auto; }
-  .legend { font-size: 0.78rem; color: var(--sub); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
+  h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 40px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
+  code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 14px 0; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+  .tag.new { background: #dcfce7; color: #166534; } .tag.mod { background: #fef3c7; color: #92400e; }
+  .tag.finding { background: #fee2e2; color: #991b1b; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th { background: #f1f5f9; }
+  .quiz-q { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin: 10px 0; cursor: pointer; }
+  .quiz-a { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155; }
+  .quiz-q.open .quiz-a { display: block; }
+  svg text { font-family: -apple-system, sans-serif; }
 </style>
-</head>
-<body>
 
-<h1>STORY-411 — Model-Allowlist Envelope Rule</h1>
-<p class="sub">Fires UC-5 — SARO's engine can now see the log envelope, not just prompt/output text &nbsp;·&nbsp; branch <code>story/STORY-411</code> &nbsp;·&nbsp; base <code>origin/main</code></p>
-<span class="pill">14 files changed</span><span class="pill">STORY-336 guard: green (rule_packs/ now scanned)</span><span class="pill">security-auditor: PASS (2 low/info, fixed)</span><span class="pill">reviewer: 1 round, FND-050 + 3 minors fixed</span><span class="pill">FND-050 pinned</span>
+<h1>STORY-413 — Dashboard placeholder KPIs: real, hidden, or honestly impossible</h1>
+<p><em>Ownership review demo-readiness pack — P0 blocker #3. Pairs with STORY-412.</em></p>
 
-<h2>Why this exists</h2>
-<p>UC-5 in the demo corpus (an off-allowlist Bedrock <code>modelId</code>) was planted since STORY-407 but never fired — SARO's content engine (Gate 3) only ever reads <code>prompt</code>+<code>raw_output</code> text, never the log envelope. "An unapproved model served production traffic" is one of the most visceral governance findings for a healthcare risk officer, and SARO was structurally blind to it. This story gives the engine one narrow new capability: evaluate an envelope attribute (<code>modelId</code>) against a versioned allowlist rule.</p>
-<div class="callout">
-<strong>The actual root-cause gap wasn't in the engine's capabilities — it was one dropped kwarg.</strong> <code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> had received <code>metadata</code> (which already carried <code>modelId</code>/<code>requestId</code>, built by the STORY-406 adapter) as a parameter since STORY-406 shipped — but silently never forwarded it into <code>engine_obj.run_output_audit(...)</code>. Everything upstream already carried the data the engine needed; the engine just never received it. Fixing that one line, plus giving the engine somewhere to route it, is the whole story. Logged as <strong>FND-050</strong> since it's a genuine bug fix, not just new feature wiring.
+<h2>Context — why this exists</h2>
+<div class="card">
+<p>The Dashboard is the demo's opening frame, and the AI Auditor is the deal-killer persona. 8 KPI tiles across the 4
+personas (<code>Controls Overdue</code>, <code>Readiness %</code>, <code>Drift Alerts</code>, <code>Rule Pack Version</code>,
+<code>Coverage Gap %</code>, <code>Failed Scans</code>, <code>Queue Depth</code>, <code>Due This Week</code>) were hardcoded
+literals captioned "sample — not yet wired to live data." A fabricated compliance number with a fine-print disclaimer is
+exactly the overclaiming pattern ADR-004 exists to forbid — and it was already flagged and returned in a prior screen
+review, which is why this story's AC-4 exists: fence it so it can't regenerate.</p>
 </div>
 
-<h2>Intuition — how the pieces fit</h2>
-<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,sans-serif">
-  <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#3d5afe"/>
-    </marker>
-  </defs>
-  <g font-size="12" fill="#1a1d23">
-    <rect x="10" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="110" y="45" text-anchor="middle" font-weight="600">build_audit_submission()</text>
-    <text x="110" y="60" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING — already builds metadata</text>
-    <text x="110" y="73" text-anchor="middle" font-size="10" fill="#5b6270">{modelId, requestId, ...}</text>
+<h2>Intuition</h2>
+<div class="card">
+<svg viewBox="0 0 860 190" width="100%" height="190">
+  <text x="20" y="20" font-size="13" font-weight="700" fill="#991b1b">BEFORE — every persona</text>
+  <rect x="20" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="185" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="260" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="260" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
+  <rect x="350" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="425" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="515" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="590" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="590" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
 
-    <rect x="10" y="150" width="200" height="70" rx="8" fill="#fff6ea" stroke="#b45309"/>
-    <text x="110" y="175" text-anchor="middle" font-weight="600">submit_audit_sync()</text>
-    <text x="110" y="191" text-anchor="middle" font-size="10" fill="#5b6270">FND-050 fix: forward metadata</text>
-    <text x="110" y="205" text-anchor="middle" font-size="10" fill="#5b6270">(was silently dropped)</text>
-
-    <rect x="260" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="360" y="175" text-anchor="middle" font-weight="600">run_output_audit(metadata=)</text>
-    <text x="360" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW optional param</text>
-    <text x="360" y="205" text-anchor="middle" font-size="10" fill="#5b6270">backward-compatible no-op if absent</text>
-
-    <rect x="510" y="150" width="200" height="70" rx="8" fill="#ecfaf2" stroke="#1a7f4e"/>
-    <text x="610" y="175" text-anchor="middle" font-weight="600">_evaluate_envelope_allowlist()</text>
-    <text x="610" y="191" text-anchor="middle" font-size="10" fill="#5b6270">NEW · reads envelope ONLY</text>
-    <text x="610" y="205" text-anchor="middle" font-size="10" fill="#5b6270">never a body (INV-2)</text>
-
-    <rect x="510" y="20" width="200" height="60" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="610" y="45" text-anchor="middle" font-weight="600">envelope_loader.py</text>
-    <text x="610" y="60" text-anchor="middle" font-size="10" fill="#5b6270">NEW · versioned allowlist pack</text>
-    <text x="610" y="73" text-anchor="middle" font-size="10" fill="#5b6270">exact-then-prefix modelId match</text>
-
-    <rect x="760" y="150" width="130" height="70" rx="8" fill="#eef1ff" stroke="#3d5afe"/>
-    <text x="825" y="175" text-anchor="middle" font-weight="600">flags list</text>
-    <text x="825" y="191" text-anchor="middle" font-size="10" fill="#5b6270">EXISTING machinery</text>
-    <text x="825" y="205" text-anchor="middle" font-size="10" fill="#5b6270">trace/score/coverage</text>
-
-    <line x1="110" y1="80" x2="110" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="210" y1="185" x2="258" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="460" y1="185" x2="508" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="610" y1="80" x2="610" y2="148" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-    <line x1="710" y1="185" x2="758" y2="185" stroke="#3d5afe" stroke-width="2" marker-end="url(#arrow)"/>
-
-    <text x="450" y="250" text-anchor="middle" font-size="10" fill="#5b6270">The envelope finding joins the SAME flags list a content finding would — no special-casing downstream (TRACE View parity, AC-2.2).</text>
-  </g>
+  <text x="20" y="120" font-size="13" font-weight="700" fill="#166534">AFTER — every persona</text>
+  <rect x="20" y="135" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="160" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
+  <rect x="185" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="260" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Audits (7d)</text><text x="260" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
+  <rect x="350" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="425" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Coverage %</text><text x="425" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
+  <text x="530" y="160" font-size="11" fill="#64748b">(fake tile simply gone —</text>
+  <text x="530" y="173" font-size="9" fill="#64748b">no data, no tile)</text>
 </svg>
-<p class="legend">Orange = a genuine bug fix (FND-050). Blue = existing code, untouched. Green = new this story.</p>
+<p style="margin-top:10px">Mental model: a tile now has exactly three states — a real measurement, a loading skeleton, or an
+explicit "Unavailable." There is no fourth state where a number renders with nothing real behind it.</p>
+</div>
 
 <h2>File-by-file</h2>
 <table>
-  <tr><th>File</th><th>Status</th><th>What / why</th></tr>
-  <tr><td class="file">rule_packs/envelope_loader.py</td><td class="tag-new">NEW</td>
-      <td>Small dedicated loader — distinct from <code>rule_packs/loader.py</code> (a compliance-citation mapper with no field for a model-ID list). Exact-then-prefix <code>modelId</code> matching, separate SHA-256 hash so no other audit's existing hash-chain evidence changes meaning.</td></tr>
-  <tr><td class="file">rule_packs/envelope/1.0.0/envelope_allowlist.yaml</td><td class="tag-new">NEW</td>
-      <td>The versioned rule: <code>allowed_model_ids</code> sourced from <code>scripts/demo_manifest.yaml</code>'s existing list (STORY-407 had already anticipated this rule).</td></tr>
-  <tr><td class="file">engine.py</td><td class="tag-mod">MODIFIED</td>
-      <td>New <code>"Governance & Compliance"</code> MIT domain (fed exclusively by the envelope check, never content scanning). New <code>_evaluate_envelope_allowlist()</code>, hooked in right after Gate-3 classification so the finding flows through existing trace/scoring/coverage machinery. <code>_SampleFlag.detail</code> (optional) carries observed modelId/rule_id/rule-pack version/requestId into <code>AuditTrace.detail_json</code>. <code>run_output_audit</code> gained an optional <code>metadata</code> param (backward-compatible). <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> caps stored envelope fields (security-auditor LOW fix).</td></tr>
-  <tr><td class="file">services/audit_submission.py</td><td class="tag-mod">MODIFIED</td>
-      <td><strong>FND-050 fix</strong> — one line: forward <code>metadata=metadata</code> into <code>run_output_audit(...)</code> instead of silently dropping it.</td></tr>
-  <tr><td class="file">grc/guards/external_model.py</td><td class="tag-mod">MODIFIED</td>
-      <td>Added <code>"rule_packs"</code> to the STORY-336 guard's scanned package dirs — the new loader is now provably free of external-model calls, matching STORY-407's precedent for <code>adapters/</code>.</td></tr>
-  <tr><td class="file">tests/test_envelope_loader.py, tests/test_engine_envelope_allowlist.py</td><td class="tag-new">NEW</td>
-      <td>13 tests: exact/prefix matching, malformed-pack error, hash determinism, exactly-one-finding, no-finding-when-allowlisted, backward-compat no-op, determinism/byte-stability, detail-field completeness, ADR-004 language, oversized-field truncation.</td></tr>
-  <tr><td class="file">tests/regression/test_fnd_050_submit_audit_sync_forwards_metadata.py</td><td class="tag-new">NEW</td>
-      <td>Pins the FND-050 fix independent of the envelope feature — a fake engine capturing kwargs, asserting <code>metadata</code> is forwarded.</td></tr>
-  <tr><td class="file">tests/test_story407_demo_corpus_builder.py</td><td class="tag-mod">MODIFIED</td>
-      <td>E2E's custom submit callback now threads <code>metadata=submission.metadata</code>; fired-UC assertion updated from 3 to 4 (UC-5 now fires, category "Governance &amp; Compliance").</td></tr>
-  <tr><td class="file">tests/test_new_features.py, tests/test_specs.py-adjacent (engine.py fix)</td><td class="tag-mod">MODIFIED</td>
-      <td>Two pre-existing tests broke from the taxonomy expansion (hardcoded domain count, missing LLM-judge domain definition) — fixed, not weakened.</td></tr>
-  <tr><td class="file">specs/stories/STORY-407.md</td><td class="tag-mod">MODIFIED</td>
-      <td>UC table updated: UC-5 moved from "planted only" to "fires" (AC-4.3).</td></tr>
+<tr><th>File</th><th>What changed</th></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.jsx</code></td>
+<td><code>PERSONA_KPIS</code>: all 8 <code>placeholder: true</code> tiles removed outright (not hidden — removed from the
+data). Two new hooks, <code>useAuditsLast7d</code> (fetches <code>/api/v1/audits?limit=200</code>, counts client-side
+within a 7-day window — no server-side date filter exists) and <code>useCoveragePct</code> (fetches
+<code>/api/v1/compliance-matrix/coverage</code>), appended as two live tiles for <strong>every</strong> persona.
+<code>deriveKpis</code>' hardcoded array indices updated to match the shorter arrays. The KPI grid extracted into a
+standalone, exported <code>KpiRow</code> component for isolated layout testing.</td></tr>
+<tr><td><span class="tag new">NEW</span><code>scripts/check_no_placeholder_kpi_tiles.py</code> +
+<code>tests/test_story413_no_placeholder_kpi_tiles.py</code></td>
+<td>AC-4's fence: a pure-Python regex scan of <code>Dashboard.jsx</code> for <code>placeholder: true</code> or the stale
+caption string, wired into <code>quality-gates.yml</code> (mirrors <code>check_citations.py</code>'s established
+pattern — the CI job has no Node/npm setup, so this has to be a Python-side check of the <code>.jsx</code> source).</td></tr>
+<tr><td><span class="tag new">NEW</span><code>frontend/src/pages/KpiRow.test.jsx</code></td>
+<td>AC-5: renders <code>KpiRow</code> directly with synthetic 2/3/4-item arrays — no dependency on which persona happens
+to produce which tile count.</td></tr>
+<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.test.jsx</code></td>
+<td>New STORY-413 suite: AC-1 (no placeholder tiles/caption render or exist in source), AC-2 (Audits/Coverage render live
+values for demo <em>and</em> operator personas), AC-3 (a failed fetch on either tile renders "Unavailable," never zero
+or a stale number).</td></tr>
+<tr><td><span class="tag finding">FND-052</span><code>quality/findings.md</code>,
+<code>tests/regression/manifest.yaml</code></td>
+<td>Logged, not fixed: <code>operator</code>'s "Avg Score" tile (value <code>41</code>) is <em>also</em> fake but was
+never flagged with <code>placeholder: true</code> and isn't in this story's named list of 8. Its correct semantics
+(average of what, over what window) is a product question, not a mechanical one — filed as <code>status: open</code>
+rather than guessed at silently.</td></tr>
 </table>
 
-<h2>Deviations from a literal reading of the story</h2>
-<div class="deviation">
-<strong>Taxonomy expansion had ripple effects beyond engine.py.</strong> Adding <code>"Governance & Compliance"</code> to <code>MIT_DOMAINS</code> broke a hardcoded <code>len(gate3_traces) == 7</code> assertion and a domain-definitions completeness check — both legitimate consequences of the owner's Q1 choice (a new taxonomy category, not reuse of "AI System Safety"), not implementation bugs. Fixed, not silenced. <code>docs/metrics/detection-baseline.md</code> auto-regenerated with a correct <code>n/a</code> row for the new envelope-only domain.
-</div>
-<div class="deviation">
-<strong>reviewer round 1 (REQUEST CHANGES) — blocker: the fix shipped without its own regression test.</strong> The <code>submit_audit_sync</code> metadata-drop is a genuine bug fix (not just feature wiring), and the repo's own standard requires a pinning test for every bug fix. Fixed: filed an FND with a dedicated test independent of the envelope feature, so a future refactor of that call site can't silently drop <code>metadata</code> again undetected. <strong>Renumbering at merge:</strong> originally filed as FND-048; STORY-410 (a parallel branch off the same main baseline) independently claimed FND-048/049 for unrelated findings and merged first (PR #114) — resolved at rebase by renumbering to <strong>FND-050</strong>.
-</div>
-<div class="deviation">
-<strong>security-auditor LOW: unbounded envelope-field length.</strong> <code>modelId</code>/<code>requestId</code> flowed into <code>AuditTrace.detail_json</code> with no cap, unlike prompt/output body text. Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS = 256</code>, applied before storage.
-</div>
-
-<h2>What was deliberately NOT done</h2>
+<h2>Deliberately NOT done</h2>
+<div class="card">
 <ul>
-<li>No general-purpose envelope rule DSL — one rule type, exact-then-prefix matching, per the story's own Non-Goals ("resist generalizing").</li>
-<li>No UC-3/UC-4 rules (disclaimer, prompt-injection) — separately tracked Wave-2, owner decision stands.</li>
-<li>No per-tenant allowlist table — the allowlist lives in the global versioned rule pack, matching FR-2's explicit design directive and every other rule type's existing convention (owner-confirmed).</li>
-<li>No UI for editing allowlists — configuration only, per Non-Goals.</li>
-<li>No tenant-isolation regression test for the envelope path — accepted (security-auditor INFO): it reuses the existing tenant-scoped <code>AuditTrace</code> query surface, no new query path introduced.</li>
+<li>Did not build backend endpoints for Controls Overdue, Drift Alerts, Queue Depth, Readiness %, Failed Scans, or Due
+This Week — explicit out-of-scope; if the data doesn't exist, the tile doesn't exist.</li>
+<li>Did not fix FND-052 (Avg Score) — logged as a new finding pending a product decision, not silently patched with a
+guessed semantic.</li>
+<li>Did not touch LiveFeed, EngineScores, or RegCoverage — audited for the same pattern per AC-4's spirit, none found;
+confirmed clean, no changes needed.</li>
 </ul>
+</div>
 
 <h2>Risk map</h2>
-<table class="risk-table">
-  <tr><th>Risk</th><th>Covered by</th></tr>
-  <tr><td>Adding a new MIT domain silently breaks something else that assumes exactly 7 domains</td><td>reviewer independently grepped every <code>MIT_DOMAINS</code>/<code>_RISK_SIGNALS</code>/<code>_COMPLIANCE_TRIGGERS</code>/<code>_REMEDIATIONS</code> usage repo-wide and confirmed the two breakages found (and fixed) were the only ones; full 1663-test suite passes</td></tr>
-  <tr><td><code>run_output_audit</code>'s new <code>metadata</code> param breaks an existing caller</td><td>Optional, defaults to <code>None</code> — reviewer verified every existing call site (<code>routers/scan.py</code>, <code>routers/ingest.py</code>, the STORY-406/COV-002 test stub engines) never passes it, so behavior is unchanged for them</td></tr>
-  <tr><td>Envelope finding doesn't get TRACE View drill-down parity with content findings (AC-2.2)</td><td>Flows through the exact same <code>_record_gate3_domain_traces</code> mechanism as a content finding — no new check_type, no frontend changes needed; pinned by <code>test_finding_records_model_id_rule_id_version_and_request_id</code></td></tr>
-  <tr><td>Finding language overclaims intent (ADR-004)</td><td>Verbatim story-specified title "Model not on approved allowlist for this tenant"; pinned by <code>test_finding_language_is_observable_only_adr_004</code>; reviewer independently confirmed no forbidden phrasing</td></tr>
-  <tr><td><strong>Oversized/adversarial modelId or requestId bloats stored evidence</strong> (security-auditor LOW)</td><td>Fixed: <code>_MAX_ENVELOPE_FIELD_CHARS=256</code> cap; pinned by <code>test_oversized_model_id_and_request_id_are_truncated_before_storage</code></td></tr>
-  <tr><td><strong>The actual root-cause bug (metadata silently dropped) ships without a regression test</strong> (reviewer blocker)</td><td>Fixed: FND-050 + dedicated pinning test independent of the envelope feature</td></tr>
-  <tr><td>Guard regression — new rule_packs code reaches a hosted-model endpoint</td><td><code>rule_packs</code> added to STORY-336's scanned dirs; guard green; bandit clean on all touched files, baseline unchanged repo-wide</td></tr>
+<table>
+<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
+<tr><td>A placeholder tile regenerates in a future PR</td><td><code>scripts/check_no_placeholder_kpi_tiles.py</code>, wired into CI (<code>quality-gates.yml</code>), plus its own red/green self-test</td></tr>
+<tr><td>Audits (7d) / Coverage % show a fabricated number instead of "Unavailable" on fetch failure</td><td><code>Dashboard.test.jsx</code> AC-3 cases stub a 500 response for each endpoint independently</td></tr>
+<tr><td>deriveKpis' hardcoded array indices silently point at the wrong tile after the array shrank</td><td>Full 196-test frontend suite green, including every existing persona-specific KPI assertion (FND-021/022/023) unchanged</td></tr>
+<tr><td>KPI row layout breaks at some tile count</td><td><code>KpiRow.test.jsx</code> — direct synthetic 2/3/4-item renders</td></tr>
+<tr><td>A second unflagged fake tile (Avg Score) ships unnoticed</td><td>Found and logged as FND-052 rather than missed; not silently left undocumented</td></tr>
 </table>
 
-<h2>Independent review outcomes</h2>
-<p><strong>security-auditor:</strong> PASS. Confirmed <code>yaml.safe_load</code> (no deserialization risk), no SQL/XSS injection surface, INV-2 preserved (metadata never contains prompt/output body text), no secrets in the diff. 1 LOW (unbounded field length, fixed) + 1 INFO (tenant-isolation test gap, accepted) — neither blocking.</p>
-<p><strong>reviewer:</strong> REQUEST CHANGES on round 1 — 1 blocker (FND-050's own regression test missing) + 3 minors (stale "7 domains" docstring, misleading glob-style YAML comment, a scope note on the sibling spec files). All four fixed; reviewer separately confirmed the envelope-evaluation ordering, exact-then-prefix matching, and backward-compatibility of the new <code>metadata</code> parameter by reading and running the code directly, not just trusting the notes.</p>
-
-<h2>Understanding check</h2>
-<div class="quiz" id="quiz">
-  <div class="q"><p class="question">1. What was the ACTUAL root cause of UC-5 never firing, and why did fixing that one line matter more than the new engine capability?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer"><code>services/audit_submission.py</code>'s <code>submit_audit_sync</code> already received <code>metadata</code> (with <code>modelId</code>/<code>requestId</code> built by the STORY-406 adapter) as a parameter — it just never forwarded it into <code>engine_obj.run_output_audit(...)</code>. The engine could never see envelope data no matter how sophisticated its evaluation logic was, because the data never reached it. Fixing that one dropped kwarg (FND-050) is what actually closes the gap; the new <code>_evaluate_envelope_allowlist</code> logic is meaningless without it.</div></div>
-  <div class="q"><p class="question">2. Why does the new "Governance & Compliance" domain never get a `_RISK_SIGNALS` entry?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">It's fed exclusively by envelope evaluation (modelId against an allowlist), never by keyword/regex text scanning. Giving it a `_RISK_SIGNALS` entry would mean ordinary prompt/output text could accidentally trip a "governance" finding, which isn't the intent — this domain represents a structural/configuration violation, not a content risk.</div></div>
-  <div class="q"><p class="question">3. Why does `_evaluate_envelope_allowlist`'s result get appended to the SAME `flags` list Gate 3's content scan produces, instead of being recorded through a separate mechanism?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">AC-2.2 requires "TRACE View drill-down parity with content findings" — by joining the same list before <code>_record_gate3_domain_traces</code>/Gate 4/scoring consume it, the envelope finding automatically gets the same AuditTrace shape, the same compliance-mapping attempt, and the same Bayesian/coverage scoring treatment as any content finding, with zero new code in any of those downstream functions.</div></div>
-  <div class="q"><p class="question">4. What would happen if an operator's Bedrock log record had a 10KB `modelId` string (malformed or adversarial)?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Before the security-auditor's fix, it would have been stored verbatim in `AuditTrace.detail_json` — a storage/response-payload bloat risk (not SQL injection or XSS, since the value is ORM-parameterized and React auto-escapes on render). Now `_MAX_ENVELOPE_FIELD_CHARS=256` truncates it before storage, matching the existing `MAX_INLINE_BODY_CHARS` precedent for body text.</div></div>
-  <div class="q"><p class="question">5. Why did adding one new MIT domain break two unrelated tests, and was that a bug in this story's implementation?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Not a bug — a legitimate consequence of the owner's choice (Q1: add a new taxonomy category rather than reuse "AI System Safety"). One test hardcoded "7 domains" as a trace-count assertion; another required every `MIT_DOMAINS` entry to have a `_MIT_DOMAIN_DEFINITIONS` entry (used by the Gate-3 LLM judge prompt). Both were fixed to reflect the new, correct reality (8 domains) rather than weakened or skipped.</div></div>
-  <div class="q"><p class="question">6. Two parallel branches (STORY-410 and STORY-411) both created an FND-048. How was that resolved?</p>
-    <span class="reveal" onclick="toggle(this)">Reveal answer</span>
-    <div class="answer">Both branches were created from the same point on `main` (where the highest existing FND was FND-047), and each independently logged its own next-available finding as FND-048 without visibility into the other's in-flight work. STORY-410 merged first (PR #114); at rebase time, STORY-411's finding (ledger row, manifest entry, test filename) was renumbered to FND-050 so both stories' findings coexist without collision.</div></div>
+<h2>Quiz</h2>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q1. Why does "Audits (7d)" need its own fetch to /api/v1/audits instead of reusing the audit_count already returned by /api/v1/risk/summary?</strong>
+  <div class="quiz-a">audit_count is an unwindowed total (services/risk_service.py: len(audit_records), no date filter) — labeling a total "(7d)" would itself be an ADR-004 overclaim. The /api/v1/audits list endpoint has no server-side date-range param either, so the fix fetches a bounded page (limit=200, the endpoint's max) and counts client-side within a real 7-day window.</div>
 </div>
-
-<script>
-function toggle(el){ const a = el.nextElementSibling; a.classList.toggle('show'); }
-</script>
-</body>
-</html>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q2. Why was KpiRow exported instead of just tested through the full Dashboard component?</strong>
+  <div class="quiz-a">No real persona naturally produces exactly 2 visible tiles post-STORY-413 (ai_auditor=3, the rest=4), and a fetch failure changes a tile's content, not the tile count. Testing the row in isolation with synthetic arrays covers the "2 tiles" case AC-5 asks for without depending on persona-count coincidence.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q3. What would break if a future PR added a new KPI tile with placeholder: true back into PERSONA_KPIS?</strong>
+  <div class="quiz-a">CI would fail on the new "No placeholder KPI tiles on the Dashboard (STORY-413)" step — the regex scan (scripts/check_no_placeholder_kpi_tiles.py) catches the literal placeholder: true text in Dashboard.jsx before it can ship, independent of any component test remembering to check for it.</div>
+</div>
+<div class="quiz-q" onclick="this.classList.toggle('open')">
+  <strong>Q4. Why wasn't "Avg Score" (operator persona) just fixed at the same time, since it's the exact same failure mode?</strong>
+  <div class="quiz-a">Its correct meaning was never specified — average risk score per audit? per week? which window? Guessing and shipping a number would risk a different kind of overclaim (a "real-looking" number that doesn't actually mean what its label implies). Logged as FND-052 (status: open) so it's tracked and requires an explicit product decision rather than a silent implementation guess.</div>
+</div>

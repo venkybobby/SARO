@@ -7,6 +7,7 @@ import {
   ShieldAlert, Sparkles, LineChart, ChevronDown,
 } from "lucide-react";
 import { StatusDot } from "./ui/index.jsx";
+import DEMO_TABS from "../config/demoTabs.json";
 
 const PERSONA_TABS = {
   compliance_lead: [
@@ -132,7 +133,11 @@ export default function Sidebar({ user, activePage, onNavigate, onSignOut, token
   }
 
   const persona = user?.persona_role || user?.role || "operator";
-  const allowedTabIds = PERSONA_TABS[persona] || PERSONA_TABS.operator;
+  // STORY-412: a demo session (public, read-only token) always sees the fixed
+  // DEMO_TABS whitelist, regardless of persona — every entry in it is proven
+  // demo-safe by tests/regression/test_story_412_demo_tab_endpoint_census.py.
+  const isDemo = user?.role === "demo_viewer";
+  const allowedTabIds = isDemo ? DEMO_TABS : (PERSONA_TABS[persona] || PERSONA_TABS.operator);
   const seen = new Set();
   const tabs = allowedTabIds.filter((id) => {
     if (seen.has(id) || !TAB_REGISTRY[id]) return false;
