@@ -1,120 +1,39 @@
-<title>STORY-413 change debrief</title>
+<title>FND-052 change debrief</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
-  h1 { font-size: 24px; } h2 { font-size: 18px; margin-top: 40px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 820px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
+  h1 { font-size: 22px; } h2 { font-size: 17px; margin-top: 34px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
   code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
-  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px; margin: 14px 0; }
-  .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
-  .tag.new { background: #dcfce7; color: #166534; } .tag.mod { background: #fef3c7; color: #92400e; }
-  .tag.finding { background: #fee2e2; color: #991b1b; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin: 12px 0; }
   table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-  th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th, td { border: 1px solid #e2e8f0; padding: 7px 9px; text-align: left; font-size: 13.5px; vertical-align: top; }
   th { background: #f1f5f9; }
-  .quiz-q { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin: 10px 0; cursor: pointer; }
-  .quiz-a { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155; }
-  .quiz-q.open .quiz-a { display: block; }
-  svg text { font-family: -apple-system, sans-serif; }
 </style>
 
-<h1>STORY-413 — Dashboard placeholder KPIs: real, hidden, or honestly impossible</h1>
-<p><em>Ownership review demo-readiness pack — P0 blocker #3. Pairs with STORY-412.</em></p>
+<h1>FND-052 — remove operator's fake "Avg Score" KPI tile</h1>
+<p><em>Follow-up to STORY-413 (Dashboard placeholder KPIs). User directive: "Don't want to show fake scores in demo."</em></p>
 
-<h2>Context — why this exists</h2>
+<h2>Context</h2>
 <div class="card">
-<p>The Dashboard is the demo's opening frame, and the AI Auditor is the deal-killer persona. 8 KPI tiles across the 4
-personas (<code>Controls Overdue</code>, <code>Readiness %</code>, <code>Drift Alerts</code>, <code>Rule Pack Version</code>,
-<code>Coverage Gap %</code>, <code>Failed Scans</code>, <code>Queue Depth</code>, <code>Due This Week</code>) were hardcoded
-literals captioned "sample — not yet wired to live data." A fabricated compliance number with a fine-print disclaimer is
-exactly the overclaiming pattern ADR-004 exists to forbid — and it was already flagged and returned in a prior screen
-review, which is why this story's AC-4 exists: fence it so it can't regenerate.</p>
+<p>STORY-413 removed 8 named hardcoded KPI tiles from the Dashboard. During that build, a 9th fake tile was found —
+<code>operator</code> persona's "Avg Score" (hardcoded <code>41</code>) — but it had no <code>placeholder: true</code>
+flag and wasn't in the story's named list, so it was logged as FND-052 (<code>status: open</code>) rather than fixed:
+its intended semantics (average of what, over what window?) were never specified. The user has now resolved that open
+question by directive — no invented semantics, no fake number, remove it.</p>
 </div>
 
-<h2>Intuition</h2>
-<div class="card">
-<svg viewBox="0 0 860 190" width="100%" height="190">
-  <text x="20" y="20" font-size="13" font-weight="700" fill="#991b1b">BEFORE — every persona</text>
-  <rect x="20" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
-  <rect x="185" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="260" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="260" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
-  <rect x="350" y="35" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="425" y="60" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
-  <rect x="515" y="35" width="150" height="42" rx="6" fill="#fee2e2" stroke="#fca5a5"/><text x="590" y="55" font-size="11" text-anchor="middle" fill="#7f1d1d">fake tile</text><text x="590" y="68" font-size="9" text-anchor="middle" fill="#7f1d1d">"sample — not wired"</text>
-
-  <text x="20" y="120" font-size="13" font-weight="700" fill="#166534">AFTER — every persona</text>
-  <rect x="20" y="135" width="150" height="42" rx="6" fill="#dcfce7" stroke="#86efac"/><text x="95" y="160" font-size="11" text-anchor="middle" fill="#14532d">real tile</text>
-  <rect x="185" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="260" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Audits (7d)</text><text x="260" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
-  <rect x="350" y="135" width="150" height="42" rx="6" fill="#dbeafe" stroke="#93c5fd"/><text x="425" y="155" font-size="11" text-anchor="middle" fill="#1e3a8a">Coverage %</text><text x="425" y="168" font-size="9" text-anchor="middle" fill="#1e3a8a">live, or "Unavailable"</text>
-  <text x="530" y="160" font-size="11" fill="#64748b">(fake tile simply gone —</text>
-  <text x="530" y="173" font-size="9" fill="#64748b">no data, no tile)</text>
-</svg>
-<p style="margin-top:10px">Mental model: a tile now has exactly three states — a real measurement, a loading skeleton, or an
-explicit "Unavailable." There is no fourth state where a number renders with nothing real behind it.</p>
-</div>
-
-<h2>File-by-file</h2>
+<h2>What changed</h2>
 <table>
-<tr><th>File</th><th>What changed</th></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.jsx</code></td>
-<td><code>PERSONA_KPIS</code>: all 8 <code>placeholder: true</code> tiles removed outright (not hidden — removed from the
-data). Two new hooks, <code>useAuditsLast7d</code> (fetches <code>/api/v1/audits?limit=200</code>, counts client-side
-within a 7-day window — no server-side date filter exists) and <code>useCoveragePct</code> (fetches
-<code>/api/v1/compliance-matrix/coverage</code>), appended as two live tiles for <strong>every</strong> persona.
-<code>deriveKpis</code>' hardcoded array indices updated to match the shorter arrays. The KPI grid extracted into a
-standalone, exported <code>KpiRow</code> component for isolated layout testing.</td></tr>
-<tr><td><span class="tag new">NEW</span><code>scripts/check_no_placeholder_kpi_tiles.py</code> +
-<code>tests/test_story413_no_placeholder_kpi_tiles.py</code></td>
-<td>AC-4's fence: a pure-Python regex scan of <code>Dashboard.jsx</code> for <code>placeholder: true</code> or the stale
-caption string, wired into <code>quality-gates.yml</code> (mirrors <code>check_citations.py</code>'s established
-pattern — the CI job has no Node/npm setup, so this has to be a Python-side check of the <code>.jsx</code> source).</td></tr>
-<tr><td><span class="tag new">NEW</span><code>frontend/src/pages/KpiRow.test.jsx</code></td>
-<td>AC-5: renders <code>KpiRow</code> directly with synthetic 2/3/4-item arrays — no dependency on which persona happens
-to produce which tile count.</td></tr>
-<tr><td><span class="tag mod">MOD</span><code>frontend/src/pages/Dashboard.test.jsx</code></td>
-<td>New STORY-413 suite: AC-1 (no placeholder tiles/caption render or exist in source), AC-2 (Audits/Coverage render live
-values for demo <em>and</em> operator personas), AC-3 (a failed fetch on either tile renders "Unavailable," never zero
-or a stale number).</td></tr>
-<tr><td><span class="tag finding">FND-052</span><code>quality/findings.md</code>,
-<code>tests/regression/manifest.yaml</code></td>
-<td>Logged, not fixed: <code>operator</code>'s "Avg Score" tile (value <code>41</code>) is <em>also</em> fake but was
-never flagged with <code>placeholder: true</code> and isn't in this story's named list of 8. Its correct semantics
-(average of what, over what window) is a product question, not a mechanical one — filed as <code>status: open</code>
-rather than guessed at silently.</td></tr>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>frontend/src/pages/Dashboard.jsx</code></td><td>Deleted the <code>{ label: "Avg Score", value: 41, ... }</code> tile object from <code>PERSONA_KPIS.operator</code>. Confirmed <code>deriveKpis</code>' operator/ai_auditor branch only ever wrote index 0 ("Scans Today") — removing index 1 doesn't shift anything downstream.</td></tr>
+<tr><td><code>frontend/src/pages/Dashboard.test.jsx</code></td><td>New case: operator persona never renders "Avg Score". Verified by fault injection — re-added the tile, confirmed the test failed red, removed it again, confirmed green.</td></tr>
+<tr><td><code>quality/findings.md</code>, <code>tests/regression/manifest.yaml</code></td><td>FND-052 flipped from <code>open</code> to <code>pinned</code>, pointing at the new test.</td></tr>
 </table>
 
-<h2>Deliberately NOT done</h2>
+<h2>Result</h2>
 <div class="card">
-<ul>
-<li>Did not build backend endpoints for Controls Overdue, Drift Alerts, Queue Depth, Readiness %, Failed Scans, or Due
-This Week — explicit out-of-scope; if the data doesn't exist, the tile doesn't exist.</li>
-<li>Did not fix FND-052 (Avg Score) — logged as a new finding pending a product decision, not silently patched with a
-guessed semantic.</li>
-<li>Did not touch LiveFeed, EngineScores, or RegCoverage — audited for the same pattern per AC-4's spirit, none found;
-confirmed clean, no changes needed.</li>
-</ul>
-</div>
-
-<h2>Risk map</h2>
-<table>
-<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
-<tr><td>A placeholder tile regenerates in a future PR</td><td><code>scripts/check_no_placeholder_kpi_tiles.py</code>, wired into CI (<code>quality-gates.yml</code>), plus its own red/green self-test</td></tr>
-<tr><td>Audits (7d) / Coverage % show a fabricated number instead of "Unavailable" on fetch failure</td><td><code>Dashboard.test.jsx</code> AC-3 cases stub a 500 response for each endpoint independently</td></tr>
-<tr><td>deriveKpis' hardcoded array indices silently point at the wrong tile after the array shrank</td><td>Full 196-test frontend suite green, including every existing persona-specific KPI assertion (FND-021/022/023) unchanged</td></tr>
-<tr><td>KPI row layout breaks at some tile count</td><td><code>KpiRow.test.jsx</code> — direct synthetic 2/3/4-item renders</td></tr>
-<tr><td>A second unflagged fake tile (Avg Score) ships unnoticed</td><td>Found and logged as FND-052 rather than missed; not silently left undocumented</td></tr>
-</table>
-
-<h2>Quiz</h2>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q1. Why does "Audits (7d)" need its own fetch to /api/v1/audits instead of reusing the audit_count already returned by /api/v1/risk/summary?</strong>
-  <div class="quiz-a">audit_count is an unwindowed total (services/risk_service.py: len(audit_records), no date filter) — labeling a total "(7d)" would itself be an ADR-004 overclaim. The /api/v1/audits list endpoint has no server-side date-range param either, so the fix fetches a bounded page (limit=200, the endpoint's max) and counts client-side within a real 7-day window.</div>
-</div>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q2. Why was KpiRow exported instead of just tested through the full Dashboard component?</strong>
-  <div class="quiz-a">No real persona naturally produces exactly 2 visible tiles post-STORY-413 (ai_auditor=3, the rest=4), and a fetch failure changes a tile's content, not the tile count. Testing the row in isolation with synthetic arrays covers the "2 tiles" case AC-5 asks for without depending on persona-count coincidence.</div>
-</div>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q3. What would break if a future PR added a new KPI tile with placeholder: true back into PERSONA_KPIS?</strong>
-  <div class="quiz-a">CI would fail on the new "No placeholder KPI tiles on the Dashboard (STORY-413)" step — the regex scan (scripts/check_no_placeholder_kpi_tiles.py) catches the literal placeholder: true text in Dashboard.jsx before it can ship, independent of any component test remembering to check for it.</div>
-</div>
-<div class="quiz-q" onclick="this.classList.toggle('open')">
-  <strong>Q4. Why wasn't "Avg Score" (operator persona) just fixed at the same time, since it's the exact same failure mode?</strong>
-  <div class="quiz-a">Its correct meaning was never specified — average risk score per audit? per week? which window? Guessing and shipping a number would risk a different kind of overclaim (a "real-looking" number that doesn't actually mean what its label implies). Logged as FND-052 (status: open) so it's tracked and requires an explicit product decision rather than a silent implementation guess.</div>
+<p><code>operator</code>'s Dashboard now shows 3 tiles: "Scans Today" (persona-specific, real) + "Audits (7d)" and
+"Coverage %" (the two universal live tiles every persona gets, from STORY-413) — the same 3-tile count
+<code>ai_auditor</code> already renders, so no new <code>KpiRow</code> layout case to test. Every number on the
+Dashboard, for every persona, is now either a real measurement or genuinely absent — the last outstanding gap from
+the "no fake scores" objective.</p>
 </div>
