@@ -38,6 +38,7 @@ import uuid
 
 import requests
 import structlog
+from dotenv import dotenv_values
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -286,15 +287,7 @@ def _read_env_demo_password(env_demo_path: str) -> str | None:
     """Read a previously-generated DEMO_USER_PASSWORD back out of .env.demo, if any."""
     if not os.path.exists(env_demo_path):
         return None
-    prefix = _ENV_DEMO_PASSWORD_KEY + "="
-    try:
-        with open(env_demo_path, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith(prefix):
-                    return line[len(prefix):].strip() or None
-    except OSError:
-        return None
-    return None
+    return dotenv_values(env_demo_path).get(_ENV_DEMO_PASSWORD_KEY) or None
 
 
 def resolve_demo_credentials(env_demo_path: str = ".env.demo") -> tuple[str, str]:

@@ -252,3 +252,8 @@ findings:
     test: frontend/src/pages/ComplianceHub.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-057
+    title: "scripts/seed_demo_tenant.py's get_demo_jwt() POSTed a form-encoded body to /api/v1/auth/token, which is JSON-only (LoginIn has no Form() dependency) — every demo-tenant login attempt 422'd (PR #119 reviewer round)"
+    test: tests/regression/test_fnd_057_seed_demo_jwt_json_body.py
+    status: pinned
+    quarantine_expires: null
