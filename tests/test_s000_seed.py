@@ -7,7 +7,8 @@ Tests that:
   3. write_env_demo writes expected keys to .env file.
   4. verify_dashboard parses both response shapes (total_audits / audit_count).
   5. SEED_PAYLOADS covers all four required verticals.
-  6. DEMO_USER_EMAIL / DEMO_USER_PW constants are present.
+  6. resolve_demo_credentials() returns a valid email + a strong password,
+     generated (not hardcoded) unless overridden via env vars.
 """
 from __future__ import annotations
 
@@ -37,10 +38,68 @@ class TestSeedConstants:
                 assert "prompt" in p and "output" in p
 
     def test_credentials_present(self):
-        from scripts.seed_demo_tenant import DEMO_USER_EMAIL, DEMO_USER_PW, DEMO_TENANT_SLUG
-        assert "@" in DEMO_USER_EMAIL
-        assert len(DEMO_USER_PW) >= 8
+        from scripts.seed_demo_tenant import DEMO_USER_EMAIL_DEFAULT, DEMO_TENANT_SLUG
+        assert "@" in DEMO_USER_EMAIL_DEFAULT
         assert DEMO_TENANT_SLUG == "saro-demo"
+
+    def test_resolve_demo_credentials_generates_strong_password_by_default(self):
+        from scripts.seed_demo_tenant import resolve_demo_credentials
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DEMO_USER_EMAIL", None)
+            os.environ.pop("DEMO_USER_PASSWORD", None)
+            # Isolated, definitely-nonexistent path — must not pick up a real
+            # repo-root .env.demo left over from an actual run.
+            email, password = resolve_demo_credentials(env_demo_path="/nonexistent/.env.demo")
+        assert "@" in email
+        assert len(password) >= 16
+
+    def test_resolve_demo_credentials_honours_env_overrides(self):
+        from scripts.seed_demo_tenant import resolve_demo_credentials
+        with patch.dict(os.environ, {"DEMO_USER_EMAIL": "custom@example.com", "DEMO_USER_PASSWORD": "custom-pw"}):
+            email, password = resolve_demo_credentials(env_demo_path="/nonexistent/.env.demo")
+        assert email == "custom@example.com"
+        assert password == "custom-pw"
+
+    def test_no_hardcoded_password_literal_in_source(self):
+        """Regression guard: this file is committed to a public repo."""
+        src_path = os.path.join(_REPO_ROOT, "scripts", "seed_demo_tenant.py")
+        with open(src_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "SaroDemo2026!" not in content
+
+
+class TestResolveDemoCredentialsPersistence:
+    """Reruns without an explicit DEMO_USER_PASSWORD must not silently rotate
+    a password someone is relying on — resolve_demo_credentials() should reuse
+    whatever a prior run wrote to .env.demo."""
+
+    def test_reuses_password_from_prior_env_demo(self, tmp_path):
+        from scripts.seed_demo_tenant import resolve_demo_credentials
+        env_demo = tmp_path / ".env.demo"
+        env_demo.write_text(
+            "SARO_DEMO_TENANT_ID=t-1\nDEMO_USER_EMAIL=demo@saro-demo.io\n"
+            "DEMO_USER_PASSWORD=prior-run-password\n"
+        )
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DEMO_USER_PASSWORD", None)
+            email, password = resolve_demo_credentials(env_demo_path=str(env_demo))
+        assert password == "prior-run-password"
+
+    def test_explicit_env_var_overrides_prior_env_demo(self, tmp_path):
+        from scripts.seed_demo_tenant import resolve_demo_credentials
+        env_demo = tmp_path / ".env.demo"
+        env_demo.write_text("DEMO_USER_PASSWORD=prior-run-password\n")
+        with patch.dict(os.environ, {"DEMO_USER_PASSWORD": "forced-override"}):
+            _, password = resolve_demo_credentials(env_demo_path=str(env_demo))
+        assert password == "forced-override"
+
+    def test_generates_fresh_when_no_prior_file(self, tmp_path):
+        from scripts.seed_demo_tenant import resolve_demo_credentials
+        env_demo = tmp_path / "does-not-exist" / ".env.demo"
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DEMO_USER_PASSWORD", None)
+            _, password = resolve_demo_credentials(env_demo_path=str(env_demo))
+        assert len(password) >= 16
 
 
 class TestGetOrCreateDemoTenant:
@@ -75,6 +134,63 @@ class TestGetOrCreateDemoTenant:
         assert result["created"] is True
         assert uuid.UUID(result["tenant_id"])  # valid UUID
         session.commit.assert_called_once()
+
+
+class TestEnsureDemoUser:
+    def _make_session(self, existing_id: uuid.UUID | None = None):
+        session = MagicMock()
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: existing_id  # type: ignore[misc]
+        session.execute.return_value.fetchone.return_value = row if existing_id else None
+        return session
+
+    @staticmethod
+    def _sql_calls(session, keyword: str):
+        # TextClause has no useful __repr__, so match against the raw SQL
+        # string SQLAlchemy's text() stores on `.text`.
+        return [
+            c for c in session.execute.call_args_list
+            if keyword in getattr(c.args[0], "text", "")
+        ]
+
+    def test_creates_user_when_absent(self):
+        from scripts.seed_demo_tenant import ensure_demo_user
+        session = self._make_session(existing_id=None)
+        result = ensure_demo_user(session, str(uuid.uuid4()), "demo@saro-demo.io", "s3cret-pw")
+        assert result["created"] is True
+        insert_calls = self._sql_calls(session, "INSERT INTO users")
+        assert len(insert_calls) == 1
+        # Hashed with the backend's own argon2id hasher, not stored in plaintext
+        params = insert_calls[0].args[1]
+        assert params["pw"].startswith("$argon2id$")
+        session.commit.assert_called_once()
+
+    def test_resets_password_when_present(self):
+        from scripts.seed_demo_tenant import ensure_demo_user
+        uid = uuid.uuid4()
+        session = self._make_session(existing_id=uid)
+        result = ensure_demo_user(session, str(uuid.uuid4()), "demo@saro-demo.io", "new-pw")
+        assert result["created"] is False
+        assert result["user_id"] == str(uid)
+        update_calls = self._sql_calls(session, "UPDATE users")
+        assert len(update_calls) == 1
+        session.commit.assert_called_once()
+
+
+class TestGetDemoJwt:
+    def test_sends_json_email_password_body(self):
+        from scripts.seed_demo_tenant import get_demo_jwt
+
+        resp = MagicMock()
+        resp.json.return_value = {"access_token": "tok-123"}
+
+        with patch("scripts.seed_demo_tenant.requests.post", return_value=resp) as mock_post:
+            token = get_demo_jwt("https://test.local", "demo@saro-demo.io", "pw")
+
+        assert token == "tok-123"
+        _, kwargs = mock_post.call_args
+        assert kwargs["json"] == {"email": "demo@saro-demo.io", "password": "pw"}
+        assert "data" not in kwargs
 
 
 class TestIngestSeedPayloads:
@@ -143,6 +259,31 @@ class TestWriteEnvDemo:
         assert "SARO_DEMO_TENANT_ID=tenant-123" in written
         assert "SARO_DEMO_TOKEN=jwt-token" in written
         assert "SARO_DEMO_URL=https://example.com" in written
+        # No demo_email/demo_password passed — nothing credential-shaped written
+        assert "DEMO_USER_EMAIL" not in written
+        assert "DEMO_USER_PASSWORD" not in written
+
+    def test_persists_credentials_when_given(self):
+        from scripts.seed_demo_tenant import write_env_demo
+
+        written = ""
+
+        def fake_open(path, mode="r"):
+            nonlocal written
+            m = mock_open()()
+            def write(s: str) -> None:
+                nonlocal written
+                written += s
+            m.write = write
+            m.__enter__ = lambda s: m
+            m.__exit__ = MagicMock(return_value=False)
+            return m
+
+        with patch("builtins.open", side_effect=fake_open):
+            write_env_demo("tenant-123", "jwt-token", "https://example.com", "demo@saro-demo.io", "s3cret")
+
+        assert "DEMO_USER_EMAIL=demo@saro-demo.io" in written
+        assert "DEMO_USER_PASSWORD=s3cret" in written
 
 
 class TestVerifyDashboard:
