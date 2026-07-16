@@ -25,6 +25,32 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret")
 
 
+class TestRunningInPublicCi:
+    """
+    This repo is public, so its GitHub Actions logs are public too. The
+    generated demo password must never reach stdout in that context — see
+    the seed-refresh.yml scheduled workflow, which has no way to mask a
+    value this script generates itself (only secrets.* context values are
+    auto-masked by GitHub).
+    """
+
+    def test_true_when_github_actions_env_set(self):
+        from scripts.seed_demo_tenant import running_in_public_ci
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            assert running_in_public_ci() is True
+
+    def test_false_when_unset(self):
+        from scripts.seed_demo_tenant import running_in_public_ci
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("GITHUB_ACTIONS", None)
+            assert running_in_public_ci() is False
+
+    def test_false_for_unexpected_value(self):
+        from scripts.seed_demo_tenant import running_in_public_ci
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+            assert running_in_public_ci() is False
+
+
 class TestSeedConstants:
     def test_verticals_covered(self):
         from scripts.seed_demo_tenant import SEED_PAYLOADS

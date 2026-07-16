@@ -19,8 +19,13 @@ if set (highest priority — use this for a CI/Fly secret you want stable
 forever), otherwise from a prior run's .env.demo (keeps unattended reruns
 stable), otherwise a strong password is generated fresh. Never hardcoded here
 — this file is committed to a public repo. Credentials and the JWT/tenant ID
-are written to .env.demo (gitignored) and the email/password are also printed
-to stdout once per run.
+are written to .env.demo (gitignored).
+
+The password is only ever printed to stdout for an interactive run. When
+GITHUB_ACTIONS=true (this repo is public — its Actions logs are public too)
+the password line is redacted; set DEMO_USER_PASSWORD as a repo secret if you
+want the scheduled seed-refresh workflow to use a stable, GitHub-masked value
+instead of silently generating and discarding a fresh one every run.
 """
 from __future__ import annotations
 
@@ -41,6 +46,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import hash_password  # noqa: E402 — needs sys.path insert above
 
 log = structlog.get_logger()
+
+
+def running_in_public_ci() -> bool:
+    """
+    True inside a GitHub Actions run. This repo is public, so its Actions
+    logs are public too — GitHub only auto-masks values sourced from the
+    `secrets.*` context, not a password this script generates itself, so the
+    plaintext must never be printed here.
+    """
+    return os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+
 
 DEMO_TENANT_NAME  = "SARO Demo Tenant"
 DEMO_TENANT_SLUG  = "saro-demo"
@@ -548,7 +564,14 @@ def main() -> None:
     print(f"Demo tenant ID : {tenant['tenant_id']}")
     print(f"Demo URL       : {args.saro_url}/demo")
     print(f"Login email    : {demo_email}")
-    print(f"Login password : {demo_password}")
+    if running_in_public_ci():
+        print("Login password : <redacted — this is a public repo's Actions log>")
+        print(
+            "                 Set DEMO_USER_PASSWORD as a repo secret for a "
+            "stable value, or read it from .env.demo / Fly secrets."
+        )
+    else:
+        print(f"Login password : {demo_password}")
     print("Token/.env     : .env.demo")
     print("Next step      : Add SARO_DEMO_TENANT_ID to GitHub / Fly.io secrets")
 
