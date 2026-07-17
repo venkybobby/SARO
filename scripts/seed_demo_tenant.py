@@ -8,31 +8,62 @@ to-end before any client demo.
 Usage:
     python scripts/seed_demo_tenant.py \
         --database-url $DATABASE_URL \
-        --saro-url https://saro-platform.fly.dev
+        --saro-url https://saro-backend.fly.dev
 
-Writes credentials to .env.demo (gitignored).
+    # Repair/rotate demo login only — skip the 800-record bulk ingest
+    # (safe to rerun against a tenant that already has real/demo data):
+    python scripts/seed_demo_tenant.py --database-url $DATABASE_URL --skip-ingest
+
+Demo login credentials come from DEMO_USER_EMAIL / DEMO_USER_PASSWORD env vars
+if set (highest priority — use this for a CI/Fly secret you want stable
+forever), otherwise from a prior run's .env.demo (keeps unattended reruns
+stable), otherwise a strong password is generated fresh. Never hardcoded here
+— this file is committed to a public repo. Credentials and the JWT/tenant ID
+are written to .env.demo (gitignored).
+
+The password is only ever printed to stdout for an interactive run. When
+GITHUB_ACTIONS=true (this repo is public — its Actions logs are public too)
+the password line is redacted; set DEMO_USER_PASSWORD as a repo secret if you
+want the scheduled seed-refresh workflow to use a stable, GitHub-masked value
+instead of silently generating and discarding a fresh one every run.
 """
 from __future__ import annotations
 
 import argparse
 import os
+import secrets
 import sys
 import time
 import uuid
 
 import requests
 import structlog
+from dotenv import dotenv_values
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from auth import hash_password  # noqa: E402 — needs sys.path insert above
+
 log = structlog.get_logger()
+
+
+def running_in_public_ci() -> bool:
+    """
+    True inside a GitHub Actions run. This repo is public, so its Actions
+    logs are public too — GitHub only auto-masks values sourced from the
+    `secrets.*` context, not a password this script generates itself, so the
+    plaintext must never be printed here.
+    """
+    return os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+
 
 DEMO_TENANT_NAME  = "SARO Demo Tenant"
 DEMO_TENANT_SLUG  = "saro-demo"
-DEMO_USER_EMAIL   = "demo@saro-platform.io"
-DEMO_USER_PW      = "SaroDemo2026!"
+# Not .local/.test/.example — pydantic's EmailStr rejects reserved/special-use
+# TLDs, and the backend validates this server-side on every /auth/token call.
+DEMO_USER_EMAIL_DEFAULT = "demo@saro-demo.io"
 
 VERTICALS = ["finance", "healthcare", "technology", "government"]
 
@@ -229,27 +260,6 @@ def get_or_create_demo_tenant(session) -> dict:
         text("INSERT INTO tenants (id, name, slug, created_at) VALUES (:id, :name, :slug, NOW())"),
         {"id": tenant_id, "name": DEMO_TENANT_NAME, "slug": DEMO_TENANT_SLUG},
     )
-    # Hash password with pgcrypto; fall back to plain if extension not available
-    try:
-        session.execute(
-            text(
-                "INSERT INTO users (id, tenant_id, email, hashed_password, role, is_active, created_at) "
-                "VALUES (gen_random_uuid(), :tid, :email, crypt(:pw, gen_salt('bf')), 'super_admin', true, NOW())"
-            ),
-            {"tid": tenant_id, "email": DEMO_USER_EMAIL, "pw": DEMO_USER_PW},
-        )
-    except Exception:
-        session.rollback()
-        # pgcrypto not available — use Python argon2
-        from argon2 import PasswordHasher
-        hashed = PasswordHasher().hash(DEMO_USER_PW)
-        session.execute(
-            text(
-                "INSERT INTO users (id, tenant_id, email, hashed_password, role, is_active, created_at) "
-                "VALUES (gen_random_uuid(), :tid, :email, :pw, 'super_admin', true, NOW())"
-            ),
-            {"tid": tenant_id, "email": DEMO_USER_EMAIL, "pw": hashed},
-        )
     session.execute(
         text(
             "INSERT INTO client_configs "
@@ -267,13 +277,81 @@ def get_or_create_demo_tenant(session) -> dict:
     return {"tenant_id": str(tenant_id), "created": True}
 
 
-# ── Step 2: Obtain JWT ────────────────────────────────────────────────────────
+# ── Step 2: Ensure demo user, then obtain JWT ─────────────────────────────────
 
 
-def get_demo_jwt(saro_url: str) -> str:
+_ENV_DEMO_PASSWORD_KEY = "DEMO_USER_PASSWORD"
+
+
+def _read_env_demo_password(env_demo_path: str) -> str | None:
+    """Read a previously-generated DEMO_USER_PASSWORD back out of .env.demo, if any."""
+    if not os.path.exists(env_demo_path):
+        return None
+    return dotenv_values(env_demo_path).get(_ENV_DEMO_PASSWORD_KEY) or None
+
+
+def resolve_demo_credentials(env_demo_path: str = ".env.demo") -> tuple[str, str]:
+    """
+    Resolve demo login credentials from the environment, generating a strong
+    password only the first time. Never hardcode a password here — this file
+    is committed to a public repo.
+
+    Precedence: DEMO_USER_PASSWORD env var (explicit override, always wins)
+    > password from a prior run's .env.demo (keeps unattended reruns stable —
+    ensure_demo_user() resets the DB password every call, so without this an
+    unattended rerun would silently rotate a password someone is relying on)
+    > freshly generated (first run / .env.demo missing or deleted).
+    """
+    email = os.getenv("DEMO_USER_EMAIL", DEMO_USER_EMAIL_DEFAULT)
+    password = (
+        os.getenv("DEMO_USER_PASSWORD")
+        or _read_env_demo_password(env_demo_path)
+        or secrets.token_urlsafe(18)
+    )
+    return email, password
+
+
+def ensure_demo_user(session, tenant_id: str, email: str, password: str) -> dict:
+    """
+    Idempotently ensure a demo login exists for the tenant: create it if
+    missing, otherwise reset its password. Uses the same hash_password()
+    the backend's /api/v1/auth/token endpoint verifies against.
+    """
+    hashed = hash_password(password)
+    row = session.execute(
+        text("SELECT id FROM users WHERE email = :email LIMIT 1"),
+        {"email": email},
+    ).fetchone()
+
+    if row:
+        session.execute(
+            text(
+                "UPDATE users SET hashed_password = :pw, tenant_id = :tid, "
+                "role = 'super_admin', is_active = true WHERE id = :id"
+            ),
+            {"pw": hashed, "tid": tenant_id, "id": row[0]},
+        )
+        session.commit()
+        log.info("demo_user_password_reset", user_id=str(row[0]), email=email)
+        return {"user_id": str(row[0]), "created": False}
+
+    user_id = uuid.uuid4()
+    session.execute(
+        text(
+            "INSERT INTO users (id, tenant_id, email, hashed_password, role, is_active, created_at) "
+            "VALUES (:id, :tid, :email, :pw, 'super_admin', true, NOW())"
+        ),
+        {"id": user_id, "tid": tenant_id, "email": email, "pw": hashed},
+    )
+    session.commit()
+    log.info("demo_user_created", user_id=str(user_id), email=email)
+    return {"user_id": str(user_id), "created": True}
+
+
+def get_demo_jwt(saro_url: str, email: str, password: str) -> str:
     resp = requests.post(
         f"{saro_url}/api/v1/auth/token",
-        data={"username": DEMO_USER_EMAIL, "password": DEMO_USER_PW},
+        json={"email": email, "password": password},
         timeout=15,
     )
     resp.raise_for_status()
@@ -373,11 +451,23 @@ def wait_for_audits(saro_url: str, token: str, audit_ids: list, timeout_s: int =
 # ── Step 5: Write .env.demo ───────────────────────────────────────────────────
 
 
-def write_env_demo(tenant_id: str, token: str, saro_url: str) -> None:
+def write_env_demo(
+    tenant_id: str,
+    token: str,
+    saro_url: str,
+    demo_email: str | None = None,
+    demo_password: str | None = None,
+) -> None:
     with open(".env.demo", "w") as f:
         f.write(f"SARO_DEMO_TENANT_ID={tenant_id}\n")
         f.write(f"SARO_DEMO_TOKEN={token}\n")
         f.write(f"SARO_DEMO_URL={saro_url}\n")
+        # Persisted so resolve_demo_credentials() can reuse the same password
+        # on the next unattended run instead of rotating it every time.
+        if demo_email:
+            f.write(f"DEMO_USER_EMAIL={demo_email}\n")
+        if demo_password:
+            f.write(f"DEMO_USER_PASSWORD={demo_password}\n")
     log.info("env_demo_written", path=".env.demo")
 
 
@@ -399,7 +489,16 @@ def verify_dashboard(saro_url: str, token: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="SARO Demo Tenant Seed Script")
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
-    parser.add_argument("--saro-url", default="https://saro-production-2993.up.railway.app")
+    parser.add_argument("--saro-url", default="https://saro-backend.fly.dev")
+    parser.add_argument(
+        "--skip-ingest",
+        action="store_true",
+        help=(
+            "Stop after Step 2 (tenant + demo user + JWT). Use this to repair "
+            "demo login credentials without inserting up to 800 more synthetic "
+            "audit records into a tenant that already has real/demo data."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.database_url:
@@ -409,6 +508,8 @@ def main() -> None:
     eng     = create_engine(args.database_url)
     Session = sessionmaker(bind=eng)
 
+    demo_email, demo_password = resolve_demo_credentials()
+
     print("\n=== SARO Demo Tenant Seed Script ===")
 
     print("Step 1: Create or retrieve demo tenant...")
@@ -416,35 +517,55 @@ def main() -> None:
         tenant = get_or_create_demo_tenant(session)
     print(f"  Tenant ID: {tenant['tenant_id']} (created={tenant['created']})")
 
-    print("Step 2: Obtain JWT...")
-    token = get_demo_jwt(args.saro_url)
+    print("Step 2: Ensure demo user...")
+    with Session() as session:
+        user = ensure_demo_user(session, tenant["tenant_id"], demo_email, demo_password)
+    print(f"  User: {demo_email} (created={user['created']})")
 
-    print("Step 3: Ingest seed payloads...")
-    results = ingest_seed_payloads(args.saro_url, token, tenant["tenant_id"])
-    print(f"  Ingested: {results['success']} / Failed: {results['failed']}")
+    print("Step 2b: Obtain JWT...")
+    token = get_demo_jwt(args.saro_url, demo_email, demo_password)
 
-    print("Step 4: Waiting for engine (up to 120s)...")
-    completion = wait_for_audits(args.saro_url, token, results["audit_ids"])
-    print(
-        f"  Completed: {completion['completed']}  "
-        f"Failed: {completion['failed']}  "
-        f"Timed out: {completion['timed_out']}"
-    )
+    if args.skip_ingest:
+        print("Step 3-4: Skipped (--skip-ingest)")
+    else:
+        print("Step 3: Ingest seed payloads...")
+        results = ingest_seed_payloads(args.saro_url, token, tenant["tenant_id"])
+        print(f"  Ingested: {results['success']} / Failed: {results['failed']}")
+
+        print("Step 4: Waiting for engine (up to 120s)...")
+        completion = wait_for_audits(args.saro_url, token, results["audit_ids"])
+        print(
+            f"  Completed: {completion['completed']}  "
+            f"Failed: {completion['failed']}  "
+            f"Timed out: {completion['timed_out']}"
+        )
 
     print("Step 5: Writing .env.demo...")
-    write_env_demo(tenant["tenant_id"], token, args.saro_url)
+    write_env_demo(tenant["tenant_id"], token, args.saro_url, demo_email, demo_password)
 
-    print("Step 6: Verifying dashboard...")
-    ok = verify_dashboard(args.saro_url, token)
-    if not ok:
-        print("  WARNING: Dashboard shows 0 audits — check engine logs")
+    if args.skip_ingest:
+        print("Step 6: Skipped (--skip-ingest) — dashboard count check requires the full seed")
     else:
-        print("  Dashboard verified — demo tenant is ready")
+        print("Step 6: Verifying dashboard...")
+        ok = verify_dashboard(args.saro_url, token)
+        if not ok:
+            print("  WARNING: Dashboard shows 0 audits — check engine logs")
+        else:
+            print("  Dashboard verified — demo tenant is ready")
 
     print("\n=== SEED COMPLETE ===")
     print(f"Demo tenant ID : {tenant['tenant_id']}")
     print(f"Demo URL       : {args.saro_url}/demo")
-    print("Credentials    : .env.demo")
+    print(f"Login email    : {demo_email}")
+    if running_in_public_ci():
+        print("Login password : <redacted — this is a public repo's Actions log>")
+        print(
+            "                 Set DEMO_USER_PASSWORD as a repo secret for a "
+            "stable value, or read it from .env.demo / Fly secrets."
+        )
+    else:
+        print(f"Login password : {demo_password}")
+    print("Token/.env     : .env.demo")
     print("Next step      : Add SARO_DEMO_TENANT_ID to GitHub / Fly.io secrets")
 
 

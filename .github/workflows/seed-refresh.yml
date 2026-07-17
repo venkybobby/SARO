@@ -11,7 +11,12 @@ jobs:
     if: github.ref == 'refs/heads/main'
     env:
       DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
-      SARO_DEMO_URL: https://saro-platform.fly.dev
+      SARO_DEMO_URL: https://saro-backend.fly.dev
+      # Optional: set these repo secrets for a stable, GitHub-masked demo
+      # login instead of a fresh (unrecoverable, publicly-redacted) password
+      # every scheduled run — see scripts/seed_demo_tenant.py docstring.
+      DEMO_USER_EMAIL: ${{ secrets.DEMO_USER_EMAIL }}
+      DEMO_USER_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,5 +33,5 @@ jobs:
       - name: Verify seed health
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://saro-platform.fly.dev/health)
+            "$SARO_DEMO_URL/health")
           [ "$STATUS" = "200" ] || (echo "Health check failed" && exit 1)
