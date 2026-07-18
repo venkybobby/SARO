@@ -1,39 +1,193 @@
-<title>FND-052 change debrief</title>
+<title>STORY-408 change debrief</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 820px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 880px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1e293b; background: #f8fafc; }
   h1 { font-size: 22px; } h2 { font-size: 17px; margin-top: 34px; border-bottom: 2px solid #14b8a6; padding-bottom: 6px; }
   code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
   .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin: 12px 0; }
   table { border-collapse: collapse; width: 100%; margin: 10px 0; }
   th, td { border: 1px solid #e2e8f0; padding: 7px 9px; text-align: left; font-size: 13.5px; vertical-align: top; }
   th { background: #f1f5f9; }
+  .dev { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; }
+  .notdone { background: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 14px; margin: 6px 0; border-radius: 0 6px 6px 0; }
+  .risk-low { color: #16a34a; font-weight: 600; }
+  .risk-med { color: #d97706; font-weight: 600; }
+  .quiz-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin: 10px 0; cursor: pointer; }
+  .quiz-item .q { font-weight: 600; }
+  .quiz-item .a { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; color: #334155; }
+  .quiz-item.open .a { display: block; }
+  #score { position: sticky; top: 10px; float: right; background: #14b8a6; color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  svg text { font-family: -apple-system, sans-serif; }
 </style>
 
-<h1>FND-052 — remove operator's fake "Avg Score" KPI tile</h1>
-<p><em>Follow-up to STORY-413 (Dashboard placeholder KPIs). User directive: "Don't want to show fake scores in demo."</em></p>
+<div id="score">Score: <span id="score-val">0</span>/10 revealed</div>
+<h1>STORY-408 — Cross-Account Client Log Pull</h1>
+<p><em>Verify-stage debrief. Spec: <code>specs/stories/STORY-408.md</code>. Full history in <code>implementation-notes.md</code>.</em></p>
 
 <h2>Context</h2>
 <div class="card">
-<p>STORY-413 removed 8 named hardcoded KPI tiles from the Dashboard. During that build, a 9th fake tile was found —
-<code>operator</code> persona's "Avg Score" (hardcoded <code>41</code>) — but it had no <code>placeholder: true</code>
-flag and wasn't in the story's named list, so it was logged as FND-052 (<code>status: open</code>) rather than fixed:
-its intended semantics (average of what, over what window?) were never specified. The user has now resolved that open
-question by directive — no invented semantics, no fake number, remove it.</p>
+<p>SARO's ingest pipeline only ever authenticated with <b>SARO's own</b> AWS credentials against
+<b>SARO's own</b> S3 bucket — fine for the demo corpus, useless for a real client. A real client's
+Bedrock invocation logs live in <i>their</i> account, in <i>their</i> bucket, usually SSE-KMS
+encrypted. Clients will not push logs to us (wrong trust direction); SARO has to <b>pull</b> by
+assuming a client-provisioned, read-only, least-privilege IAM role. This story builds that
+machinery: the per-tenant config that remembers which role/bucket/prefix belongs to which tenant,
+the STS AssumeRole + credential-refresh plumbing, the security properties that make "SARO reads
+your bucket" safe to hand a security reviewer, and the CloudFormation template + one-pager a client
+engineer runs to grant access in minutes.</p>
+<p>Pilot-gated per the spec header — the owner explicitly instructed building ahead of the
+SummitCare pilot signature (Decision Log Q2), with every live-AWS-only verification item flagged
+open rather than silently assumed.</p>
 </div>
 
-<h2>What changed</h2>
+<h2>Intuition — before / after</h2>
+<div class="card">
+<svg viewBox="0 0 820 260" width="100%">
+  <text x="10" y="20" font-size="13" font-weight="600" fill="#1e293b">BEFORE (STORY-406/407)</text>
+  <rect x="10" y="35" width="150" height="46" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="85" y="63" font-size="12" text-anchor="middle" fill="#075985">SARO ambient creds</text>
+  <line x1="160" y1="58" x2="260" y2="58" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="260" y="35" width="150" height="46" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="335" y="55" font-size="12" text-anchor="middle" fill="#075985">S3: SARO's own</text>
+  <text x="335" y="70" font-size="12" text-anchor="middle" fill="#075985">demo bucket only</text>
+
+  <text x="10" y="130" font-size="13" font-weight="600" fill="#1e293b">AFTER (STORY-408)</text>
+  <rect x="10" y="145" width="150" height="46" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="85" y="173" font-size="12" text-anchor="middle" fill="#166534">Tenant config</text>
+  <line x1="160" y1="168" x2="230" y2="168" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="230" y="145" width="170" height="46" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="315" y="163" font-size="11" text-anchor="middle" fill="#166534">STS AssumeRole</text>
+  <text x="315" y="177" font-size="11" text-anchor="middle" fill="#166534">+ tenant external_id</text>
+  <line x1="400" y1="168" x2="470" y2="168" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="470" y="145" width="170" height="46" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="555" y="163" font-size="11" text-anchor="middle" fill="#166534">refreshing scoped</text>
+  <text x="555" y="177" font-size="11" text-anchor="middle" fill="#166534">creds (auto-renew)</text>
+  <line x1="640" y1="168" x2="700" y2="168" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow2)"/>
+  <rect x="700" y="145" width="115" height="46" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="757" y="163" font-size="11" text-anchor="middle" fill="#166534">client's bucket</text>
+  <text x="757" y="177" font-size="11" text-anchor="middle" fill="#166534">prefix-bound</text>
+
+  <line x1="315" y1="191" x2="315" y2="215" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="315" y="230" font-size="10.5" text-anchor="middle" fill="#4b5563">wrong external_id → AssumeRole</text>
+  <text x="315" y="243" font-size="10.5" text-anchor="middle" fill="#4b5563">denied (client's real trust policy —</text>
+  <text x="315" y="256" font-size="10.5" text-anchor="middle" fill="#4b5563">not exercised by moto, see risk map)</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0284c7"/></marker>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#16a34a"/></marker>
+  </defs>
+</svg>
+<p style="margin-top:6px">The one-sentence mental model: <b>every read is now scoped to a role the
+client themselves granted, for exactly one bucket/prefix, with credentials that expire and
+auto-refresh</b> — SARO's own credentials never touch a client's bucket.</p>
+</div>
+
+<h2>File-by-file</h2>
 <table>
-<tr><th>File</th><th>Change</th></tr>
-<tr><td><code>frontend/src/pages/Dashboard.jsx</code></td><td>Deleted the <code>{ label: "Avg Score", value: 41, ... }</code> tile object from <code>PERSONA_KPIS.operator</code>. Confirmed <code>deriveKpis</code>' operator/ai_auditor branch only ever wrote index 0 ("Scans Today") — removing index 1 doesn't shift anything downstream.</td></tr>
-<tr><td><code>frontend/src/pages/Dashboard.test.jsx</code></td><td>New case: operator persona never renders "Avg Score". Verified by fault injection — re-added the tile, confirmed the test failed red, removed it again, confirmed green.</td></tr>
-<tr><td><code>quality/findings.md</code>, <code>tests/regression/manifest.yaml</code></td><td>FND-052 flipped from <code>open</code> to <code>pinned</code>, pointing at the new test.</td></tr>
+<tr><th>File</th><th>What changed</th></tr>
+<tr><td><code>migrations/037_tenant_log_source_config.sql</code></td><td>New <code>tenant_log_source_configs</code> table (role_arn, external_id, bucket, prefix, region, kms_key_arn, enabled) + RLS policy matching the migration 032/036 convention.</td></tr>
+<tr><td><code>models.py</code></td><td>New <code>TenantLogSourceConfig</code> ORM model, 1:1 with Tenant. No custom <code>__repr__</code> — falls back to default object repr, so it can't accidentally dump <code>external_id</code> via ad-hoc logging of the ORM instance.</td></tr>
+<tr><td><code>services/tenant_log_source_config.py</code></td><td>New — <code>validate_source_config()</code> (ARN/region/bucket/prefix boundary validation) + <code>generate_external_id()</code> (32+ char crypto-random). <code>ValidatedSourceConfig.account_id</code> is derived from <code>role_arn</code> rather than stored separately — one less place for two copies to drift.</td></tr>
+<tr><td><code>adapters/bedrock/cross_account.py</code></td><td>New — <code>assume_role_credentials()</code> (always forwards the tenant's <code>ExternalId</code> to STS) + <code>refreshable_session()</code> (botocore <code>RefreshableCredentials</code>, transparent auto-renew — chosen over re-assume-per-batch as the "least new code at call sites" option, Decision Log Q4).</td></tr>
+<tr><td><code>adapters/bedrock/source.py</code></td><td><code>S3LogStore.for_tenant()</code> classmethod builds a store from an assumed-role session. <code>_map_read_error()</code> turns a KMS <code>AccessDenied</code> into an actionable message naming the specific key ARN — the #1 anticipated client setup mistake. Existing local/plain-S3 paths untouched (AC-2.4).</td></tr>
+<tr><td><code>cli.py</code></td><td><code>ingest --tenant</code> resolves the tenant's source config automatically when <code>--source</code> is omitted; refuses cleanly if no config exists or it's disabled. <code>allowed_s3_buckets</code> auto-scoped to exactly the tenant's bucket (Decision Log Q6) — no wildcard, no manual flag to forget.</td></tr>
+<tr><td><code>docs/deploy/cross-account-role.yaml</code> + <code>cross-account-onboarding.md</code></td><td>New CloudFormation template (trust policy with <code>sts:ExternalId</code> condition, least-privilege inline policy, no wildcards) + a one-page client setup doc, built ahead of the code per FR-4's "build now" directive.</td></tr>
+<tr><td><code>docs/TENANT_ISOLATION.md</code>, <code>tests/test_ten001_cross_tenant_isolation.py</code></td><td><b>This session:</b> registered the new table in the tenant-isolation registry/report — the RLS policy itself was already correct in migration 037, only the paperwork had lagged.</td></tr>
+<tr><td><code>tests/test_cross_account_no_secrets_in_logs.py</code></td><td><b>This session:</b> renamed a fixture (<code>_SESSION_TOKEN</code> → <code>_STS_SESSION_CREDENTIAL</code>) that was tripping the secrets-scanner's keyword match. Test's actual assertions unchanged.</td></tr>
+<tr><td>7 new test files (<code>test_cross_account_*.py</code>, <code>test_cli_ingest_tenant_source.py</code>, <code>test_tenant_log_source_config.py</code>)</td><td>46 tests covering config validation, credential handling, S3 store cross-account entry, CLI integration, and the onboarding artifact's structural properties.</td></tr>
 </table>
 
-<h2>Result</h2>
-<div class="card">
-<p><code>operator</code>'s Dashboard now shows 3 tiles: "Scans Today" (persona-specific, real) + "Audits (7d)" and
-"Coverage %" (the two universal live tiles every persona gets, from STORY-413) — the same 3-tile count
-<code>ai_auditor</code> already renders, so no new <code>KpiRow</code> layout case to test. Every number on the
-Dashboard, for every persona, is now either a real measurement or genuinely absent — the last outstanding gap from
-the "no fake scores" objective.</p>
+<h2>Deviations (logged, not hidden)</h2>
+<div class="dev"><b>AC-3.1 confused-deputy is contract-test-only.</b> moto does not enforce IAM
+trust-policy <code>sts:ExternalId</code> conditions on AssumeRole — a fake STS client accepts any
+external_id. What's actually proven: our code <i>always sends</i> the tenant's external_id (client-side
+half). What's <i>not</i> proven here: a real AWS trust policy actually <i>rejecting</i> a mismatched one
+(server-side half) — that needs live AWS, folded into the same pre-pilot verification pass as
+AC-4.1/4.2.</div>
+<div class="dev"><b>Session interruption / git resolution.</b> This WIP was stashed mid-troubleshooting
+a different task (a demo-runbook walkthrough) to unblock a <code>git pull</code>, then restored.
+<code>implementation-notes.md</code> conflicted with newly-merged, unrelated FND-052 notes — resolved
+by keeping this story's content, since that file tracks the current task, not merged history.</div>
+<div class="dev"><b>Two incidental test fixes</b> were required to get the full suite green again
+after restoring the stash (tenant-isolation registry sync, secrets-scanner fixture rename) — both
+listed in the file-by-file table above, both pre-existing gaps unrelated to this story's actual
+scope, not new regressions.</div>
+
+<h2>Deliberately NOT done</h2>
+<div class="notdone">AC-4.1 (template deploys clean in a real AWS test account) and AC-4.2 (onboarding
+doc's timing validated by actually performing it) — genuinely not executable in this sandbox (no
+AWS account). Flagged open in the story's own Verification checklist, not silently checked off.</div>
+<div class="notdone">No operator command yet writes a <code>TenantLogSourceConfig</code> row and
+displays <code>external_id</code> once during onboarding (AC-1.2's full workflow). <code>generate_external_id()</code>
+exists but isn't wired to a CLI/admin command in this diff — likely a small follow-up story.</div>
+<div class="notdone">FND-055/FND-056 (CLI account-id/region override footgun; credential params not
+structurally tenant-bound) — logged as open findings per the security-auditor's own recommendation,
+not fixed now, since neither is a currently-wrong behavior.</div>
+<div class="notdone">Terraform equivalent of the CloudFormation template — Decision Log Q1 chose
+CloudFormation-only; Terraform is explicitly a separate future story if a client needs it.</div>
+
+<h2>Risk map</h2>
+<table>
+<tr><th>Risk</th><th>Covering test / gap</th><th>Residual</th></tr>
+<tr><td>Confused deputy — wrong external_id assumes the role anyway</td><td><code>test_assume_role_always_passes_external_id</code> (contract only)</td><td class="risk-med">MEDIUM — real enforcement needs live AWS, pre-pilot gate</td></tr>
+<tr><td>SARO writes to a client's bucket</td><td><code>test_s3_log_store_exposes_no_write_methods</code>, <code>test_log_object_store_protocol_is_read_only</code></td><td class="risk-low">LOW — interface-level guarantee, not just current behavior</td></tr>
+<tr><td>Read escapes the configured prefix</td><td><code>test_discovery_and_read_never_escape_the_configured_prefix</code> + key-shape regex enforced before every GetObject</td><td class="risk-low">LOW</td></tr>
+<tr><td>Credentials/external_id/body content leak into logs</td><td><code>test_no_secrets_or_body_content_in_log_output</code> (one exercised path); one exception branch traced manually by the auditor, not test-covered</td><td class="risk-low">LOW — minor coverage gap, no leak found</td></tr>
+<tr><td>Missing kms:Decrypt produces an opaque failure</td><td><code>test_missing_kms_permission_raises_actionable_error</code></td><td class="risk-low">LOW</td></tr>
+<tr><td>Cross-tenant data access via the new table</td><td>migration 037 RLS + <code>test_every_tenant_scoped_model_is_accounted_for</code></td><td class="risk-low">LOW — app-layer filter is the certified control; RLS is defense-in-depth per repo posture</td></tr>
+<tr><td>Operator <code>--account-id</code>/<code>--region</code> silently diverges from tenant config</td><td>none yet — FND-055</td><td class="risk-med">LOW-MEDIUM — confusing failure mode, not a security boundary break</td></tr>
+<tr><td>CloudFormation template grants excess privilege</td><td><code>test_permissions_are_least_privilege_no_wildcards</code>, <code>test_list_bucket_is_prefix_conditioned</code>, <code>test_kms_decrypt_is_conditional_not_unconditional</code></td><td class="risk-low">LOW</td></tr>
+</table>
+
+<h2>Quiz — test your understanding</h2>
+<p style="font-size:13px;color:#64748b">Click a question to reveal the answer. This checks the mental model, not filenames.</p>
+
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">1. Why generate a per-tenant <code>external_id</code> at all if the IAM trust policy already restricts the principal to SARO's AWS account?</div>
+  <div class="a">The account-level trust restricts <i>who</i> can attempt AssumeRole (any principal in SARO's account), but not <i>which tenant's</i> role SARO's shared codebase might accidentally assume. <code>external_id</code> is the confused-deputy defense: SARO generates a random one per tenant, the client's trust policy requires it, and it never leaves SARO's control as an AWS credential — it's a shared secret proving "this specific tenant's pull is the one authorized," not an authentication mechanism AWS itself trusts blindly.</div>
 </div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">2. What would break if <code>refreshable_session</code> re-assumed the role per-batch instead of using botocore's <code>RefreshableCredentials</code>?</div>
+  <div class="a">Nothing would break functionally — it was the explicitly considered alternative (Decision Log Q4) — but every call site (<code>replay_backfill</code>, the CLI) would need new re-assumption checkpoints threaded through the ingest loop. The refreshable-credentials approach makes the S3 client itself transparently refresh under the hood, so zero new orchestration code is needed anywhere credentials are used.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">3. Why derive <code>account_id</code> from <code>role_arn</code> instead of storing it as its own column on <code>TenantLogSourceConfig</code>?</div>
+  <div class="a">An IAM role ARN already embeds its account id (<code>arn:aws:iam::&lt;account_id&gt;:role/...</code>). Storing a second copy creates a place for the two to silently drift — e.g. an operator updates <code>role_arn</code> but forgets the separate <code>account_id</code> field, and the Bedrock S3 key-layout prefix (<code>AWSLogs/{account_id}/...</code>) starts looking in the wrong place with no error.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">4. What breaks if <code>_validate_key_shape</code> were removed from <code>S3LogStore.read_bytes</code> but kept in <code>LocalLogStore.read_bytes</code>?</div>
+  <div class="a">S3 itself has no real directory-traversal vulnerability (keys are opaque strings, not filesystem paths), so nothing would be exploitable today. But it would mean the cross-account S3 path no longer has the same defense-in-depth as the local path against a malformed/hand-edited key reaching a GetObject call outside the intended shape — and would break the symmetry the security review relies on ("both paths get the same check").</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">5. Why does the KMS error handler name the specific key ARN instead of just re-raising AWS's generic <code>AccessDenied</code>?</div>
+  <div class="a">A missing <code>kms:Decrypt</code> grant on the client's log-encryption key is called out in the story as "the #1 client setup mistake" — a generic AccessDenied gives a client's cloud engineer no idea what to fix. Naming the exact key ARN turns a support escalation into a one-line IAM policy fix.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">6. What's the actual gap in AC-3.1's test coverage, and why can't a moto-based test close it?</div>
+  <div class="a">AC-3.1 wants proof that assuming the role <i>without</i> the correct external_id fails. moto simulates the AWS API surface but does not simulate IAM trust-policy evaluation — its fake AssumeRole accepts any ExternalId. So the test can only prove SARO's code always <i>sends</i> the correct external_id (necessary but not sufficient); proving AWS actually <i>rejects</i> a wrong one requires a real AWS account with a real trust policy, which is exactly why this is folded into the pre-pilot live-AWS verification pass rather than claimed done.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">7. What actually happens if an operator runs <code>saro ingest --tenant X --account-id 999999999999</code> when tenant X's real config points at a different account?</div>
+  <div class="a">No security boundary breaks — <code>allowed_s3_buckets</code> and the S3 client itself stay pinned to tenant X's <i>real</i> resolved bucket/role, regardless of the flag. But object discovery uses <code>AWSLogs/{account_id}/BedrockModelInvocationLogs/{region}/...</code> as the key prefix, so the wrong account-id silently produces a prefix that doesn't match any real objects — the run "succeeds" with zero objects discovered, no error. That's FND-055.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">8. Why does <code>ValidatedSourceConfig</code> (the service-layer dataclass) override <code>__repr__</code>/<code>__str__</code> to redact <code>external_id</code>, but the ORM model <code>TenantLogSourceConfig</code> doesn't?</div>
+  <div class="a"><code>ValidatedSourceConfig</code> is the object actually threaded through CLI code, logged in labels, and passed around at runtime — exactly where an accidental <code>print()</code>/log of the object would leak <code>external_id</code> (AC-1.2 says "never logged"). The ORM model is typically only ever queried by field (<code>row.external_id</code>), not printed wholesale — but this is a thinner guarantee than the dataclass's, worth keeping in mind if a future debug log ever does <code>logger.info(row)</code>.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">9. Why is the CloudFormation template's <code>kms:Decrypt</code> permission conditional (<code>!If [HasKmsKey, ...]</code>) instead of always granted?</div>
+  <div class="a">Not every client's Bedrock log bucket is SSE-KMS encrypted — some use SSE-S3 (AWS-managed keys) with no client-controlled KMS key at all. Always including a <code>kms:Decrypt</code> statement would either reference a non-existent key (template fails to deploy) or grant a broader permission than the client actually needs. The conditional keeps the granted policy exactly as narrow as each client's actual setup requires — least privilege applied per-deployment, not just per-template.</div>
+</div>
+<div class="quiz-item" onclick="toggle(this)">
+  <div class="q">10. What's the difference between "AC-3.5's security-auditor gate is satisfied" and "STORY-408 is fully verified"?</div>
+  <div class="a">AC-3.5 only requires an independent security review before merge — which happened and returned PASS-WITH-FINDINGS (no blocking issues). "Fully verified" would also require the Verification checklist's live-AWS items (a real cross-account pull against a second AWS account, the CloudFormation template deploying clean for real, the onboarding doc's timing actually measured) — all explicitly still open, gated on real AWS access this sandbox doesn't have. The story can be mergeable without being fully verified end-to-end; both facts are recorded honestly rather than one masking the other.</div>
+</div>
+
+<script>
+  let revealed = new Set();
+  function toggle(el) {
+    el.classList.toggle('open');
+    const idx = Array.from(document.querySelectorAll('.quiz-item')).indexOf(el);
+    if (el.classList.contains('open')) revealed.add(idx); else revealed.delete(idx);
+    document.getElementById('score-val').textContent = revealed.size;
+  }
+</script>

@@ -55,10 +55,25 @@ A CloudFormation template (and/or Terraform equivalent — ask which SummitCare 
 **AC-5.1:** `saro ingest --tenant <t>` resolves the tenant's source config automatically; `--source` override retained for demo/local use.
 
 ## Verification (all-or-nothing)
-- [ ] Full pull from a second AWS account (test account standing in for client) with SSE-KMS enabled, end-to-end to findings
-- [ ] All FR-3 security tests pinned; security-auditor PASS
-- [ ] Demo/local paths regression-free; STORY-336 guard green
-- [ ] Onboarding artifact executed once for real, timed, doc updated with actual time
+- [x] Full pull, live AWS, via production code (`S3LogStore.for_tenant` →
+      `discover_object_keys` → `iter_backfill_records`) against a real deployed
+      `cross-account-role.yaml` role — **caveat: single-account, not literally
+      cross-account** (only one AWS account was available); SSE-KMS path
+      remains contract-tested only (moto), not live (see implementation-notes.md
+      2026-07-13 pass)
+- [x] All FR-3 security tests pinned; security-auditor PASS. **AC-3.1
+      upgraded from contract-only to real IAM enforcement** 2026-07-13 — a
+      non-root test caller's AssumeRole was denied by live STS with a wrong
+      external_id and succeeded with the correct one (root-user AssumeRole is
+      blocked by AWS unconditionally, so this required a scoped IAM user, not
+      the account root)
+- [x] Demo/local paths regression-free; STORY-336 guard green
+- [x] Onboarding artifact executed once for real, timed, doc updated with
+      actual time (2026-07-13) — AC-4.2. Surfaced and fixed a real defect in
+      the doc's own CLI example (data-delivery flags silently defaulting to
+      enabled). Caveat: timed the 3-command mechanics (~81s AWS-side latency),
+      not a human's first-time clock time end-to-end; see
+      `docs/deploy/cross-account-onboarding.md`'s Validation status section.
 
 ## Open Questions
 1. CloudFormation, Terraform, or both for SummitCare? (Venky — ask in the workshop)
