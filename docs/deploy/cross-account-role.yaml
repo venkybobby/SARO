@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  SARO cross-account read-only log-pull role (STORY-408). Grants SARO's
+  account permission to assume this role and read ONLY the Bedrock
+  model-invocation-log objects under the given bucket/prefix, plus decrypt
+  them if SSE-KMS encrypted. No write permissions of any kind. The trust
+  policy requires the External ID SARO issued during onboarding — without it,
+  AssumeRole fails (confused-deputy protection).
+
+Parameters:
+  SaroAccountId:
+    Type: String
+    Description: SARO's AWS account id (provided by SARO during onboarding).
+    AllowedPattern: "^[0-9]{12}$"
+  ExternalId:
+    Type: String
+    Description: >
+      The External ID SARO generated for your tenant. Displayed once during
+      onboarding — do not share it outside this template deployment.
+    MinLength: 32
+    NoEcho: true
+  LogBucketName:
+    Type: String
+    Description: The S3 bucket Bedrock model-invocation logs are delivered to.
+  LogPrefix:
+    Type: String
+    Description: >
+      The key prefix under which Bedrock logs are delivered (e.g.
+      "AWSLogs/123456789012/BedrockModelInvocationLogs/"). Leave blank for
+      no prefix restriction (not recommended).
+    Default: ""
+  LogKmsKeyArn:
+    Type: String
+    Description: >
+      ARN of the KMS key used to encrypt the log bucket, if SSE-KMS is
+      enabled. Leave blank if the bucket uses SSE-S3 or is unencrypted.
+    Default: ""
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref LogKmsKeyArn, ""]]
+
+Resources:
+  SaroCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SaroCrossAccountLogReader
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${SaroAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: SaroReadOnlyLogAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListBucketPrefixOnly
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${LogBucketName}"
+                Condition:
+                  StringLike:
+                    s3:prefix: !Sub "${LogPrefix}*"
+              - Sid: GetLogObjectsOnly
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${LogBucketName}/${LogPrefix}*"
+              - !If
+                - HasKmsKey
+                - Sid: DecryptLogObjects
+                  Effect: Allow
+                  Action: kms:Decrypt
+                  Resource: !Ref LogKmsKeyArn
+                - !Ref AWS::NoValue
+
+Outputs:
+  RoleArn:
+    Description: >
+      Send this ARN to SARO to complete onboarding — nothing else is needed
+      from your side.
+    Value: !GetAtt SaroCrossAccountRole.Arn

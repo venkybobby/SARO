@@ -106,6 +106,44 @@ def _make_store(source: str):
     return LocalLogStore(path)
 
 
+def _resolve_tenant_store(db, tenant_id: uuid.UUID):
+    """STORY-408 AC-5.1: resolve a tenant's cross-account log source config
+    into a ready-to-use S3LogStore. Refuses (CliError, no store) if no config
+    exists or it is disabled — `--source` is the explicit override path.
+
+    Returns (store, account_id, region, allowed_s3_buckets, label).
+    """
+    from models import TenantLogSourceConfig
+    from services.tenant_log_source_config import validate_source_config
+
+    row = (
+        db.query(TenantLogSourceConfig)
+        .filter(TenantLogSourceConfig.tenant_id == tenant_id)
+        .first()
+    )
+    if row is None:
+        raise CliError(
+            f"no log source config for tenant {tenant_id}; pass --source explicitly "
+            "or configure a TenantLogSourceConfig row"
+        )
+    if not row.enabled:
+        raise CliError(
+            f"log source config for tenant {tenant_id} is disabled (enabled=False)"
+        )
+
+    config = validate_source_config(
+        role_arn=row.role_arn,
+        external_id=row.external_id,
+        bucket=row.bucket,
+        prefix=row.prefix,
+        region=row.region,
+        kms_key_arn=row.kms_key_arn,
+    )
+    store = S3LogStore.for_tenant(config)
+    label = f"tenant-config:s3://{config.bucket}/{config.prefix}"
+    return store, config.account_id, config.region, frozenset({config.bucket}), label
+
+
 def _resolve_operator_user_id(db, tenant_id: uuid.UUID) -> uuid.UUID:
     from models import User
 
@@ -233,6 +271,8 @@ def _run_ingest(
     cadence_seconds: int,
     user_id: Optional[uuid.UUID],
     vertical: str,
+    store: Any = None,
+    allowed_s3_buckets: "frozenset[str]" = frozenset(),
 ) -> IngestSummary:
     from models import AuditTrace
     from services.observation_coverage_service import (
@@ -250,7 +290,10 @@ def _run_ingest(
         dry_run=dry_run,
     )
 
-    store = _make_store(source)
+    # STORY-408: a pre-built store (e.g. S3LogStore.for_tenant(...)) is used
+    # as-is; --source (local/demo path) still goes through _make_store.
+    if store is None:
+        store = _make_store(source)
     try:
         keys = discover_object_keys(
             store,
@@ -300,6 +343,7 @@ def _run_ingest(
             user_id=user_id,
             vertical=vertical,
             adapter_id=adapter_id,
+            allowed_s3_buckets=allowed_s3_buckets,
         )
 
         seen_systems: set[tuple[str, str]] = set()
@@ -418,7 +462,10 @@ def cli() -> None:
     "--adapter", default=_DEFAULT_ADAPTER, show_default=True, help="Adapter name."
 )
 @click.option(
-    "--source", required=True, help="s3://bucket[/prefix] or a local directory path."
+    "--source",
+    default=None,
+    help="s3://bucket[/prefix] or a local directory path. Omit to resolve the "
+    "tenant's configured cross-account log source (STORY-408).",
 )
 @click.option("--tenant", required=True, help="Tenant UUID to ingest into.")
 @click.option("--window", required=True, help="ISO8601start..ISO8601end")
@@ -431,8 +478,16 @@ def cli() -> None:
 @click.option(
     "--json", "as_json", is_flag=True, default=False, help="Emit machine-readable JSON."
 )
-@click.option("--account-id", default=_DEFAULT_ACCOUNT_ID, show_default=True)
-@click.option("--region", default=_DEFAULT_REGION, show_default=True)
+@click.option(
+    "--account-id",
+    default=None,
+    help=f"Overrides the tenant config's derived account id (--source mode default: {_DEFAULT_ACCOUNT_ID}).",
+)
+@click.option(
+    "--region",
+    default=None,
+    help=f"Overrides the tenant config's region (--source mode default: {_DEFAULT_REGION}).",
+)
 @click.option(
     "--cadence-seconds", default=_DEFAULT_CADENCE_SECONDS, show_default=True, type=int
 )
@@ -442,13 +497,13 @@ def cli() -> None:
 )
 def ingest(
     adapter: str,
-    source: str,
+    source: Optional[str],
     tenant: str,
     window: str,
     dry_run: bool,
     as_json: bool,
-    account_id: str,
-    region: str,
+    account_id: Optional[str],
+    region: Optional[str],
     cadence_seconds: int,
     vertical: str,
     user: Optional[str],
@@ -463,19 +518,48 @@ def ingest(
     user_id = _parse_uuid(user, "--user") if user else None
     window_start, window_end = _parse_window(window)
 
+    store: Any = None
+    allowed_s3_buckets: "frozenset[str]" = frozenset()
+    effective_account_id = account_id
+    effective_region = region
+    label = source
+
     try:
+        if source is None:
+            # STORY-408 AC-5.1: resolve the tenant's cross-account source config.
+            Session = _session_factory()
+            db = Session()
+            try:
+                (
+                    store,
+                    resolved_account_id,
+                    resolved_region,
+                    allowed_s3_buckets,
+                    label,
+                ) = _resolve_tenant_store(db, tenant_id)
+            finally:
+                db.close()
+            effective_account_id = account_id or resolved_account_id
+            effective_region = region or resolved_region
+        else:
+            effective_account_id = account_id or _DEFAULT_ACCOUNT_ID
+            effective_region = region or _DEFAULT_REGION
+        assert label is not None  # set above on both branches
+
         summary = _run_ingest(
-            source=source,
+            source=label,
             tenant_id=tenant_id,
             window_start=window_start,
             window_end=window_end,
             dry_run=dry_run,
-            account_id=account_id,
-            region=region,
+            account_id=effective_account_id,
+            region=effective_region,
             adapter_id=adapter,
             cadence_seconds=cadence_seconds,
             user_id=user_id,
             vertical=vertical,
+            store=store,
+            allowed_s3_buckets=allowed_s3_buckets,
         )
     except CliError as exc:
         # Partial-batch behavior (AC-1.3): still surface what was ingested before exiting non-zero.

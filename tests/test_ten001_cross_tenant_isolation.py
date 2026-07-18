@@ -222,6 +222,7 @@ _ACCOUNTED_TENANT_SCOPED = frozenset(
         "observation_checkpoints",  # STORY-COV-001 (RLS in migration 036)
         "observation_gaps",  # STORY-COV-001 (RLS in migration 036)
         "observation_lag_samples",  # STORY-COV-001 (RLS in migration 036)
+        "tenant_log_source_configs",  # STORY-408 (RLS in migration 037)
     }
 )
 

@@ -608,7 +608,9 @@ class AuditEvent(Base):
     actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
     target_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     target_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    outcome: Mapped[str | None] = mapped_column(String(50), nullable=True)  # SUCCESS|FAILURE|DENIED
+    outcome: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # SUCCESS|FAILURE|DENIED
     retroactive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Per-tenant hash chain (grc/evidence pattern): seq is a per-tenant monotonic order.
     seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -630,10 +632,16 @@ class Disposition(Base):
 
     __tablename__ = "dispositions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     evidence_record_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("grc_evidence_records.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("grc_evidence_records.id", ondelete="SET NULL"),
+        nullable=True,
     )
     rule_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     gate_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -641,17 +649,25 @@ class Disposition(Base):
     severity: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # OPEN | ACKNOWLEDGED | REMEDIATED | WAIVED | ESCALATED
     state: Mapped[str] = mapped_column(String(30), nullable=False, default="OPEN")
-    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     acknowledged_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     waiver_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
     waiver_approver: Mapped[str | None] = mapped_column(String(255), nullable=True)
     waiver_expiry: Mapped[date | None] = mapped_column(Date, nullable=True)
     reopened_from_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dispositions.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("dispositions.id", ondelete="SET NULL"),
+        nullable=True,
     )
     recurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class DispositionTransition(Base):
@@ -659,9 +675,13 @@ class DispositionTransition(Base):
 
     __tablename__ = "disposition_transitions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     disposition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("dispositions.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("dispositions.id", ondelete="CASCADE"),
+        nullable=False,
     )
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
     from_state: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -670,7 +690,9 @@ class DispositionTransition(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -684,19 +706,32 @@ class UsageMeter(Base):
 
     __tablename__ = "usage_meters"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     meter_key: Mapped[str] = mapped_column(String(50), nullable=False)
     period_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
     dimensions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     dimensions_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "meter_key", "period_bucket", "dimensions_hash",
-                         name="ux_usage_meters_key"),
+        UniqueConstraint(
+            "tenant_id",
+            "meter_key",
+            "period_bucket",
+            "dimensions_hash",
+            name="ux_usage_meters_key",
+        ),
     )
 
 
@@ -706,7 +741,9 @@ class UsageMeterIdempotency(Base):
     __tablename__ = "usage_meter_idempotency"
 
     idempotency_key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class UsageStatement(Base):
@@ -714,12 +751,18 @@ class UsageStatement(Base):
 
     __tablename__ = "usage_statements"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     period_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
     totals: Mapped[dict] = mapped_column(JSON, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "period_bucket", name="ux_usage_statements"),
@@ -737,17 +780,30 @@ class ObservationCheckpoint(Base):
 
     __tablename__ = "observation_checkpoints"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     system_id: Mapped[str] = mapped_column(String(255), nullable=False)
     adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
     watermark_position: Mapped[str] = mapped_column(String(255), nullable=False)
-    watermark_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    watermark_timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "system_id", "adapter_id", "watermark_position",
-                         name="ux_observation_checkpoints"),
+        UniqueConstraint(
+            "tenant_id",
+            "system_id",
+            "adapter_id",
+            "watermark_position",
+            name="ux_observation_checkpoints",
+        ),
     )
 
 
@@ -756,13 +812,21 @@ class ObservationGap(Base):
 
     __tablename__ = "observation_gaps"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     system_id: Mapped[str] = mapped_column(String(255), nullable=False)
     adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
     gap_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    gap_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    cause_class: Mapped[str] = mapped_column(String(40), nullable=False, default="UNKNOWN")
+    gap_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cause_class: Mapped[str] = mapped_column(
+        String(40), nullable=False, default="UNKNOWN"
+    )
     detection_method: Mapped[str | None] = mapped_column(String(60), nullable=True)
     watermark_start: Mapped[str | None] = mapped_column(String(255), nullable=True)
     watermark_end: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -773,8 +837,12 @@ class ObservationGap(Base):
     # Computed when a gap is finalized (closed / created-closed); NULL while still open.
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ObservationLagSample(Base):
@@ -782,19 +850,30 @@ class ObservationLagSample(Base):
 
     __tablename__ = "observation_lag_samples"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     system_id: Mapped[str] = mapped_column(String(255), nullable=False)
     adapter_id: Mapped[str] = mapped_column(String(255), nullable=False)
     window_bucket: Mapped[str] = mapped_column(String(20), nullable=False)
     p50_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     p95_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "system_id", "adapter_id", "window_bucket",
-                         name="ux_observation_lag"),
+        UniqueConstraint(
+            "tenant_id",
+            "system_id",
+            "adapter_id",
+            "window_bucket",
+            name="ux_observation_lag",
+        ),
     )
 
 
@@ -1079,6 +1158,50 @@ class TenantRiskConfig(Base):
     max_weight_ceiling: Mapped[float] = mapped_column(
         Float, nullable=False, default=1.0
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STORY-408: per-tenant cross-account client log source configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TenantLogSourceConfig(Base):
+    """
+    Binds a tenant to exactly one client-account Bedrock log source (STORY-408).
+
+    SARO never stores client AWS credentials — only the parameters needed to
+    assume a client-provisioned, read-only IAM role via STS AssumeRole.
+    `external_id` is a confused-deputy defense SARO itself generates
+    (cryptographically random, >=32 chars); it is not an AWS credential, but is
+    still never logged (AC-1.2) and never re-displayed after onboarding.
+    """
+
+    __tablename__ = "tenant_log_source_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    role_arn: Mapped[str] = mapped_column(String(255), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    bucket: Mapped[str] = mapped_column(String(255), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    region: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Informational only — used for the onboarding-artifact error message
+    # (AC-2.3), never used to construct an ARN or authorize anything in code.
+    kms_key_arn: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -167,11 +167,57 @@ class S3LogStore:
     """Read-only S3 store (lazy boto3 ``s3`` client). Never reaches a model-inference endpoint."""
 
     def __init__(
-        self, bucket: str, *, prefix_root: str = "", client: Any = None
+        self,
+        bucket: str,
+        *,
+        prefix_root: str = "",
+        client: Any = None,
+        kms_key_arn: Optional[str] = None,
     ) -> None:
         self.bucket = bucket
         self.prefix_root = prefix_root.strip("/")
         self._client = client
+        # Informational only (STORY-408 AC-2.3) — used to name the KMS key
+        # requirement in a clear error message; never used to authorize anything.
+        self._kms_key_arn = kms_key_arn
+
+    @classmethod
+    def for_tenant(
+        cls,
+        config: Any,
+        *,
+        sts_client: Any = None,
+        s3_client_override: Any = None,
+    ) -> "S3LogStore":
+        """Construct an S3LogStore scoped to a tenant's cross-account log source
+        (STORY-408 AC-2.1). Credentials come from STS AssumeRole (with the
+        tenant's external_id) via a refreshing boto3 session — never SARO's
+        ambient credentials against a client bucket.
+
+        ``s3_client_override`` lets tests inject a fake S3 client while still
+        exercising the real STS AssumeRole call; production callers never pass it.
+        """
+        from adapters.bedrock.cross_account import refreshable_session
+
+        # Always assume the role (AC-2.1) — s3_client_override only substitutes
+        # which client object subsequently issues list/get calls, so tests can
+        # verify the STS wiring without a real S3 backend.
+        session = refreshable_session(
+            config.role_arn,
+            config.external_id,
+            region=config.region,
+            sts_client=sts_client,
+        )
+        if s3_client_override is not None:
+            client = s3_client_override
+        else:
+            client = session.client("s3", region_name=config.region)
+        return cls(
+            config.bucket,
+            prefix_root=config.prefix,
+            client=client,
+            kms_key_arn=config.kms_key_arn,
+        )
 
     def _s3(self) -> Any:
         if self._client is None:
@@ -199,11 +245,39 @@ class S3LogStore:
         # GetObject call either).
         _validate_key_shape(key)
         client = self._s3()
-        obj = client.get_object(Bucket=self.bucket, Key=self._full(key))
+        try:
+            obj = client.get_object(Bucket=self.bucket, Key=self._full(key))
+        except Exception as exc:  # noqa: BLE001 — re-mapped below, re-raised otherwise
+            raise self._map_read_error(exc, key) from exc
         data = obj["Body"].read(MAX_OBJECT_BYTES + 1)
         if len(data) > MAX_OBJECT_BYTES:
             raise ValueError(f"log object {key!r} exceeds {MAX_OBJECT_BYTES}-byte cap")
         return data
+
+    def _map_read_error(self, exc: Exception, key: str) -> Exception:
+        """STORY-408 AC-2.3: a missing kms:Decrypt permission is the #1 client
+        setup mistake — surface it as a distinct, actionable error naming the
+        key requirement instead of a generic AccessDenied."""
+        try:
+            from botocore.exceptions import ClientError
+        except ImportError:
+            return exc
+        if not isinstance(exc, ClientError):
+            return exc
+        error = exc.response.get("Error", {})
+        code = str(error.get("Code", ""))
+        message = str(error.get("Message", ""))
+        is_kms_denied = code.startswith("KMS.") or (
+            code == "AccessDenied" and "kms" in message.lower()
+        )
+        if not is_kms_denied:
+            return exc
+        key_hint = self._kms_key_arn or "the log bucket's KMS key"
+        return ValueError(
+            f"failed to read {key!r}: access denied decrypting an SSE-KMS object. "
+            f"The assumed role is missing kms:Decrypt on {key_hint}. "
+            f"Add a kms:Decrypt statement for this key to the client-side IAM role."
+        )
 
 
 def discover_object_keys(
