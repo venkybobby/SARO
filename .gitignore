@@ -56,5 +56,10 @@ logs/
 node_modules/
 scripts/node_modules/
 
+# Demo screen-capture kit — live browser sessions (AWS/Supabase/frontend cookies)
+# and unreviewed screenshots must never be committed.
+demo-capture/profiles/
+demo-capture/shots/
+
 # Continuous-learning hook output (session-local, advisory)
 .claude/learnings/
