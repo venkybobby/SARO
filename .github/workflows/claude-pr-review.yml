@@ -56,7 +56,6 @@ jobs:
           claude_args: |
             --model claude-sonnet-4-6
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          show_full_output: true
           prompt: |
             You are a senior engineer and AI governance specialist reviewing a pull request for the SARO platform (Smart AI Risk Orchestrator v8.0.0).
 
