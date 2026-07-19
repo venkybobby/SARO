@@ -267,3 +267,8 @@ findings:
     test: tests/regression/test_fnd_057_seed_demo_jwt_json_body.py
     status: pinned
     quarantine_expires: null
+  - id: FND-058
+    title: "ensure_demo_user() silently reassigned tenant_id/role/password on any user matched by email, with no check the row already belonged to the demo tenant or was already super_admin — security-auditor review of PR #119"
+    test: tests/regression/test_fnd_058_ensure_demo_user_tenant_guard.py
+    status: pinned
+    quarantine_expires: null
