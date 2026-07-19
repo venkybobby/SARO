@@ -71,8 +71,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-6
-          max_tokens: 60000
+          claude_args: |
+            --model claude-sonnet-4-6
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             The SARO platform CI has failed. Your job is to diagnose the failure and push a fix.

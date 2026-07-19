@@ -72,7 +72,7 @@ def test_refuses_to_hijack_user_belonging_to_a_different_tenant():
             id=uuid.uuid4(),
             tenant_id=real_tenant.id,
             email=email,
-            hashed_password="unrelated-hash",
+            hashed_password="x",
             role="operator",
             is_active=True,
         )
@@ -90,7 +90,7 @@ def test_refuses_to_hijack_user_belonging_to_a_different_tenant():
         assert reloaded.role == "operator", (
             "must not escalate role of an unrelated account (FND-058)"
         )
-        assert reloaded.hashed_password == "unrelated-hash", (
+        assert reloaded.hashed_password == "x", (
             "must not reset the password of an unrelated account (FND-058)"
         )
     finally:
@@ -110,7 +110,7 @@ def test_refuses_to_escalate_role_of_same_tenant_non_admin_user():
             id=uuid.uuid4(),
             tenant_id=tenant.id,
             email=email,
-            hashed_password="unrelated-hash",
+            hashed_password="x",
             role="operator",
             is_active=True,
         )
@@ -125,7 +125,7 @@ def test_refuses_to_escalate_role_of_same_tenant_non_admin_user():
         assert reloaded.role == "operator", (
             "must not escalate role of a non-admin user in the target tenant (FND-058)"
         )
-        assert reloaded.hashed_password == "unrelated-hash"
+        assert reloaded.hashed_password == "x"
     finally:
         db.close()
 
@@ -143,7 +143,7 @@ def test_legitimate_reset_still_succeeds_for_matching_tenant_and_role():
             id=uuid.uuid4(),
             tenant_id=tenant.id,
             email=email,
-            hashed_password="old-hash",
+            hashed_password="x",
             role="super_admin",
             is_active=True,
         )
@@ -156,7 +156,7 @@ def test_legitimate_reset_still_succeeds_for_matching_tenant_and_role():
         assert uuid.UUID(result["user_id"]) == existing.id
         db.expire_all()
         reloaded = db.get(User, existing.id)
-        assert reloaded.hashed_password != "old-hash"
+        assert reloaded.hashed_password != "x"
         assert reloaded.role == "super_admin"
         assert reloaded.tenant_id == tenant.id
     finally:
