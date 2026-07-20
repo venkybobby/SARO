@@ -10,8 +10,12 @@ GET   /api/v1/remediation/audits/{audit_id}/traces        â€” list fail/war
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import os
+import secrets
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional
@@ -22,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import Audit, AuditEvent, AuditTrace, User
+from models import Audit, AuditEvent, AuditTrace, Tenant, User
 from services.coverage_service import DEFAULT_OVERDUE_DAYS, build_coverage_report
 from services.remediation_service import generate_remediation_steps
 
@@ -67,6 +71,70 @@ _JIRA_REDIRECT_URI = os.environ.get(
     "JIRA_REDIRECT_URI",
     "https://saro.app/api/v1/remediation/oauth/jira/callback",
 )
+
+# TM-F1 / FND-061: OAuth state = "{tenant_id}.{issued_ts}.{nonce}.{hmac_sig}".
+# The signature makes the tenant binding tamper-evident; the nonce (persisted on
+# Tenant.settings_json at /start, consumed at the callback) makes it single-use.
+_STATE_TTL_SECONDS = 600
+_PENDING_STATE_KEY = "jira_oauth_state"
+
+
+def _oauth_state_secret() -> bytes:
+    from config import settings
+
+    secret = os.environ.get("OAUTH_STATE_SECRET") or settings.jwt_secret_key
+    if not secret:
+        # Fail closed — an unsigned state would reintroduce TM-F1 (no FND-044
+        # style hardcoded default here). Specifics go to logs, not the response.
+        logger.error(
+            "Jira OAuth state signing key not configured "
+            "(set OAUTH_STATE_SECRET or JWT_SECRET_KEY)"
+        )
+        raise HTTPException(status_code=500, detail="OAuth flow unavailable")
+    return secret.encode()
+
+
+def _reject_state(reason: str) -> HTTPException:
+    """Log the rejection category (never the state itself — it embeds a tenant
+    id) and return the uniform 400."""
+    logger.warning("Jira OAuth state rejected: %s", reason)
+    return HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+
+def _sign_state_payload(payload: str) -> str:
+    return hmac.new(_oauth_state_secret(), payload.encode(), hashlib.sha256).hexdigest()
+
+
+def _generate_oauth_state(tenant_id: uuid.UUID) -> tuple[str, str]:
+    """Return (signed_state, nonce) for the given tenant."""
+    nonce = secrets.token_urlsafe(16)
+    payload = f"{tenant_id}.{int(time.time())}.{nonce}"
+    return f"{payload}.{_sign_state_payload(payload)}", nonce
+
+
+def _verify_oauth_state(state: str) -> tuple[uuid.UUID, str]:
+    """Verify signature + TTL of a signed state; return (tenant_id, nonce).
+
+    Raises a uniform 400 on any malformed, tampered, forged, or expired state —
+    before the caller performs any token exchange.
+    """
+    parts = state.split(".")
+    if len(parts) != 4:
+        raise _reject_state("malformed")
+    tenant_str, ts_str, nonce, sig = parts
+    # Compare as bytes: str compare_digest raises TypeError on non-ASCII input,
+    # which would turn a garbage state into a 500 instead of a 400.
+    expected = _sign_state_payload(f"{tenant_str}.{ts_str}.{nonce}")
+    if not hmac.compare_digest(sig.encode("utf-8", "replace"), expected.encode()):
+        raise _reject_state("bad_signature")
+    try:
+        issued_at = int(ts_str)
+        tenant_id = uuid.UUID(tenant_str)
+    except ValueError:
+        raise _reject_state("malformed")
+    if not 0 <= time.time() - issued_at <= _STATE_TTL_SECONDS:
+        raise _reject_state("expired")
+    return tenant_id, nonce
 
 
 # â”€â”€ Pydantic models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -182,16 +250,11 @@ async def create_jira_issue(
     if not audit:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Get Jira config from tenant settings
-    from models import ClientConfig
-
-    config = db.query(ClientConfig).filter(
-        ClientConfig.tenant_id == current_user.tenant_id
-    ).first()
-
-    if not config or not config.settings_json or "jira_access_token_enc" not in (
-        config.settings_json or {}
-    ):
+    # FND-062: Jira tokens live on Tenant.settings_json (ClientConfig has no
+    # settings_json column — the previous read path could never succeed).
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    jira_settings = (tenant.settings_json or {}) if tenant else {}
+    if "jira_access_token_enc" not in jira_settings:
         raise HTTPException(
             status_code=400, detail="Jira Cloud not configured for this tenant"
         )
@@ -199,7 +262,7 @@ async def create_jira_issue(
     from services.jira import create_issue as jira_create_issue, decrypt_token
 
     try:
-        access_token = decrypt_token(config.settings_json["jira_access_token_enc"])
+        access_token = decrypt_token(jira_settings["jira_access_token_enc"])
     except Exception:
         raise HTTPException(
             status_code=400,
@@ -336,15 +399,29 @@ async def list_audit_traces(
 
 @router.get("/remediation/oauth/jira/start")
 async def jira_oauth_start(
+    db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Initiate Jira Cloud OAuth2 (3LO) flow."""
+    """Initiate Jira Cloud OAuth2 (3LO) flow with an HMAC-signed state (TM-F1)."""
     if not _JIRA_CLIENT_ID:
         raise HTTPException(
             status_code=400,
             detail="Jira OAuth not configured (missing JIRA_CLIENT_ID)",
         )
     import urllib.parse
+
+    state, nonce = _generate_oauth_state(current_user.tenant_id)
+
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings_json = dict(tenant.settings_json or {})
+    settings_json[_PENDING_STATE_KEY] = {
+        "nonce": nonce,
+        "issued_at": datetime.now(timezone.utc).isoformat(),
+    }
+    tenant.settings_json = settings_json
+    db.commit()
 
     params = urllib.parse.urlencode(
         {
@@ -354,7 +431,7 @@ async def jira_oauth_start(
             "redirect_uri": _JIRA_REDIRECT_URI,
             "response_type": "code",
             "prompt": "consent",
-            "state": str(current_user.tenant_id),
+            "state": state,
         }
     )
     return {"oauth_url": f"https://auth.atlassian.com/authorize?{params}"}
@@ -363,13 +440,40 @@ async def jira_oauth_start(
 @router.get("/remediation/oauth/jira/callback")
 async def jira_oauth_callback(
     code: str,
+    db: Annotated[Session, Depends(get_db)],
     state: Optional[str] = None,
-    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
 ) -> dict:
-    """Handle Jira OAuth2 callback â€” exchange code for tokens and store encrypted."""
+    """Handle Jira OAuth2 callback — verify signed state, then exchange and store."""
     import httpx
 
     from services.jira import encrypt_token
+
+    # TM-F1 / FND-061: the state must be present, correctly signed, unexpired,
+    # and match the pending nonce — all BEFORE any code-for-token exchange.
+    if not state:
+        logger.warning("Jira OAuth state rejected: missing")
+        raise HTTPException(status_code=400, detail="Missing OAuth state parameter")
+    tenant_id, nonce = _verify_oauth_state(state)
+
+    # Row lock so verify-and-consume is atomic: two concurrent callbacks with
+    # the same state must not both pass the nonce check (no-op on SQLite tests).
+    tenant = (
+        db.query(Tenant).filter(Tenant.id == tenant_id).with_for_update().first()
+    )
+    pending = (tenant.settings_json or {}).get(_PENDING_STATE_KEY) if tenant else None
+    if (
+        not tenant
+        or not pending
+        or not hmac.compare_digest(str(pending.get("nonce", "")), nonce)
+    ):
+        raise _reject_state("unknown_or_already_used_nonce")
+
+    # Single-use: consume the nonce before the exchange so a replayed state can
+    # never reach the token endpoint, even if this exchange fails mid-flight.
+    settings_json = dict(tenant.settings_json or {})
+    settings_json.pop(_PENDING_STATE_KEY, None)
+    tenant.settings_json = settings_json
+    db.commit()
 
     try:
         resp = httpx.post(
@@ -388,26 +492,17 @@ async def jira_oauth_callback(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Jira token exchange failed: {exc}")
 
-    if state and db:
-        try:
-            tenant_id = uuid.UUID(state)
-            from models import ClientConfig
-
-            config = db.query(ClientConfig).filter(
-                ClientConfig.tenant_id == tenant_id
-            ).first()
-            if config:
-                settings = config.settings_json or {}
-                settings["jira_access_token_enc"] = encrypt_token(
-                    tokens.get("access_token", "")
-                )
-                settings["jira_refresh_token_enc"] = encrypt_token(
-                    tokens.get("refresh_token", "")
-                )
-                config.settings_json = settings
-                db.commit()
-        except Exception as exc:
-            logger.warning("Failed to store Jira tokens: %s", exc)
+    # FND-062: tokens persist on Tenant.settings_json — ClientConfig has no
+    # settings_json column, so the previous write was silently lost.
+    settings_json = dict(tenant.settings_json or {})
+    settings_json["jira_access_token_enc"] = encrypt_token(
+        tokens.get("access_token", "")
+    )
+    settings_json["jira_refresh_token_enc"] = encrypt_token(
+        tokens.get("refresh_token", "")
+    )
+    tenant.settings_json = settings_json
+    db.commit()
 
     return {"status": "jira_connected", "scope": tokens.get("scope")}
 
