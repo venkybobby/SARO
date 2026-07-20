@@ -64,7 +64,25 @@ Stage: standard
   role change / risk-config / tenant provisioning. Full suite 1656 pass.
 - STORY-358 ✅ adapter contract (NormalizedInvocationRecord); INV-2 enforced by
   test; Bedrock lift additive, 53 corpus tests unchanged; docs/adapter-design.md.
-- PREREQ-RP ⏳ genesis observation packs RP-OBS-COMPLETE + RP-TOOL-SCOPE.
+- PREREQ-RP ✅ genesis observation packs RP-OBS-COMPLETE + RP-TOOL-SCOPE (a27b8ef).
+- TM-F1/FND-061 ✅ merged in from claude/ecstatic-lamport-3c82c4 (b82755b) — HMAC
+  signed single-use OAuth state. Prioritised ahead of STORY-359 at user's direction
+  (tenant-isolation break outranks adapter breadth). FND-063 remains OPEN.
+- LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
+  gate + closed status vocabulary + session-start ritual + DoD coupling.
+
+## Decision Log — ledger-drift fix (appended)
+- D9 Q: Where can the premise-check actually be enforced, given `saro-story-author`
+  and `saro-invariant-audit` do NOT exist in this repo (.claude/agents/ has only
+  reviewer.md + security-auditor.md)? → Enforce in the surfaces that DO execute:
+  CLAUDE.md failure-mode table, saro-lifecycle PLAN stage, engineering-standards
+  DoD, plus a mechanical CI gate (scripts/check_story_index.py) → the check runs
+  on every PR instead of depending on an agent that isn't there. Report the
+  missing agents rather than pretending to wire into them.
+- D10 Q: Prose convention or executable gate for "no status without evidence"? →
+  Executable: index rows with IMPLEMENTED/MERGED must cite a resolvable commit
+  SHA; draft-class statuses must NOT cite one; vocabulary is closed (no
+  "done"/"complete") → stale status fails CI rather than misleading a reader.
 
 ## Prior build notes
 - specs: 26 story files + STORY-PACK-14-19-INDEX committed (a16ef50).

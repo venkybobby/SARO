@@ -37,8 +37,9 @@ PUBLIC_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/demo/signup"): "public demo-request intake (feature-flagged)",
     ("POST", "/api/v1/sso/magic-link"): "magic-link request — rate-limited per IP",
     ("GET", "/api/v1/remediation/oauth/jira/callback"): (
-        "OAuth provider redirect — no JWT by design; state-param hardening "
-        "tracked in threat model TM-F1"
+        "OAuth provider redirect — no JWT by design. Authenticity comes from the "
+        "HMAC-signed single-use state param (TM-F1/FND-061, b82755b), not from a "
+        "bearer token: the tenant binding is verified, not asserted."
     ),
 }
 # Prefixes that are public-by-design as a family.

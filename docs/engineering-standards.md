@@ -34,6 +34,10 @@ A story file in `specs/stories/` must contain Given/When/Then acceptance criteri
 edge cases, and out-of-scope notes. Otherwise implementation does not start.
 
 ## Definition of Done (per story)
+- [ ] **Story index row updated in THIS PR** — status moved to `IMPLEMENTED` with
+      a commit SHA + passing-test citation. Deferring the status update to a
+      follow-up is the drift mechanism (CLAUDE.md FM-4); `scripts/check_story_index.py`
+      fails the build on a claim without evidence.
 - [ ] All ACs mapped to passing tests (traceability table in the story file)
 - [ ] Gates 1–7 of `/story` green with output shown
 - [ ] Any bug touched → pinned regression test + manifest entry
@@ -47,6 +51,13 @@ edge cases, and out-of-scope notes. Otherwise implementation does not start.
 2. No bug fix without a regression test (red first).
 3. Ratchet never goes backward.
 4. Stop and ask on ambiguity — guessing is the #1 historical failure mode.
+4a. **The repo is the only status ledger.** Chat history, summaries, and planning
+   docs are hypotheses; a claim is true when a commit proves it (CLAUDE.md FM-1).
+4b. **Verify premises before building on them.** Any spec/plan referencing prior
+   artifacts opens with a verification table citing file paths; unverifiable
+   references are marked `PREMISE-UNVERIFIED` (FM-2).
+4c. **Drafted ≠ implemented.** Documents are `DRAFTED`/`SPECIFIED`; code is
+   `IMPLEMENTED`/`MERGED`. "Done" and "complete" are not status words (FM-3).
 5. Never weaken, skip, or delete tests to achieve green. Max 3 full gate cycles, then write a blocker report.
 6. One story = one branch (`story/STORY-###`) = one PR targeting `venkybobby/SARO`.
 

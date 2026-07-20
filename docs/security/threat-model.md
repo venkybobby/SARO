@@ -58,9 +58,10 @@ tenants, rules/versions, evf admin, self-audit.
 
 | ID | Finding | Severity | Disposition |
 |---|---|---|---|
-| TM-F1 | Jira OAuth callback accepts optional, unsigned `state` used directly as tenant id (routers/remediation.py) — no CSRF/state integrity on token binding | Medium | Follow-up task spawned; fix = signed state issued at /oauth/jira/start, verified in callback |
-| TM-F2 | No MFA on password login | Low (pilot phase) | Roadmap; SSO/SAML path exists for enterprise tenants |
-| TM-F3 | JWT in localStorage (frontend) | Info | Raise at pentest; httpOnly-cookie migration has CORS-credentials implications (main.py CORS comment) |
+| TM-F1 | Jira OAuth callback accepted an optional, **unsigned** `state` used directly as the tenant id (routers/remediation.py) — a forged callback could bind an attacker's Jira account to any tenant | **HIGH** (was initially graded Medium — corrected: this is a tenant-isolation break, INV-3, not OAuth hygiene) | **FIXED** — b82755b (FND-061): HMAC-signed, single-use, TTL-bounded state; nonce consumed under row lock before token exchange; uniform 400 on any rejection. 11 regression tests. |
+| TM-F2 | `/oauth/jira/start` has no role / read-only gate (pre-existing) | Medium | **OPEN** — logged as FND-063 during the TM-F1 fix |
+| TM-F3 | No MFA on password login | Low (pilot phase) | Roadmap; SSO/SAML path exists for enterprise tenants |
+| TM-F4 | JWT in localStorage (frontend) | Info | Raise at pentest; httpOnly-cookie migration has CORS-credentials implications (main.py CORS comment) |
 
 ## 5. Hardening delivered in STORY-365
 

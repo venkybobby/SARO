@@ -70,10 +70,33 @@ should answer. Never wire a mock into the real app before reaction.
 
 **Trigger:** always for standard tasks. **Skip:** never.
 
-Do: implementation plan ordered by tweak-likelihood — (1) data model changes,
-(2) new type interfaces, (3) user-facing behavior, then everything mechanical
-buried at the bottom with a one-line "trusted refactoring" summary. Plan must
-cite the Decision Log entries it satisfies. Confirm before BUILD.
+**3a. Premise check — MANDATORY, runs first.** Any plan that references a prior
+artifact (story ID, corpus, rule-pack, document, endpoint, migration) must
+verify each reference against the repo before planning on top of it:
+
+- Grep for it; cite the **file path** that proves it exists.
+- Anything unverifiable is marked `PREMISE-UNVERIFIED` in the plan — never
+  assumed, never softened to "presumably exists".
+- A false load-bearing premise is surfaced to the user *before* dependent work
+  is written.
+
+This exists because 26 stories were once authored on top of an epic
+(STORY-340..357) and two rule-packs that had been planned, described as
+delivered in conversation, and never built. See CLAUDE.md FM-1/FM-2.
+
+Record the check as a small table in implementation-notes.md:
+`| referenced artifact | verified? | file path or PREMISE-UNVERIFIED |`
+
+**3b. The plan.** Implementation plan ordered by tweak-likelihood — (1) data
+model changes, (2) new type interfaces, (3) user-facing behavior, then
+everything mechanical buried at the bottom with a one-line "trusted
+refactoring" summary. Plan must cite the Decision Log entries it satisfies.
+Confirm before BUILD.
+
+**Vocabulary discipline (all stages).** In notes, specs, commits, and session
+summaries: *drafted / specified* describes a document; *implemented / merged*
+describes code that exists in git. Never "done" or "complete" — those are the
+words that let a written backlog be remembered as shipped software.
 
 ## Stage 4 — BUILD
 

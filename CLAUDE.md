@@ -109,6 +109,46 @@ See `.claude/skills/` for rule-specific guidance Claude follows automatically:
 - Port: `$PORT` (Railway injects)
 - Health endpoint: `GET /health` → `{"app":"SARO","version":"<app.version>","db_ok":true}`
 
+## Failure modes (named, so they can be checked for)
+
+These are failures that have actually happened in this project. Each is named so
+a review can ask "is this one present?" instead of relying on vigilance.
+
+| ID | Failure mode | What it looks like | Control |
+|---|---|---|---|
+| **FM-1** | **Claimed-implemented without commit evidence** | A story/epic/artifact is described as shipped in chat, a summary, or a planning doc, but no commit implements it. Downstream work is then authored on top of the phantom. | Story index rows must cite a resolvable commit SHA to claim `IMPLEMENTED`/`MERGED` — enforced by `scripts/check_story_index.py` in CI. |
+| **FM-2** | **Unverified premise in dependent work** | A spec/plan references prior story IDs, corpora, rule-packs, or docs that were never verified to exist. | Premise-verification table required before authoring dependent work (see below). Unverifiable references are marked `PREMISE-UNVERIFIED`, never assumed. |
+| **FM-3** | **Drafted read as delivered** | "Produced the backlog" / "published the pack" — a document was written, and the vocabulary let it be remembered as working software. | Closed status vocabulary: `DRAFTED`/`SPECIFIED` for documents, `IMPLEMENTED`/`MERGED` for code. The words "done" and "complete" are rejected by the index gate. |
+| **FM-4** | **Status updated later, not in the implementing PR** | The index drifts because status changes are deferred to a follow-up that never happens. | Definition of Done requires the index row to change in the same PR as the implementation. |
+| **FM-5** | **Guessing on ambiguity** | Proceeding on an assumption rather than asking. | Historical #1 failure mode — see `docs/engineering-standards.md` hard rule 4. |
+
+### The ledger rule
+
+**The repo is the only status ledger that counts.** Chat history, session
+summaries, memory files, and planning documents are *hypotheses* about the
+repo's state. They are never evidence. When they disagree with the repo, the
+repo is right and the other ledger gets corrected.
+
+### Premise check (before authoring any dependent work)
+
+Any story pack, spec, plan, or epic that references prior artifacts MUST open
+with a verification pass:
+
+1. List every referenced artifact (story ID, corpus, rule-pack, document, endpoint).
+2. Grep the repo for each one; cite the **file path** that proves it exists.
+3. Mark anything you cannot verify as `PREMISE-UNVERIFIED` — do not assume, and
+   do not soften it to "presumably exists".
+4. If a load-bearing premise is false, surface it before writing dependent
+   work, not after.
+
+Worked example: `specs/stories/STORY-PACK-14-19-INDEX.md` §Premise verification.
+
+### Session start
+
+Open every session by reading the relevant story index and recent `git log`.
+Treat prior-session claims as hypotheses until the repo confirms them. Do not
+carry conversational context forward as established fact.
+
 ## Story Workflow — never paste prompts
 - New work: create `specs/stories/STORY-###.md` from `_TEMPLATE.md`, then run `/story STORY-###`.
 - New bug/review finding: run `/finding <description>` — it logs an FND, writes a pinning regression test (red→green), and updates `tests/regression/manifest.yaml`.
