@@ -28,6 +28,12 @@ export default defineConfig({
         target: process.env.VITE_SARO_API_URL || "http://localhost:8000",
         changeOrigin: true,
       },
+      // FND-060: Sidebar.jsx polls /health for the API-status badge; without
+      // this entry Vite serves index.html and dev shows a false "API offline".
+      "/health": {
+        target: process.env.VITE_SARO_API_URL || "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
   test: {

@@ -76,14 +76,16 @@ def _run_audit_and_persist(
     eng = engine_cls(db)
     report = eng.run_audit(batch, audit_obj.id)
 
-    # Persist ScanReport
-    overall_risk = report.bayesian_scores.overall * 100
+    # Persist ScanReport. FND-059: overall_risk_score stores the engine's 0-1
+    # probability unscaled, matching every production writer (routers/scan.py,
+    # routers/ingest.py, etc.) — the frontend scales to /100 for display once.
+    overall_risk = report.bayesian_scores.overall
     db.add(ScanReport(
         audit_id=audit_obj.id,
         tenant_id=audit_obj.tenant_id,
         mit_coverage_score=report.mit_coverage.score,
         fixed_delta=report.fixed_delta.delta,
-        overall_risk_score=round(overall_risk, 2),
+        overall_risk_score=round(overall_risk, 4),
         confidence_score=report.confidence_score,
         report_json=json.loads(report.model_dump_json()),
     ))
@@ -106,7 +108,7 @@ def _run_audit_and_persist(
     audit_obj.status = "completed"
     audit_obj.completed_at = datetime.now(tz=timezone.utc)
     db.commit()
-    logger.info("Completed audit: %s (risk=%.1f)", dataset_name, overall_risk)
+    logger.info("Completed audit: %s (risk=%.1f/100)", dataset_name, overall_risk * 100)
 
 
 def seed() -> None:

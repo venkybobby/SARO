@@ -272,3 +272,13 @@ findings:
     test: tests/regression/test_fnd_058_ensure_demo_user_tenant_guard.py
     status: pinned
     quarantine_expires: null
+  - id: FND-059
+    title: "scripts/seed_demo.py stored overall_risk_score pre-multiplied by 100 while every production writer stores the engine's 0-1 probability — seeded demo tenants rendered '1286/100' risk chips in TRACE View and Compliance Hub (demo readiness review 2026-07-19, F1)"
+    test: tests/regression/test_fnd_059_seed_demo_risk_score_scale.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-060
+    title: "frontend/nginx.conf proxied only /api/ so Sidebar.jsx's fetch('/health') hit the SPA fallback (index.html, 200) and the deployed sidebar permanently showed a red 'API offline' badge; Vite dev proxy had the same gap (demo readiness review 2026-07-19, F2)"
+    test: tests/regression/test_fnd_060_frontend_health_proxy.py
+    status: pinned
+    quarantine_expires: null

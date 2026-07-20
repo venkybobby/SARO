@@ -37,6 +37,20 @@ demo-visible surface. `TraceView.test.jsx` fixtures use 0–1 values, so the uni
 pins the wrong contract and stays green. Decide the canonical scale (backend is 0–100
 today), fix the frontend (or backend) once, and update the fixtures.
 
+> **Correction & resolution (FND-059).** The deeper root-cause pass flipped the
+> attribution: every *production* writer (`routers/scan.py`, `routers/ingest.py`,
+> `routers/output_audit.py`, `routers/hf_processor.py`,
+> `services/audit_submission.py`) stores the engine's **0–1 probability**
+> (`bayesian_scores.overall`, rounded to 4 dp in `engine.py`), and the frontend's
+> single ×100 is the intended display scaling. `scripts/seed_demo.py` was the lone
+> outlier pre-multiplying by 100 — so only seeded demo tenants showed "1286/100";
+> data ingested through the production paths renders correctly. Fixed by storing
+> the unscaled probability in `seed_demo.py`, pinned by
+> `tests/regression/test_fnd_059_seed_demo_risk_score_scale.py`. The frontend and
+> its fixtures were left unchanged (they already agree with the production
+> contract). Demo tenants seeded with the buggy script need a reseed
+> (`cli.py demo reset` + re-ingest) for stored scores to display correctly.
+
 ### F2 — Sidebar shows a red "API offline" badge in the deployed demo — HIGH
 `frontend/src/components/Sidebar.jsx:96` polls `fetch("/health")`, but
 `frontend/nginx.conf` proxies only `location /api/` to the backend. On
@@ -45,6 +59,11 @@ today), fix the frontend (or backend) once, and update the fixtures.
 in front of every demo attendee. Fix: add a `/health` proxy location to nginx.conf
 (or point the sidebar at an `/api/v1`-prefixed health route). The same artifact
 appears in local dev because the Vite proxy also only maps `/api`.
+
+> **Resolution (FND-060).** Fixed: `location = /health` proxy added to
+> `frontend/nginx.conf` and a `/health` entry to the Vite dev proxy, pinned by
+> `tests/regression/test_fnd_060_frontend_health_proxy.py`. Takes effect on the
+> next `sarofrontend` deploy.
 
 ### F3 — CI "E2E Smoke Tests" job is vacuous — HIGH
 `.github/workflows/ci.yml` installs Playwright + Chromium, but every
