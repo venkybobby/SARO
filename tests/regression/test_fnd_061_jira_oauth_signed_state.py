@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import secrets
 import sys
 import time
 import uuid
@@ -58,7 +59,11 @@ Base.metadata.create_all(_engine)
 # Must contain a hex letter: an all-digit UUID hex string gets coerced to an
 # integer by SQLite's NUMERIC affinity on UUID-declared columns.
 _TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000f58")
-_STATE_SECRET = "fnd-061-state-test-secret"
+# Generated per run, not a literal: the signing key's VALUE is irrelevant to
+# what these tests prove, and a literal here would (correctly) trip the repo's
+# hardcoded-secret scanner in tests/test_epic6_security.py. Generating it also
+# demonstrates the implementation depends on the configured key, not a fixed one.
+_STATE_SECRET = secrets.token_hex(16)
 _CALLBACK = "/api/v1/remediation/oauth/jira/callback"
 _START = "/api/v1/remediation/oauth/jira/start"
 _AUTH = {"Authorization": "Bearer t"}
