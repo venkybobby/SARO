@@ -1,0 +1,17 @@
+# SARO gitleaks configuration (STORY-363).
+#
+# Extends the gitleaks default ruleset. The ONLY allowlisted path is the
+# deliberately-seeded canary fixture used by CI's self-test step, which runs
+# gitleaks against that directory WITHOUT this config and asserts the scan
+# fails — proving the gate actually catches secrets (AC-2). No blanket
+# test-directory exemption: real fixtures must not contain credential-shaped
+# strings.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Seeded canary fixture only — proves the CI gate fires; see tests/fixtures/gitleaks_canary/README.md"
+paths = [
+    '''tests/fixtures/gitleaks_canary/.*''',
+]

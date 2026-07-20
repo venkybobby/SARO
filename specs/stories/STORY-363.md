@@ -1,6 +1,6 @@
 # STORY-363: Secrets Management Baseline + Repo History Remediation (P0)
 
-**Status:** ready (tail is human-gated)
+**Status:** done — artifacts + CI gate live; AC-4/AC-5 **OPEN [HUMAN]** (rotation, history decision)
 **Screen/Area:** Security / CI (Pack Epic 15)
 **Ground truth:** Seed scripts are already env-var-only (#119); the historic
 hardcoded-secret exposure is FND-003. No secret-scanning CI gate exists yet.
@@ -32,3 +32,8 @@ remediation.
 ## Traceability (filled at close)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | — (doc) | docs/security/secrets-runbook.md §1 |
+| AC-2 | tests/test_story363_secret_scanning.py + CI self-test step | .gitleaks.toml, .github/workflows/ci.yml (secret-scan job), tests/fixtures/gitleaks_canary/ |
+| AC-3 | — (doc) | docs/security/secrets-runbook.md §3 |
+| AC-4 | OPEN [HUMAN] | runbook §4 checklist |
+| AC-5 | OPEN [HUMAN] | runbook §5 (recommendation: rotate-only now) |

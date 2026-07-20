@@ -40,6 +40,33 @@ jobs:
       - run: pytest tests/ -m "integration" --tb=short -q
       - run: pytest tests/ --cov=. --cov-report=xml
 
+  secret-scan:
+    # STORY-363: gitleaks gate. Complements (does not replace) the TruffleHog
+    # step below — TruffleHog runs --only-verified (live credentials), gitleaks
+    # catches credential-SHAPED strings before they ever go live.
+    name: Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Current-tree scan (BLOCKING)
+        run: gitleaks detect --no-git --source . --config .gitleaks.toml --no-banner --redact
+      - name: Full-history scan (report-only until FND-003 history remediation decision — see docs/security/secrets-runbook.md)
+        continue-on-error: true
+        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
+      - name: Self-test — seeded canary must fail the default ruleset
+        run: |
+          if gitleaks detect --no-git --source tests/fixtures/gitleaks_canary --no-banner --redact; then
+            echo "::error::gitleaks did NOT flag the seeded canary secret — the gate is not protecting anything"
+            exit 1
+          fi
+          echo "canary correctly detected — gate proven live"
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
