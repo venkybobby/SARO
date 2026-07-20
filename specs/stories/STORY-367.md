@@ -1,6 +1,6 @@
 # STORY-367: Dependency, Container, and IaC Scanning in CI
 
-**Status:** ready
+**Status:** done — gates green on landing (ecdsa waived no-fix-upstream; dev-toolchain chain waived pending vite8/vitest4 upgrade task)
 **Screen/Area:** CI (Pack Epic 15)
 **Ground truth:** `scripts/security_scan.sh` (static OWASP/PII patterns) +
 `quality-gates.yml` exist; pip-audit referenced in CLAUDE.md testing table but
@@ -22,3 +22,7 @@ scheduled run — findings triaged in the landing PR, no red gate landed.
 ## Traceability (filled at close)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | verified locally: pip-audit green w/ waiver; npm prod-gate exit 0 | .github/workflows/security-scans.yml, security/scan-waivers.md, scripts/check_scan_waivers.py |
+| AC-2 | trivy job (CRITICAL,HIGH, ignore-unfixed) | security-scans.yml container-scan |
+| AC-3 | cron Mon 03:00 UTC + waiver-expiry failure | security-scans.yml, check_scan_waivers.py |
+| AC-4 | triage: ecdsa PYSEC-2026-1325 (no fix upstream, waived w/ expiry); form-data fixed via lockfile; vite/vitest dev-chain waived → follow-up task | security/scan-waivers.md, frontend/package-lock.json |

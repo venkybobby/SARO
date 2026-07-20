@@ -1,0 +1,79 @@
+name: Security Scans (deps + containers)
+
+# STORY-367: gating vulnerability scans. Runs on PRs that change dependency or
+# container surfaces, and weekly regardless (new CVEs land without code changes).
+# Waivers: security/scan-waivers.md is the single source of suppressions —
+# scripts/check_scan_waivers.py derives pip-audit ignore flags from it and
+# fails when a waiver expires.
+
+on:
+  pull_request:
+    paths:
+      - "requirements*.txt"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "Dockerfile*"
+      - "frontend/Dockerfile*"
+      - ".github/workflows/security-scans.yml"
+      - "security/scan-waivers.md"
+      - "scripts/check_scan_waivers.py"
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC (after the 02:00 security suite)
+  workflow_dispatch:
+
+jobs:
+  waiver-hygiene:
+    name: Waiver expiry check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_scan_waivers.py
+
+  python-deps:
+    name: pip-audit (gating)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - name: pip-audit with documented waivers only
+        run: |
+          IGNORES=$(python scripts/check_scan_waivers.py --pip-args)
+          pip-audit -r requirements.txt --skip-editable $IGNORES
+
+  frontend-deps:
+    name: npm audit (gating, high+)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: npm audit — production deps (GATING, high+)
+        working-directory: frontend
+        run: npm audit --audit-level=high --omit=dev --package-lock-only
+      - name: npm audit — full incl. dev toolchain (report-only; waivers in security/scan-waivers.md)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high --package-lock-only
+
+  container-scan:
+    name: Trivy image scan (gating, critical/high)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t saro-backend:scan -f Dockerfile .
+      - name: Trivy scan (CRITICAL,HIGH gate)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: saro-backend:scan
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
