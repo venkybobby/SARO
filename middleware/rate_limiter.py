@@ -53,6 +53,18 @@ _AUTH_STRICT_PREFIXES = (
 )
 _AUTH_RATE_LIMIT_RPM = int(os.environ.get("AUTH_RATE_LIMIT_RPM", "10"))
 
+# Evaluate/ingest endpoints get a PER-IP limit as well (STORY-365): these are
+# the compute-heavy paths a single misbehaving client could saturate. Kept
+# per-IP (not per-tenant) deliberately — the middleware runs before auth, so a
+# tenant key would require decoding the JWT here; per-IP needs no trust in the
+# request body. Global per-tenant limiting remains a separate, load-reviewed
+# change (see comment in dispatch()).
+_EVALUATE_PREFIXES = (
+    "/api/v1/scan",
+    "/api/v1/ingest",
+)
+_EVALUATE_RATE_LIMIT_RPM = int(os.environ.get("EVALUATE_RATE_LIMIT_RPM", "60"))
+
 _PROMETHEUS_COUNTER = 0  # module-level fallback counter when prometheus_client absent
 
 try:
@@ -163,16 +175,21 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 
         client_host = request.client.host if request.client else None
 
-        # Scope: enforce a strict PER-IP limit on authentication endpoints
-        # (brute-force / enumeration defence). All other endpoints are left
-        # unthrottled here — global per-tenant limiting is a separate change
-        # (it would require load review + test-fixture isolation) and must not
-        # be enabled as a side effect of this auth-hardening fix.
-        if not any(path.startswith(prefix) for prefix in _AUTH_STRICT_PREFIXES):
+        # Scope: strict PER-IP limits on authentication endpoints (brute-force /
+        # enumeration defence) and on evaluate/ingest endpoints (compute-heavy,
+        # STORY-365). All other endpoints are left unthrottled here — global
+        # per-tenant limiting is a separate change (it would require load
+        # review + test-fixture isolation) and must not be enabled as a side
+        # effect of these scoped hardening fixes.
+        if any(path.startswith(prefix) for prefix in _AUTH_STRICT_PREFIXES):
+            limit = _AUTH_RATE_LIMIT_RPM
+            rl_key = f"auth-ip:{client_host or 'unknown'}"
+        elif any(path.startswith(prefix) for prefix in _EVALUATE_PREFIXES):
+            limit = _EVALUATE_RATE_LIMIT_RPM
+            rl_key = f"eval-ip:{client_host or 'unknown'}"
+        else:
             return await call_next(request)
 
-        limit = _AUTH_RATE_LIMIT_RPM
-        rl_key = f"auth-ip:{client_host or 'unknown'}"
         result = check_rate_limit(rl_key, limit)
 
         # Always attach quota headers to the response

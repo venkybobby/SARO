@@ -1,6 +1,6 @@
 # STORY-365: Pen Test Readiness — Threat Model + Hardening Pass
 
-**Status:** ready
+**Status:** done — hardening + probe suite live; vendor engagement is the human tail
 **Screen/Area:** Security — backend, middleware, CI (Pack Epic 15)
 **Ground truth:** TENANT_ISOLATION.md + test_pt009 concurrency proof exist; JWT
 hardening plan doc exists. No STRIDE doc, no per-route authz probe matrix, rate
@@ -33,3 +33,11 @@ the INV-3 regression guard.
 ## Traceability (filled at close)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | — (doc) | docs/security/threat-model.md |
+| AC-2 | test_security_headers_present, test_docs_csp_is_relaxed_not_absent, test_rate_limiter_scopes_evaluate_prefixes | middleware/security_headers.py, middleware/rate_limiter.py, main.py |
+| AC-3 | enforced mechanically (see doc §3) | threat-model.md §3 + probe suite |
+| AC-4 | tests/test_story365_route_authz.py (every route, auto-discovered) | same |
+| AC-5 | — (doc) | docs/security/pentest-scope.md |
+
+**Finding:** TM-F1 Jira OAuth callback unsigned-state weakness — discovered by
+the probe suite; follow-up fix task spawned; disclosed in threat model + RoE.

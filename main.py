@@ -82,6 +82,7 @@ from routers.risks import router as risks_router
 from routers.insights import router as insights_router
 from routers.grc_registry import router as grc_registry_router
 from middleware.rate_limiter import RateLimiterMiddleware
+from middleware.security_headers import SecurityHeadersMiddleware
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -308,6 +309,11 @@ else:
     )
 
 app.add_middleware(RateLimiterMiddleware)
+
+# STORY-365 hardening: browser security headers on every response (added after
+# the rate limiter so 429s carry them too — Starlette applies middleware in
+# reverse registration order, so this wraps outermost among these two).
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # ── Request timing middleware ─────────────────────────────────────────────────
