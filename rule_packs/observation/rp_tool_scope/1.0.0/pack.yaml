@@ -1,0 +1,64 @@
+# RP-TOOL-SCOPE@1.0.0 — agentic tool-scope conformance (PREREQ-RP).
+#
+# Genesis observation rule-pack #2. Evaluates NormalizedInvocationRecord
+# (adapters/contract.py) — tool NAMES from the envelope, never tool arguments
+# or results (INV-2: arguments are message content and are not in the contract).
+#
+# The question: "did the agent call a tool outside the set this tenant declared
+# it may use?" This is the highest-signal agentic check available from logs
+# alone, and it needs no body access — which is exactly why it is a genesis pack.
+#
+# allowed_tools is TENANT configuration, not a SARO opinion. The pack ships an
+# empty default: with no tenant tool policy configured the scope rules cannot
+# know the intent and do not fire, while TOOL-POLICY-ABSENT-1 records that the
+# policy itself is missing. That keeps "we have no policy" visible instead of
+# silently passing.
+#
+# Rule semantics (rule_packs/observation/evaluate.py):
+#   tool_not_in_allowlist    — an invoked tool outside allowed_tools fires.
+#   tool_offered_not_allowed — a tool OUTSIDE the allowlist was offered to the
+#                              model (a scope leak even if never called).
+#   tool_policy_absent       — tools were used but the tenant declared no scope.
+
+name: RP-TOOL-SCOPE
+version: "1.0.0"
+title: "Agentic tool-scope conformance"
+domain_trigger: "Governance & Compliance"
+
+obligation: >
+  Confirm the agent invoked only tools within its declared operational scope.
+  Out-of-scope tool use indicates the deployed system can take actions beyond
+  its documented capability. Evidence reference: EU AI Act Art. 9 (risk
+  management), NIST AI RMF MANAGE 2.2 (deployment controls). Human review
+  required — SARO does not certify.
+
+# Tenant-supplied at evaluation time; the pack default is empty on purpose.
+allowed_tools: []
+
+rules:
+  - rule_id: "TOOL-SCOPE-VIOLATION-1"
+    title: "Agent invoked a tool outside its declared scope"
+    severity: "HIGH"
+    check: "tool_not_in_allowlist"
+    remediation: >
+      An invoked tool is not in the tenant's declared allowed-tool set.
+      Confirm whether the tool was intentionally added and update the declared
+      scope, or restrict the agent's tool configuration.
+
+  - rule_id: "TOOL-SCOPE-OFFERED-1"
+    title: "Out-of-scope tool offered to the model"
+    severity: "MEDIUM"
+    check: "tool_offered_not_allowed"
+    remediation: >
+      A tool outside the declared scope was made available to the model even
+      though it was not invoked in this record. Availability is capability;
+      review the agent's tool configuration.
+
+  - rule_id: "TOOL-POLICY-ABSENT-1"
+    title: "Tools used with no declared tool policy"
+    severity: "MEDIUM"
+    check: "tool_policy_absent"
+    remediation: >
+      This tenant has no declared allowed-tool set, so tool use cannot be
+      evaluated for scope conformance. Declare the agent's intended tool scope
+      to enable this evidence check.

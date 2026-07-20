@@ -62,7 +62,9 @@ Stage: standard
   waived → upgrade task spawned.
 - STORY-366 ✅ audit coverage registry (unclassified route = failure) + instrumented
   role change / risk-config / tenant provisioning. Full suite 1656 pass.
-- STORY-358 ⏳ adapter contract (NormalizedInvocationRecord).
+- STORY-358 ✅ adapter contract (NormalizedInvocationRecord); INV-2 enforced by
+  test; Bedrock lift additive, 53 corpus tests unchanged; docs/adapter-design.md.
+- PREREQ-RP ⏳ genesis observation packs RP-OBS-COMPLETE + RP-TOOL-SCOPE.
 
 ## Prior build notes
 - specs: 26 story files + STORY-PACK-14-19-INDEX committed (a16ef50).

@@ -1,0 +1,74 @@
+# RP-OBS-COMPLETE@1.0.0 — observation completeness (PREREQ-RP).
+#
+# Genesis observation rule-pack. Evaluates NormalizedInvocationRecord
+# (adapters/contract.py) — envelope fields only, never a message body (INV-2).
+#
+# The question this pack answers: "is what we observed of this invocation
+# complete enough to attest about?" A gap here is a gap in EVIDENCE, not
+# necessarily a risk in the customer's system — the language must stay
+# evidence-shaped (docs/COMPLIANCE_CLAIMS_MATRIX.md).
+#
+# Rule semantics (evaluated by rule_packs/observation/evaluate.py):
+#   required_fields          — must be populated; a None value fires the rule.
+#   truncation_is_incomplete — a truncated output means the observation is partial.
+#   error_present            — the invocation recorded a provider error.
+#   unavailable_severity     — severity when a field is field_unavailable (the
+#                              PROVIDER cannot emit it) rather than field_missing
+#                              (this record lacked it). Structural gaps are a
+#                              coverage limitation to disclose, not a defect in
+#                              the tenant's system, so they are graded lower.
+
+name: RP-OBS-COMPLETE
+version: "1.0.0"
+title: "Observation completeness"
+domain_trigger: "Governance & Compliance"
+
+obligation: >
+  Confirm the invocation log provides sufficient observation coverage to support
+  an evidence claim. Incomplete observation limits what SARO's attestation can
+  support. Evidence reference: NIST AI RMF MEASURE 2.7 (monitoring), EU AI Act
+  Art. 12 (record-keeping). Human review required — SARO does not certify.
+
+rules:
+  - rule_id: "OBS-REQUIRED-FIELDS-1"
+    title: "Required observation fields absent"
+    severity: "HIGH"
+    check: "required_fields"
+    required_fields:
+      - request_id
+      - model_id
+      - timestamp
+      - operation
+    remediation: >
+      The source log did not carry the identifiers needed to tie this
+      invocation to an attestation. Verify the provider's logging
+      configuration captures full request metadata.
+
+  - rule_id: "OBS-TOKEN-COUNTS-1"
+    title: "Token accounting unavailable for this invocation"
+    severity: "LOW"
+    check: "required_fields"
+    required_fields:
+      - input_token_count
+      - output_token_count
+    unavailable_severity: "INFO"
+    remediation: >
+      Token counts were not recorded. Volume-based evidence claims cannot be
+      supported for this invocation. If the provider does not emit token
+      counts at all, record the limitation in the adapter capability matrix.
+
+  - rule_id: "OBS-TRUNCATED-OUTPUT-1"
+    title: "Model output truncated — observation is partial"
+    severity: "MEDIUM"
+    check: "truncation_is_incomplete"
+    remediation: >
+      The model stopped at a length limit, so the observed output is partial.
+      Evidence derived from this record describes an incomplete response.
+
+  - rule_id: "OBS-ERROR-INVOCATION-1"
+    title: "Invocation recorded an error status"
+    severity: "MEDIUM"
+    check: "error_present"
+    remediation: >
+      The invocation failed at the provider. Confirm whether the failure is
+      handled by the calling system's error path.
