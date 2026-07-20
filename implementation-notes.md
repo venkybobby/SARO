@@ -53,7 +53,18 @@ Stage: standard
 - D7 Q: UI for 366/382? → Backend + API + tests now; UI wiring deferred pending screen review → logged as deviation, not silent scope cut.
 - D8 Q: Normalized contract shape (358)? → Pydantic NormalizedInvocationRecord alongside (not replacing) frozen dataclass Envelope; Bedrock adapter emits it via a thin converter → attestation hashes unchanged, no hash-format bump.
 
-## Build Log (live — committed at batch close)
+## Build Log (live — updated as each story lands)
+- STORY-363 ✅ gitleaks gate + canary self-test + secrets runbook (2 human gates OPEN).
+- STORY-365 ✅ security headers, evaluate rate limit, route-authz probe suite,
+  threat model + pentest scope. Found TM-F1 (Jira OAuth unsigned state) → task spawned.
+- STORY-367 ✅ pip-audit/npm/trivy gates + waiver process w/ expiry enforcement.
+  Triage: form-data fixed, ecdsa waived (no upstream fix), vite/vitest dev-chain
+  waived → upgrade task spawned.
+- STORY-366 ✅ audit coverage registry (unclassified route = failure) + instrumented
+  role change / risk-config / tenant provisioning. Full suite 1656 pass.
+- STORY-358 ⏳ adapter contract (NormalizedInvocationRecord).
+
+## Prior build notes
 - specs: 26 story files + STORY-PACK-14-19-INDEX committed (a16ef50).
 - STORY-363 build started: gitleaks config + canary fixture + CI job + secrets runbook.
 
