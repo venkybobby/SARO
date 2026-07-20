@@ -459,7 +459,9 @@ describe("STORY-CHUB-007: design-system refactor", () => {
     expect(await screen.findByRole("heading", { name: "Compliance Hub" })).toBeInTheDocument();
     // headings must not carry the old emoji prefixes
     for (const h of screen.getAllByRole("heading")) {
-      expect(h.textContent).not.toMatch(/[🏛️📅]/u);
+      // alternation, not a character class: 🏛️ is U+1F3DB + U+FE0F (variation
+      // selector), and a class would match its code points individually.
+      expect(h.textContent).not.toMatch(/🏛️|📅/u);
     }
     // the Compliance Calendar heading is now plain text (emoji removed)
     expect(screen.getByRole("heading", { name: "Compliance Calendar" })).toBeInTheDocument();
