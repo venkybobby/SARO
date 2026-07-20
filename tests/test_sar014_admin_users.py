@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -117,9 +117,18 @@ def test_patch_persona_accepts_super_admin():
 
     app.dependency_overrides[get_current_user] = _override_current_user(sa)
     app.dependency_overrides[get_db] = _patch_db_with_target(target)
+    # STORY-366: the handler now records a fail-closed ADMIN_ACTION audit event.
+    # The MagicMock session can't serve the chain read, so the recorder is
+    # stubbed here — and asserted, so this RBAC test also pins the audit write.
     try:
-        r = client.patch(f"/api/v1/auth/users/{target.id}/persona?persona_role=super_admin")
-        assert r.status_code == 200
+        with patch("routers.auth.self_audit.record_privileged") as rec:
+            r = client.patch(
+                f"/api/v1/auth/users/{target.id}/persona?persona_role=super_admin"
+            )
+            assert r.status_code == 200
+            assert rec.called, "role change must be audited"
+            assert rec.call_args.kwargs["action_class"] == "ADMIN_ACTION"
+            assert rec.call_args.kwargs["metadata"]["to"] == "super_admin"
     finally:
         app.dependency_overrides.pop(get_current_user, None)
         app.dependency_overrides.pop(get_db, None)
@@ -132,8 +141,12 @@ def test_patch_persona_accepts_operator():
     app.dependency_overrides[get_current_user] = _override_current_user(sa)
     app.dependency_overrides[get_db] = _patch_db_with_target(target)
     try:
-        r = client.patch(f"/api/v1/auth/users/{target.id}/persona?persona_role=operator")
-        assert r.status_code == 200
+        with patch("routers.auth.self_audit.record_privileged") as rec:
+            r = client.patch(
+                f"/api/v1/auth/users/{target.id}/persona?persona_role=operator"
+            )
+            assert r.status_code == 200
+            assert rec.called, "role change must be audited"
     finally:
         app.dependency_overrides.pop(get_current_user, None)
         app.dependency_overrides.pop(get_db, None)

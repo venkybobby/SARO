@@ -44,16 +44,18 @@ Stage: standard
      no per-route authz probe matrix.
 
 ## Decision Log
-| # | Question | Answer (conservative default) | Consequence |
-|---|---|---|---|
-| D1 | Story numbering vs repo collision? | Keep pack IDs 358..383 (range free); annotate epic-label distinction in every spec | Specs carry a Ground Truth header |
-| D2 | Missing genesis rule-packs? | Build RP-OBS-COMPLETE@1.0.0 + RP-TOOL-SCOPE@1.0.0 as envelope-style packs extending the STORY-411 loader (envelope-only fields, INV-2-safe) before adapter stories | New prereq work item; no loader/schema rewrite of legacy citation packs |
-| D3 | Rebuild vs delta on overlaps? | Delta-only; specs cite existing artifacts as evidence | No duplicate SOC/IRP/RPV artifacts |
-| D4 | Branch/PR strategy for 26 stories? | Single batch branch story/epics-14-19-pack, conventional commit per story, one PR (precedent: PR #109 8-story batch) | Reviewable per-commit; single CI run per push |
-| D5 | User-gated actions (363 rotation+history scrub, 370 restore rehearsal, 377 threshold sign-off, external SaaS signups) | Implement everything up to the gate; mark gate OPEN [HUMAN] in spec (SOC-01 pattern); never execute destructive/prod/external actions | Stories close as "artifact done, human gate open" where applicable |
-| D6 | Azure/Vertex ingestion mode? | File/JSON-export readers (mirror-async), deterministic local parsing, customer-owned storage posture — mirrors Bedrock S3-layout reader; zero live cloud API calls in tests | INV-1/INV-2/INV-6 clean; moto-style fixtures unnecessary |
-| D7 | UI for 366/382? | Backend + API + tests now; UI wiring deferred pending screen review | Logged as deviation, not silent scope cut |
-| D8 | Normalized contract shape (358)? | Pydantic model NormalizedInvocationRecord alongside (not replacing) frozen dataclass Envelope; Bedrock adapter emits it via a thin converter — attestation hashes unchanged | No hash-format bump needed |
+- D1 Q: Story numbering vs repo collision? → Keep pack IDs 358..383 (range free); annotate epic-label distinction in every spec → specs carry a Ground Truth header.
+- D2 Q: Missing genesis rule-packs? → Build RP-OBS-COMPLETE@1.0.0 + RP-TOOL-SCOPE@1.0.0 as envelope-style packs extending the STORY-411 loader (envelope-only fields, INV-2-safe) before adapter stories → new PREREQ-RP work item; no rewrite of legacy citation-pack loader.
+- D3 Q: Rebuild vs delta on overlaps? → Delta-only; specs cite existing artifacts as evidence → no duplicate SOC/IRP/RPV artifacts.
+- D4 Q: Branch/PR strategy for 26 stories? → Single batch branch story/epics-14-19-pack, conventional commit per story, one PR (precedent: PR #109 8-story batch) → reviewable per-commit; single CI run per push.
+- D5 Q: User-gated actions (363 rotation+history scrub, 370 restore rehearsal, 377 threshold sign-off, external SaaS signups)? → Implement everything up to the gate; mark gate OPEN [HUMAN] in spec (SOC-01 pattern); never execute destructive/prod/external actions → stories close as "artifact done, human gate open".
+- D6 Q: Azure/Vertex ingestion mode? → File/JSON-export readers (mirror-async), deterministic local parsing, customer-owned storage posture — mirrors Bedrock S3-layout reader; zero live cloud calls in tests → INV-1/INV-2/INV-6 clean.
+- D7 Q: UI for 366/382? → Backend + API + tests now; UI wiring deferred pending screen review → logged as deviation, not silent scope cut.
+- D8 Q: Normalized contract shape (358)? → Pydantic NormalizedInvocationRecord alongside (not replacing) frozen dataclass Envelope; Bedrock adapter emits it via a thin converter → attestation hashes unchanged, no hash-format bump.
+
+## Build Log (live — committed at batch close)
+- specs: 26 story files + STORY-PACK-14-19-INDEX committed (a16ef50).
+- STORY-363 build started: gitleaks config + canary fixture + CI job + secrets runbook.
 
 ## Deviations
 None yet.

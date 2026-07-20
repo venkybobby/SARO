@@ -23,6 +23,7 @@ from auth import (
     hash_password,
     require_role,
 )
+import services.self_audit as self_audit
 from database import get_db
 from models import ClientConfig, PersonaPermission, Tenant, User
 from schemas import (
@@ -205,7 +206,20 @@ def create_tenant(
         )
     tenant = Tenant(name=payload.name, slug=payload.slug)
     db.add(tenant)
-    db.commit()
+    db.flush()  # assign tenant.id without ending the transaction
+    # STORY-366: tenant provisioning recorded on the SYSTEM chain — the new
+    # tenant's own chain starts empty, and a cross-tenant admin action belongs
+    # to the operator's global trail, not the provisioned tenant's.
+    self_audit.record_privileged(
+        db,
+        tenant_id=self_audit.SYSTEM_TENANT_ID,
+        actor=getattr(_current, "email", "?"),
+        action_class=self_audit.ADMIN_ACTION,
+        user_id=getattr(_current, "id", None),
+        target_type="tenant",
+        target_id=str(tenant.id),
+        metadata={"operation": "provision", "slug": payload.slug},
+    )
     db.refresh(tenant)
     logger.info("Provisioned tenant %s (%s)", tenant.name, tenant.slug)
     return TenantOut.model_validate(tenant)
@@ -271,7 +285,20 @@ def set_user_persona(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    previous = user.persona_role
     user.persona_role = persona_role
-    db.commit()
+    # STORY-366: role changes are the highest-value admin action to audit.
+    # record_privileged() commits the transaction, so the role change and its
+    # audit row land together — an unauditable role change does not apply.
+    self_audit.record_privileged(
+        db,
+        tenant_id=user.tenant_id,
+        actor=current.email,
+        action_class=self_audit.ADMIN_ACTION,
+        user_id=current.id,
+        target_type="user_persona",
+        target_id=str(user_id),
+        metadata={"from": previous, "to": persona_role},
+    )
     db.refresh(user)
     return UserOut.model_validate(user)

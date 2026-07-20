@@ -14,6 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+import services.self_audit as self_audit
 from auth import get_current_user, require_role
 from database import get_db
 from engine import MIT_DOMAINS
@@ -102,7 +103,24 @@ def upsert_risk_config(
         db.add(cfg)
         logger.info("Risk config created for tenant %s by %s", current_user.tenant_id, current_user.email)
 
-    db.commit()
+    # STORY-366: audit BEFORE the mutation is committed. record_privileged()
+    # commits the whole transaction — config change and audit row land together
+    # — so an unauditable config change rolls back instead of applying silently.
+    self_audit.record_privileged(
+        db,
+        tenant_id=current_user.tenant_id,
+        actor=current_user.email,
+        action_class=self_audit.ADMIN_ACTION,
+        user_id=current_user.id,
+        target_type="tenant_risk_config",
+        target_id=str(current_user.tenant_id),
+        metadata={
+            "operation": "upsert",
+            # Domain NAMES only — weights/suppression terms are tenant config,
+            # not evidence content, and are not copied into the trail (INV-2).
+            "domains_configured": sorted(payload.domain_weights.keys()),
+        },
+    )
     db.refresh(cfg)
     return TenantRiskConfigOut.model_validate(cfg)
 
@@ -123,5 +141,14 @@ def delete_risk_config(
     ).first()
     if cfg:
         db.delete(cfg)
-        db.commit()
+        self_audit.record_privileged(
+            db,
+            tenant_id=current_user.tenant_id,
+            actor=current_user.email,
+            action_class=self_audit.ADMIN_ACTION,
+            user_id=current_user.id,
+            target_type="tenant_risk_config",
+            target_id=str(current_user.tenant_id),
+            metadata={"operation": "reset_to_defaults"},
+        )
         logger.info("Risk config deleted for tenant %s by %s", current_user.tenant_id, current_user.email)

@@ -54,9 +54,11 @@ def _app() -> FastAPI:
     return app
 
 
-def test_only_auth_endpoints_are_throttled():
-    """Auth-only scope: /health (allowlisted) and /api/v1/scan (non-auth) bypass
-    the limiter entirely; only the auth endpoint is throttled, keyed per-IP."""
+def test_only_auth_and_evaluate_endpoints_are_throttled():
+    """Scoped throttling: auth endpoints (strict, brute-force defence) and
+    evaluate/ingest endpoints (compute-heavy, STORY-365) are limited per-IP.
+    Everything else — including allowlisted infra paths — bypasses the limiter;
+    global per-tenant limiting remains a separate, load-reviewed change."""
     calls: list[tuple[str, int]] = []
 
     def _fake(key, limit):
@@ -66,16 +68,23 @@ def test_only_auth_endpoints_are_throttled():
 
     with patch.object(rate_limiter, "check_rate_limit", side_effect=_fake):
         client = TestClient(_app())
-        client.get("/health")              # allowlisted → no limiter call
-        client.get("/api/v1/scan")         # non-auth → bypass (preserves prior behavior)
-        client.post("/api/v1/auth/token")  # strict per-IP limit
+        client.get("/health")               # allowlisted → no limiter call
+        client.get("/api/v1/dashboard")     # ordinary read → bypass
+        client.post("/api/v1/auth/token")   # strict per-IP auth limit
+        client.get("/api/v1/scan")          # evaluate path → per-IP evaluate limit
 
-    # Exactly one limiter call — the auth endpoint — keyed per-IP at the strict limit.
-    assert len(calls) == 1
-    key, limit = calls[0]
-    assert key.startswith("auth-ip:")
-    assert limit == _AUTH_RATE_LIMIT_RPM
+    assert len(calls) == 2, f"unexpected limiter scope: {calls}"
+
+    auth_key, auth_limit = calls[0]
+    assert auth_key.startswith("auth-ip:")
+    assert auth_limit == _AUTH_RATE_LIMIT_RPM
     assert _AUTH_RATE_LIMIT_RPM < _RATE_LIMIT_RPM
+
+    eval_key, eval_limit = calls[1]
+    assert eval_key.startswith("eval-ip:")
+    assert eval_limit == rate_limiter._EVALUATE_RATE_LIMIT_RPM
+    # Evaluate is heavier than a login but must stay below the global ceiling.
+    assert _AUTH_RATE_LIMIT_RPM < eval_limit <= _RATE_LIMIT_RPM
 
 
 def test_blocked_request_returns_429():
