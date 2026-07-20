@@ -566,6 +566,10 @@ def health() -> JSONResponse:
         status_code=http_status,
         content={
             "status": status,
+            # FND-060: db_ok is the documented boolean (CLAUDE.md, ARCHITECTURE.md)
+            # and what Sidebar.jsx's health badge reads; `database` is kept for
+            # existing consumers of the string form.
+            "db_ok": db_ok,
             "database": "ok" if db_ok else "unreachable",
             "db_error": db_error,
             "schema_version": schema_version,

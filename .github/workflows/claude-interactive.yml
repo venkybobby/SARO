@@ -43,8 +43,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-6
-          max_tokens: 20000
+          claude_args: |
+            --model claude-sonnet-4-6
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             You are Claude, embedded in the SARO platform GitHub repo as a team assistant.
