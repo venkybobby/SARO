@@ -316,24 +316,41 @@ def ensure_demo_user(session, tenant_id: str, email: str, password: str) -> dict
     Idempotently ensure a demo login exists for the tenant: create it if
     missing, otherwise reset its password. Uses the same hash_password()
     the backend's /api/v1/auth/token endpoint verifies against.
+
+    email is globally unique (models.User.email), so a match here should
+    always be the demo user itself — but if it somehow matched an unrelated
+    real account (FND-055), refuse to reassign its tenant/role/password
+    rather than silently hijacking it.
     """
     hashed = hash_password(password)
     row = session.execute(
-        text("SELECT id FROM users WHERE email = :email LIMIT 1"),
+        text("SELECT id, tenant_id, role FROM users WHERE email = :email LIMIT 1"),
         {"email": email},
     ).fetchone()
 
     if row:
+        existing_id, existing_tenant_id, existing_role = row[0], row[1], row[2]
+        if existing_tenant_id is not None and (
+            uuid.UUID(str(existing_tenant_id)) != uuid.UUID(str(tenant_id))
+            or existing_role != "super_admin"
+        ):
+            raise RuntimeError(
+                f"ensure_demo_user: refusing to overwrite user {email!r} "
+                f"(id={existing_id}) — belongs to tenant {existing_tenant_id!r} "
+                f"with role {existing_role!r}, not demo tenant {tenant_id!r} "
+                "with role 'super_admin'. This looks like an unrelated account; "
+                "aborting instead of silently reassigning it."
+            )
         session.execute(
             text(
                 "UPDATE users SET hashed_password = :pw, tenant_id = :tid, "
                 "role = 'super_admin', is_active = true WHERE id = :id"
             ),
-            {"pw": hashed, "tid": tenant_id, "id": row[0]},
+            {"pw": hashed, "tid": tenant_id, "id": existing_id},
         )
         session.commit()
-        log.info("demo_user_password_reset", user_id=str(row[0]), email=email)
-        return {"user_id": str(row[0]), "created": False}
+        log.info("demo_user_password_reset", user_id=str(existing_id), email=email)
+        return {"user_id": str(existing_id), "created": False}
 
     user_id = uuid.uuid4()
     session.execute(

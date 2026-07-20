@@ -17,6 +17,8 @@ import sys
 import uuid
 from unittest.mock import MagicMock, patch, mock_open
 
+import pytest
+
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
@@ -163,11 +165,18 @@ class TestGetOrCreateDemoTenant:
 
 
 class TestEnsureDemoUser:
-    def _make_session(self, existing_id: uuid.UUID | None = None):
+    def _make_session(
+        self,
+        existing_id: uuid.UUID | None = None,
+        existing_tenant_id: str | None = None,
+        existing_role: str = "super_admin",
+    ):
         session = MagicMock()
-        row = MagicMock()
-        row.__getitem__ = lambda self, i: existing_id  # type: ignore[misc]
-        session.execute.return_value.fetchone.return_value = row if existing_id else None
+        if existing_id:
+            row = (existing_id, existing_tenant_id, existing_role)
+            session.execute.return_value.fetchone.return_value = row
+        else:
+            session.execute.return_value.fetchone.return_value = None
         return session
 
     @staticmethod
@@ -194,13 +203,39 @@ class TestEnsureDemoUser:
     def test_resets_password_when_present(self):
         from scripts.seed_demo_tenant import ensure_demo_user
         uid = uuid.uuid4()
-        session = self._make_session(existing_id=uid)
-        result = ensure_demo_user(session, str(uuid.uuid4()), "demo@saro-demo.io", "new-pw")
+        tid = str(uuid.uuid4())
+        session = self._make_session(existing_id=uid, existing_tenant_id=tid, existing_role="super_admin")
+        result = ensure_demo_user(session, tid, "demo@saro-demo.io", "new-pw")
         assert result["created"] is False
         assert result["user_id"] == str(uid)
         update_calls = self._sql_calls(session, "UPDATE users")
         assert len(update_calls) == 1
         session.commit.assert_called_once()
+
+    def test_refuses_to_hijack_user_from_a_different_tenant(self):
+        # FND-055: a matched row belonging to a different tenant must not be
+        # silently reassigned — abort instead of hijacking it.
+        from scripts.seed_demo_tenant import ensure_demo_user
+        uid = uuid.uuid4()
+        other_tenant_id = str(uuid.uuid4())
+        session = self._make_session(existing_id=uid, existing_tenant_id=other_tenant_id, existing_role="super_admin")
+        target_tenant_id = str(uuid.uuid4())
+        with pytest.raises(RuntimeError):
+            ensure_demo_user(session, target_tenant_id, "demo@saro-demo.io", "new-pw")
+        assert len(self._sql_calls(session, "UPDATE users")) == 0
+        session.commit.assert_not_called()
+
+    def test_refuses_to_escalate_role_of_non_admin_user(self):
+        # FND-055: same tenant but role isn't already super_admin — abort
+        # rather than silently escalating an unrelated account's privileges.
+        from scripts.seed_demo_tenant import ensure_demo_user
+        uid = uuid.uuid4()
+        tid = str(uuid.uuid4())
+        session = self._make_session(existing_id=uid, existing_tenant_id=tid, existing_role="operator")
+        with pytest.raises(RuntimeError):
+            ensure_demo_user(session, tid, "demo@saro-demo.io", "new-pw")
+        assert len(self._sql_calls(session, "UPDATE users")) == 0
+        session.commit.assert_not_called()
 
 
 class TestGetDemoJwt:

@@ -86,8 +86,8 @@ Stage: standard
   4 commits ahead during the work and its tip (PR #124) already claimed
   FND-058/059/060. The branch will be merged with origin/main before push so the
   append-only ledger/manifest stay conflict-free.
-- `docs/security/threat-model.md` (TM-F1's source) is committed on main
-  (STORY-365, 85d22b1) but post-dates this branch's fork point — the ledger
-  citation resolves once merged; TM-F1's disposition row there should be updated
-  to "fixed — FND-061" in a follow-up touch (file not present on this branch
-  pre-merge).
+- `docs/security/threat-model.md` (TM-F1's source, STORY-365 commit 85d22b1) is
+  NOT on origin/main yet — it lives on `story/epics-14-19-pack` (the main
+  checkout's current branch, 8 commits ahead of origin/main). It therefore can't
+  be edited from this branch; when that pack merges, its TM-F1 disposition row
+  should be updated to "Fixed — FND-061" (residual /start role gate = FND-063).
