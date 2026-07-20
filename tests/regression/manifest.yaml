@@ -267,3 +267,18 @@ findings:
     test: tests/regression/test_fnd_057_seed_demo_jwt_json_body.py
     status: pinned
     quarantine_expires: null
+  - id: FND-061
+    title: "Jira OAuth callback accepted an unsigned optional `state` as the tenant id — no CSRF/state integrity on token binding (threat-model TM-F1)"
+    test: tests/regression/test_fnd_061_jira_oauth_signed_state.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-062
+    title: "Jira OAuth tokens written to nonexistent ClientConfig.settings_json attribute — silently never persisted, create-jira-issue read path could never work (found fixing TM-F1)"
+    test: tests/regression/test_fnd_061_jira_oauth_signed_state.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-063
+    title: "GET /remediation/oauth/jira/start has no role/read-only gate — any authenticated tenant user can rebind the tenant's Jira connection (security-auditor, FND-061 review, pre-existing)"
+    test: tests/regression/test_fnd_063_jira_oauth_start_role_gate.py
+    status: open
+    quarantine_expires: null
