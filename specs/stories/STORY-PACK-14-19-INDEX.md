@@ -79,7 +79,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-370 | DR + verified restore | IMPLEMENTED | 67bf85a · `tests/test_story370_restore_integrity.py` 18 pass · AC-4 rehearsal human-gated |
 | STORY-371 | Support model + IRP (delta) | IMPLEMENTED | 14e519f · `tests/test_story371_support_model.py` 19 pass + FND-064 regression 12 pass |
 | STORY-372 | Status + degradation comms | IMPLEMENTED | a4b1ce9 · `tests/test_story372_status_page.py` 16 pass · browser-verified 3 states |
-| STORY-373 | Tenant onboarding + provisioning | SPECIFIED | — |
+| STORY-373 | Tenant onboarding + provisioning | IMPLEMENTED | db3a488 · `tests/test_story373_tenant_provisioning.py` 18 pass |
 | STORY-374 | Usage metering + billing export | SPECIFIED | — |
 | STORY-375 | Versioned release process | SPECIFIED | — |
 | STORY-376 | Rule-pack authoring workflow (delta) | SPECIFIED | — |
