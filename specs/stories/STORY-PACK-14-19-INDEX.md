@@ -82,7 +82,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-373 | Tenant onboarding + provisioning | IMPLEMENTED | db3a488 · `tests/test_story373_tenant_provisioning.py` 18 pass |
 | STORY-374 | Usage metering + billing export (delta) | IMPLEMENTED | 6d77268 · `tests/test_story374_metering_export.py` 12 pass |
 | STORY-375 | Versioned release process | IMPLEMENTED | b0cca87 · `tests/test_story375_release_process.py` 15 pass · rehearsal human-gated |
-| STORY-376 | Rule-pack authoring workflow (delta) | SPECIFIED | — |
+| STORY-376 | Rule-pack authoring workflow (delta) | IMPLEMENTED | 65f7b8f · `tests/test_story376_rule_pack_lifecycle.py` 12 pass · FP/FN validation blocked on STORY-377 |
 | STORY-377 | Oracle completion bar (FP/FN) | SPECIFIED | — |
 | STORY-378 | Confusion-matrix harness | SPECIFIED | — |
 | STORY-379 | Validation report generator | SPECIFIED | — |
