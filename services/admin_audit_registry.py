@@ -39,6 +39,10 @@ AUDITED: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/github/scan-with-token/{audit_id}"): "ADMIN_ACTION",
     # ── Rule-pack publication (INV-7 lifecycle) ─────────────────────────────
     ("POST", "/api/v1/rules/versions"): "RULE_PACK_CHANGE",
+    # ── Authentication (FND-065) ────────────────────────────────────────────
+    # Both outcomes are recorded; failed attempts are the half that makes
+    # credential stuffing visible.
+    ("POST", "/api/v1/auth/token"): "AUTH_EVENT",
 }
 
 # Routes deliberately NOT mirrored into the admin trail, each with a reason.
@@ -59,15 +63,13 @@ DATA_PLANE: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/metering/statement"): "billing statement generation from meter records",
     ("PATCH", "/api/v1/notifications/{notification_id}/read"): "per-user UI state",
     ("POST", "/api/v1/notifications/read-all"): "per-user UI state",
-    # CORRECTION (STORY-371 tabletop): these three previously read as though the
-    # auth path recorded AUTH_EVENT. It does not — the action class exists in
-    # services/self_audit.py's vocabulary but NO code path emits it, so no login
-    # is recorded anywhere. That was an unverified premise (CLAUDE.md FM-2), and
-    # it is why a leaked credential's usage cannot be reconstructed. Tracked as
-    # FND-065; these stay DATA_PLANE only until it is fixed.
-    ("POST", "/api/v1/auth/token"): "login — NOT currently audited, see FND-065",
-    ("POST", "/api/v1/auth/register"): "self-registration — NOT currently audited, see FND-065",
-    ("POST", "/api/v1/auth/bootstrap"): "first-run bootstrap — NOT currently audited, see FND-065",
+    # FND-065 history: these three once claimed "auth events handled by the auth
+    # path" — a mechanism that did not exist (CLAUDE.md FM-2). Login is now
+    # genuinely audited and has moved to AUDITED above. Register and bootstrap
+    # create users rather than sessions; their AUTH_EVENT coverage is still
+    # outstanding and is stated as such rather than assumed.
+    ("POST", "/api/v1/auth/register"): "user creation — AUTH_EVENT coverage still outstanding (FND-065)",
+    ("POST", "/api/v1/auth/bootstrap"): "first-run bootstrap, self-disabling — AUTH_EVENT coverage still outstanding (FND-065)",
     ("POST", "/api/v1/sso/magic-link"): "auth request — SSO path has its own replay/signature controls",
     ("POST", "/api/v1/sso/acs/{tenant_slug}"): "IdP assertion consumption — SSO controls",
     ("GET", "/api/v1/remediation/oauth/jira/callback"): "OAuth redirect (see threat-model TM-F1)",

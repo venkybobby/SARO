@@ -307,7 +307,7 @@ findings:
   - id: FND-065
     title: "Nothing emits AUTH_EVENT — no login is recorded anywhere, so a leaked credential's usage cannot be reconstructed (STORY-371 tabletop)"
     test: tests/regression/test_fnd_065_auth_event_coverage.py
-    status: open
+    status: pinned
     quarantine_expires: null
 
   - id: FND-066

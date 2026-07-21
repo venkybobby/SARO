@@ -34,7 +34,9 @@ pytestmark = pytest.mark.integration
 
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 # Recorder call sites that count as "this handler writes to the trail".
-_RECORDER_RE = re.compile(r"record_privileged|record_access|_log_event")
+# `record_auth_event` (FND-065) is a thin wrapper over `record_access` that adds
+# fail-open semantics for the login path — it is an audit write, so it counts.
+_RECORDER_RE = re.compile(r"record_privileged|record_access|_log_event|record_auth_event")
 
 
 def _mutating_routes() -> list[tuple[str, APIRoute]]:

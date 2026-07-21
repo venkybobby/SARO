@@ -88,6 +88,30 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## FND-065 — authentication events (red-first)
+Premise check: `routers/self_audit.py` already exposes
+`GET /api/v1/audit/events` with `actor` + `action_class` filters, so the *query*
+half of "reconstruct a session history" exists — only emission was missing.
+Confirmed no logout endpoint exists (FND-002, open), so logout is out of scope.
+
+- D35 Q: Fail closed (like `record_privileged`) or open (like `record_access`)
+  on the login path? → **Open.** Fail-closed means a self-audit DB problem locks
+  everyone out *including the operator trying to diagnose it* — an audit gap
+  becomes a total outage, and you cannot log in to fix the thing causing it.
+  Matches the documented tradeoff already in `services/self_audit.py`
+  ("compliance-function availability beats self-audit completeness"). The gap is
+  made visible by an ERROR log rather than silence.
+- D36 Q: Record failed logins? → **Yes, and they are the more valuable half** —
+  brute force and credential-stuffing are invisible without them. Unknown emails
+  have no tenant, so those land on `SYSTEM_TENANT_ID`.
+- D37 Q: Source IP in the event? → Include. It is envelope metadata, not message
+  content, and an auth trail without origin cannot answer "who used this". Note:
+  personal data under GDPR (security legitimate interest), **not** PHI — no
+  patient information can reach this path (INV-2 holds).
+- D38 Q: Actor for a failed unknown-email attempt? → Record the **submitted**
+  email. It is the only identifying handle, and withholding it defeats the
+  purpose; it is already attacker-supplied, so no new exposure.
+
 ## FND-066 — token revocation (red-first, after STORY-370)
 Premise check: `auth.py` `create_access_token` emits sub/email/role/persona/
 tenant/exp only; `get_current_user` validates signature + expiry + is_active.

@@ -179,9 +179,18 @@ def test_fnd_064_is_marked_pinned_in_the_ledger():
 
 
 def test_auth_registry_justification_was_corrected():
-    """I asserted a mechanism that did not exist (FM-2); the fix must stick."""
+    """I asserted a mechanism that did not exist (FM-2); the fix must stick.
+
+    The tabletop found the claim was false, this test pinned the correction, and
+    FND-065 then made it true — login is now genuinely audited. What must never
+    return is the original unverified justification.
+    """
+    from services.admin_audit_registry import classification
+
     src = (ROOT / "services" / "admin_audit_registry.py").read_text(encoding="utf-8")
     assert "auth events handled by the auth path" not in src, (
         "the inaccurate justification returned"
     )
-    assert "NOT currently audited, see FND-065" in src
+    assert classification("POST", "/api/v1/auth/token") == "AUDITED"
+    # Register/bootstrap coverage is still outstanding and must stay stated.
+    assert "still outstanding (FND-065)" in src

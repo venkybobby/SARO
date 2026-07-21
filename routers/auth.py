@@ -13,7 +13,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from auth import (
@@ -91,16 +91,95 @@ def bootstrap(
     }
 
 
+def _auth_event_tenant(user) -> uuid.UUID:
+    """Chain an auth event to the user's tenant, or the SYSTEM chain.
+
+    A failed attempt against an unknown email has no tenant, but is exactly the
+    event worth keeping — so it lands on the system chain rather than being
+    dropped for lack of somewhere to put it.
+    """
+    tenant_id = getattr(user, "tenant_id", None)
+    return tenant_id if tenant_id is not None else self_audit.SYSTEM_TENANT_ID
+
+
+def record_auth_event(
+    db: Session,
+    *,
+    actor: str,
+    outcome: str,
+    user=None,
+    source_ip: str | None = None,
+    detail: str | None = None,
+) -> None:
+    """Record an authentication attempt (FND-065).
+
+    **Fails open.** A self-audit write failure must not block authentication: it
+    would lock out every user *including the operator trying to diagnose the
+    very database problem causing it*, turning an audit gap into a total outage.
+    That matches the tradeoff already documented in services/self_audit.py, and
+    the gap is made visible by an ERROR log rather than by silence.
+
+    Metadata only — no password material, no token, ever reaches the trail.
+    """
+    try:
+        self_audit.record_access(
+            db,
+            tenant_id=_auth_event_tenant(user),
+            actor=actor,
+            action_class=self_audit.AUTH_EVENT,
+            outcome=outcome,
+            user_id=getattr(user, "id", None),
+            target_type="session",
+            target_id=str(getattr(user, "id", "")) or None,
+            metadata={
+                # Origin is what makes the trail answer "who used this".
+                # Envelope metadata, not message content — no PHI can reach here.
+                "source_ip": source_ip or "unknown",
+                **({"detail": detail} if detail else {}),
+            },
+        )
+    except Exception:  # noqa: BLE001 — fail open, but never silently
+        logger.error(
+            "AUTH AUDIT GAP: could not record %s for actor=%s — the login "
+            "proceeded, but this attempt is absent from the audit trail",
+            outcome, actor, exc_info=True,
+        )
+
+
 @router.post("/token", response_model=TokenOut)
-def login(payload: LoginIn, db: Annotated[Session, Depends(get_db)]) -> TokenOut:
+def login(
+    payload: LoginIn,
+    db: Annotated[Session, Depends(get_db)],
+    request: Request,
+) -> TokenOut:
     """Exchange email + password for a JWT access token."""
+    source_ip = request.client.host if request.client else None
     user = authenticate_user(db, payload.email, payload.password)
     if not user:
+        # FND-065: failed attempts are the more valuable half of this trail —
+        # brute force and credential stuffing are invisible without them. The
+        # submitted email is recorded because it is the only identifying handle,
+        # and it is already attacker-supplied.
+        record_auth_event(
+            db,
+            actor=payload.email,
+            outcome=self_audit.OUTCOME_FAILURE,
+            source_ip=source_ip,
+            detail="invalid_credentials",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    record_auth_event(
+        db,
+        actor=user.email,
+        outcome=self_audit.OUTCOME_SUCCESS,
+        user=user,
+        source_ip=source_ip,
+    )
     # Look up ClientConfig once — used for both LIVE-005 (session length) and SAR-001 (banner)
     cfg = db.query(ClientConfig).filter(ClientConfig.tenant_id == user.tenant_id).first()
 
