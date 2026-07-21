@@ -71,6 +71,29 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## STORY-361 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Bedrock adapter | ✅ | `adapters/bedrock/parse.py::parse_envelope` |
+| Azure adapter | ✅ | `adapters/azure_openai/parse.py` (967dd52) |
+| Vertex adapter | ✅ | `adapters/vertex_ai/parse.py` (ff94aee) |
+| Both genesis packs | ✅ | `rule_packs/observation/*/1.0.0/pack.yaml` (a27b8ef) |
+| "How to add adapter #N" §4 | ✅ | `docs/adapter-design.md` (a0210bc) — extended by AC-4 |
+
+## Decision Log — STORY-361 (appended)
+- D17 Q: Adapters genuinely differ in what their logs express (no tool data or
+  stop reason on Azure/Vertex). Fail them, or skip? → **Neither.** A provider
+  must return an outcome for every scenario; it may declare `NOT_SUPPORTED` but
+  only with a written reason ≥20 chars, and gaps render as `⚠️ n/a` in the
+  matrix, never as a tick → a limitation is visible instead of becoming either
+  a permanent red build or invisible green.
+- D18 Q: What stops an adapter declaring its way out of a scenario later? →
+  `test_known_gaps_are_exactly_the_expected_ones` pins the current gap set, so a
+  NEW gap is a deliberate reviewed change, not a quiet regression.
+- D19 Q: Build scenario records directly, or through each adapter's parser? →
+  Through the real parser. Hand-built records would test the contract (already
+  covered) and prove nothing about parsing.
+
 ## Deviation — STORY-360: INV-1 guard false positive
 The STORY-336 no-external-model guard flagged `aiplatform.googleapis.com` in
 `adapters/vertex_ai/records.py`. Correct detection, wrong conclusion: the string

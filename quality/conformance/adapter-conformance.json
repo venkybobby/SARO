@@ -1,0 +1,182 @@
+{
+  "results": [
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "identity + provenance populated",
+      "passed": true,
+      "reason": "",
+      "scenario": "happy_path",
+      "support": "supported"
+    },
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "classified absent fields: ['input_token_count', 'output_token_count', 'region']",
+      "passed": true,
+      "reason": "",
+      "scenario": "missing_fields",
+      "support": "supported"
+    },
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "raised ValueError",
+      "passed": true,
+      "reason": "",
+      "scenario": "malformed_record",
+      "support": "supported"
+    },
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "RP-TOOL-SCOPE flagged the out-of-scope call",
+      "passed": true,
+      "reason": "",
+      "scenario": "tool_scope_violation",
+      "support": "supported"
+    },
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "RP-OBS-COMPLETE flagged the partial observation",
+      "passed": true,
+      "reason": "",
+      "scenario": "incomplete_observation",
+      "support": "supported"
+    },
+    {
+      "adapter": "Bedrock",
+      "adapter_id": "bedrock-invocation-log",
+      "detail": "tenancy taken from operator config, not log content",
+      "passed": true,
+      "reason": "",
+      "scenario": "tenancy_spoofing",
+      "support": "supported"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "identity + provenance populated",
+      "passed": true,
+      "reason": "",
+      "scenario": "happy_path",
+      "support": "supported"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "classified absent fields: ['input_token_count', 'output_token_count', 'region', 'model_id']",
+      "passed": true,
+      "reason": "",
+      "scenario": "missing_fields",
+      "support": "supported"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "raised AzureRecordError",
+      "passed": true,
+      "reason": "",
+      "scenario": "malformed_record",
+      "support": "supported"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "RP-TOOL-SCOPE flagged the out-of-scope call",
+      "passed": true,
+      "reason": "Requires an ENRICHED export: Azure's standard RequestResponse schema carries no tool/function data, so tool-scope evaluation works only if the customer's export adds properties.tools / .toolCalls (e.g. a gateway log in the same envelope). On stock Azure diagnostic logs this scenario is unobservable.",
+      "scenario": "tool_scope_violation",
+      "support": "conditional"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "declared unsupported with a reason (recorded as a gap)",
+      "passed": true,
+      "reason": "Azure OpenAI RequestResponse diagnostic logs do not report a stop reason, so a truncated generation is indistinguishable from a complete one. Truncation cannot be observed from this source.",
+      "scenario": "incomplete_observation",
+      "support": "not_supported"
+    },
+    {
+      "adapter": "Azure OpenAI",
+      "adapter_id": "azure-openai-diagnostic-log",
+      "detail": "tenancy taken from operator config, not log content",
+      "passed": true,
+      "reason": "",
+      "scenario": "tenancy_spoofing",
+      "support": "supported"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "identity + provenance populated",
+      "passed": true,
+      "reason": "",
+      "scenario": "happy_path",
+      "support": "supported"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "classified absent fields: ['input_token_count', 'output_token_count', 'region', 'model_id']",
+      "passed": true,
+      "reason": "",
+      "scenario": "missing_fields",
+      "support": "supported"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "raised VertexRecordError",
+      "passed": true,
+      "reason": "",
+      "scenario": "malformed_record",
+      "support": "supported"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "RP-TOOL-SCOPE flagged the out-of-scope call",
+      "passed": true,
+      "reason": "Requires an ENRICHED export: Vertex Cloud Audit Logs carry no tool/function data, so tool-scope evaluation works only if the customer's sink adds tool metadata in LogEntry.labels. Note SARO will NOT read protoPayload.request/.response to recover it \u2014 those may contain prompt/completion content (INV-2).",
+      "scenario": "tool_scope_violation",
+      "support": "conditional"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "declared unsupported with a reason (recorded as a gap)",
+      "passed": true,
+      "reason": "Vertex Cloud Audit Logs record that an invocation occurred, not how generation terminated. No stop reason or token accounting is emitted, so truncation is not observable from this source.",
+      "scenario": "incomplete_observation",
+      "support": "not_supported"
+    },
+    {
+      "adapter": "Vertex AI",
+      "adapter_id": "vertex-ai-audit-log",
+      "detail": "tenancy taken from operator config, not log content",
+      "passed": true,
+      "reason": "",
+      "scenario": "tenancy_spoofing",
+      "support": "supported"
+    }
+  ],
+  "scenarios": [
+    "happy_path",
+    "missing_fields",
+    "malformed_record",
+    "tool_scope_violation",
+    "incomplete_observation",
+    "tenancy_spoofing"
+  ],
+  "schema": "saro.conformance.v1",
+  "summary": {
+    "adapters": 3,
+    "checks": 18,
+    "conditional": 2,
+    "coverage_gaps": 2,
+    "failed": 0
+  }
+}

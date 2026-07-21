@@ -1,0 +1,58 @@
+name: Adapter Conformance (STORY-361)
+
+# "SARO supports Azure/Vertex" must be a tested claim, not a marketing one.
+# Any change to adapter code, the normalized contract, or the observation
+# rule-packs re-runs the shared scenario suite against EVERY adapter, and
+# publishes the per-adapter pass/fail matrix as an artifact.
+
+on:
+  pull_request:
+    paths:
+      - "adapters/**"
+      - "rule_packs/observation/**"
+      - "tests/conformance/**"
+      - "tests/test_story361_conformance.py"
+      - "scripts/generate_conformance_report.py"
+      - ".github/workflows/conformance.yml"
+  push:
+    branches: [main]
+    paths:
+      - "adapters/**"
+      - "rule_packs/observation/**"
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    name: Cross-adapter conformance suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest pyyaml
+
+      # Blocking: a failure here means an adapter no longer conforms.
+      - name: Run conformance suite
+        run: pytest tests/test_story361_conformance.py -q
+
+      - name: Corpus determinism (attestations depend on byte-identical corpora)
+        run: |
+          python scripts/azure_corpus_builder.py --check
+          python scripts/vertex_corpus_builder.py --check
+
+      - name: Generate conformance report artifact
+        run: python scripts/generate_conformance_report.py --check
+
+      - name: Show matrix in the job summary
+        if: always()
+        run: cat quality/conformance/adapter-conformance.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adapter-conformance-report
+          path: |
+            quality/conformance/adapter-conformance.json
+            quality/conformance/adapter-conformance.md

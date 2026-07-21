@@ -202,9 +202,8 @@ result. Same constraint and same treatment as Azure (§3.2).
 5. **Commit a deterministic synthetic corpus** (≥50 records) covering the shared
    scenarios: happy path, missing fields, malformed record, tool-scope
    violation, incomplete observation.
-6. **Pass the conformance suite** (STORY-361) — it instantiates the shared
-   scenario set against your adapter. Passing it is what makes "supports
-   <provider>" a tested claim rather than a marketing one.
+6. **Join the conformance suite** (STORY-361) — see §5 below. Passing it is what
+   makes "supports \<provider\>" a tested claim rather than a marketing one.
 7. **Prove tenant isolation**: two tenants' sources cannot cross-read (INV-3).
 8. **Update** §3, the capability matrix, and `AUDITED`/`DATA_PLANE`
    classification if you add routes (STORY-366).
@@ -215,3 +214,63 @@ result. Same constraint and same treatment as Azure (§3.2).
 - Body-free normalized output (INV-2).
 - Read-only against customer storage (INV-6); customer-owned buckets only.
 - Deterministic parsing: same input bytes ⇒ same record, so attestations reproduce.
+
+---
+
+## 5. The conformance bar — what adapter #4 must pass (STORY-361)
+
+An adapter is not "supported" anywhere in SARO's documentation until it is in
+`tests/conformance/providers.py::REGISTERED_ADAPTERS` and passing.
+
+### Register it
+
+Implement a provider class with `adapter_id`, `display_name`, and
+`build(scenario) -> Outcome`, then add an instance to `REGISTERED_ADAPTERS`.
+Build every scenario **through your real parser** — a hand-constructed
+`NormalizedInvocationRecord` tests the contract, which is already covered, and
+proves nothing about your parsing.
+
+### Answer all six scenarios
+
+| Scenario | What it asserts |
+|---|---|
+| `happy_path` | Well-formed record normalizes; identity + provenance populated |
+| `missing_fields` | Absent fields are classified — **no silent nulls** |
+| `malformed_record` | Uninterpretable input **raises**; never a half-populated record |
+| `tool_scope_violation` | An out-of-scope tool call is caught by RP-TOOL-SCOPE |
+| `incomplete_observation` | A truncated/partial observation is detectable |
+| `tenancy_spoofing` | A record claiming another tenant **cannot** override the operator binding (INV-3) |
+
+### The three honest answers
+
+A provider must return an outcome for every scenario — silence is not an option
+the API offers. Each outcome is one of:
+
+- `Outcome.supported(record)` — works on the provider's **standard** logs.
+- `Outcome.conditional(record, reason=…)` — works only under a stated
+  precondition (e.g. an enriched export). Renders as `◐`, never `✅`, because a
+  tick would tell a buyer it works on the logs they already have.
+- `Outcome.not_supported(reason=…)` — the provider's logs cannot express it.
+  Renders as `⚠️ n/a` and is listed as a coverage gap.
+
+`reason` is mandatory (≥20 chars) for the latter two and is asserted, so a gap
+cannot be waved through with an empty string. Current gaps and conditionals are
+**pinned** by `test_known_gaps_are_exactly_the_expected_ones` and
+`test_known_conditionals_are_exactly_the_expected_ones`: introducing a new one
+is a deliberate, reviewed change rather than a quiet regression.
+
+### Also required
+
+- A deterministic synthetic corpus (≥50 records) with a `--check` mode wired
+  into CI, since attestations and the STORY-378 harness need byte-identical inputs.
+- Universal invariants hold on every record: contract stays body-free, provenance
+  carries `adapter_id` + `cursor`, timestamps are timezone-aware.
+- Records are reproducible: the same input twice yields an identical record.
+
+### Artifacts
+
+`.github/workflows/conformance.yml` runs the suite on any change to
+`adapters/**` or `rule_packs/observation/**`, publishes
+`quality/conformance/adapter-conformance.{json,md}`, and prints the matrix into
+the job summary. That matrix is the honest source for the buyer-facing
+capability matrix (STORY-362) — generated, never hand-authored.

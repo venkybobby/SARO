@@ -22,6 +22,8 @@ on:
   workflow_dispatch:
 
 jobs:
+  # NOTE: adapter conformance lives in conformance.yml (STORY-361) — it gates
+  # adapter/rule-pack changes, which are unrelated to the scan surfaces here.
   waiver-hygiene:
     name: Waiver expiry check
     runs-on: ubuntu-latest
