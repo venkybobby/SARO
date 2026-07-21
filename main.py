@@ -85,6 +85,8 @@ from middleware.rate_limiter import RateLimiterMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 import services.metrics as metrics
 from routers.metrics_endpoint import router as metrics_router
+from routers.version import router as version_router
+from _version import __version__
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -271,7 +273,7 @@ app = FastAPI(
         "4-gate pipeline: Data Quality → Fairness → Risk Classification → Compliance Mapping. "
         "Bayesian risk forecasting · MIT coverage · Incident matching · Fixed-delta."
     ),
-    version="8.0.0",
+    version=__version__,  # STORY-375: single source in _version.py — never re-hardcode
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -449,6 +451,7 @@ app.include_router(compliance_matrix_router)
 app.include_router(notifications_router)
 app.include_router(engine_status_router)
 app.include_router(metrics_router)  # STORY-368 — /metrics, bearer-token gated
+app.include_router(version_router)  # STORY-375 — /api/v1/version, public
 app.include_router(hf_processor_router)
 app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)

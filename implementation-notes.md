@@ -88,6 +88,27 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-375 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| Version surface | ⚠️ hardcoded | `main.py:274` FastAPI(version="8.0.0"); `/health` returns `app.version`; **no single source, no /api/v1/version** |
+| CHANGELOG | ❌ absent | changelog-drafter workflow exists (propose-only, drafts from Conventional Commits) but **no CHANGELOG.md** and no CI entry gate |
+| Deploy pipeline | ✅ partial | `deploy.yml` on main push → flyctl deploy + `/health` schema_ok check; **no tag-triggered release pipeline** |
+| Conformance suite (AC-3 dep) | ✅ | `tests/test_story361_conformance.py` (df606a7) |
+| Canary (AC-3 dep) | ✅ | `.github/workflows/canary.yml` (52da248), `workflow_run` on Deploy |
+
+## Decision Log — STORY-375 (appended)
+- D51 Q: Version single source? → `_version.py::__version__`, imported by main.py
+  (FastAPI version + health) and a new `/api/v1/version` endpoint. One string,
+  one place; a test asserts main.py does not re-hardcode it.
+- D52 Q: CHANGELOG format + gate? → Keep-a-Changelog. CI gate fails a
+  release-labelled PR whose diff does not add a CHANGELOG entry — the drafter
+  proposes, the gate enforces that a human curated one before release.
+- D53 Q: Release pipeline shape? → tag `v*` → conformance + full pytest → deploy
+  → post-deploy canary (reuse existing jobs; do NOT duplicate deploy logic).
+- D54 Q: Rollback rehearsal? → documented; the actual rehearsal on a scratch
+  deploy is **[HUMAN — OPEN]** (needs Fly access), like the DR rehearsal.
+
 ## STORY-374 — premise check (PLAN stage 3a) — DELTA on STORY-MTR-001
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|

@@ -309,6 +309,42 @@ export default function AppShell({ token, user, onSignOut, onUserUpdate, toast }
         onConfirm={confirmNav}
         onCancel={cancelNav}
       />
+
+      <VersionFooter />
     </div>
+  );
+}
+
+// STORY-375: surface the running platform version. Read from GET /api/v1/version
+// (the single source), so the footer cannot drift from what is actually
+// deployed. Renders nothing until the version is known — a blank footer is
+// better than a stale or guessed version number.
+function VersionFooter() {
+  const [info, setInfo] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v1/version")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setInfo(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (!info?.version) return null;
+  return (
+    <footer
+      style={{
+        padding: "0.5rem 1rem",
+        fontSize: "0.75rem",
+        opacity: 0.6,
+        textAlign: "center",
+      }}
+    >
+      SARO v{info.version}
+      {info.commit && info.commit !== "unknown" ? ` · ${info.commit.slice(0, 7)}` : ""}
+    </footer>
   );
 }

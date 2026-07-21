@@ -34,6 +34,10 @@ PUBLIC_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/register"): "registration endpoint (gated in-route)",
     ("POST", "/api/v1/auth/bootstrap"): "first-run bootstrap — self-disables after first admin",
     ("GET", "/api/v1/demo/token"): "demo-mode token issuance (feature-flagged)",
+    ("GET", "/api/v1/version"): (
+        "running version — a customer's change-management process must read it "
+        "without a credential; reports version + build commit, no tenant data (STORY-375)"
+    ),
     ("POST", "/api/v1/demo/signup"): "public demo-request intake (feature-flagged)",
     ("POST", "/api/v1/sso/magic-link"): "magic-link request — rate-limited per IP",
     ("GET", "/api/v1/remediation/oauth/jira/callback"): (
