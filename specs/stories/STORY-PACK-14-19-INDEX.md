@@ -74,7 +74,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-365 | Threat model + hardening pass | IMPLEMENTED | 85d22b1 · `tests/test_story365_route_authz.py` 5 pass |
 | STORY-366 | Admin/config audit log | IMPLEMENTED | eb573c9 · `tests/test_story366_admin_audit_coverage.py` 7 pass |
 | STORY-367 | Dependency/container scanning | IMPLEMENTED | 034b5ff · pip-audit green w/ waiver; npm prod gate exit 0 |
-| STORY-368 | Monitoring, alerting, canary | SPECIFIED | — |
+| STORY-368 | Monitoring, alerting, canary | IMPLEMENTED | 52da248 · `tests/test_story368_monitoring.py` 26 pass · AC-3 channel human-gated |
 | STORY-369 | SLO definitions + SLA | SPECIFIED | — |
 | STORY-370 | DR + verified restore | SPECIFIED | — |
 | STORY-371 | Support model + IRP (delta) | SPECIFIED | — |
