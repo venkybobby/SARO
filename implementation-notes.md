@@ -88,6 +88,32 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-373 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Operator CLI to extend | ✅ | `cli.py` — click group, `CliError`, `_session_factory()`, existing `ingest`/`demo` commands |
+| Idempotency precedent + its hazard | ✅ | `scripts/seed_demo_tenant.py::ensure_demo_user` + **FND-058** (silently reassigned tenant/role on an email match — must not repeat) |
+| Adapter/log-source placeholder | ✅ | `models.TenantLogSourceConfig` (migration 037, one row per tenant, `enabled` defaults false) |
+| Admin audit write (AC-4) | ✅ | `services/self_audit.record_privileged`, `ADMIN_ACTION` |
+| BAA gate artifacts (INV-6) | ✅ | `compliance/baa/STORY-BAA-01/02` |
+| Isolation probe helpers (AC-2) | ⚠️ partial | `tests/test_story365_route_authz.py` is route-level; tenant-row isolation lives in `tests/test_pt009_tenant_isolation_concurrency.py` — the CLI check is written fresh against the DB rather than importing test helpers into product code |
+
+## Decision Log — STORY-373 (appended)
+- D43 Q: Idempotency semantics for a re-run? → **Never mutate an existing
+  tenant.** Re-running reports what already exists and exits 0. FND-058 is the
+  cautionary case: matching on a weak key and silently reassigning
+  tenant/role/password. Provisioning must be safe to re-run *because operators
+  re-run it when unsure*, and "safe" means inert, not "re-applies defaults".
+- D44 Q: Admin password? → **Generated, printed once, never stored or logged.**
+  No default, no fallback (FND-044 class). If the operator loses it they
+  re-issue rather than recover it.
+- D45 Q: BAA gate enforcement? → CLI **refuses** without `--baa-confirmed`,
+  naming the artifact. INV-6 is a hard gate; a doc-only step gets skipped under
+  time pressure, which is precisely when it matters.
+- D46 Q: Isolation check — import the test helpers? → No. Product code must not
+  import from `tests/`. The check is written against the DB directly and asserts
+  the new tenant reads zero rows of another tenant's data.
+
 ## STORY-372 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

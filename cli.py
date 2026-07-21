@@ -660,5 +660,135 @@ def demo_reset(tenant: str, yes: bool) -> None:
         db.close()
 
 
+@cli.group()
+def tenant() -> None:
+    """Tenant provisioning (STORY-373)."""
+
+
+@tenant.command("provision")
+@click.option("--name", required=True, help="Display name, e.g. 'SummitCare Health'.")
+@click.option("--slug", required=True, help="URL-safe identifier, e.g. 'summitcare'.")
+@click.option("--admin-email", required=True, help="Email for the tenant's first admin.")
+@click.option(
+    "--baa-confirmed",
+    is_flag=True,
+    default=False,
+    help="Confirm an executed BAA is in place (INV-6). Provisioning refuses without it.",
+)
+@click.option("--vertical", default="general", show_default=True)
+@click.option(
+    "--actor", default=None, help="Operator identity for the audit trail. Defaults to $USER."
+)
+@click.option("--json", "as_json", is_flag=True, default=False, help="Machine-readable output.")
+def tenant_provision(
+    name: str,
+    slug: str,
+    admin_email: str,
+    baa_confirmed: bool,
+    vertical: str,
+    actor: Optional[str],
+    as_json: bool,
+) -> None:
+    """Provision a tenant, its admin user, and an adapter placeholder.
+
+    Idempotent: re-running against an existing slug writes nothing and reports
+    what is already there. It deliberately does NOT reconcile drift — an
+    operator re-running to check state must not have configuration changed
+    under them (see FND-058).
+    """
+    import os
+
+    from services.tenant_provisioning import (
+        BAAGateNotConfirmed,
+        ProvisioningError,
+        provision_tenant,
+        verify_isolation,
+    )
+
+    actor = actor or os.environ.get("USER") or os.environ.get("USERNAME") or "operator"
+    db = _session_factory()()
+    try:
+        result = provision_tenant(
+            db,
+            name=name,
+            slug=slug,
+            admin_email=admin_email,
+            baa_confirmed=baa_confirmed,
+            actor=actor,
+            vertical=vertical,
+        )
+        isolation = verify_isolation(db, result.tenant_id) if result.created else None
+    except BAAGateNotConfirmed as exc:
+        db.rollback()
+        raise CliError(str(exc)) from exc
+    except ProvisioningError as exc:
+        db.rollback()
+        raise CliError(str(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    if as_json:
+        payload = result.summary()
+        if isolation:
+            payload["isolation"] = isolation
+        # The generated password is deliberately absent from JSON output — it
+        # would land in shell history, CI logs, and anything piping this.
+        click.echo(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    if not result.created:
+        click.echo(f"Tenant {slug!r} already exists ({result.tenant_id}) — nothing written.")
+        for note in result.notes:
+            click.echo(f"  note: {note}")
+        return
+
+    click.echo(f"Provisioned tenant {slug!r} ({result.tenant_id})")
+    click.echo(f"  admin: {result.admin_email} ({result.admin_user_id})")
+    click.echo("")
+    click.echo("  One-time password (not stored, not logged, shown once):")
+    click.echo(f"    {result.generated_password}")
+    click.echo("")
+    for note in result.notes:
+        click.echo(f"  note: {note}")
+
+    if isolation:
+        state = "PASS" if isolation["isolated"] else "FAIL"
+        click.echo(f"  isolation check: {state} — {isolation['detail']}")
+        if not isolation["meaningful"]:
+            click.echo(
+                "  note: no other tenants exist yet, so this check cannot yet "
+                "demonstrate isolation — re-run it once a second tenant exists."
+            )
+        if not isolation["isolated"]:
+            raise CliError("post-provision isolation check FAILED — investigate before use")
+
+
+@tenant.command("verify-isolation")
+@click.option("--tenant", "tenant_id", required=True, help="Tenant UUID to check.")
+@click.option("--json", "as_json", is_flag=True, default=False)
+def tenant_verify_isolation(tenant_id: str, as_json: bool) -> None:
+    """Re-run the post-provision isolation check for a tenant."""
+    from services.tenant_provisioning import verify_isolation
+
+    parsed = _parse_uuid(tenant_id, "--tenant")
+    db = _session_factory()()
+    try:
+        result = verify_isolation(db, parsed)
+    finally:
+        db.close()
+
+    if as_json:
+        click.echo(_json.dumps(result, indent=2, sort_keys=True))
+    else:
+        click.echo(f"isolation: {'PASS' if result['isolated'] else 'FAIL'} — {result['detail']}")
+        if not result["meaningful"]:
+            click.echo("note: no other tenants exist — this check cannot yet prove isolation.")
+    if not result["isolated"]:
+        raise CliError("isolation check FAILED")
+
+
 if __name__ == "__main__":
     cli()
