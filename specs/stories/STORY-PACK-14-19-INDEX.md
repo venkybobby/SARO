@@ -68,7 +68,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-359 | Azure OpenAI adapter | IMPLEMENTED | 967dd52 · `tests/test_story359_azure_adapter.py` 31 pass · corpus 54 records |
 | STORY-360 | Vertex AI adapter | IMPLEMENTED | ff94aee · `tests/test_story360_vertex_adapter.py` 30 pass · corpus 56 records |
 | STORY-361 | Cross-adapter conformance suite | IMPLEMENTED | df606a7 · `tests/test_story361_conformance.py` 31 pass · 18 matrix checks, 0 fail |
-| STORY-362 | Adapter capability matrix | SPECIFIED | — |
+| STORY-362 | Adapter capability matrix | IMPLEMENTED | e06ce24 · `tests/test_story362_capability_matrix.py` 19 pass · generated + CI freshness gate |
 | STORY-363 | Secrets baseline + history remediation (P0) | IMPLEMENTED | 9a2fd4b · `tests/test_story363_secret_scanning.py` 3 pass · AC-4/AC-5 human-gated |
 | STORY-364 | SOC 2 control inventory (delta) | SPECIFIED | — |
 | STORY-365 | Threat model + hardening pass | IMPLEMENTED | 85d22b1 · `tests/test_story365_route_authz.py` 5 pass |
