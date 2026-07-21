@@ -71,6 +71,30 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## STORY-359 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| `NormalizedInvocationRecord` | ✅ | `adapters/contract.py` (a0210bc) |
+| RP-OBS-COMPLETE@1.0.0 | ✅ | `rule_packs/observation/rp_obs_complete/1.0.0/pack.yaml` (a27b8ef) |
+| RP-TOOL-SCOPE@1.0.0 | ✅ | `rule_packs/observation/rp_tool_scope/1.0.0/pack.yaml` (a27b8ef) |
+| Bedrock corpus scenarios to mirror | ✅ | `scripts/demo_corpus_builder.py` (manifest-driven, `_det_uuid4` determinism) |
+| Tenant-isolation precedent | ✅ | `adapters/bedrock/source.py::S3LogStore.for_tenant`, `models.TenantLogSourceConfig` |
+| Adapter design doc | ✅ | `docs/adapter-design.md` (a0210bc) |
+
+## Decision Log — STORY-359 (appended)
+- D11 Q: Azure logs carry no tool/function data and no guaranteed token counts —
+  fake coverage or expose the gap? → Expose: mark structurally UNAVAILABLE, and
+  make RP-TOOL-SCOPE's silence on Azure explicitly *tested and documented* →
+  zero findings from absent data must never be read as "clean"; capability
+  matrix (362) gets honest "not supported" rows.
+- D12 Q: Tenancy source for Azure records? → Operator config ONLY. Azure records
+  contain subscription GUIDs / objectId / (some schemas) an Entra tenant id;
+  none may set SARO tenancy → pinned by a test that feeds a hostile record
+  claiming another tenant (INV-3).
+- D13 Q: Ingestion surface? → Customer-owned export reader over files (D6), with
+  container+prefix scoping and traversal rejection → testable with zero cloud
+  calls; mirrors Bedrock's read-only posture without inventing an Azure SDK dep.
+
 ## Decision Log — ledger-drift fix (appended)
 - D9 Q: Where can the premise-check actually be enforced, given `saro-story-author`
   and `saro-invariant-audit` do NOT exist in this repo (.claude/agents/ has only

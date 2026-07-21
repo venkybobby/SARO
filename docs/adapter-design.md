@@ -87,7 +87,59 @@ Bodies (`inputBodyJson` / `inputBodyS3Path`) are read **only** on the audit
 branch, guarded by a deny-by-default bucket allowlist (FND-1) and size caps
 (FND-2). They never reach the normalized record.
 
-### 3.2 Azure OpenAI — see STORY-359 (pending)
+### 3.2 Azure OpenAI (`azure-openai-diagnostic-log`, adapter #2)
+
+Source: Azure Diagnostic Settings, category `RequestResponse`, exported to
+customer-owned storage. Parser: `adapters/azure_openai/parse.py`.
+
+| Azure field | Normalized field | Rule-pack fields consumed | Notes |
+|---|---|---|---|
+| `correlationId` | `request_id` | OBS-REQUIRED-FIELDS-1 | falls back to `properties.requestId`; absence ⇒ record rejected |
+| `operationName` | `operation` | OBS-REQUIRED-FIELDS-1 | e.g. `ChatCompletions_Create` |
+| `time` | `timestamp` | OBS-REQUIRED-FIELDS-1 | 7 fractional digits, truncated to 6 for parsing |
+| `properties.modelName` (+`modelVersion`) | `model_id` | OBS-REQUIRED-FIELDS-1, envelope allowlist | `name:version`; falls back to `modelDeploymentName`, else `MISSING` |
+| `location` | `region` | — | `MISSING` when absent |
+| `properties.promptTokens` | `input_token_count` | OBS-TOKEN-COUNTS-1 | see availability note below |
+| `properties.completionTokens` | `output_token_count` | OBS-TOKEN-COUNTS-1 | see availability note below |
+| `resultType` / `resultSignature` | `error_code` | OBS-ERROR-INVOCATION-1 | non-success type, or non-2xx signature |
+| `properties.tools` / `toolDefinitions` / `functions` * | `tools[].offered` | TOOL-SCOPE-OFFERED-1, TOOL-POLICY-ABSENT-1 | *not in the standard schema — see below |
+| `properties.toolCalls` / `functionCalls` * | `tools[].invoked` | TOOL-SCOPE-VIOLATION-1 | *not in the standard schema — see below |
+| (object key + line number) | `provenance.cursor` | — | e.g. `2026/07/01/log.ndjson:L42` |
+| (operator config) | `tenant_id` | — | **never** from the log — see below |
+| — | `stop_reason`, `truncated` | OBS-TRUNCATED-OUTPUT-1 | **`UNAVAILABLE`** — Azure does not report why generation stopped |
+
+**Availability semantics for token counts.** No usage fields at all ⇒
+`UNAVAILABLE` (this deployment's schema does not report usage). One usage field
+present and the other absent ⇒ `MISSING` (Azure reported usage here and this
+record is incomplete). Conflating the two would make a provider limitation look
+like a customer data-quality problem, or vice versa.
+
+**\* Tool data is not part of the Azure `RequestResponse` schema.** The keys
+above are parsed when a customer's export carries them (an enriched export or a
+gateway log shipped in the same envelope). By default they are absent, and the
+adapter marks `tools` as `UNAVAILABLE`.
+
+> **Consequence that must never be misreported:** on standard Azure records,
+> RP-TOOL-SCOPE produces **zero findings because there is no data to evaluate** —
+> which is *not* the same as a clean tool-scope result. This is pinned by
+> `tests/test_story359_azure_adapter.py::test_standard_azure_records_yield_no_tool_findings_because_data_is_absent`
+> and must appear as a "not supported" row in the capability matrix (STORY-362),
+> never as coverage.
+
+**Why this source is INV-2-safe by nature:** Azure `RequestResponse` diagnostic
+logs do not contain prompt or completion content. There is no body to fetch and
+no allowlist to enforce (contrast Bedrock's S3-externalized bodies).
+
+**Tenant isolation (INV-3), two independent controls** — `adapters/azure_openai/source.py`:
+1. A reader is bound to one tenant's `container` + `prefix`, rejects traversal,
+   and matches prefixes on **segment boundaries** (`tenant-1` must not read
+   `tenant-10`).
+2. Tenancy is set from operator config only. Azure records carry
+   subscription GUIDs, `properties.objectId`, and sometimes an Entra tenant id;
+   none may influence SARO's tenancy.
+
+**Corpus:** `tests/fixtures/azure/corpus.ndjson` — 54 deterministic records
+(`scripts/azure_corpus_builder.py`, `--check` verifies byte-identity in CI).
 ### 3.3 Vertex AI — see STORY-360 (pending)
 
 ## 4. How to add adapter #N

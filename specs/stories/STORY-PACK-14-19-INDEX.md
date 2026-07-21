@@ -65,7 +65,7 @@ numbering correction instead of triaging stories that never existed.
 |---|---|---|---|
 | PREREQ-RP | Genesis observation rule-packs | IMPLEMENTED | a27b8ef · `tests/test_prereq_rp_observation_packs.py` 22 pass |
 | STORY-358 | Observation adapter contract | IMPLEMENTED | a0210bc · `tests/test_story358_adapter_contract.py` 12 pass |
-| STORY-359 | Azure OpenAI adapter | SPECIFIED | — |
+| STORY-359 | Azure OpenAI adapter | IMPLEMENTED | d163c89 · `tests/test_story359_azure_adapter.py` 31 pass · corpus 54 records |
 | STORY-360 | Vertex AI adapter | SPECIFIED | — |
 | STORY-361 | Cross-adapter conformance suite | SPECIFIED | — |
 | STORY-362 | Adapter capability matrix | SPECIFIED | — |
