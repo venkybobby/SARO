@@ -71,6 +71,25 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## Deviation — STORY-360: INV-1 guard false positive
+The STORY-336 no-external-model guard flagged `aiplatform.googleapis.com` in
+`adapters/vertex_ai/records.py`. Correct detection, wrong conclusion: the string
+is a Cloud Audit Log `serviceName` **discriminator** (which entries to interpret),
+never a call target — the adapter imports no GCP SDK and reads customer-owned
+exports only.
+
+Options considered:
+- File-level DEFAULT_ALLOWLIST entry → **rejected**: exempts the file from the
+  whole scan, including SDK-import detection, which is the guard's real control.
+  A later `import google.generativeai` there would pass unnoticed.
+- Obfuscate the literal (split/derive/move to YAML) → **rejected**: hiding from
+  a security guard rather than answering it, and it would leave the next reader
+  with a constant whose shape exists only to dodge a check.
+- Conservative choice (taken): add `ENDPOINT_LITERAL_EXEMPTIONS`, keyed by
+  (path, endpoint) with a written reason. Exempts ONE string in ONE file;
+  imports and all other literals in that file remain scanned. Backed by a test
+  proving the adapter imports no GCP SDK, so the exemption rests on evidence.
+
 ## STORY-360 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

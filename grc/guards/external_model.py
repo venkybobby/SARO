@@ -122,6 +122,30 @@ DEFAULT_ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
+# Endpoint-literal exemptions: (repo-relative path, endpoint substring) -> reason.
+#
+# Narrow on purpose. A file in DEFAULT_ALLOWLIST escapes the scan ENTIRELY —
+# including SDK-import detection, which is the guard's real control. An
+# observation adapter must be able to *name* the provider whose logs it parses
+# without the file going blind to a future `import google.generativeai`. So this
+# exempts one string in one file and nothing else: imports, dynamic imports, and
+# every other endpoint literal in that file are still scanned.
+#
+# Bar for adding an entry: the literal is used to RECOGNISE data (a log-schema
+# discriminator), never to address a call, and a test proves the module imports
+# no provider SDK.
+ENDPOINT_LITERAL_EXEMPTIONS: dict[tuple[str, str], str] = {
+    (
+        "adapters/vertex_ai/records.py",
+        "aiplatform.googleapis.com",
+    ): (
+        "STORY-360: Cloud Audit Log `serviceName` discriminator — selects which "
+        "exported log entries the adapter interprets. SARO never calls Vertex; "
+        "the adapter reads customer-owned log exports only (INV-6). Proven by "
+        "tests/test_story360_vertex_adapter.py::test_adapter_imports_no_gcp_sdk."
+    ),
+}
+
 # Product package directories scanned in full. ``middleware`` is a namespace
 # package (no __init__) but is unambiguously runtime (main.py imports it).
 PRODUCT_PACKAGE_DIRS: tuple[str, ...] = (
@@ -262,6 +286,11 @@ def _scan_file(path: Path, repo_root: Path) -> list[Violation]:
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             for endpoint in FORBIDDEN_ENDPOINT_SUBSTRINGS:
                 if endpoint in node.value:
+                    # Documented per-(file, endpoint) exemption for literals that
+                    # identify a log schema rather than address a call. Imports in
+                    # the same file remain fully scanned — see the constant's docs.
+                    if (rel, endpoint) in ENDPOINT_LITERAL_EXEMPTIONS:
+                        break
                     found.append(
                         Violation(
                             rel,

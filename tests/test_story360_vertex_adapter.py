@@ -141,6 +141,62 @@ def test_no_parsed_corpus_record_carries_any_payload_content():
         assert _PHI_MARKER not in rec.model_dump_json()
 
 
+# ── INV-1: the endpoint literal is a discriminator, not a call target ──────
+
+
+def test_adapter_imports_no_gcp_sdk():
+    """Backs the guard's endpoint-literal exemption with evidence.
+
+    `aiplatform.googleapis.com` appears in records.py as a log `serviceName`
+    discriminator. That exemption is only defensible while the adapter imports
+    no provider SDK and makes no outbound call — asserted here, and referenced
+    by name from grc/guards/external_model.ENDPOINT_LITERAL_EXEMPTIONS.
+    """
+    forbidden = (
+        "google.generativeai",
+        "google.cloud.aiplatform",
+        "vertexai",
+        "googleapiclient",
+        "httpx",
+        "requests",
+        "urllib.request",
+        "aiohttp",
+    )
+    for module in ("records", "parse", "source"):
+        src = (ROOT / "adapters" / "vertex_ai" / f"{module}.py").read_text(encoding="utf-8")
+        for name in forbidden:
+            assert f"import {name}" not in src, f"{module}.py imports {name}"
+            assert f"from {name}" not in src, f"{module}.py imports from {name}"
+
+
+def test_guard_exemption_is_narrow_and_documented():
+    from grc.guards.external_model import ENDPOINT_LITERAL_EXEMPTIONS
+
+    key = ("adapters/vertex_ai/records.py", "aiplatform.googleapis.com")
+    assert key in ENDPOINT_LITERAL_EXEMPTIONS
+    assert len(ENDPOINT_LITERAL_EXEMPTIONS[key]) > 80, "exemption needs a real reason"
+    # It must not have quietly grown into a blanket file exemption.
+    from grc.guards.external_model import DEFAULT_ALLOWLIST
+
+    assert "adapters/vertex_ai/records.py" not in DEFAULT_ALLOWLIST
+
+
+def test_guard_still_catches_a_real_sdk_import_in_the_exempted_file(tmp_path):
+    """The exemption must not blind the file to the control that actually matters."""
+    from grc.guards.external_model import scan_paths
+
+    target = tmp_path / "adapters" / "vertex_ai"
+    target.mkdir(parents=True)
+    (target / "records.py").write_text(
+        'SUPPORTED_SERVICE = "aiplatform.googleapis.com"\nimport openai\n',
+        encoding="utf-8",
+    )
+    violations = scan_paths([target], repo_root=tmp_path)
+    kinds = {v.kind for v in violations}
+    assert "import" in kinds, "SDK import in the exempted file must still be caught"
+    assert "endpoint" not in kinds, "the discriminator literal should stay exempt"
+
+
 # ── AC-1: parsing ───────────────────────────────────────────────────────────
 
 
