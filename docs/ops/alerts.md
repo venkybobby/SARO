@@ -70,10 +70,15 @@ tolerating a brief restart.
 a *different* fault — usually a rule-pack, migration, or engine problem — and has
 a different first action.
 
-### A7 — Backup verification failed (P2)
-**Condition:** the backup/restore verification job fails (wired in STORY-370).
-**Why:** an unverified backup is a belief, not a control. Placeholder until 370
-lands its verification script.
+### A7 — Backup integrity manifest not captured (P2)
+**Condition:** the scheduled `scripts/verify_restore_integrity.py snapshot` run
+fails, or the newest off-platform manifest is older than 48 hours.
+**Why 48h:** with daily capture, one missed run is tolerable; two consecutive
+misses mean a restore would have no recent reference to verify against.
+**Why it matters:** a restore verified only by SARO's internal chain verifiers
+proves self-consistency, **not** completeness — a truncated chain hashes
+correctly. Without a manifest, silent evidence loss is undetectable.
+See [dr-backup.md](dr-backup.md) §4.
 
 ---
 

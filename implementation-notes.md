@@ -88,6 +88,35 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-370 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Existing chain verifiers to reuse | ✅ **eight of them** | `services/self_audit.py`, `rule_pack_snapshot_service.py`, `evf_publication_service.py`, `disposition_service.py`, `observation_coverage_service.py`, `audit_emitter.py`, `hash_chain_service.py`, `grc/evidence.py` |
+| Immutable rule-pack snapshots | ✅ | `models.RulePackSnapshot` (content/prev/record hash), RPV-001 |
+| A7 backup-failure alert placeholder | ✅ | `docs/ops/alerts.md` A7 — says "placeholder until STORY-370" |
+| Supabase backup settings | ❌ cannot verify from repo | provider console — documented as a **config-to-confirm checklist**, not asserted |
+
+## Decision Log — STORY-370 (appended)
+- D27 Q: Post-restore verification = run the existing chain verifiers? →
+  **Insufficient, and dangerously so.** Every existing verifier proves a chain
+  is *internally self-consistent*; a **truncated** chain is still
+  self-consistent. Restoring a backup missing the last N events returns
+  `valid: true` from all eight while evidence is silently gone. Verification
+  therefore needs a **reference manifest captured before the loss**
+  (tip hash + record count per chain), stored off-platform with the backup.
+- D28 Q: Compare tip hash alone? → No. Count *and* tip, because they fail
+  differently: equal count + different tip = **TAMPER**; lower count =
+  **DATA_LOSS** (and the delta is the measured RPO); higher count = **AHEAD**,
+  meaning verification ran after traffic resumed — a procedural error worth
+  naming rather than silently passing.
+- D29 Q: Testability with no live DB? → Split pure comparison logic from thin DB
+  adapters. The logic worth testing (truncation/tamper/loss classification) is
+  pure and unit-tested against fixture manifests; adapters just wrap the
+  existing verifiers.
+- D30 Q: RTO/RPO numbers? → **Left blank.** They are *measured* by the rehearsal
+  (AC-4, human-gated, scratch project only). Writing plausible numbers before
+  rehearsing would be exactly the claimed-without-evidence failure (FM-1).
+
 ## STORY-371 — premise check + my own FM-2 violation
 | Referenced artifact | Verified? | Finding |
 |---|---|---|
