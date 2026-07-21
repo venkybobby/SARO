@@ -127,6 +127,22 @@ def submit_audit_sync(
         audit.status = report.status
         audit.completed_at = datetime.now(tz=timezone.utc)
         db.commit()
+
+        # STORY-374: meter the evaluate/attest boundary AFTER the attestation is
+        # durably committed. One ScanReport row is one attestation, deduped by
+        # audit id, so these two meters recount EXACTLY against the scan_reports
+        # table (metering_service.verify_exact). safe_increment fails open — a
+        # metering fault must never block or unwind an attestation that landed.
+        import services.metering_service as _metering
+
+        _metering.safe_increment(
+            db, tenant_id=tenant_id, meter_key=_metering.EVALUATIONS_EXECUTED,
+            idempotency_key=f"eval:{audit_id}",
+        )
+        _metering.safe_increment(
+            db, tenant_id=tenant_id, meter_key=_metering.ATTESTATIONS_ISSUED,
+            idempotency_key=f"attest:{audit_id}",
+        )
     except Exception:
         db.rollback()
         try:

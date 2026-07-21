@@ -88,6 +88,31 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-374 — premise check (PLAN stage 3a) — DELTA on STORY-MTR-001
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| Metering machinery | ✅ EXTENSIVE | `services/metering_service.py` (MTR-001): meter keys, idempotency, statements, thresholds, `reconcile()` |
+| PHI-free by construction (AC-5) | ✅ already done | closed `DIMENSION_KEYS` + 64-char value cap — MTR-001 built AC-5 |
+| Authoritative attestation table | ✅ | `models.ScanReport` (one row per audit; `tenant_id`, `created_at`) |
+| Attest boundary (AC-1) | ⚠️ **gap** | `services/audit_submission.submit_audit_sync` writes ScanReport but does NOT meter — only `rule_pack_versions.py` increments today |
+| Recount invariant (AC-2) | ⚠️ **partial** | `reconcile()` uses a **tolerance** + covers one key vs GRCEvidenceRecord; pack wants **0% exact** + a CLI |
+| CSV/JSON export (AC-3) | ❌ | statement endpoint returns JSON via API; no CSV, no CLI export |
+
+## Decision Log — STORY-374 (appended)
+- D47 Q: Rebuild metering? → **No — delta only.** MTR-001 already gives PHI-free
+  meters, idempotency, and immutable statements. This story wires the
+  evaluate/attest boundary, adds an EXACT recount, adds export + CLI.
+- D48 Q: Boundary increment semantics? → `safe_increment` (fail-open) keyed by
+  `audit_id` idempotency, in `submit_audit_sync`. One ScanReport = one
+  attestation, deduped by audit id, so the meter recounts EXACTLY against the
+  table. A metering fault must never block an evaluation or lose an attestation.
+- D49 Q: reconcile()'s tolerance vs the pack's "within 0%"? → Add a distinct
+  `verify_exact` requiring an **exact** match against the authoritative table;
+  leave `reconcile()` (drift-tolerance data-quality alerting) as-is. They answer
+  different questions — do not overload one.
+- D50 Q: Payment processor? → **Out of scope, stated in the doc.** Export only;
+  Stripe is a later story. Metering is evidence-grade, billing is not built.
+
 ## STORY-373 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

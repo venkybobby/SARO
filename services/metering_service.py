@@ -23,8 +23,10 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from models import (
+    Audit,
     GRCEvidenceRecord,
     Notification,
+    ScanReport,
     UsageMeter,
     UsageMeterIdempotency,
     UsageStatement,
@@ -344,3 +346,120 @@ def reconcile(db: Session, tenant_id: uuid.UUID, period: Optional[str] = None) -
         "drift": round(drift, 4),
         "within_tolerance": ok,
     }
+
+
+# ── STORY-374: exact recount + export ────────────────────────────────────────
+
+# Meters recountable EXACTLY against an authoritative table (AC-2), each mapped
+# to the table that is the single source of truth for it. Meters absent here
+# have no one authoritative table (e.g. adapter volume) and are reported as
+# unverifiable rather than asserted against a fabricated authority.
+def _authoritative_counters() -> dict:
+    return {
+        ATTESTATIONS_ISSUED: ScanReport,
+        EVALUATIONS_EXECUTED: Audit,
+        EVIDENCE_RECORDS_PERSISTED: GRCEvidenceRecord,
+    }
+
+
+def verify_exact(
+    db: Session, tenant_id: uuid.UUID, period: Optional[str] = None
+) -> dict:
+    """Recount each metered value against its authoritative table (AC-2).
+
+    Distinct from ``reconcile()``: that alerts on drift beyond a tolerance;
+    this requires an **exact** match (0% difference), which is the property a
+    buyer's finance team checks when metering underlies an invoice. A meter that
+    is merely close is a bug here, not an acceptable variance — the meter and the
+    table both derive from the same committed rows, so any gap is a wiring fault.
+
+    Meters without a single authoritative table (e.g. adapter volume) are
+    reported as ``unverifiable`` rather than silently passed.
+    """
+    period = period or current_period()
+    start, end = _period_range(period)
+    metered = meter_totals(db, tenant_id, period)
+    counters = _authoritative_counters()
+
+    checks: list[dict] = []
+    all_exact = True
+    for meter_key, model in counters.items():
+        authoritative = (
+            db.query(model)
+            .filter(
+                model.tenant_id == tenant_id,
+                model.created_at >= start,
+                model.created_at < end,
+            )
+            .count()
+        )
+        m = int(metered.get(meter_key, 0))
+        exact = m == authoritative
+        all_exact = all_exact and exact
+        checks.append(
+            {
+                "meter_key": meter_key,
+                "metered": m,
+                "authoritative": authoritative,
+                "exact": exact,
+                "delta": m - authoritative,
+            }
+        )
+
+    unverifiable = sorted(set(metered) - set(counters))
+    return {
+        "tenant_id": str(tenant_id),
+        "period": period,
+        "exact": all_exact,
+        "checks": checks,
+        "unverifiable_meters": unverifiable,
+    }
+
+
+# Stable column order for CSV/JSON export. Fixed so a downstream diff of two
+# months' exports is meaningful.
+_EXPORT_COLUMNS = (
+    "tenant_id",
+    "period",
+    "meter_key",
+    "count",
+)
+
+
+def export_rows(db: Session, tenant_id: uuid.UUID, period: str) -> list[dict]:
+    """One row per meter for a tenant + period. No dimensions, no free text —
+    the export inherits the meter's PHI-free-by-construction guarantee (AC-5)."""
+    totals = meter_totals(db, tenant_id, period)
+    return [
+        {
+            "tenant_id": str(tenant_id),
+            "period": period,
+            "meter_key": key,
+            "count": int(totals[key]),
+        }
+        for key in sorted(totals)
+    ]
+
+
+def export_csv(db: Session, tenant_id: uuid.UUID, period: str) -> str:
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=list(_EXPORT_COLUMNS))
+    writer.writeheader()
+    for row in export_rows(db, tenant_id, period):
+        writer.writerow(row)
+    return buf.getvalue()
+
+
+def export_json(db: Session, tenant_id: uuid.UUID, period: str) -> str:
+    return json.dumps(
+        {
+            "tenant_id": str(tenant_id),
+            "period": period,
+            "rows": export_rows(db, tenant_id, period),
+        },
+        indent=2,
+        sort_keys=True,
+    )

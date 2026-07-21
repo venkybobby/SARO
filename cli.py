@@ -790,5 +790,78 @@ def tenant_verify_isolation(tenant_id: str, as_json: bool) -> None:
         raise CliError("isolation check FAILED")
 
 
+@cli.group()
+def meter() -> None:
+    """Usage metering — exact recount + export (STORY-374)."""
+
+
+@meter.command("verify")
+@click.option("--tenant", "tenant_id", required=True, help="Tenant UUID.")
+@click.option("--period", default=None, help="YYYY-MM (default: current period).")
+@click.option("--json", "as_json", is_flag=True, default=False)
+def meter_verify(tenant_id: str, period: Optional[str], as_json: bool) -> None:
+    """Recount every metered value against its authoritative table (0% exact).
+
+    Metering underlies invoicing, so a meter that is merely close is a bug, not
+    an acceptable variance — this requires an exact match and exits non-zero if
+    any meter disagrees with its source table.
+    """
+    import services.metering_service as metering
+
+    parsed = _parse_uuid(tenant_id, "--tenant")
+    db = _session_factory()()
+    try:
+        result = metering.verify_exact(db, parsed, period)
+    finally:
+        db.close()
+
+    if as_json:
+        click.echo(_json.dumps(result, indent=2, sort_keys=True))
+    else:
+        for chk in result["checks"]:
+            state = "OK" if chk["exact"] else f"DRIFT {chk['delta']:+d}"
+            click.echo(f"  {chk['meter_key']}: metered={chk['metered']} "
+                       f"authoritative={chk['authoritative']} [{state}]")
+        if result["unverifiable_meters"]:
+            click.echo(f"  unverifiable (no single authoritative table): "
+                       f"{result['unverifiable_meters']}")
+    if not result["exact"]:
+        raise CliError("meter verification FAILED — a meter does not match its source table")
+
+
+@meter.command("export")
+@click.option("--tenant", "tenant_id", required=True, help="Tenant UUID.")
+@click.option("--period", required=True, help="YYYY-MM.")
+@click.option(
+    "--format", "fmt", type=click.Choice(["csv", "json"]), default="csv", show_default=True
+)
+@click.option("--out", type=click.Path(), default=None, help="Write to a file instead of stdout.")
+def meter_export(tenant_id: str, period: str, fmt: str, out: Optional[str]) -> None:
+    """Export a tenant's monthly usage as CSV or JSON.
+
+    Export ONLY — SARO has no payment-processor integration. Turning usage into
+    an invoice happens in the biller of record; this is the evidence-grade
+    source it draws from.
+    """
+    import services.metering_service as metering
+
+    parsed = _parse_uuid(tenant_id, "--tenant")
+    db = _session_factory()()
+    try:
+        content = (
+            metering.export_csv(db, parsed, period)
+            if fmt == "csv"
+            else metering.export_json(db, parsed, period)
+        )
+    finally:
+        db.close()
+
+    if out:
+        Path(out).write_text(content, encoding="utf-8")
+        click.echo(f"wrote {out}")
+    else:
+        click.echo(content, nl=False)
+
+
 if __name__ == "__main__":
     cli()
