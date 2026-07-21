@@ -74,7 +74,10 @@ Unavailability arising from the following is excluded from the calculation:
 - **Emergency maintenance** (security fixes, data-integrity risk) may occur
   without notice; notification follows as soon as practicable.
 - Announcements are posted per the status and degradation communication
-  procedure (STORY-372).
+  procedure: [`../ops/maintenance-windows.md`](../ops/maintenance-windows.md).
+- **Status page:** `https://sarofrontend.fly.dev/status.html` — live health
+  check. Note it is served by the frontend application and is therefore not an
+  independent monitor; see that procedure for the limitation and upgrade path.
 
 ---
 

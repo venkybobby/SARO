@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SARO Status</title>
+<!--
+  SARO status page (STORY-372).
+
+  Probes GET /health live in the browser rather than rendering a file written by
+  the canary. A cached "all systems operational" banner is worse than no status
+  page: during an outage it says the opposite of the truth, and that is exactly
+  when someone reads it.
+
+  Honest limitation, stated on the page itself: this page is served by the
+  frontend Fly app and shares that app's fate. If the frontend is down, so is
+  this page. Only third-party hosting removes that, and standing up a hosted
+  status service is a human decision (docs/ops/maintenance-windows.md).
+
+  No build step and no dependencies — it has to keep working when the rest does not.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; padding: 2rem 1rem; line-height: 1.5;
+    background: #0f1115; color: #e8eaed;
+  }
+  @media (prefers-color-scheme: light) { body { background: #f7f8fa; color: #16181d; } }
+  main { max-width: 42rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+  .sub { opacity: 0.7; font-size: 0.9rem; margin-bottom: 2rem; }
+  .card {
+    border: 1px solid rgba(128,128,128,0.3); border-radius: 10px;
+    padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.85rem;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; background: #888; }
+  .ok { background: #1f9d55; } .degraded { background: #d97706; } .down { background: #dc2626; }
+  .name { font-weight: 600; }
+  .detail { opacity: 0.75; font-size: 0.875rem; }
+  .grow { flex: 1; }
+  footer { margin-top: 2rem; font-size: 0.8rem; opacity: 0.65; }
+  code { background: rgba(128,128,128,0.15); padding: 0.1rem 0.35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SARO Status</h1>
+  <div class="sub" id="checked">Checking…</div>
+
+  <div class="card">
+    <span class="dot" id="api-dot"></span>
+    <span class="grow">
+      <div class="name">API</div>
+      <div class="detail" id="api-detail">Checking…</div>
+    </span>
+  </div>
+
+  <div class="card">
+    <span class="dot" id="db-dot"></span>
+    <span class="grow">
+      <div class="name">Database</div>
+      <div class="detail" id="db-detail">Checking…</div>
+    </span>
+  </div>
+
+  <footer>
+    <p>
+      This page checks <code>GET /health</code> live each time you load it —
+      nothing is cached, so it cannot show a stale &ldquo;operational&rdquo;
+      banner during an outage.
+    </p>
+    <p>
+      <strong>Limitation:</strong> this page is served by the same frontend
+      application it reports on. If the frontend itself is unavailable, this page
+      will be too. It is not an independent monitor.
+    </p>
+    <p>
+      Availability targets and how they are measured are described in the SLA;
+      maintenance windows are announced per the maintenance procedure. For
+      incident support, use the contact in your agreement.
+    </p>
+  </footer>
+</main>
+
+<script>
+  function paint(id, cls, text) {
+    document.getElementById(id + "-dot").className = "dot " + cls;
+    document.getElementById(id + "-detail").textContent = text;
+  }
+
+  async function check() {
+    const started = Date.now();
+    try {
+      const res = await fetch("/health", { cache: "no-store" });
+      const elapsed = Date.now() - started;
+      let body = {};
+      try { body = await res.json(); } catch (e) { /* non-JSON handled below */ }
+
+      if (!res.ok) {
+        // 503 is the documented healthy-process/unhealthy-dependency response,
+        // so it reports as degraded rather than as a hard outage.
+        paint("api", "degraded", "Responding with " + res.status + " (" + elapsed + " ms)");
+      } else if (body.status && body.status !== "ok") {
+        paint("api", "degraded", "Status: " + body.status + " (" + elapsed + " ms)");
+      } else {
+        paint("api", "ok", "Operational (" + elapsed + " ms)"
+          + (body.version ? " · v" + body.version : ""));
+      }
+
+      if (body.db_ok === true) {
+        paint("db", "ok", "Reachable");
+      } else if (body.db_ok === false) {
+        paint("db", "down", "Not reachable — evaluations will fail");
+      } else {
+        paint("db", "degraded", "Not reported by this response");
+      }
+    } catch (err) {
+      // Never claim health that could not be confirmed.
+      paint("api", "down", "Unreachable from this browser");
+      paint("db", "down", "Unknown — the API could not be reached");
+    }
+    document.getElementById("checked").textContent =
+      "Last checked " + new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  }
+
+  check();
+  setInterval(check, 60000);
+</script>
+</body>
+</html>

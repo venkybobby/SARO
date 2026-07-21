@@ -88,6 +88,28 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-372 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Canary (AC dependency) | ✅ | `.github/workflows/canary.yml` (52da248) |
+| `/health` contract | ✅ | `main.py::health` — `status`, `db_ok`, `version` |
+| Somewhere to serve a static page | ✅ | Vite `publicDir` default → `frontend/public/` copied to `dist`, served by `frontend/nginx.conf` |
+| SLA doc to link from | ✅ | `docs/legal/sla-draft-v0.1.md` §4 |
+
+## Decision Log — STORY-372 (appended)
+- D39 Q: Canary writes a status file, or the page probes live? → **Probe live.**
+  A cached "all systems operational" banner is worse than no status page: during
+  an outage it states the opposite of the truth, which is exactly when someone
+  reads it. Live probing cannot go stale.
+- D40 Q: Independence? → The page is served by the frontend app, so it **shares
+  that app's fate** — a real limitation, stated on the page itself rather than
+  hidden. True independence needs third-party hosting = a human signup decision.
+- D41 Q: Treat HTTP 503 from `/health` as down? → **Degraded.** 503 is the
+  documented healthy-process/unhealthy-dependency response; calling it a hard
+  outage would misreport a partially working system.
+- D42 Q: On fetch error, show anything optimistic? → Never claim health that
+  could not be confirmed — unreachable renders red, DB renders "unknown".
+
 ## FND-065 — authentication events (red-first)
 Premise check: `routers/self_audit.py` already exposes
 `GET /api/v1/audit/events` with `actor` + `action_class` filters, so the *query*
