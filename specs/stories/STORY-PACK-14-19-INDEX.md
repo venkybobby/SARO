@@ -78,7 +78,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-369 | SLO definitions + SLA | IMPLEMENTED | bb1f3d3 · `tests/test_story369_slo_sla.py` 20 pass · SLA DRAFT, blocked by FND-064 |
 | STORY-370 | DR + verified restore | IMPLEMENTED | 67bf85a · `tests/test_story370_restore_integrity.py` 18 pass · AC-4 rehearsal human-gated |
 | STORY-371 | Support model + IRP (delta) | IMPLEMENTED | 14e519f · `tests/test_story371_support_model.py` 19 pass + FND-064 regression 12 pass |
-| STORY-372 | Status + degradation comms | SPECIFIED | — |
+| STORY-372 | Status + degradation comms | IMPLEMENTED | a4b1ce9 · `tests/test_story372_status_page.py` 16 pass · browser-verified 3 states |
 | STORY-373 | Tenant onboarding + provisioning | SPECIFIED | — |
 | STORY-374 | Usage metering + billing export | SPECIFIED | — |
 | STORY-375 | Versioned release process | SPECIFIED | — |
