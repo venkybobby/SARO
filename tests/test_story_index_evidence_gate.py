@@ -54,6 +54,37 @@ def test_implemented_with_real_sha_passes(tmp_path):
     assert v == []
 
 
+def test_orphaned_commit_does_not_satisfy_the_gate(tmp_path):
+    """A commit that exists but is unreachable from HEAD is not evidence.
+
+    Amended-away / reset / abandoned-worktree commits survive in the object
+    store until gc. `git cat-file` resolves them, so an existence-only check
+    accepts evidence pointing at nothing in the branch history.
+    """
+    import subprocess
+
+    # Build a real commit object that is reachable from nothing.
+    tree = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"], cwd=ROOT, capture_output=True, text=True
+    ).stdout.strip()
+    orphan = subprocess.run(
+        ["git", "commit-tree", tree, "-m", "orphan for gate test"],
+        cwd=ROOT, capture_output=True, text=True,
+        env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+             "PATH": __import__("os").environ.get("PATH", "")},
+    ).stdout.strip()
+    assert orphan, "could not create an orphan commit for the test"
+
+    # It genuinely exists...
+    assert subprocess.run(
+        ["git", "cat-file", "-e", f"{orphan}^{{commit}}"], cwd=ROOT, capture_output=True
+    ).returncode == 0
+    # ...but must not count as evidence.
+    v = check_index(_write(tmp_path, f"| STORY-999 | Orphan | IMPLEMENTED | {orphan[:7]} |\n"))
+    assert len(v) == 1 and "does not exist" in v[0]
+
+
 def test_drafted_row_citing_a_commit_fails(tmp_path):
     """Under-claiming is drift too — if it shipped, the row must say so."""
     import subprocess

@@ -71,6 +71,17 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## Gate defect found in use (self-inflicted, worth recording)
+Amending the STORY-359 commit invalidated the SHA the index had just cited — and
+`check_story_index.py` still passed, because it verified the SHA *existed*
+(`git cat-file`) rather than that it was *reachable from HEAD*. Amended-away,
+reset, and abandoned-worktree commits all linger in the object store until gc,
+so the gate would accept evidence pointing at nothing in the branch history —
+the exact class of drift it exists to prevent. Fixed by adding a
+`git merge-base --is-ancestor` reachability check + regression test.
+Practical consequence: the index row is committed as its own follow-up commit
+in the same PR (amending to embed its own SHA is an infinite regress).
+
 ## STORY-359 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

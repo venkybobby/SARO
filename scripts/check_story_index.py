@@ -45,12 +45,27 @@ ROW_RE = re.compile(r"^\|(?P<cells>.+)\|\s*$")
 
 
 def _sha_exists(sha: str) -> bool:
-    result = subprocess.run(
-        ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
-        cwd=ROOT,
-        capture_output=True,
+    """True only if *sha* is a commit REACHABLE from HEAD.
+
+    Existence alone is not enough. `git cat-file` also resolves commits that
+    were amended away, reset off the branch, or belong to an abandoned worktree:
+    they linger in the object store until gc. Citing one of those is precisely
+    the drift this gate exists to stop — the evidence looks real and points at
+    nothing in the branch's history. Reachability is the property that actually
+    means "this work is in the code you are looking at".
+
+    (Found the hard way: amending a commit invalidated the SHA the index had
+    just cited, and the existence-only check passed anyway.)
+    """
+    exists = subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=ROOT, capture_output=True
     )
-    return result.returncode == 0
+    if exists.returncode != 0:
+        return False
+    reachable = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=ROOT, capture_output=True
+    )
+    return reachable.returncode == 0
 
 
 def _split_row(line: str) -> list[str] | None:
