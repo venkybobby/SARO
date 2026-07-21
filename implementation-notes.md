@@ -88,6 +88,32 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-376 — premise check (PLAN stage 3a) — DELTA on RPV-001/002
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| Immutable published snapshots (INV-7) | ✅ done | `models.RulePackSnapshot` (published-on-create, hash-chained, DB trigger migration 028 rejects UPDATE/DELETE) |
+| draft→published gate | ✅ partial | `_classify` blocks DRAFT_UNVALIDATED/NULL rows from publish; `validation_status` lifecycle on rule tables |
+| Publish audits (AC-4) | ✅ **already done** | `routers/rule_pack_versions.py:98` writes RULE_PACK_CHANGE on publish |
+| Attestation pins version+hash (AC-2) | ✅ exists | RPV-002 pins version + content_hash on evidence |
+| Tenant version pinning (AC-3) | ❌ **absent** | no tenant→published-version binding exists |
+| Validation stage reporting FP/FN (AC-1) | ❌ blocked | the FP/FN **bar is STORY-377 (human-gated) and the harness is 378 (not built)** |
+
+## Decision Log — STORY-376 (appended)
+- D55 Q: Rebuild snapshots? → No — RPV-001/002 already give immutable
+  hash-chained snapshots + publish auditing + attestation pinning. Delta only:
+  tenant pinning, an explicit validation stage, the immutability regression test,
+  the authoring guide.
+- D56 Q: Validation stage FP/FN? → **Cannot fully implement — depends on the
+  un-built, human-gated Epic 18 bar (377/378).** Build the stage to report
+  structural readiness (would-block draft rows, counts) and mark the FP/FN
+  verdict explicitly `bar_pending: STORY-377` rather than fabricating a number.
+  This is the honest version of AC-1, not a stub pretending to be the whole.
+- D57 Q: Deprecation/rollback (AC-3)? → A subscribing tenant **pins** a published
+  version; deprecation = re-pin elsewhere; published packs are never deleted
+  (snapshots are already immutable). Pin changes are audited (RULE_PACK_CHANGE).
+- D58 Q: Authoring UI? → Deferred to saro-screen-review (D7); guide doc + API
+  path only.
+
 ## STORY-375 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|

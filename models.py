@@ -1218,6 +1218,40 @@ class TenantLogSourceConfig(Base):
     )
 
 
+class TenantRulePackPin(Base):
+    """Binds a tenant to a specific published rule-pack version (STORY-376 AC-3).
+
+    Deprecation and rollback are expressed as re-pinning, never as deletion — a
+    published snapshot is immutable (INV-7) and is never removed. A tenant moves
+    to a different version by changing this pin; the version it moves away from
+    stays published and any attestation produced under it remains valid and
+    reproducible. ``version`` is the snapshot's semver, not its row id, so the
+    pin reads meaningfully in the audit trail.
+    """
+
+    __tablename__ = "tenant_rule_pack_pins"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,  # one active pin per tenant
+        nullable=False,
+    )
+    version: Mapped[str] = mapped_column(String(50), nullable=False)
+    pinned_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STORY-401 (Epic 14): per-policy trigger configuration — the spine the runtime
 # router (STORY-402) dispatches on. Tenant-scoped; many policies per tenant.
