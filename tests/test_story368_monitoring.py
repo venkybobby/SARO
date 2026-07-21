@@ -8,6 +8,7 @@ asserted absent rather than merely avoided by convention.
 from __future__ import annotations
 
 import re
+import secrets
 import sys
 from pathlib import Path
 
@@ -28,7 +29,11 @@ RUNBOOKS = ROOT / "docs" / "ops" / "runbooks.md"
 CANARY_WF = ROOT / ".github" / "workflows" / "canary.yml"
 CANARY_SCRIPT = ROOT / "scripts" / "canary_evaluation.py"
 
-_TOKEN = "canary-test-token-value"
+# Generated per run, not a literal: a literal here would (correctly) trip the
+# repo's hardcoded-secret scanner in tests/test_epic6_security.py, and the
+# token's VALUE is irrelevant to what these tests prove. Same precedent as
+# tests/regression/test_fnd_061_jira_oauth_signed_state.py.
+_TOKEN = secrets.token_hex(16)
 
 
 @pytest.fixture

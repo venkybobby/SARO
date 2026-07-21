@@ -67,14 +67,24 @@ def test_orphaned_commit_does_not_satisfy_the_gate(tmp_path):
     tree = subprocess.run(
         ["git", "rev-parse", "HEAD^{tree}"], cwd=ROOT, capture_output=True, text=True
     ).stdout.strip()
-    orphan = subprocess.run(
+    # Inherit the real environment and only ADD the identity vars. A stripped
+    # env (PATH alone) made this flaky: git on Windows also needs SystemRoot,
+    # USERPROFILE, and TEMP, and fails intermittently without them.
+    import os
+
+    env = os.environ.copy()
+    env.update(
+        GIT_AUTHOR_NAME="gate-test",
+        GIT_AUTHOR_EMAIL="gate-test@example.invalid",
+        GIT_COMMITTER_NAME="gate-test",
+        GIT_COMMITTER_EMAIL="gate-test@example.invalid",
+    )
+    created = subprocess.run(
         ["git", "commit-tree", tree, "-m", "orphan for gate test"],
-        cwd=ROOT, capture_output=True, text=True,
-        env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
-             "PATH": __import__("os").environ.get("PATH", "")},
-    ).stdout.strip()
-    assert orphan, "could not create an orphan commit for the test"
+        cwd=ROOT, capture_output=True, text=True, env=env,
+    )
+    orphan = created.stdout.strip()
+    assert orphan, f"could not create an orphan commit for the test: {created.stderr}"
 
     # It genuinely exists...
     assert subprocess.run(
