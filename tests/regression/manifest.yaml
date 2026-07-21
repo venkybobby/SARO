@@ -297,3 +297,9 @@ findings:
     test: tests/regression/test_fnd_063_jira_oauth_start_role_gate.py
     status: open
     quarantine_expires: null
+
+  - id: FND-064
+    title: "Incident Response Plan commits to <5-min automated detection and 15-min/1-hour response the current email-only alerting cannot deliver, and is served customer-facing via GET /api/v1/governance/ir-plan (build, STORY-369 premise check)"
+    test: tests/regression/test_fnd_064_ir_plan_response_commitments.py
+    status: open
+    quarantine_expires: null
