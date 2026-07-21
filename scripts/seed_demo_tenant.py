@@ -341,10 +341,15 @@ def ensure_demo_user(session, tenant_id: str, email: str, password: str) -> dict
                 "with role 'super_admin'. This looks like an unrelated account; "
                 "aborting instead of silently reassigning it."
             )
+        # FND-066: a password reset MUST bump token_version, or every JWT minted
+        # with the previous password stays valid until expiry — which is exactly
+        # the containment gap the STORY-371 tabletop found. Raw SQL here bypasses
+        # the ORM, so auth.revoke_user_sessions() cannot do it for us.
         session.execute(
             text(
                 "UPDATE users SET hashed_password = :pw, tenant_id = :tid, "
-                "role = 'super_admin', is_active = true WHERE id = :id"
+                "role = 'super_admin', is_active = true, "
+                "token_version = COALESCE(token_version, 1) + 1 WHERE id = :id"
             ),
             {"pw": hashed, "tid": tenant_id, "id": existing_id},
         )

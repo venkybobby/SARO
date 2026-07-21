@@ -313,7 +313,7 @@ findings:
   - id: FND-066
     title: "Password rotation does not invalidate outstanding JWTs — no token_version/jti/denylist, so containment via rotation is incomplete (STORY-371 tabletop)"
     test: tests/regression/test_fnd_066_token_revocation.py
-    status: open
+    status: pinned
     quarantine_expires: null
 
   - id: FND-067

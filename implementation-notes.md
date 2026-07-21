@@ -88,6 +88,28 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## FND-066 — token revocation (red-first, after STORY-370)
+Premise check: `auth.py` `create_access_token` emits sub/email/role/persona/
+tenant/exp only; `get_current_user` validates signature + expiry + is_active.
+No `jti`, no `token_version`, no denylist — confirmed, so the finding is real.
+
+Red first: 6 of 9 tests failed before the fix (version claim absent, stale token
+accepted, forged higher version accepted, legacy token trusted, no revoke helper).
+
+- D31 Q: `jti` denylist or monotonic `token_version`? → **token_version.** A
+  denylist needs storage that grows with every revocation and must be consulted
+  on every request; a version integer is one column, compared against a claim
+  already being decoded, and revokes ALL of a user's sessions at once — which is
+  what credential rotation actually needs.
+- D32 Q: Tokens without the claim (issued before this ships)? → **Reject them.**
+  Treating a missing claim as "matches" leaves the exact hole this finding
+  describes open for the lifetime of every already-issued token. Fails closed;
+  cost is that everyone re-logs in once at deploy, which is the correct price.
+- D33 Q: Mismatch direction? → Reject on **any** difference, not just older. A
+  token claiming a *higher* version than the row is forged or replayed.
+- D34 Q: Commit inside the helper? → No. Caller owns the transaction so
+  revocation lands atomically with the password change that prompted it.
+
 ## STORY-370 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

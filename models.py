@@ -77,6 +77,14 @@ class User(Base):
     # Persona: "compliance_lead" | "risk_officer" | "ai_auditor" | "admin" | None
     persona_role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # FND-066: session generation. Every issued JWT carries this value; any
+    # password change bumps it (auth.revoke_user_sessions), which invalidates
+    # every token minted under the previous generation. One integer revokes all
+    # of a user's sessions at once — which is precisely what credential rotation
+    # needs, and what a per-token denylist would make far more expensive.
+    token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

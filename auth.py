@@ -134,9 +134,28 @@ def create_access_token(user: User, expire_minutes: int | None = None) -> str:
         "role": user.role,
         "persona_role": getattr(user, "persona_role", None),
         "tenant_id": str(user.tenant_id),
+        # FND-066: session generation. Bumped by revoke_user_sessions() on any
+        # password change, so a token minted before a rotation stops validating.
+        # Without it, rotating a leaked credential left every already-issued
+        # token usable until expiry — while telling the operator the credential
+        # was dead (docs/security/secrets-runbook.md §3).
+        "token_version": int(getattr(user, "token_version", 1) or 1),
         "exp": expire,
     }
     return jwt.encode(payload, _secret_key(), algorithm=_algorithm())
+
+
+def revoke_user_sessions(user: User) -> int:
+    """Invalidate every outstanding token for *user*; returns the new version.
+
+    Deliberately does not commit — the caller owns the transaction, so
+    revocation lands atomically with whatever prompted it (a password change, a
+    forced logout). A revocation that commits separately can succeed while the
+    password change rolls back, or vice versa.
+    """
+    current = int(getattr(user, "token_version", 1) or 1)
+    user.token_version = current + 1  # type: ignore[attr-defined]
+    return user.token_version  # type: ignore[return-value]
 
 
 def _decode_token(token: str) -> dict:
@@ -196,6 +215,18 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
+        )
+
+    # FND-066: reject tokens from a superseded session generation. A missing
+    # claim is NOT treated as a match — tokens issued before this shipped fail
+    # closed, otherwise the hole this fix closes stays open for the lifetime of
+    # every already-issued token. Any mismatch rejects, not just an older one:
+    # a token claiming a HIGHER version than the row is forged or replayed.
+    expected_version = int(getattr(user, "token_version", 1) or 1)
+    if payload.get("token_version") != expected_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session no longer valid — please sign in again",
         )
     # GAP-004: propagate JWT-only claims onto the transient user object so
     # downstream dependencies (e.g. require_write_access in demo router) can
