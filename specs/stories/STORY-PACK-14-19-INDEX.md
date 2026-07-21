@@ -75,7 +75,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-366 | Admin/config audit log | IMPLEMENTED | eb573c9 · `tests/test_story366_admin_audit_coverage.py` 7 pass |
 | STORY-367 | Dependency/container scanning | IMPLEMENTED | 034b5ff · pip-audit green w/ waiver; npm prod gate exit 0 |
 | STORY-368 | Monitoring, alerting, canary | IMPLEMENTED | 52da248 · `tests/test_story368_monitoring.py` 26 pass · AC-3 channel human-gated |
-| STORY-369 | SLO definitions + SLA | SPECIFIED | — |
+| STORY-369 | SLO definitions + SLA | IMPLEMENTED | bb1f3d3 · `tests/test_story369_slo_sla.py` 20 pass · SLA DRAFT, blocked by FND-064 |
 | STORY-370 | DR + verified restore | SPECIFIED | — |
 | STORY-371 | Support model + IRP (delta) | SPECIFIED | — |
 | STORY-372 | Status + degradation comms | SPECIFIED | — |
