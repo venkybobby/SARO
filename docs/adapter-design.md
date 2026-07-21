@@ -4,6 +4,10 @@
 · **Contract version:** 1.0.0 · Stories: STORY-358 (contract), 359 (Azure),
 360 (Vertex), 361 (conformance), 362 (capability matrix).
 
+> **Buyer-facing summary:** [`docs/adapter-capability-matrix.md`](adapter-capability-matrix.md)
+> — generated from the adapters' behaviour and the conformance suite. This file
+> is the engineering detail behind it.
+
 ---
 
 ## 1. What an adapter is

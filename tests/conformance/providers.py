@@ -82,6 +82,22 @@ class BedrockUnderTest:
             stop_reason=stop_reason,
         )
 
+    def standard_schema_record(self):
+        """A record from the provider's STOCK log shape — no enrichment.
+
+        Drives the buyer-facing capability matrix (STORY-362): field support is
+        read from what this record's availability map actually says, so the
+        matrix reflects adapter behaviour rather than a prose claim about it.
+        Bedrock invocation logs carry token counts, tool metadata, and a stop
+        reason natively, so the stock shape is the full one.
+        """
+        return self._record(
+            self._raw(),
+            tools=(ToolInvocation(name="search_kb", offered=True, invoked=True),),
+            truncated=False,
+            stop_reason="end_turn",
+        )
+
     def build(self, scenario: Scenario) -> Outcome:
         if scenario is Scenario.HAPPY_PATH:
             return Outcome.supported(self._record(self._raw()))
@@ -154,6 +170,29 @@ class AzureUnderTest:
 
     def _parse(self, raw):
         return azure_parse(raw, config=self.config, cursor="obj:L1")
+
+    def standard_schema_record(self):
+        """Azure's STOCK RequestResponse entry: no usage fields, no tool data.
+
+        The happy-path fixture above includes token counts because some Azure
+        configurations report them — but a buyer must not be told that is
+        guaranteed, so the capability matrix reads from this stricter shape.
+        """
+        return self._parse(
+            self._raw(properties={"modelName": "gpt-4o", "modelVersion": "2024-05-13"})
+        )
+
+    @staticmethod
+    def field_caveats() -> dict[str, str]:
+        """Fields supported in principle but dependent on customer configuration."""
+        return {
+            "Token counts": (
+                "Some Azure OpenAI configurations emit promptTokens/completionTokens "
+                "and SARO will use them when present, but they are not part of the "
+                "guaranteed RequestResponse schema — so volume-based evidence cannot "
+                "be assumed for an Azure deployment without checking the export."
+            ),
+        }
 
     def build(self, scenario: Scenario) -> Outcome:
         if scenario is Scenario.HAPPY_PATH:
@@ -242,6 +281,22 @@ class VertexUnderTest:
 
     def _parse(self, raw):
         return vertex_parse(raw, config=self.config, cursor="obj:L1")
+
+    def standard_schema_record(self):
+        """Vertex's STOCK Cloud Audit entry: no usage, no stop reason, no tools."""
+        return self._parse(self._raw())
+
+    @staticmethod
+    def field_caveats() -> dict[str, str]:
+        return {
+            "Model identity": (
+                "Resolvable for publisher models (…/publishers/google/models/X). For "
+                "models served behind a customer ENDPOINT the audit log names only "
+                "the endpoint id, and which model sits behind it is not in the log — "
+                "SARO reports model identity as missing rather than substituting the "
+                "endpoint id, which would make a model-allowlist rule meaningless."
+            ),
+        }
 
     def build(self, scenario: Scenario) -> Outcome:
         if scenario is Scenario.HAPPY_PATH:

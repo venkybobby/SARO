@@ -14,6 +14,16 @@ Every acceptance criterion in the source stories is tagged:
 > **Not legal or audit advice.** These drafts are starting points for SummitCare/SARO legal,
 > privacy, and security owners. They do not constitute regulatory certification or legal advice.
 
+## Related buyer-facing artifacts
+
+- [**Adapter Capability Matrix**](../docs/adapter-capability-matrix.md) — which
+  fields, rule-packs, and trigger modes SARO supports per provider (Bedrock,
+  Azure OpenAI, Vertex AI), **including what it cannot observe**. Generated from
+  adapter behaviour and the conformance suite; CI fails if it drifts from the
+  code. Safe to share during a technical evaluation.
+- [Adapter design & conformance bar](../docs/adapter-design.md) — the engineering
+  contract behind that matrix.
+
 ## Layout
 
 ```

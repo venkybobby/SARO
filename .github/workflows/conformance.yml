@@ -44,6 +44,12 @@ jobs:
       - name: Generate conformance report artifact
         run: python scripts/generate_conformance_report.py --check
 
+      # STORY-362: the buyer-facing matrix is generated from adapter behaviour.
+      # Stale here means we would be telling a buyer something the code no
+      # longer does.
+      - name: Capability matrix freshness + claim-language guardrail
+        run: python scripts/generate_capability_matrix.py --check
+
       - name: Show matrix in the job summary
         if: always()
         run: cat quality/conformance/adapter-conformance.md >> "$GITHUB_STEP_SUMMARY"
@@ -56,3 +62,4 @@ jobs:
           path: |
             quality/conformance/adapter-conformance.json
             quality/conformance/adapter-conformance.md
+            docs/adapter-capability-matrix.md

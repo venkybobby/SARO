@@ -71,6 +71,29 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## STORY-362 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Conformance report (source for scenario rows) | ✅ | `quality/conformance/adapter-conformance.json` (df606a7) |
+| Field-mapping tables | ✅ | `docs/adapter-design.md` §3.1–3.3 |
+| Language guardrails | ✅ | `docs/compliance-claims.md` (certification/conformity prohibitions) |
+| **AC-3 "linked from README"** | ❌ **PREMISE-UNVERIFIED** | **No root `README.md` exists in this repo.** Linked instead from `compliance/README.md` (Compliance Hub docs area) and `docs/adapter-design.md`. Flagged for the owner rather than inventing a root README as a side effect of this story. |
+
+## Decision Log — STORY-362 (appended)
+- D20 Q: Hand-author the matrix with a freshness check (AC-1 allows it) or
+  generate it? → **Generate.** Field rows are read from each adapter parsing its
+  provider's STOCK log shape, so the doc changes when behaviour changes. Prose
+  tables drift optimistically: nobody forgets to add a capability they shipped;
+  everybody forgets to remove one they didn't.
+- D21 Q: Azure happy-path fixture includes token counts (some configs report
+  them) — use it for field coverage? → **No.** Added
+  `standard_schema_record()` per provider = the provider's minimum guaranteed
+  shape. A buyer must not read "✅ token counts" and discover it depended on a
+  non-default configuration. Azure/Vertex tokens therefore render ❌/◐, not ✅.
+- D22 Q: Enforce claim language by review? → Generator refuses to write output
+  containing prohibited phrases (certified/compliant/conformity assessment) →
+  the guardrail runs on every regeneration instead of relying on a reader.
+
 ## STORY-361 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|
