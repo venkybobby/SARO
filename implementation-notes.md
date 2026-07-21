@@ -71,6 +71,34 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## STORY-368 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| `/health` endpoint | ✅ | `main.py::health` — returns `ok/degraded/schema_mismatch`, 503 when unhealthy, `db_ok` |
+| `/metrics` endpoint | ❌ **does not exist** | route dump confirms absent — this story creates it |
+| `prometheus_client` dependency | ❌ **not in requirements.txt** | `middleware/rate_limiter.py` imports it *optionally* with a pure-python fallback → the metrics layer must not hard-depend on it |
+| Ingestion watermark source | ✅ | `models.ObservationCheckpoint.watermark_timestamp` (COV-001/002) |
+| Free cron slots | ✅ | taken: Mon 02:00/03:00/04:17, daily 05:23/06:00, Sun 02:00 |
+
+## Decision Log — STORY-368 (appended)
+- D23 Q: Expose `/metrics` publicly (normal for Prometheus) or authenticate? →
+  **Bearer token (`METRICS_TOKEN`), 401 without — fail closed.** Even
+  count-only metrics reveal traffic shape and deployment health to anyone; a
+  public endpoint is also a free liveness oracle for an attacker. Unset token
+  means no valid credential exists, so every request 401s (never "open when
+  unconfigured", the CORS anti-pattern already flagged in main.py).
+- D24 Q: Per-tenant metric labels? → **Never.** A tenant label set leaks the
+  customer list and per-customer volumes to any scraper — an INV-3 disclosure
+  through the side door. Metrics are global aggregates only; per-tenant volume
+  lives in metering (STORY-374) behind normal authz. Pinned by test.
+- D25 Q: Depend on prometheus_client? → No — hand-rolled exposition. It is not
+  a declared dependency and adding one for a text format that is ~40 lines
+  would put a scrape path at the mercy of an optional import.
+- D26 Q: Ingestion-lag threshold N? → **90 minutes**, configurable. Assumes an
+  hourly mirror-async pull: 90 min tolerates one missed cycle plus grace but
+  catches two consecutive misses. Assumption stated in the doc — if the pull
+  cadence changes, the threshold must move with it.
+
 ## STORY-362 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

@@ -83,6 +83,8 @@ from routers.insights import router as insights_router
 from routers.grc_registry import router as grc_registry_router
 from middleware.rate_limiter import RateLimiterMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
+import services.metrics as metrics
+from routers.metrics_endpoint import router as metrics_router
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -323,8 +325,15 @@ app.add_middleware(SecurityHeadersMiddleware)
 async def add_timing_header(request: Request, call_next) -> Response:  # noqa: ANN001
     start = time.perf_counter()
     response: Response = await call_next(request)
-    elapsed_ms = (time.perf_counter() - start) * 1000
-    response.headers["X-Process-Time-Ms"] = f"{elapsed_ms:.1f}"
+    elapsed = time.perf_counter() - start
+    response.headers["X-Process-Time-Ms"] = f"{elapsed * 1000:.1f}"
+    # STORY-368: feed the metrics registry from the timing middleware that
+    # already wraps every request. Instrumentation must never break a response,
+    # so a metrics failure is swallowed — an observability bug is not an outage.
+    try:
+        metrics.observe_request(request.method, response.status_code, elapsed)
+    except Exception:  # noqa: BLE001
+        logger.debug("metrics instrumentation failed", exc_info=True)
     return response
 
 
@@ -439,6 +448,7 @@ app.include_router(risk_config_router)
 app.include_router(compliance_matrix_router)
 app.include_router(notifications_router)
 app.include_router(engine_status_router)
+app.include_router(metrics_router)  # STORY-368 — /metrics, bearer-token gated
 app.include_router(hf_processor_router)
 app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)

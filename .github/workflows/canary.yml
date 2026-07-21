@@ -1,0 +1,111 @@
+name: Synthetic Canary (STORY-368)
+
+# Runs one known-good check against the deployed backend on a schedule, so the
+# operator learns about degradation before the pilot customer does.
+#
+# Cadence: every 30 minutes. Chosen for detection latency <=60 min against the
+# two-consecutive-failures rule in docs/ops/alerts.md (A1), while staying
+# affordable in Actions minutes for a solo operator (~48 runs/day, ~1 min each).
+#
+# Alerting channel: this workflow FAILING is the alert — GitHub emails the
+# operator on a failed scheduled run. Rationale and its honest limitation
+# ("email is not a pager") are documented in docs/ops/alerts.md §3.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  # Post-deploy canary: catches a release that passed CI but is broken in prod.
+  workflow_run:
+    workflows: ["Deploy to Fly.io"]
+    types: [completed]
+
+concurrency:
+  # Never queue canaries behind each other — a late run tells you nothing new.
+  group: canary
+  cancel-in-progress: true
+
+env:
+  SARO_URL: ${{ vars.SARO_API_URL || 'https://saro-backend.fly.dev' }}
+
+jobs:
+  canary:
+    name: End-to-end liveness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # A1 / A2 / A3 — the health contract itself.
+      - name: Health probe
+        id: health
+        run: |
+          set -euo pipefail
+          echo "probing ${SARO_URL}/health"
+          code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "${SARO_URL}/health" || echo 000)
+          echo "http_code=${code}"
+          cat /tmp/health.json || true
+          if [ "$code" != "200" ]; then
+            echo "::error::A1 service down — /health returned ${code} (runbook: docs/ops/runbooks.md#a1--service-down)"
+            exit 1
+          fi
+          python - <<'PY'
+          import json, sys
+          d = json.load(open('/tmp/health.json'))
+          status = d.get("status")
+          if d.get("db_ok") is False:
+              print("::error::A2 database unreachable — db_ok=false (runbook: docs/ops/runbooks.md#a2--database-unreachable)")
+              sys.exit(1)
+          if status == "schema_mismatch":
+              print(f"::error::A3 schema mismatch — {d.get('missing_migrations')} (runbook: docs/ops/runbooks.md#a3--schema-mismatch-after-deploy)")
+              sys.exit(1)
+          print(f"health ok: status={status} version={d.get('version')}")
+          PY
+
+      # A4 — ingestion freshness, only when a scrape token is configured.
+      - name: Ingestion lag check
+        if: ${{ env.METRICS_TOKEN != '' }}
+        env:
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 20 -H "Authorization: Bearer ${METRICS_TOKEN}" \
+            "${SARO_URL}/metrics" -o /tmp/metrics.txt
+          lag=$(grep -E '^saro_ingestion_lag_seconds ' /tmp/metrics.txt | awk '{print $2}')
+          echo "ingestion lag: ${lag}s"
+          # -1 means "unknown / no checkpoints yet" and is NOT a stall (alerts.md A4).
+          python - "$lag" <<'PY'
+          import sys
+          lag = float(sys.argv[1])
+          if lag < 0:
+              print("ingestion lag unknown (no checkpoints yet) — not an incident")
+          elif lag > 5400:
+              print(f"::error::A4 ingestion stalled — lag {lag}s > 5400s (runbook: docs/ops/runbooks.md#a4--ingestion-stalled)")
+              sys.exit(1)
+          PY
+
+      # A6 — known-good evaluation end to end. Runs only when demo credentials
+      # are configured; absence is reported, never silently skipped as success.
+      - name: Known-good evaluation
+        env:
+          DEMO_EMAIL: ${{ secrets.DEMO_USER_EMAIL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEMO_EMAIL:-}" ] || [ -z "${DEMO_PASSWORD:-}" ]; then
+            echo "::warning::canary evaluation SKIPPED — DEMO_USER_EMAIL/DEMO_USER_PASSWORD not configured. Liveness is checked, but the end-to-end evaluation path is NOT. See docs/ops/alerts.md A6."
+            exit 0
+          fi
+          python scripts/canary_evaluation.py
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "### Canary — $(date -u +%FT%TZ)"
+            echo ""
+            echo "- target: ${SARO_URL}"
+            echo "- result: ${{ job.status }}"
+            echo ""
+            echo "Runbooks: docs/ops/runbooks.md"
+          } >> "$GITHUB_STEP_SUMMARY"
