@@ -71,6 +71,32 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## STORY-360 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| `NormalizedInvocationRecord` | ✅ | `adapters/contract.py` (a0210bc) |
+| Both genesis packs | ✅ | `rule_packs/observation/*/1.0.0/pack.yaml` (a27b8ef) |
+| Adapter #2 pattern to mirror | ✅ | `adapters/azure_openai/` (967dd52) |
+| Corpus-builder determinism pattern | ✅ | `scripts/azure_corpus_builder.py` (967dd52) |
+
+## Decision Log — STORY-360 (appended)
+- D14 Q: Duplicate the tenant-scoping reader per adapter, or extract it? →
+  Extract `adapters/export_source.py` (scope enforcement, traversal rejection,
+  segment-boundary prefix match, NDJSON/array/wrapper iteration) → an INV-3 fix
+  has one home instead of N; docs promise adapters "conform to the contract, not
+  fork it". Azure's public API preserved; its 31 tests are the safety net.
+- D15 Q: Vertex Cloud Audit **Data Access** logs may contain
+  `protoPayload.request` / `.response` — for generative calls that IS the prompt
+  and the model output (real PHI, unlike Azure where no payload exists). Read or
+  refuse? → **Refuse by construction.** The parser never touches those keys, and
+  a test feeds a record with PHI-shaped payloads present and asserts nothing
+  reaches the normalized record → INV-2 is proven under the hostile case, not
+  merely absent-by-luck.
+- D16 Q: Endpoint-deployed models expose `endpoints/{id}`, not a model name →
+  model identity genuinely unknowable from the log → mark MISSING and disclose
+  in the capability matrix; do NOT pass an endpoint id off as a model id (it
+  would make a model allowlist rule meaningless while looking like it works).
+
 ## Gate defect found in use (self-inflicted, worth recording)
 Amending the STORY-359 commit invalidated the SHA the index had just cited — and
 `check_story_index.py` still passed, because it verified the SHA *existed*

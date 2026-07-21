@@ -27,6 +27,8 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
+from adapters.export_source import ExportRecordError, RecordSkipped
+
 AZURE_OPENAI_ADAPTER_ID = "azure-openai-diagnostic-log"
 
 # Body-size cap, mirroring the Bedrock adapter's FND-2 defence: exported log
@@ -60,7 +62,7 @@ class AzureAdapterConfig:
     adapter_id: str = AZURE_OPENAI_ADAPTER_ID
 
 
-class AzureRecordError(ValueError):
+class AzureRecordError(ExportRecordError):
     """A record could not be interpreted as an Azure OpenAI invocation."""
 
 
@@ -68,5 +70,9 @@ class AzureRecordTooLarge(AzureRecordError):
     """Record exceeds the size cap — refused before parsing (FND-2 class)."""
 
 
-class AzureCategorySkipped(AzureRecordError):
-    """Record belongs to a diagnostic category this adapter does not interpret."""
+class AzureCategorySkipped(AzureRecordError, RecordSkipped):
+    """Record belongs to a diagnostic category this adapter does not interpret.
+
+    Both bases on purpose: the shared reader skips it (``RecordSkipped``) while
+    Azure-specific callers can still catch it as an ``AzureRecordError``.
+    """

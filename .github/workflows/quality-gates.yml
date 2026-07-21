@@ -27,6 +27,8 @@ jobs:
         run: python scripts/check_story_index.py
       - name: Azure corpus determinism (STORY-359 — attestations depend on it)
         run: python scripts/azure_corpus_builder.py --check
+      - name: Vertex corpus determinism (STORY-360)
+        run: python scripts/vertex_corpus_builder.py --check
       - name: Citation inventory lint (PT-003)
         run: python scripts/check_citations.py
       - name: No-external-model invariant (STORY-336)

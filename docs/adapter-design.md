@@ -140,7 +140,50 @@ no allowlist to enforce (contrast Bedrock's S3-externalized bodies).
 
 **Corpus:** `tests/fixtures/azure/corpus.ndjson` — 54 deterministic records
 (`scripts/azure_corpus_builder.py`, `--check` verifies byte-identity in CI).
-### 3.3 Vertex AI — see STORY-360 (pending)
+### 3.3 Vertex AI (`vertex-ai-audit-log`, adapter #3)
+
+Source: Cloud Logging sink (Cloud Audit Logs for `aiplatform.googleapis.com`)
+exported to a customer-owned GCS bucket. Parser: `adapters/vertex_ai/parse.py`.
+
+| Vertex / Cloud Logging field | Normalized field | Rule-pack fields consumed | Notes |
+|---|---|---|---|
+| `insertId` | `request_id` | OBS-REQUIRED-FIELDS-1 | falls back to `operation.id`; absence ⇒ record rejected |
+| `protoPayload.methodName` | `operation` | OBS-REQUIRED-FIELDS-1 | shortened to `PredictionService.GenerateContent` |
+| `timestamp` | `timestamp` | OBS-REQUIRED-FIELDS-1 | 9 fractional digits (ns), truncated to µs |
+| `protoPayload.resourceName` | `model_id` | OBS-REQUIRED-FIELDS-1, envelope allowlist | `…/publishers/google/models/X` → `X`; **endpoints → `MISSING`** (see below) |
+| `resource.labels.location` | `region` | — | `MISSING` when absent |
+| `protoPayload.status.code` | `error_code` | OBS-ERROR-INVOCATION-1 | `google.rpc.Code` name (`PERMISSION_DENIED`); `0` = success |
+| `labels.tools` / `toolCalls` * | `tools[]` | TOOL-SCOPE-* | *not in the audit schema — enriched exports only |
+| (object key + line number) | `provenance.cursor` | — | e.g. `2026/07/01/log.ndjson:L42` |
+| (operator config) | `tenant_id` | — | **never** from the log |
+| — | `input_token_count`, `output_token_count` | OBS-TOKEN-COUNTS-1 | **`UNAVAILABLE`** — audit logs never report usage |
+| — | `stop_reason`, `truncated` | OBS-TRUNCATED-OUTPUT-1 | **`UNAVAILABLE`** |
+| **`protoPayload.request` / `.response`** | **— never read —** | — | **may contain prompt/completion. See below.** |
+
+**Endpoint deployments lose model identity.** A publisher-model call names the
+model; a call to a customer endpoint names only `endpoints/{id}`, and which
+model sits behind it is not in the log. The adapter returns `MISSING` rather
+than passing the endpoint id off as a model id — doing that would leave a
+model-allowlist rule silently evaluating an identifier that is not a model,
+while appearing to work.
+
+> **INV-2 hazard unique to this adapter.** Vertex **Data Access** audit logs can
+> include `protoPayload.request` and `protoPayload.response`; for generative
+> calls those hold the actual prompt and completion — real PHI. Azure's
+> diagnostic logs contain no payload, so INV-2 held there by luck of the schema.
+> Here the content may genuinely be present in the source, so the parser is
+> **body-blind by construction**: no code path indexes those keys. Proven under
+> the hostile case by
+> `tests/test_story360_vertex_adapter.py::test_phi_payload_present_in_source_never_reaches_the_record`
+> and `::test_phi_never_reaches_rule_findings_either`, with PHI-bearing entries
+> planted in the corpus so the guard cannot be vacuous.
+
+**Tool data** is absent from the audit schema, so RP-TOOL-SCOPE produces zero
+findings on standard Vertex entries — a coverage gap, **not** a clean tool-scope
+result. Same constraint and same treatment as Azure (§3.2).
+
+**Corpus:** `tests/fixtures/vertex/corpus.ndjson` — 56 deterministic records
+(`scripts/vertex_corpus_builder.py`, `--check` verifies byte-identity in CI).
 
 ## 4. How to add adapter #N
 
