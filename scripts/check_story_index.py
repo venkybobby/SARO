@@ -125,24 +125,33 @@ def check_index(path: Path) -> list[str]:
             )
             continue
 
-        shas = [s for s in SHA_RE.findall(evidence_cell) if not s.isdigit()]
+        # Candidates are hex-shaped tokens. Do NOT pre-filter all-digit strings:
+        # roughly 1 in 27 short SHAs is all decimal digits ((10/16)**7), and an
+        # earlier version of this gate discarded exactly such a SHA as "not a
+        # commit", reporting a correctly-evidenced row as unevidenced. Git is
+        # the authority on what resolves, so ask it rather than guessing.
+        candidates = SHA_RE.findall(evidence_cell)
+        resolvable = [s for s in candidates if _sha_exists(s)]
 
         if status in IMPLEMENTED_STATUSES:
-            if not shas:
+            if resolvable:
+                continue
+            if candidates:
+                violations.append(
+                    f"{where}: cites {candidates} — no such commit is reachable "
+                    "from HEAD in this repo"
+                )
+            else:
                 violations.append(
                     f"{where}: claims {status} with no commit SHA in the evidence "
                     "column — claimed-implemented without commit evidence (FM-1)"
                 )
-                continue
-            for sha in shas:
-                if not _sha_exists(sha):
-                    violations.append(
-                        f"{where}: cites commit {sha} which does not exist in this repo"
-                    )
         else:
-            if shas:
+            # Only commits that actually resolve count as an over-claim; a bare
+            # number in prose is not evidence of shipped work.
+            if resolvable:
                 violations.append(
-                    f"{where}: status {status} but cites commit(s) {shas} — "
+                    f"{where}: status {status} but cites commit(s) {resolvable} — "
                     "if it shipped, mark it IMPLEMENTED"
                 )
 

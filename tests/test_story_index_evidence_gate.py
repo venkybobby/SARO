@@ -39,7 +39,7 @@ def test_implemented_with_nonexistent_sha_fails(tmp_path):
     """A cited-but-invented SHA must not satisfy the gate."""
     v = check_index(_write(tmp_path, "| STORY-999 | Ghost | IMPLEMENTED | deadbee · tests pass |\n"))
     assert len(v) == 1
-    assert "does not exist" in v[0]
+    assert "not reachable from HEAD" in v[0] or "no such commit is reachable" in v[0]
 
 
 def test_implemented_with_real_sha_passes(tmp_path):
@@ -52,6 +52,35 @@ def test_implemented_with_real_sha_passes(tmp_path):
     ).stdout.strip()
     v = check_index(_write(tmp_path, f"| STORY-999 | Real | IMPLEMENTED | {sha} · 5 pass |\n"))
     assert v == []
+
+
+def test_all_digit_sha_is_still_a_valid_commit(tmp_path):
+    """Regression: ~1 in 27 short SHAs is all decimal digits.
+
+    An earlier version filtered candidates with `not s.isdigit()` to stop prose
+    numbers being read as commits, and so rejected a genuine all-numeric SHA —
+    reporting a correctly evidenced row as unevidenced. Found only because HEAD
+    happened to be `9410176` on the day this ran.
+    """
+    import subprocess
+
+    # Find a real commit whose short SHA is all digits, if the repo has one.
+    log = subprocess.run(
+        ["git", "log", "--format=%h", "-n", "400"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.split()
+    numeric = next((s for s in log if s.isdigit()), None)
+    if numeric is None:
+        pytest.skip("no all-digit short SHA in recent history to exercise")
+
+    v = check_index(_write(tmp_path, f"| STORY-999 | Numeric | IMPLEMENTED | {numeric} |\n"))
+    assert v == [], f"all-digit SHA {numeric} was rejected as evidence: {v}"
+
+
+def test_prose_number_is_not_mistaken_for_commit_evidence(tmp_path):
+    """The other direction: a long number in prose must not count as a commit."""
+    v = check_index(_write(tmp_path, "| STORY-999 | Spec | DRAFTED | ticket 1234567 |\n"))
+    assert v == [], "a non-resolving number was treated as shipped-work evidence"
 
 
 def test_orphaned_commit_does_not_satisfy_the_gate(tmp_path):
@@ -92,7 +121,7 @@ def test_orphaned_commit_does_not_satisfy_the_gate(tmp_path):
     ).returncode == 0
     # ...but must not count as evidence.
     v = check_index(_write(tmp_path, f"| STORY-999 | Orphan | IMPLEMENTED | {orphan[:7]} |\n"))
-    assert len(v) == 1 and "does not exist" in v[0]
+    assert len(v) == 1 and "no such commit is reachable" in v[0]
 
 
 def test_drafted_row_citing_a_commit_fails(tmp_path):

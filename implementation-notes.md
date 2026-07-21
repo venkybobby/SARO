@@ -71,6 +71,23 @@ Stage: standard
 - LEDGER-DRIFT ⏳ process fix (user-directed): evidence-linked index + premise-check
   gate + closed status vocabulary + session-start ritual + DoD coupling.
 
+## Gate defect #2 found in use — all-digit SHAs (self-inflicted)
+`check_story_index.py` filtered SHA candidates with `not s.isdigit()`, intended
+to stop prose numbers being read as commits. But ~1 in 27 short SHAs is all
+decimal digits ((10/16)**7 ≈ 3.7%), and HEAD happened to be `9410176` — so the
+gate reported a *correctly evidenced* row as unevidenced. Found because a test
+generated its fixture from real HEAD rather than a hardcoded SHA.
+
+Fix: stop guessing which tokens are SHAs; ask git. Candidates are hex-shaped
+tokens, and only those that RESOLVE count. Draft-row over-claim detection also
+now counts only resolvable commits, so a stray 7-digit number in prose is not
+mistaken for shipped-work evidence.
+
+Second lesson: this gate has now had two defects (existence-vs-reachability,
+all-digit SHAs), both found by using it rather than by reading it. Its tests
+generating fixtures from live git state — not fixed strings — is what surfaced
+both.
+
 ## STORY-368 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|
