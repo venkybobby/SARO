@@ -67,7 +67,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-358 | Observation adapter contract | IMPLEMENTED | a0210bc · `tests/test_story358_adapter_contract.py` 12 pass |
 | STORY-359 | Azure OpenAI adapter | IMPLEMENTED | 967dd52 · `tests/test_story359_azure_adapter.py` 31 pass · corpus 54 records |
 | STORY-360 | Vertex AI adapter | IMPLEMENTED | ff94aee · `tests/test_story360_vertex_adapter.py` 30 pass · corpus 56 records |
-| STORY-361 | Cross-adapter conformance suite | SPECIFIED | — |
+| STORY-361 | Cross-adapter conformance suite | IMPLEMENTED | df606a7 · `tests/test_story361_conformance.py` 31 pass · 18 matrix checks, 0 fail |
 | STORY-362 | Adapter capability matrix | SPECIFIED | — |
 | STORY-363 | Secrets baseline + history remediation (P0) | IMPLEMENTED | 9a2fd4b · `tests/test_story363_secret_scanning.py` 3 pass · AC-4/AC-5 human-gated |
 | STORY-364 | SOC 2 control inventory (delta) | SPECIFIED | — |
