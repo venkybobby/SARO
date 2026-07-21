@@ -81,7 +81,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-372 | Status + degradation comms | IMPLEMENTED | a4b1ce9 · `tests/test_story372_status_page.py` 16 pass · browser-verified 3 states |
 | STORY-373 | Tenant onboarding + provisioning | IMPLEMENTED | db3a488 · `tests/test_story373_tenant_provisioning.py` 18 pass |
 | STORY-374 | Usage metering + billing export (delta) | IMPLEMENTED | 6d77268 · `tests/test_story374_metering_export.py` 12 pass |
-| STORY-375 | Versioned release process | SPECIFIED | — |
+| STORY-375 | Versioned release process | IMPLEMENTED | b0cca87 · `tests/test_story375_release_process.py` 15 pass · rehearsal human-gated |
 | STORY-376 | Rule-pack authoring workflow (delta) | SPECIFIED | — |
 | STORY-377 | Oracle completion bar (FP/FN) | SPECIFIED | — |
 | STORY-378 | Confusion-matrix harness | SPECIFIED | — |
