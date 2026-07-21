@@ -162,21 +162,27 @@ def test_sla_does_not_restate_response_time_commitments():
     assert "2-hour restore" not in doc
 
 
-def test_sla_blocks_its_own_external_use_until_fnd_064_is_reconciled():
-    """The dependency is a gate, not a footnote."""
+def test_sla_records_the_reconciliation_and_the_gates_that_remain():
+    """FND-064 was the blocking dependency when this story landed; STORY-371
+    reconciled it. The gate did its job — it forced the correction to be a
+    deliberate change rather than a silent edit. What must NOT happen now is
+    the remaining gates quietly disappearing along with it."""
     doc = _sla()
-    assert "FND-064" in doc
-    assert "must not be issued" in doc.lower()
+    assert "FND-064 reconciled" in doc
+    assert "Still required before external use" in doc
+    assert "counsel" in doc.lower()
+    assert "named backup responder" in doc.lower()
 
 
 # ── The finding itself ──────────────────────────────────────────────────────
 
 
-def test_fnd_064_is_logged_as_open():
+def test_fnd_064_is_logged_and_now_pinned():
+    """Raised by this story, fixed and pinned by STORY-371."""
     ledger = FINDINGS.read_text(encoding="utf-8")
     assert "FND-064" in ledger, "IR-plan contradiction must be in the findings ledger"
     row = [ln for ln in ledger.splitlines() if ln.startswith("| FND-064 ")][0]
-    assert row.rstrip().endswith("| open |"), "FND-064 should be open (STORY-371 owns the fix)"
+    assert row.rstrip().endswith("| pinned |")
 
 
 def test_fnd_064_records_the_external_exposure():
@@ -187,15 +193,13 @@ def test_fnd_064_records_the_external_exposure():
     assert "sla_hours" in row
 
 
-def test_ir_plan_still_contains_the_unreconciled_claims():
-    """Guards against the finding being closed by deletion rather than decision.
-
-    If someone edits these claims out, this test fails and forces the change to
-    be made deliberately — updating FND-064 and the SLA gate along with it.
-    """
+def test_ir_plan_reconciliation_is_pinned_elsewhere():
+    """This test previously asserted the contested claims were STILL PRESENT, so
+    that removing them without closing the finding would fail the build. STORY-371
+    made that change deliberately, so the guard now points at the regression test
+    that owns the reconciled state — the assertion moved, it was not dropped."""
+    pinning = ROOT / "tests" / "regression" / "test_fnd_064_ir_plan_response_commitments.py"
+    assert pinning.exists(), "the FND-064 reconciliation lost its regression test"
     irp = (ROOT / "docs" / "incident-response-plan.md").read_text(encoding="utf-8")
-    unreconciled = ("Automated (<5 min)" in irp) or ("0–5 min" in irp) or ("@oncall" in irp)
-    assert unreconciled, (
-        "the IR plan's contested claims appear to have changed — reconcile "
-        "FND-064 and docs/legal/sla-draft-v0.1.md §5 in the same change"
-    )
+    assert "Automated (<5 min)" not in irp
+    assert "@oncall" not in irp

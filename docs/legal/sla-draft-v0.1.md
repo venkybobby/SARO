@@ -85,7 +85,8 @@ the support model and the incident response plan — not in this document.**
 
 | Topic | Authoritative source |
 |---|---|
-| Severity levels (S1–S4 / P1–P4), response and resolution targets | Support model (STORY-371) — **not yet written**; until it exists, `docs/incident-response-plan.md` §6 is the current source |
+| Severity levels (S1–S4), response and resolution targets | [`../ops/support-model.md`](../ops/support-model.md) §2–§3 |
+| Security-incident notification timelines | [`../ops/support-model.md`](../ops/support-model.md) §4 |
 | Incident detection, containment, customer notification | `docs/incident-response-plan.md` |
 | Security-incident notification commitments | `docs/incident-response-plan.md` |
 
@@ -93,11 +94,16 @@ This is a deliberate pointer rather than a copy. Duplicating a severity table
 into a contract creates two sources that drift, and the version a customer holds
 is the one that is hardest to correct.
 
-> ⚠️ **Open dependency (blocks external use).** The support model (STORY-371) is
-> not yet written, and the incident response plan currently states response
-> targets that the present alerting channel cannot support — see FND-064. **This
-> SLA must not be issued until those response commitments are reconciled with
-> operational reality.**
+> ✅ **FND-064 reconciled (STORY-371).** The support model now exists and the
+> incident response plan (v1.1) states response targets the current alerting
+> channel can actually deliver. This document is no longer blocked on that
+> reconciliation.
+>
+> ⚠️ **Still required before external use:** (1) counsel review, and (2) a
+> **named backup responder** — the support model §5 records that none exists,
+> which means an S1 during operator absence has no cover. A customer is entitled
+> to know that before signing, and it should be closed rather than disclosed if
+> the pilot converts.
 
 ---
 

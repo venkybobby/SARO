@@ -88,6 +88,23 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-371 — premise check + my own FM-2 violation
+| Referenced artifact | Verified? | Finding |
+|---|---|---|
+| `docs/ops/support-model.md` | ❌ absent | created by this story |
+| IRP v1.0 contested claims | ✅ present | FND-064 — reconciled here as v1.1 |
+| `GET /api/v1/governance/ir-plan` hardcodes `sla_hours: 1` | ✅ | `routers/governance.py:77` — must move with the doc |
+| Token revocation on password change | ❌ **does not exist** | no `jti`, no `token_version`, no denylist in `auth.py`/`models.py` → FND-066 |
+| Anything emitting `AUTH_EVENT` | ❌ **nothing does** | the class is in `self_audit.py`'s vocabulary; **no code path emits it** → FND-065 |
+
+**My own unverified premise (CLAUDE.md FM-2).** In STORY-366 I justified
+classifying `POST /api/v1/auth/token` as DATA_PLANE with "login — auth events
+handled by the auth path". I did not check. Nothing records logins. The
+justification asserted a mechanism that does not exist, and it is precisely why
+the tabletop could not answer "was the leaked credential used?". Corrected in
+`services/admin_audit_registry.py` with the truth and a finding reference.
+The premise-check discipline works only when applied to my own claims too.
+
 ## STORY-368 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|

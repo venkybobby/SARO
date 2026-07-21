@@ -301,5 +301,23 @@ findings:
   - id: FND-064
     title: "Incident Response Plan commits to <5-min automated detection and 15-min/1-hour response the current email-only alerting cannot deliver, and is served customer-facing via GET /api/v1/governance/ir-plan (build, STORY-369 premise check)"
     test: tests/regression/test_fnd_064_ir_plan_response_commitments.py
+    status: pinned
+    quarantine_expires: null
+
+  - id: FND-065
+    title: "Nothing emits AUTH_EVENT — no login is recorded anywhere, so a leaked credential's usage cannot be reconstructed (STORY-371 tabletop)"
+    test: tests/regression/test_fnd_065_auth_event_coverage.py
+    status: open
+    quarantine_expires: null
+
+  - id: FND-066
+    title: "Password rotation does not invalidate outstanding JWTs — no token_version/jti/denylist, so containment via rotation is incomplete (STORY-371 tabletop)"
+    test: tests/regression/test_fnd_066_token_revocation.py
+    status: open
+    quarantine_expires: null
+
+  - id: FND-067
+    title: "No breach-notification template and no tenant security-contact list, despite a 72-hour notification commitment (STORY-371 tabletop)"
+    test: tests/regression/test_fnd_067_breach_notification_readiness.py
     status: open
     quarantine_expires: null

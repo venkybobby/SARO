@@ -59,9 +59,15 @@ DATA_PLANE: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/metering/statement"): "billing statement generation from meter records",
     ("PATCH", "/api/v1/notifications/{notification_id}/read"): "per-user UI state",
     ("POST", "/api/v1/notifications/read-all"): "per-user UI state",
-    ("POST", "/api/v1/auth/token"): "login — auth events handled by the auth path",
-    ("POST", "/api/v1/auth/register"): "self-registration — AUTH_EVENT coverage tracked as follow-up FND",
-    ("POST", "/api/v1/auth/bootstrap"): "first-run bootstrap — self-disables; AUTH_EVENT coverage tracked as follow-up FND",
+    # CORRECTION (STORY-371 tabletop): these three previously read as though the
+    # auth path recorded AUTH_EVENT. It does not — the action class exists in
+    # services/self_audit.py's vocabulary but NO code path emits it, so no login
+    # is recorded anywhere. That was an unverified premise (CLAUDE.md FM-2), and
+    # it is why a leaked credential's usage cannot be reconstructed. Tracked as
+    # FND-065; these stay DATA_PLANE only until it is fixed.
+    ("POST", "/api/v1/auth/token"): "login — NOT currently audited, see FND-065",
+    ("POST", "/api/v1/auth/register"): "self-registration — NOT currently audited, see FND-065",
+    ("POST", "/api/v1/auth/bootstrap"): "first-run bootstrap — NOT currently audited, see FND-065",
     ("POST", "/api/v1/sso/magic-link"): "auth request — SSO path has its own replay/signature controls",
     ("POST", "/api/v1/sso/acs/{tenant_slug}"): "IdP assertion consumption — SSO controls",
     ("GET", "/api/v1/remediation/oauth/jira/callback"): "OAuth redirect (see threat-model TM-F1)",
