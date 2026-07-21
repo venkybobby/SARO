@@ -77,7 +77,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-368 | Monitoring, alerting, canary | IMPLEMENTED | 52da248 · `tests/test_story368_monitoring.py` 26 pass · AC-3 channel human-gated |
 | STORY-369 | SLO definitions + SLA | IMPLEMENTED | bb1f3d3 · `tests/test_story369_slo_sla.py` 20 pass · SLA DRAFT, blocked by FND-064 |
 | STORY-370 | DR + verified restore | SPECIFIED | — |
-| STORY-371 | Support model + IRP (delta) | SPECIFIED | — |
+| STORY-371 | Support model + IRP (delta) | IMPLEMENTED | 14e519f · `tests/test_story371_support_model.py` 19 pass + FND-064 regression 12 pass |
 | STORY-372 | Status + degradation comms | SPECIFIED | — |
 | STORY-373 | Tenant onboarding + provisioning | SPECIFIED | — |
 | STORY-374 | Usage metering + billing export | SPECIFIED | — |
