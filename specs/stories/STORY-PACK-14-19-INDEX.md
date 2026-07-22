@@ -88,7 +88,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-379 | Validation report generator | IMPLEMENTED | 06a4556 · `tests/test_story379_validation_report.py` 17 pass · md+pdf, generated from 378 artifact |
 | STORY-380 | Epic 13 closure audit (corrected) | IMPLEMENTED | a1caf9c · `tests/test_story380_epic13_closure.py` 10 pass · numbering correction recorded |
 | STORY-381 | Privacy-safe product analytics | IMPLEMENTED | 701431f · `tests/test_story381_product_analytics.py` 27 pass · PHI-free by construction |
-| STORY-382 | Pilot feedback intake | SPECIFIED | — |
+| STORY-382 | Pilot feedback intake | IMPLEMENTED | d1249ef · `tests/test_story382_pilot_feedback.py` 18 pass · widget deferred to screen review |
 | STORY-383 | Feedback → roadmap traceability | SPECIFIED | — |
 
 Spec files for all 26 stories: a16ef50 (authored — `DRAFTED` work, which is why
