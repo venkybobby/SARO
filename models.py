@@ -1218,6 +1218,42 @@ class TenantLogSourceConfig(Base):
     )
 
 
+class PilotFeedback(Base):
+    """Structured in-product pilot feedback (STORY-382).
+
+    Unlike ``ProductEvent`` (PHI-free by construction), a feedback form NEEDS a
+    free-text ``body`` — so INV-2 here is mitigated, not eliminated: a visible
+    "do not include patient information" notice (served in the API contract), a
+    server-side length cap, and this table is **excluded from evidence exports**
+    so a pilot's confusing-UI note can never surface in an auditor's evidence
+    pack. Attributable on purpose (``user_id``) — feedback is a support channel,
+    and following up needs to know who reported.
+    """
+
+    __tablename__ = "pilot_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    screen: Mapped[str] = mapped_column(String(64), nullable=False)
+    category: Mapped[str] = mapped_column(String(20), nullable=False)  # bug|gap|confusing|feature
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)  # low|medium|high
+    body: Mapped[str] = mapped_column(String(4000), nullable=False)  # length-capped free text
+    # Triage lifecycle: new -> triaged -> story_linked | declined | parked
+    triage_status: Mapped[str] = mapped_column(String(20), nullable=False, default="new")
+    story_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    triage_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class ProductEvent(Base):
     """First-party product-analytics event (STORY-381).
 

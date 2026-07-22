@@ -452,6 +452,9 @@ app.include_router(notifications_router)
 app.include_router(engine_status_router)
 app.include_router(metrics_router)  # STORY-368 — /metrics, bearer-token gated
 app.include_router(version_router)  # STORY-375 — /api/v1/version, public
+from routers.feedback import router as feedback_router  # STORY-382
+
+app.include_router(feedback_router)
 app.include_router(hf_processor_router)
 app.include_router(ingest_router)
 app.include_router(fe_dashboard_router)

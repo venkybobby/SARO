@@ -75,6 +75,8 @@ DATA_PLANE: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/remediation/oauth/jira/callback"): "OAuth redirect (see threat-model TM-F1)",
     ("POST", "/api/v1/demo/signup"): "public demo intake — not an admin action",
     ("PATCH", "/api/v1/demo/requests/{request_id}"): "demo-request triage — non-evidence workflow state",
+    ("POST", "/api/v1/feedback"): "pilot feedback submission — user workflow, not an admin action (STORY-382)",
+    ("PATCH", "/api/v1/feedback/{feedback_id}/triage"): "feedback triage — non-evidence workflow state (STORY-382)",
     ("GET", "/api/v1/demo/token"): "demo token issuance — feature-flagged demo path",
     # Governance / GRC workflow state — user-level compliance work, tracked by
     # each record's own lifecycle fields; promoting these to the admin trail is

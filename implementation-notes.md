@@ -88,6 +88,30 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-382 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Existing feedback table | ❌ absent | this story creates it |
+| Evidence-export paths (to exclude feedback from) | ✅ | trace/audit export routers — feedback is a separate table, excluded by not being joined; guard it |
+| Tenant-isolation census | ✅ | must register the new table |
+| FND-067 (tenant contact / breach template) | related | feedback ≠ security channel; keep separate |
+
+## Decision Log — STORY-382 (appended)
+- D75 Q: INV-2 — a feedback form NEEDS free text, so "by construction" is
+  impossible. → **Mitigate, honestly:** a visible "do not include patient
+  information" notice (part of the API contract so the widget shows it), a
+  server-side length cap, and the feedback table **excluded from evidence
+  exports** (a pilot's confusing-UI note must never surface in an auditor's
+  evidence pack). Guarded by test.
+- D76 Q: Attributable or anonymous (contrast analytics)? → **Attributable** —
+  feedback is a support channel; knowing who reported it lets you follow up.
+  user_id stored (unlike product_events, which is deliberately anonymous).
+- D77 Q: UI now? → **API contract ready; widget deferred to saro-screen-review**
+  (D7). The no-PHI notice + category/severity vocab are in the API response so
+  the widget renders from the contract.
+- D78 Q: Triage lifecycle? → status new→triaged→story_linked/declined/parked;
+  privileged internal view (GET + CLI); weekly ritual doc (AC-4).
+
 ## STORY-381 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

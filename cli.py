@@ -863,6 +863,45 @@ def meter_export(tenant_id: str, period: str, fmt: str, out: Optional[str]) -> N
         click.echo(content, nl=False)
 
 
+@cli.command("feedback-triage")
+@click.option("--status", "status_filter", default=None, help="Filter by triage status.")
+@click.option("--json", "as_json", is_flag=True, default=False)
+def feedback_triage(status_filter: Optional[str], as_json: bool) -> None:
+    """Internal pilot-feedback triage list (STORY-382).
+
+    Supports the weekly triage ritual (docs/ops/feedback-triage.md): every item
+    reaches a story id, declined-with-reason, or parked.
+    """
+    import services.feedback_service as fb
+
+    db = _session_factory()()
+    try:
+        items = fb.list_for_triage(db, status=status_filter)
+        rows = [
+            {
+                "id": str(i.id),
+                "screen": i.screen,
+                "category": i.category,
+                "severity": i.severity,
+                "triage_status": i.triage_status,
+                "story_id": i.story_id,
+            }
+            for i in items
+        ]
+    finally:
+        db.close()
+
+    if as_json:
+        click.echo(_json.dumps(rows, indent=2, sort_keys=True))
+    else:
+        untriaged = sum(1 for r in rows if r["triage_status"] == "new")
+        click.echo(f"{len(rows)} feedback item(s), {untriaged} untriaged:")
+        for r in rows:
+            link = f" -> {r['story_id']}" if r["story_id"] else ""
+            click.echo(f"  [{r['triage_status']}] {r['severity']}/{r['category']} "
+                       f"({r['screen']}){link}")
+
+
 @cli.command("analytics-summary")
 @click.option("--json", "as_json", is_flag=True, default=False)
 def analytics_summary(as_json: bool) -> None:

@@ -225,6 +225,7 @@ _ACCOUNTED_TENANT_SCOPED = frozenset(
         "tenant_log_source_configs",  # STORY-408 (RLS in migration 037)
         "tenant_rule_pack_pins",  # STORY-376 (RLS in migration 039)
         "product_events",  # STORY-381 (RLS in migration 040)
+        "pilot_feedback",  # STORY-382 (RLS in migration 041)
     }
 )
 
