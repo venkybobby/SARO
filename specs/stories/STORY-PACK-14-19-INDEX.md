@@ -83,7 +83,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-374 | Usage metering + billing export (delta) | IMPLEMENTED | 6d77268 · `tests/test_story374_metering_export.py` 12 pass |
 | STORY-375 | Versioned release process | IMPLEMENTED | b0cca87 · `tests/test_story375_release_process.py` 15 pass · rehearsal human-gated |
 | STORY-376 | Rule-pack authoring workflow (delta) | IMPLEMENTED | 65f7b8f · `tests/test_story376_rule_pack_lifecycle.py` 12 pass · FP/FN validation blocked on STORY-377 |
-| STORY-377 | Oracle completion bar (FP/FN) | SPECIFIED | — |
+| STORY-377 | Oracle completion bar (FP/FN) | IMPLEMENTED | 0790f3c · `tests/test_story377_completion_bar.py` 12 pass · thresholds PROPOSED, sign-off OPEN [HUMAN] |
 | STORY-378 | Confusion-matrix harness | SPECIFIED | — |
 | STORY-379 | Validation report generator | SPECIFIED | — |
 | STORY-380 | Epic 13 closure audit (corrected) | SPECIFIED | — |
