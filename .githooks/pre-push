@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# SARO pre-push gate — block pushing to `main` on red.
+#
+# Server-side branch protection is plan-gated for this private repo (GitHub
+# Free), so this client-side hook is the stand-in: when you push to main it runs
+# the fast local gates and refuses the push if any fail. It is NOT a substitute
+# for server-side enforcement — it is per-clone, and `git push --no-verify`
+# bypasses it. Install once per clone:
+#
+#     git config core.hooksPath .githooks
+#     # or: bash scripts/install-git-hooks.sh
+#
+# CI still runs the full suite; this just stops the obvious "pushed on red".
+
+set -uo pipefail
+
+PROTECTED="refs/heads/main"
+pushing_to_main=0
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [ "$remote_ref" = "$PROTECTED" ] && pushing_to_main=1
+done
+
+if [ "$pushing_to_main" -eq 0 ]; then
+  exit 0
+fi
+
+# Resolve a Python interpreter (Windows git-bash and *nix).
+PY="python"
+command -v "$PY" >/dev/null 2>&1 || PY="python3"
+
+fail() {
+  echo "" >&2
+  echo "❌ pre-push BLOCKED — $1 failed. Fix it before pushing to main." >&2
+  echo "   (Emergency bypass, use sparingly: git push --no-verify)" >&2
+  exit 1
+}
+
+echo "pre-push: running main gates (ruff · mypy · story-index · unit tests)…"
+"$PY" -m ruff check .                        || fail "ruff"
+"$PY" -m mypy . --ignore-missing-imports     || fail "mypy"
+"$PY" scripts/check_story_index.py           || fail "story-index evidence gate"
+"$PY" -m pytest -m unit -q                   || fail "unit tests"
+
+echo "pre-push: all main gates passed ✓"
+exit 0

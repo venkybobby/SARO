@@ -68,3 +68,13 @@ edge cases, and out-of-scope notes. Otherwise implementation does not start.
 - Branch from `main` per story; small commits at green states so any phase is revertible.
 - Gates failing post-merge → revert first, diagnose second, log an FND third.
 - Performance checks (Locust) are **advisory** locally — only CI-environment numbers count as a baseline.
+- **Never push to `main` on red.** After every push, watch the run to green; if it
+  fails, fix-forward or revert before moving on. Layers of breakage accumulate
+  precisely because a push landed on an already-red main (see FND-069).
+- **Pre-push gate** (`.githooks/pre-push`): on a push to `main` it runs
+  ruff · mypy · story-index · `pytest -m unit` and refuses the push on failure.
+  Activate per clone: `git config core.hooksPath .githooks` (or
+  `bash scripts/install-git-hooks.sh`). It is a client-side stand-in for
+  server-side branch protection, which is plan-gated for this private repo;
+  it is per-clone and `--no-verify` bypasses it, so it is a safety net, not a
+  guarantee — the CI run is the source of truth.
