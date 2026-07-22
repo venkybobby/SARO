@@ -22,7 +22,7 @@ from services.tenant_log_source_config import validate_source_config
 
 _EXTERNAL_ID = "super-secret-external-id-value-0123456789"
 _STS_SESSION_CREDENTIAL = "super-secret-session-token-abcdefghijk"
-_ACCESS_KEY = "AKIASECRETACCESSKEYVALUE"
+_ACCESS_KEY = "AKIASECRETACCESSKEYVALUE"  # gitleaks:allow — fake AKIA constant; this test asserts it never reaches logs
 _BODY_SECRET_MARKER = "PATIENT_PHI_MARKER_SHOULD_NEVER_BE_LOGGED"
 
 

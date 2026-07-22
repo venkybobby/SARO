@@ -19,6 +19,12 @@ jobs:
       SARO_ENV: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the story-index gate verifies each cited SHA is an
+          # ancestor of HEAD (git merge-base --is-ancestor). A shallow clone
+          # has no ancestors, so every evidenced row would falsely read as
+          # "not reachable from HEAD".
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}

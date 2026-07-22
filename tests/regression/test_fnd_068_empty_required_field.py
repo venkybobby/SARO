@@ -22,7 +22,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapters.contract import (  # noqa: E402
-    FieldAvailability,
     NormalizedInvocationRecord,
     SourceProvenance,
 )

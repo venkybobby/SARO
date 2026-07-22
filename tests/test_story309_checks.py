@@ -63,7 +63,7 @@ def test_leakage_detects_pii() -> None:
 
 
 def test_leakage_detects_secret() -> None:
-    f = leakage_check(_ctx(output_text="api_key=sk-abcdef0123456789abcdef"))
+    f = leakage_check(_ctx(output_text="api_key=sk-abcdef0123456789abcdef"))  # gitleaks:allow — fake key; fixture for the leak detector under test
     assert f.status == "concern"
 
 

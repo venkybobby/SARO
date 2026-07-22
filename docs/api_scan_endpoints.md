@@ -17,8 +17,13 @@ All scan endpoints require Bearer token authentication with `super_admin` or `op
 All endpoints require a Bearer JWT token in the `Authorization` header:
 
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer $SARO_JWT
 ```
+
+> The `curl` examples below use `$SARO_JWT` for your token — export it once
+> (`export SARO_JWT=<your_jwt_token>`) and the examples run as written. Demo
+> and error cases use `$DEMO_VIEWER_JWT` / `$INVALID_JWT` to keep the intent
+> clear.
 
 ### Role-Based Access Control
 
@@ -85,7 +90,7 @@ Returns a complete `AuditReportOut` object (see Response schema below).
 
 ```bash
 curl -X POST https://api.saro.app/api/v1/scan \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Authorization: Bearer $SARO_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "batch_id": "batch_20250319_001",
@@ -311,7 +316,7 @@ Returns a complete `AuditReportOut` object (identical response schema to POST /a
 
 ```bash
 curl -X POST https://api.saro.app/api/v1/scan/data \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Authorization: Bearer $SARO_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "model_type": "sentiment_classifier_v2",
@@ -397,7 +402,7 @@ Returns a list of audit summary objects. Results are ordered by creation date (n
 
 ```bash
 curl -X GET "https://api.saro.app/api/v1/audits?limit=20&offset=0" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  -H "Authorization: Bearer $SARO_JWT"
 ```
 
 ### Example Response
@@ -477,7 +482,7 @@ Returns the full `AuditReportOut` object (see POST /api/v1/scan response schema 
 
 ```bash
 curl -X GET "https://api.saro.app/api/v1/audits/a7c4b9d1-2e3f-4a5b-8c6d-e9f0a1b2c3d4" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  -H "Authorization: Bearer $SARO_JWT"
 ```
 
 ### Example Response
@@ -682,11 +687,11 @@ else:
 ```bash
 # List latest 10 audits
 curl -X GET "https://api.saro.app/api/v1/audits?limit=10&offset=0" \
-  -H "Authorization: Bearer your_jwt_token_here"
+  -H "Authorization: Bearer $SARO_JWT"
 
 # Fetch specific audit
 curl -X GET "https://api.saro.app/api/v1/audits/a7c4b9d1-2e3f-4a5b-8c6d-e9f0a1b2c3d4" \
-  -H "Authorization: Bearer your_jwt_token_here"
+  -H "Authorization: Bearer $SARO_JWT"
 ```
 
 ---
@@ -712,7 +717,7 @@ curl -X GET "https://api.saro.app/api/v1/audits/a7c4b9d1-2e3f-4a5b-8c6d-e9f0a1b2
 **Request:**
 ```bash
 curl -X GET "https://api.saro.app/api/v1/audits" \
-  -H "Authorization: Bearer invalid_token"
+  -H "Authorization: Bearer $INVALID_JWT"
 ```
 
 **Response (401 Unauthorized):**
@@ -727,7 +732,7 @@ curl -X GET "https://api.saro.app/api/v1/audits" \
 **Request:**
 ```bash
 curl -X POST "https://api.saro.app/api/v1/scan" \
-  -H "Authorization: Bearer demo_viewer_token"
+  -H "Authorization: Bearer $DEMO_VIEWER_JWT"
 ```
 
 **Response (403 Forbidden):**
