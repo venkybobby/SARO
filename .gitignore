@@ -34,6 +34,9 @@ htmlcov/
 .claude/settings.local.json
 .claude/transcripts/
 **/.claude/transcripts/
+# Agent worktrees — local, transient; never committed (registered ones are
+# already git-ignored, this also covers deregistered/orphaned leftovers)
+.claude/worktrees/
 
 # IDE
 .vscode/
