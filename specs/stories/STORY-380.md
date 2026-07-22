@@ -22,3 +22,18 @@ dropped (reason).
 ## Traceability (filled at close)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `test_audit_triages_335_to_338_with_evidence`, `test_audit_links_evidence_that_exists_in_the_repo`, `test_epic13_stories_genuinely_do_not_exist` | `docs/validation/epic13-closure-audit.md` |
+| AC-2 | `test_audit_records_that_epic13_never_existed`, `test_audit_records_the_strategy_version_correction` | same |
+| AC-3 | `test_audit_names_the_human_gate_rather_than_claiming_completeness`, `test_audit_discloses_only_t1_is_measured`, `test_audit_has_a_verdict` | same |
+
+## The correction this story records
+The pack assumed "Epic 13 = STORY-340..357". Those never existed. So the audit
+triages the validation machinery that DOES exist (STORY-335..338 + Pack-Epic-18
+377..380), each with a git-verifiable evidence pointer, and records that Epic 13
+was a planning artifact carried forward as fact — the FM-1/FM-2 pattern. A test
+(`test_epic13_stories_genuinely_do_not_exist`) fails if those phantom stories
+ever appear, so the audit's premise cannot silently rot.
+
+Closed honestly: the verdict names the STORY-377 human gate and the T1-only
+coverage rather than claiming a completeness the validation track has not
+reached.

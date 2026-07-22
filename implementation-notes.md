@@ -88,6 +88,22 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-380 — premise check (PLAN stage 3a) — the numbering-correction story
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| "Epic 13 = STORY-340..357" | ❌ never existed | the whole point of this story: audit the ACTUAL validation machinery, record the correction |
+| Actual validation machinery | ✅ | STORY-335 (groundedness), 336 (no-external-model guard), 337 (claims guard), 338 (offline qa_lab), + this pack's 377/378/379 |
+| Validation artifacts to link | ✅ | validation-strategy-v1.0, completion-bar.proposed.yaml, confusion-latest.json, validation-report.{md,pdf} |
+
+## Decision Log — STORY-380 (appended)
+- D69 Q: Triage STORY-340..357? → They do not exist. This audit instead
+  triages the validation-adjacent work that DOES exist (335..338 + the pack's
+  377/378/379), each Done/Superseded/Dropped with an evidence link, and records
+  the numbering correction so no future plan re-assumes Epic 13.
+- D70 Q: Close it as "done"? → No — closed as a one-page audit with honest
+  open-items pointing at the human gate (377 sign-off) rather than claiming
+  completeness the validation track does not yet have.
+
 ## STORY-379 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|
