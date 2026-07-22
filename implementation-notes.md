@@ -88,6 +88,27 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-379 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| 378 confusion-matrix artifact (source of numbers) | ✅ | `quality/validation/confusion-latest.json` (a28d3a2) |
+| fpdf2 PDF pattern | ✅ | `scripts/generate_governance_pdfs.py` |
+| Language guardrails | ✅ | `docs/compliance-claims.md` forbidden phrases |
+| Bar status (for the Limitations honesty) | ✅ | `services/validation_bar.py` |
+
+## Decision Log — STORY-379 (appended)
+- D66 Q: Numbers hand-typed or generated? → **Generated from the 378 artifact.**
+  A test asserts changing the JSON changes the report — generation is the
+  anti-drift control, and the report cannot claim a rate the harness did not
+  measure (AC-1).
+- D67 Q: Limitations tone? → **Derived and deliberately unflattering.** The
+  section is computed from the actual state (only T1 measured, bar unsigned, 2
+  packs, synthetic corpus) — understatement over overstatement. A perfect T1
+  score is stated AS a narrow synthetic result, not as broad validation.
+- D68 Q: Overclaim guard? → Generator refuses to emit certified/compliant/client
+  results (same closed list as the capability-matrix generator); parametrized
+  test proves each phrase trips it.
+
 ## STORY-378 — premise check (PLAN stage 3a) — report-only (377 unsigned)
 | Referenced artifact | Verified? | Path |
 |---|---|---|
