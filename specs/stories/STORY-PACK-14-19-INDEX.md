@@ -89,7 +89,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-380 | Epic 13 closure audit (corrected) | IMPLEMENTED | a1caf9c · `tests/test_story380_epic13_closure.py` 10 pass · numbering correction recorded |
 | STORY-381 | Privacy-safe product analytics | IMPLEMENTED | 701431f · `tests/test_story381_product_analytics.py` 27 pass · PHI-free by construction |
 | STORY-382 | Pilot feedback intake | IMPLEMENTED | d1249ef · `tests/test_story382_pilot_feedback.py` 18 pass · widget deferred to screen review |
-| STORY-383 | Feedback → roadmap traceability | SPECIFIED | — |
+| STORY-383 | Feedback → roadmap traceability | IMPLEMENTED | 8036282 · `tests/test_story383_feedback_traceability.py` 16 pass · loop closed both ways |
 
 Spec files for all 26 stories: a16ef50 (authored — `DRAFTED` work, which is why
 those rows read `SPECIFIED`, not `IMPLEMENTED`).
