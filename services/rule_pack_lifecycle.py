@@ -145,6 +145,15 @@ def pin_tenant_version(
             "content_hash": target.content_hash,
         },
     )
+    # STORY-381: subscribe → first-evaluation funnel entry. Fail-open.
+    import services.product_analytics as analytics
+
+    analytics.safe_record(
+        db,
+        tenant_id=tenant_id,
+        event_name=analytics.RULE_PACK_SUBSCRIBED,
+        properties={"surface": "api"},
+    )
     return {"tenant_id": str(tenant_id), "version": version, "previous_version": previous}
 
 

@@ -863,5 +863,57 @@ def meter_export(tenant_id: str, period: str, fmt: str, out: Optional[str]) -> N
         click.echo(content, nl=False)
 
 
+@cli.command("analytics-summary")
+@click.option("--json", "as_json", is_flag=True, default=False)
+def analytics_summary(as_json: bool) -> None:
+    """Founder-facing product-analytics summary (STORY-381).
+
+    Aggregates the first-party product_events across all tenants — event counts
+    and the two key funnels (login→attestation, subscribe→first-evaluation). Runs
+    with operator authority; the underlying events carry no PII by construction.
+    """
+    from sqlalchemy import func
+
+    from models import ProductEvent
+    import services.product_analytics as analytics
+
+    db = _session_factory()()
+    try:
+        rows = (
+            db.query(ProductEvent.event_name, func.count(ProductEvent.id))
+            .group_by(ProductEvent.event_name)
+            .all()
+        )
+        counts = {name: int(n) for name, n in rows}
+    finally:
+        db.close()
+
+    def _rate(numer: str, denom: str) -> Optional[float]:
+        d = counts.get(denom, 0)
+        return round(counts.get(numer, 0) / d, 4) if d else None
+
+    summary = {
+        "event_counts": {name: counts.get(name, 0) for name in sorted(analytics.EVENT_NAMES)},
+        "funnels": {
+            "login_to_attestation_view": _rate(
+                analytics.ATTESTATION_VIEWED, analytics.LOGIN
+            ),
+            "subscribe_to_first_evaluation": _rate(
+                analytics.FIRST_EVALUATION, analytics.RULE_PACK_SUBSCRIBED
+            ),
+        },
+    }
+
+    if as_json:
+        click.echo(_json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        click.echo("Event counts:")
+        for name, n in summary["event_counts"].items():
+            click.echo(f"  {name}: {n}")
+        click.echo("Funnels (conversion rate):")
+        for name, rate in summary["funnels"].items():
+            click.echo(f"  {name}: {rate if rate is not None else 'n/a (no entries)'}")
+
+
 if __name__ == "__main__":
     cli()

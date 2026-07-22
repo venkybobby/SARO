@@ -1218,6 +1218,33 @@ class TenantLogSourceConfig(Base):
     )
 
 
+class ProductEvent(Base):
+    """First-party product-analytics event (STORY-381).
+
+    PHI-free BY CONSTRUCTION: a closed-vocabulary ``event_name``, a tenant id, a
+    timestamp, and a closed-vocabulary ``properties`` bag of bounded scalars.
+    There is no free-text column, so payload/PII cannot be stored — the same
+    seam as usage metering. Individual user identity is deliberately NOT here;
+    a tenant id is the only identifier. Actor-level tracking is the audit trail's
+    job (a different system, behind authorization).
+    """
+
+    __tablename__ = "product_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    event_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Closed-vocabulary property tags only — validated app-layer before insert.
+    properties: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class TenantRulePackPin(Base):
     """Binds a tenant to a specific published rule-pack version (STORY-376 AC-3).
 

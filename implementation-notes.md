@@ -88,6 +88,28 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-381 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| Existing analytics/events table | ❌ absent | no `product_events` — this story creates it |
+| PHI-free-by-construction precedent | ✅ | `services/metering_service.py` closed vocab + value caps (reuse the pattern) |
+| DPA / retention docs (AC-5 disclosure) | ✅ | `docs/legal/saro-dpa-template-v1.0.md`, `docs/sample-evidence-retention.md` |
+| Tenant-isolation census (new table must register) | ✅ | `tests/test_ten001_cross_tenant_isolation.py` |
+
+## Decision Log — STORY-381 (appended)
+- D71 Q: PHI safety? → **By construction, not redaction** (metering precedent).
+  Closed event-name vocabulary + closed property-key allowlist of bounded
+  scalars; NO free-text field exists, so payload/PII cannot enter. A schema
+  validator rejects unknown keys and oversized values.
+- D72 Q: First-party or SaaS? → **First-party** `product_events` in Postgres.
+  A third-party analytics SaaS is a security-review question (Epic 15) and NOT
+  chosen without sign-off — stated in the doc.
+- D73 Q: Schema doc timing? → **First** (AC-1). The doc defines the closed
+  vocabulary before any code emits an event.
+- D74 Q: Instrumentation scope? → Server-side funnel points now (login,
+  first-evaluation, attestation-view); exhaustive per-screen instrumentation is
+  a frontend concern, deferred. Fail-open (analytics never breaks a request).
+
 ## COMPLETION-BAR SIGN-OFF (owner decision, 2026-07-21)
 Owner chose **Profile A (recall-weighted)** for T1–T3, reasoning: the product
 claim is examiner-grade evidence, so a false negative contradicts the claim

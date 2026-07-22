@@ -180,6 +180,17 @@ def login(
         user=user,
         source_ip=source_ip,
     )
+
+    # STORY-381: product-analytics funnel entry. Fail-open, PHI-free by
+    # construction (persona is a role name, not an identifier).
+    import services.product_analytics as analytics
+
+    analytics.safe_record(
+        db,
+        tenant_id=user.tenant_id,
+        event_name=analytics.LOGIN,
+        properties={"persona": getattr(user, "persona_role", None) or "unknown", "surface": "web"},
+    )
     # Look up ClientConfig once — used for both LIVE-005 (session length) and SAR-001 (banner)
     cfg = db.query(ClientConfig).filter(ClientConfig.tenant_id == user.tenant_id).first()
 

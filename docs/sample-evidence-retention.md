@@ -35,6 +35,26 @@ audit at the end of its retention window removes its sample-level evidence atomi
 silent background purge; deletion is an explicit, logged operation. Historical findings remain
 queryable for the full retention window via the samples endpoints.
 
+## Product analytics (STORY-381) — disclosed collection
+
+SARO collects **first-party, PHI-free product-analytics events** (`product_events`)
+to inform roadmap decisions: coarse usage signals such as logins, attestation
+views, rule-pack subscriptions, first evaluations, and Compliance Hub artifact
+views.
+
+- **No personal data by construction.** Each event carries a closed-vocabulary
+  name, a tenant id, a timestamp, and closed-vocabulary property tags of bounded
+  scalars. There is no free-text field, no user id or email, and no payload or
+  patient content — see `docs/analytics/event-schema.md`. Because events contain
+  no personal data, they are not "personal data" under the DPA; the collection is
+  disclosed here regardless.
+- **First-party only.** Events are stored in SARO's own database. No third-party
+  analytics processor receives this data; adopting one would be a disclosed
+  sub-processor change subject to security review.
+- **Retention:** product-analytics events are retained for **395 days** (13
+  months, for year-over-year trend), then purged. They are not evidence records
+  and are excluded from evidence exports.
+
 ## Out of scope
 
 - Backfilling sample-level evidence for audits run before this feature shipped.

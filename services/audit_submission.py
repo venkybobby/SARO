@@ -143,6 +143,29 @@ def submit_audit_sync(
             db, tenant_id=tenant_id, meter_key=_metering.ATTESTATIONS_ISSUED,
             idempotency_key=f"attest:{audit_id}",
         )
+
+        # STORY-381: emit first_evaluation once per tenant (funnel conversion).
+        # Guarded by an existence check so it fires only on the first ever
+        # evaluation; fail-open so analytics never unwinds an attestation.
+        try:
+            import services.product_analytics as _analytics
+            from models import ProductEvent
+
+            seen = (
+                db.query(ProductEvent.id)
+                .filter(
+                    ProductEvent.tenant_id == tenant_id,
+                    ProductEvent.event_name == _analytics.FIRST_EVALUATION,
+                )
+                .first()
+            )
+            if seen is None:
+                _analytics.safe_record(
+                    db, tenant_id=tenant_id, event_name=_analytics.FIRST_EVALUATION,
+                    properties={"surface": "api", "outcome": "success"},
+                )
+        except Exception:  # noqa: BLE001 — analytics must never break the attest path
+            db.rollback()
     except Exception:
         db.rollback()
         try:
