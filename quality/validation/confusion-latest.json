@@ -1,0 +1,100 @@
+{
+  "bar_status": "PROPOSED_AWAITING_SIGNOFF",
+  "corpus_records": 11,
+  "generated_at": "2026-07-22T01:35:33.876943+00:00",
+  "packs": {
+    "RP-OBS-COMPLETE@1.0.0": {
+      "overall": {
+        "f1": 1.0,
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 37,
+        "tp": 7
+      },
+      "rules": {
+        "OBS-ERROR-INVOCATION-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 9,
+          "tp": 2
+        },
+        "OBS-REQUIRED-FIELDS-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 10,
+          "tp": 1
+        },
+        "OBS-TOKEN-COUNTS-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 9,
+          "tp": 2
+        },
+        "OBS-TRUNCATED-OUTPUT-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 9,
+          "tp": 2
+        }
+      }
+    },
+    "RP-TOOL-SCOPE@1.0.0": {
+      "overall": {
+        "f1": 1.0,
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 30,
+        "tp": 3
+      },
+      "rules": {
+        "TOOL-POLICY-ABSENT-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 10,
+          "tp": 1
+        },
+        "TOOL-SCOPE-OFFERED-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 10,
+          "tp": 1
+        },
+        "TOOL-SCOPE-VIOLATION-1": {
+          "f1": 1.0,
+          "fn": 0,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "tn": 10,
+          "tp": 1
+        }
+      }
+    }
+  },
+  "schema": "saro.confusion-matrix.v1",
+  "tier": "T1",
+  "verdict": "report_only",
+  "verdict_note": "No signed completion bar in force (STORY-377 awaiting sign-off). Rates are reported; no pass/fail is asserted."
+}

@@ -321,3 +321,9 @@ findings:
     test: tests/regression/test_fnd_067_breach_notification_readiness.py
     status: open
     quarantine_expires: null
+
+  - id: FND-068
+    title: "RP-OBS-COMPLETE required-fields check missed an empty ('') required field, only a null one — blind to unresolved model_id (STORY-378 harness)"
+    test: tests/regression/test_fnd_068_empty_required_field.py
+    status: pinned
+    quarantine_expires: null

@@ -88,6 +88,28 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-378 — premise check (PLAN stage 3a) — report-only (377 unsigned)
+| Referenced artifact | Verified? | Path |
+|---|---|---|
+| The bar (report-only source) | ✅ | `services/validation_bar.py` — returns None unsigned (0790f3c) |
+| Deterministic evaluate (INV-1) | ✅ | `rule_packs/observation/evaluate.py` — pure, no model calls |
+| Packs to score | ✅ | RP-OBS-COMPLETE / RP-TOOL-SCOPE (a27b8ef) |
+| Labeled ground truth | ❌ **must build** | corpora are planted but carry no per-rule labels; a confusion matrix needs them |
+
+## Decision Log — STORY-378 (appended)
+- D62 Q: Where does ground truth come from? → A **labeled T1 corpus** where each
+  record carries the rule_ids that SHOULD fire. Built deterministically (a
+  builder + `--check`), so the matrix is reproducible run-to-run (AC-1).
+- D63 Q: Enforce or report? → **Report-only until 377 is signed.** The harness
+  reads `validation_bar.active_thresholds()`; None ⇒ it emits rates with NO
+  pass/fail. It can NEVER enforce an unsigned bar — that guarantee lives in
+  validation_bar, and a test pins that the CI gate stays advisory while unsigned.
+- D64 Q: User is deciding the profile concurrently. → Building report-only means
+  the harness tells them the ACTUAL rates BEFORE they pick a profile, and signing
+  later flips it to enforcing with no code change.
+- D65 Q: Matrix granularity? → Per pack, per tier, per rule: TP/FP/FN/TN →
+  precision/recall/F1. Versioned JSON artifact + appended trend.jsonl (AC-2/AC-4).
+
 ## STORY-377 — premise check (PLAN stage 3a) — HUMAN-GATED
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|

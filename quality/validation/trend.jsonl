@@ -1,0 +1,1 @@
+{"bar_status": "PROPOSED_AWAITING_SIGNOFF", "packs": {"RP-OBS-COMPLETE@1.0.0": {"f1": 1.0, "fn": 0, "fp": 0, "precision": 1.0, "recall": 1.0, "tn": 37, "tp": 7}, "RP-TOOL-SCOPE@1.0.0": {"f1": 1.0, "fn": 0, "fp": 0, "precision": 1.0, "recall": 1.0, "tn": 30, "tp": 3}}, "tier": "T1", "verdict": "report_only"}

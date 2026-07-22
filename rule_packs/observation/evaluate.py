@@ -84,7 +84,14 @@ def _check_required_fields(rule, pack, record) -> list[Finding]:
     absent: list[str] = []
     availabilities: list[FieldAvailability] = []
     for name in rule.required_fields:
-        if getattr(record, name, None) is None:
+        value = getattr(record, name, None)
+        # FND-068: a required field is absent when it is None OR an empty string.
+        # The contract's required string fields (model_id, operation) are never
+        # None — an adapter that cannot resolve one emits "" and marks
+        # availability MISSING (e.g. an endpoint-deployed Vertex model). Testing
+        # only `is None` let that real case slip through the completeness rule.
+        # A numeric 0 is a genuine value, not an empty one, so it is NOT absent.
+        if value is None or value == "":
             absent.append(name)
             availabilities.append(record.availability(name))
     if not absent:

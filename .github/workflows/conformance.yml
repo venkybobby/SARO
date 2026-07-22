@@ -50,6 +50,23 @@ jobs:
       - name: Capability matrix freshness + claim-language guardrail
         run: python scripts/generate_capability_matrix.py --check
 
+      # STORY-378: labeled-corpus determinism, then the confusion-matrix harness.
+      # --check fails the build ONLY against a SIGNED completion bar that is unmet;
+      # while STORY-377 is unsigned it is report-only and always exits 0.
+      - name: Validation corpus determinism (STORY-378)
+        run: python scripts/build_validation_corpus.py --check
+      - name: Confusion-matrix harness (report-only until the bar is signed)
+        run: python scripts/confusion_matrix_harness.py --check
+      - name: Show confusion matrix in the job summary
+        if: always()
+        run: |
+          {
+            echo "### Rule-pack confusion matrix (STORY-378)"
+            echo '```json'
+            cat quality/validation/confusion-latest.json 2>/dev/null || echo "(not generated)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Show matrix in the job summary
         if: always()
         run: cat quality/conformance/adapter-conformance.md >> "$GITHUB_STEP_SUMMARY"
@@ -63,3 +80,5 @@ jobs:
             quality/conformance/adapter-conformance.json
             quality/conformance/adapter-conformance.md
             docs/adapter-capability-matrix.md
+            quality/validation/confusion-latest.json
+            quality/validation/trend.jsonl
