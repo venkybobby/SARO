@@ -51,9 +51,11 @@ def token_env(monkeypatch):
 
 
 def test_metrics_route_is_registered():
-    from fastapi.routing import APIRoute
+    from _route_utils import iter_api_routes
 
-    assert any(isinstance(r, APIRoute) and r.path == "/metrics" for r in app.routes)
+    # FND-069: recurse — /metrics is include_in_schema=False and Starlette may
+    # nest included routers, so a top-level app.routes filter misses it in CI.
+    assert any(r.path == "/metrics" for r in iter_api_routes(app))
 
 
 def test_metrics_requires_a_token(client, token_env):

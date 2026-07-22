@@ -166,11 +166,13 @@ def test_unknown_triage_status_is_rejected(db):
 
 
 def test_routes_are_registered_and_authenticated():
-    from fastapi.routing import APIRoute
-
     from main import app
 
-    paths = {(m, r.path) for r in app.routes if isinstance(r, APIRoute) for m in r.methods}
+    from _route_utils import method_path_pairs
+
+    # FND-069: recurse — Starlette may nest included routers, so a top-level
+    # app.routes filter would see only ("/") and ("/health") in CI.
+    paths = method_path_pairs(app, drop=frozenset())
     assert ("POST", "/api/v1/feedback") in paths
     assert ("GET", "/api/v1/feedback/triage") in paths
 

@@ -12,6 +12,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -35,7 +36,7 @@ _TENANT = uuid.uuid4()
 
 
 def _envelope(**over) -> Envelope:
-    base = dict(
+    base: dict[str, Any] = dict(
         request_id="req-1",
         region="us-east-1",
         operation="Converse",

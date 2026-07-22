@@ -37,7 +37,7 @@ def _load_raw() -> Optional[dict[str, Any]]:
 def is_in_force() -> bool:
     """True only if a bar exists AND is signed. A proposal is never in force."""
     raw = _load_raw()
-    return bool(raw) and raw.get("status") == SIGNED
+    return raw is not None and raw.get("status") == SIGNED
 
 
 def status() -> str:

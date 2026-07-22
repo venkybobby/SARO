@@ -56,7 +56,8 @@ async def _authenticate(token: str, user):
     from fastapi.security import HTTPAuthorizationCredentials
 
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-    return await auth.get_current_user(creds, _DB(user))
+    # _DB is a duck-typed Session double (only .query() is exercised here).
+    return await auth.get_current_user(creds, _DB(user))  # type: ignore[arg-type]
 
 
 # ── The token must carry a version ──────────────────────────────────────────

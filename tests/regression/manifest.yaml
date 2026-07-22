@@ -327,3 +327,8 @@ findings:
     test: tests/regression/test_fnd_068_empty_required_field.py
     status: pinned
     quarantine_expires: null
+  - id: FND-069
+    title: "Route-registration tests filtered app.routes at the top level; passed locally (Starlette flattening) but failed in CI (unpinned Starlette nests included routers → whole app seen as 2 routes)"
+    test: tests/regression/test_fnd_069_route_enumeration_nesting.py
+    status: pinned
+    quarantine_expires: null

@@ -24,6 +24,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from main import app  # noqa: E402
 
+from _route_utils import iter_api_routes  # noqa: E402
+
 pytestmark = pytest.mark.integration
 
 # ── Public-by-design routes (method, path) — every entry needs a reason ──────
@@ -74,9 +76,7 @@ def _fill_path(route: APIRoute) -> str:
 
 def _api_routes() -> list[tuple[str, APIRoute]]:
     out = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in iter_api_routes(app):  # FND-069: recurse; Starlette may nest routers
         for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
             out.append((method, route))
     return out

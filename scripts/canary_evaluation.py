@@ -20,6 +20,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from typing import NoReturn
 
 BASE_URL = os.environ.get("SARO_URL", "https://saro-backend.fly.dev").rstrip("/")
 EMAIL = os.environ.get("DEMO_EMAIL", "")
@@ -36,7 +37,7 @@ CANARY_OUTPUT = (
 )
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     print(f"::error::A6 canary evaluation failed — {message} (runbook: {RUNBOOK})")
     sys.exit(1)
 

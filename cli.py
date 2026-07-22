@@ -931,7 +931,7 @@ def analytics_summary(as_json: bool) -> None:
         d = counts.get(denom, 0)
         return round(counts.get(numer, 0) / d, 4) if d else None
 
-    summary = {
+    summary: dict[str, Any] = {
         "event_counts": {name: counts.get(name, 0) for name in sorted(analytics.EVENT_NAMES)},
         "funnels": {
             "login_to_attestation_view": _rate(

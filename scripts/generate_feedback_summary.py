@@ -86,10 +86,10 @@ def _load_story_status() -> dict[str, str]:
 def main(argv: list[str]) -> int:
     feedback: list[dict] = []
     try:
-        from database import SessionLocal
+        from database import _get_session_factory
         from models import PilotFeedback
 
-        db = SessionLocal()
+        db = _get_session_factory()()
         try:
             feedback = [
                 {

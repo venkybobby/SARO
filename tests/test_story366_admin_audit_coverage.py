@@ -30,6 +30,8 @@ import services.self_audit as self_audit  # noqa: E402
 from main import app  # noqa: E402
 from services.admin_audit_registry import AUDITED, DATA_PLANE, classification  # noqa: E402
 
+from _route_utils import iter_api_routes  # noqa: E402
+
 pytestmark = pytest.mark.integration
 
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
@@ -41,9 +43,7 @@ _RECORDER_RE = re.compile(r"record_privileged|record_access|_log_event|record_au
 
 def _mutating_routes() -> list[tuple[str, APIRoute]]:
     out = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in iter_api_routes(app):  # FND-069: recurse; Starlette may nest routers
         for method in sorted(route.methods & _MUTATING):
             out.append((method, route))
     return out

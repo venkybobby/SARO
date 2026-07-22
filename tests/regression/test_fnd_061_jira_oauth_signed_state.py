@@ -138,6 +138,7 @@ def _tenant_settings() -> dict:
     db = _Session()
     try:
         tenant = db.query(Tenant).filter(Tenant.id == _TENANT_ID).first()
+        assert tenant is not None, "test tenant must exist"
         return dict(tenant.settings_json or {})
     finally:
         db.close()

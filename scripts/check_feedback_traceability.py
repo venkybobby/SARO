@@ -97,10 +97,10 @@ def main(argv: list[str]) -> int:
 
     feedback: list[dict] = []
     try:
-        from database import SessionLocal
+        from database import _get_session_factory
         from models import PilotFeedback
 
-        db = SessionLocal()
+        db = _get_session_factory()()
         try:
             feedback = [
                 {"id": str(f.id), "triage_status": f.triage_status, "story_id": f.story_id}
