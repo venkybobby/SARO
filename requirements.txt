@@ -1,4 +1,8 @@
-fastapi>=0.111.0
+# Pinned (FND-069): an unpinned fastapi let CI install a newer Starlette that
+# nests included routers in app.routes, so the whole app read as 2 routes in CI
+# while flattening locally. Pin to the validated versions so CI == local.
+fastapi==0.129.0
+starlette==0.52.1
 uvicorn[standard]>=0.29.0
 gunicorn==22.0.0
 sqlalchemy>=2.0.0

@@ -22,6 +22,20 @@ further layers until CI is actually green.
                  check is the CI run on the pushed commit, watched to green.)
 - [ ] sell      (n/a)
 
+## Layer 3 (CI on 2f10180 unmasked three more)
+- _route_utils.py:49 mypy: `route.methods` is Optional → `(route.methods or set())`.
+  (Missed locally because the new file was added AFTER my `mypy .` run — re-run
+  mypy AFTER adding files, always.)
+- ci.yml "Unit & Integration Tests" job checks out SHALLOW → the story-index
+  evidence UNIT test (test_story_index_evidence_gate) fails on git history, same
+  root cause as the gate. Add fetch-depth: 0 there too.
+- DECISIVE: my recursive helper returns only 2 routes on the REAL app in CI
+  (test_helper_works_on_the_real_app: assert 2 > 50 failed). So CI's Starlette
+  nests in a shape my recursion does NOT traverse — the helper cannot fix CI by
+  itself. Root fix = kill the drift: PIN fastapi==0.129.0 + starlette==0.52.1
+  (the validated-local versions that flatten). Helper + regression stay as
+  defensive robustness; the PIN is what makes CI == local and green.
+
 ## Build Log
 - FALSE HYPOTHESIS (recorded so it isn't re-tried): the 4 route-registration
   CI failures looked like test-isolation pollution of the shared `main.app`.

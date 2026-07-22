@@ -32,6 +32,10 @@ jobs:
       SARO_ENV: test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: test_story_index_evidence_gate verifies each cited SHA
+          # is an ancestor of HEAD; a shallow clone has no ancestors.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}

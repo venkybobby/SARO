@@ -46,5 +46,5 @@ def method_path_pairs(app, *, drop: frozenset[str] = frozenset({"HEAD", "OPTIONS
     return {
         (method, route.path)
         for route in iter_api_routes(app)
-        for method in (route.methods - drop)
+        for method in ((route.methods or set()) - drop)
     }
