@@ -42,6 +42,10 @@ jobs:
     if: github.ref == 'refs/heads/main' && needs.guard.outputs.proceed == 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the hermetic unit suite includes
+          # test_story_index_evidence_gate, which checks commit ancestry.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

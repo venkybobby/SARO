@@ -36,6 +36,12 @@ further layers until CI is actually green.
   (the validated-local versions that flatten). Helper + regression stay as
   defensive robustness; the PIN is what makes CI == local and green.
 
+## Layer 4 (CI on 564dacf — 2/3 workflows green; Fly.io remained)
+- deploy.yml (SARO CI/CD — Fly.io) `test` job ALSO checks out shallow and runs
+  the full pytest incl. test_story_index_evidence_gate → same shallow-clone
+  failure, THIRD workflow. fetch-depth: 0. That is now all three workflows
+  that run this test (quality-gates ✓, ci ✓, deploy ✓).
+
 ## Build Log
 - FALSE HYPOTHESIS (recorded so it isn't re-tried): the 4 route-registration
   CI failures looked like test-isolation pollution of the shared `main.app`.
