@@ -86,7 +86,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-377 | Oracle completion bar (FP/FN) | IMPLEMENTED | 0790f3c · `tests/test_story377_completion_bar.py` 12 pass · thresholds PROPOSED, sign-off OPEN [HUMAN] |
 | STORY-378 | Confusion-matrix harness | IMPLEMENTED | a28d3a2 · `tests/test_story378_confusion_harness.py` 10 pass · report-only until 377 signed; caught FND-068 |
 | STORY-379 | Validation report generator | IMPLEMENTED | 06a4556 · `tests/test_story379_validation_report.py` 17 pass · md+pdf, generated from 378 artifact |
-| STORY-380 | Epic 13 closure audit (corrected) | SPECIFIED | — |
+| STORY-380 | Epic 13 closure audit (corrected) | IMPLEMENTED | a1caf9c · `tests/test_story380_epic13_closure.py` 10 pass · numbering correction recorded |
 | STORY-381 | Privacy-safe product analytics | SPECIFIED | — |
 | STORY-382 | Pilot feedback intake | SPECIFIED | — |
 | STORY-383 | Feedback → roadmap traceability | SPECIFIED | — |
