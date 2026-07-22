@@ -112,6 +112,26 @@ both.
 - D78 Q: Triage lifecycle? → status new→triaged→story_linked/declined/parked;
   privileged internal view (GET + CLI); weekly ritual doc (AC-4).
 
+## STORY-383 — premise check (PLAN stage 3a)
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| `feedback_ids` convention | ❌ absent | this story defines it |
+| `story-quality.md` | ❌ absent | create it (AC-3) |
+| **"saro-story-author enforces it"** | ❌ **does not exist** | same as STORY-377 ledger work — the agent isn't real; enforce via a CHECK SCRIPT + engineering-standards, not a phantom agent |
+| Feedback→story link (from 382) | ✅ | `PilotFeedback.story_id` + `triage_status=story_linked` (d1249ef) |
+
+## Decision Log — STORY-383 (appended)
+- D79 Q: Where to enforce the convention, given saro-story-author is not real? →
+  A CI-runnable `check_feedback_traceability.py` + a documented convention in
+  `docs/story-quality.md` (referenced from engineering-standards). Report the
+  missing agent rather than pretend to wire into it (CLAUDE.md FM-2 discipline).
+- D80 Q: Bidirectional linkage? → feedback → story via `PilotFeedback.story_id`
+  (382); story → feedback via a `feedback_ids:` line in the spec. The check
+  flags a story_linked feedback whose spec lacks the back-reference, and a spec
+  feedback_ids that names no real feedback.
+- D81 Q: Quarterly summary source? → Generated from the linkage (feedback rows
+  joined to specs), never hand-written — the anti-drift pattern used throughout.
+
 ## STORY-381 — premise check (PLAN stage 3a)
 | Referenced artifact | Verified? | Path |
 |---|---|---|

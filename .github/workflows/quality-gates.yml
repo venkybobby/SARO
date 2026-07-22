@@ -25,6 +25,8 @@ jobs:
       - run: pip install -r requirements.txt pytest pytest-cov pytest-asyncio pyyaml ruff
       - name: Story-index evidence gate (FM-1/FM-3 — no status claim without a commit)
         run: python scripts/check_story_index.py
+      - name: Feedback → roadmap traceability (STORY-383)
+        run: python scripts/check_feedback_traceability.py
       - name: Azure corpus determinism (STORY-359 — attestations depend on it)
         run: python scripts/azure_corpus_builder.py --check
       - name: Vertex corpus determinism (STORY-360)

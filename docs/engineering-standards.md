@@ -44,6 +44,9 @@ edge cases, and out-of-scope notes. Otherwise implementation does not start.
 - [ ] Ratchet holds
 - [ ] Independent `reviewer` agent verdict: APPROVE (plus `security-auditor` PASS if auth/routers/middleware/rule_packs/migrations touched)
 - [ ] Docs updated in the same change; migration path documented if a contract changed
+- [ ] **If the story originated from pilot feedback**, its spec carries a
+      `feedback_ids:` line (STORY-383 convention, `docs/story-quality.md`);
+      `scripts/check_feedback_traceability.py` verifies the link is bidirectional.
 - [ ] FILES CHANGED / NOT TOUCHED / CONCERNS summary delivered
 
 ## Hard rules
