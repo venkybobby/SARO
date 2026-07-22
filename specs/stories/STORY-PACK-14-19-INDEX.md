@@ -84,7 +84,7 @@ numbering correction instead of triaging stories that never existed.
 | STORY-375 | Versioned release process | IMPLEMENTED | b0cca87 · `tests/test_story375_release_process.py` 15 pass · rehearsal human-gated |
 | STORY-376 | Rule-pack authoring workflow (delta) | IMPLEMENTED | 65f7b8f · `tests/test_story376_rule_pack_lifecycle.py` 12 pass · FP/FN validation blocked on STORY-377 |
 | STORY-377 | Oracle completion bar (FP/FN) | IMPLEMENTED | 0790f3c · `tests/test_story377_completion_bar.py` 12 pass · thresholds PROPOSED, sign-off OPEN [HUMAN] |
-| STORY-378 | Confusion-matrix harness | SPECIFIED | — |
+| STORY-378 | Confusion-matrix harness | IMPLEMENTED | a28d3a2 · `tests/test_story378_confusion_harness.py` 10 pass · report-only until 377 signed; caught FND-068 |
 | STORY-379 | Validation report generator | SPECIFIED | — |
 | STORY-380 | Epic 13 closure audit (corrected) | SPECIFIED | — |
 | STORY-381 | Privacy-safe product analytics | SPECIFIED | — |
