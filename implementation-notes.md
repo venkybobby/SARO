@@ -88,6 +88,30 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## STORY-377 — premise check (PLAN stage 3a) — HUMAN-GATED
+| Referenced artifact | Verified? | Path / finding |
+|---|---|---|
+| "validation strategy v1.1" (four tiers) | ❌ never existed | premise table already recorded this; I create **v1.0** and note the numbering correction (pack said v1.2) |
+| RP-OBS-COMPLETE / RP-TOOL-SCOPE (bar applies to) | ✅ | `rule_packs/observation/*/1.0.0/pack.yaml` (a27b8ef) |
+| Offline qa_lab labeled tier (T3) | ✅ | `qa_lab/labeling.py` (STORY-338) |
+| Synthetic corpora (T1/T2) | ✅ | `tests/fixtures/{azure,vertex}/corpus.ndjson` |
+| 378 harness / 376 validate consume the bar | ✅ | both reference `bar_pending:STORY-377` |
+
+## Decision Log — STORY-377 (appended)
+- D59 Q: Pick the thresholds myself? → **NO — AC-3 forbids it.** These are a
+  product decision. I PROPOSE numbers with rationale + tradeoffs; the sign-off is
+  `[HUMAN — OPEN]`. Structural guarantee: the machine-readable bar carries
+  `status: PROPOSED_AWAITING_SIGNOFF`, and a test asserts it is NOT signed — so
+  nothing (378 harness, 376 validate) can enforce an unsigned bar.
+- D60 Q: The FP/FN asymmetry — decide it? → No, it is THE key product tradeoff.
+  For an evidence tool a false NEGATIVE (missing a real gap → claiming coverage
+  we lack) is arguably worse than a false POSITIVE (wasting a reviewer's time),
+  which argues for recall-weighting — but that is the owner's call. So I present
+  **two candidate profiles** (recall-weighted vs balanced) and ask them to pick,
+  rather than embedding my choice.
+- D61 Q: Version? → v1.0 (v1.1 never existed). Record the correction so a future
+  pack does not re-assume v1.1/v1.2.
+
 ## STORY-376 — premise check (PLAN stage 3a) — DELTA on RPV-001/002
 | Referenced artifact | Verified? | Path / finding |
 |---|---|---|

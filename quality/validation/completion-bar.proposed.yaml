@@ -1,0 +1,60 @@
+# SARO validation completion bar — PROPOSED (STORY-377).
+#
+# This is the machine-readable form of docs/validation/validation-strategy-v1.0.md.
+# It is a PROPOSAL. `status` is the enforcement switch: while it is not SIGNED,
+# STORY-378's harness runs report-only and STORY-376's validation stage reports
+# bar_pending. A test (test_story377_completion_bar.py) asserts this file is NOT
+# signed, so no threshold set by SARO for itself can silently become active.
+#
+# To activate (owner action, per §6 of the strategy doc):
+#   1. choose a profile,
+#   2. set status: SIGNED, signed_by, signed_date, chosen_profile,
+#   3. rename this file to completion-bar.yaml.
+
+status: PROPOSED_AWAITING_SIGNOFF   # never SIGNED in this file; see §6
+strategy_version: "1.0"
+signed_by: null
+signed_date: null
+chosen_profile: null                # A | B | modified — set at sign-off
+
+# The FP/FN tradeoff is a product decision (strategy §3), surfaced here so a
+# reader of the machine form sees it too, not only the prose.
+tradeoff_note: >
+  For an evidence tool a false negative (missing a real gap) may be worse than a
+  false positive (a wasted review), which argues for recall-weighting (Profile
+  A). This is the owner's call, not SARO's.
+
+profiles:
+  A_recall_weighted:
+    description: Prioritise catching real gaps; tolerate more false positives.
+    thresholds:
+      RP-OBS-COMPLETE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.90, recall: 0.95}
+        T3: {precision: 0.85, recall: 0.90}
+        T4: null   # pending pilot-labeled data — do not set before it exists
+      RP-TOOL-SCOPE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.90, recall: 0.95}
+        T3: {precision: 0.85, recall: 0.90}
+        T4: null
+
+  B_balanced:
+    description: Treat FP and FN symmetrically; quieter, at the cost of some misses.
+    thresholds:
+      RP-OBS-COMPLETE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.93, recall: 0.93}
+        T3: {precision: 0.88, recall: 0.88}
+        T4: null
+      RP-TOOL-SCOPE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.93, recall: 0.93}
+        T3: {precision: 0.88, recall: 0.88}
+        T4: null
+
+tiers:
+  T1: synthetic-deterministic   # available
+  T2: synthetic-adversarial     # partial
+  T3: offline-labeled           # qa_lab harness exists; labeled set to build
+  T4: pilot-labeled             # not available until the pilot runs
