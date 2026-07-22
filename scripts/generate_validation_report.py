@@ -153,6 +153,16 @@ def build_markdown() -> str:
             "these are *measured rates*, not a pass against an agreed bar - this "
             "report describes behaviour, it does not validate it against a target.",
         ]
+    else:
+        lines += [
+            "- **The completion bar is signed, but coverage is tier-limited.** "
+            f"The bar (Profile {bar.get('chosen_profile') or '?'}) is met on the "
+            f"tier measured here ({tier}) - but a pass on {tier} is **not full "
+            "validation**. The bar is signed for T1-T3 and its numeric thresholds "
+            "are provisional until validated against real (T3/T4) data; T4 "
+            "thresholds are set jointly with the pilot partner and are not "
+            "backfilled here.",
+        ]
     lines += [
         "- **Adapters not yet validated on real data:** the observation adapters "
         "(Azure OpenAI, Vertex AI) are exercised by the conformance suite but "

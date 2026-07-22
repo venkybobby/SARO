@@ -1,7 +1,7 @@
 # SARO Validation Strategy v1.0 — The Completion Bar
 
-**Story:** STORY-377 · **Owner:** Venky · **Status:** **PROPOSED — awaiting
-owner sign-off (§6).** No threshold in this document is active until signed.
+**Story:** STORY-377 · **Owner:** Venky · **Status:** **SIGNED 2026-07-21 —
+Profile A (recall-weighted) for T1–T3.** See §6 for the signature and conditions.
 
 > **Numbering correction.** Earlier planning referred to a "validation strategy
 > v1.1/v1.2". No such document ever existed in this repository (see the premise
@@ -127,18 +127,41 @@ The machine-readable form of both profiles is
 
 ---
 
-## 6. Sign-off — [HUMAN — OPEN]
+## 6. Sign-off — SIGNED 2026-07-21
 
-**No threshold in this document is active until an owner signs below.** Until
-then STORY-378's harness runs in report-only mode and STORY-376's validation
-stage reports `bar_pending:STORY-377`.
+- [x] **Profile chosen:** **A (recall-weighted)** for tiers T1–T3.
+- [x] **FP/FN tradeoff (§3) accepted:** for an examiner-grade evidence tool a
+      false negative contradicts the product claim while a false positive is
+      triage cost; the buyer personas operate over-flag-and-triage; SummitCare
+      shadow mode is where the noise downside is cheapest.
+- [x] **Signed:** Venky (owner) · **Date:** 2026-07-21
+      (`quality/validation/completion-bar.yaml`, `status: SIGNED`).
 
-- [ ] **Profile chosen:** ☐ A (recall-weighted) ☐ B (balanced) ☐ modified (attach)
-- [ ] **FP/FN tradeoff (§3) accepted or amended:** _______________________
-- [ ] **Signed:** ______________________  **Date:** __________
-- [ ] On sign-off: set `status: SIGNED` and record the chosen profile in
-      `quality/validation/completion-bar.proposed.yaml`, then rename it to
-      `completion-bar.yaml`.
+### Conditions of this sign-off (binding)
 
-Do not self-certify. A validation bar SARO set for itself, unsigned, is exactly
-the kind of unearned claim the compliance-claims discipline exists to prevent.
+1. **Precision floor, not recall alone.** Profile A carries a per-pack precision
+   floor at every measured tier (T1 0.99 / T2 0.90 / T3 0.85). This is the guard
+   against the recall-weighted failure mode — repeated false positives eroding
+   trust. It is verified present and **structurally protected**: a future edit
+   that makes any pack recall-only fails
+   `tests/test_story377_completion_bar.py`.
+2. **Severity is the reviewer's sort key** — the pressure valve for a
+   recall-weighted tool. Every finding carries `severity`; reviewers triage
+   high-severity flags first and the extra false positives sink to the bottom.
+   (Per-item *confidence* is not a meaningful signal for these deterministic
+   rules — a rule fired or it did not — so it is deliberately not fabricated.)
+3. **T4 stays blank and must not be backfilled.** Pilot (T4) thresholds are set
+   **jointly with SummitCare** once pilot-labeled data exists. This is to be
+   stated in the pilot agreement alongside the case-study rights.
+   `t4_backfill_prohibited: true`; a test fails if any T4 threshold becomes
+   non-null.
+4. **The profile choice is revisited at T4.** Profile A is signed for T1–T3; the
+   arrival of T4 pilot data reopens the A-vs-B decision. `revisit_profile_at_tier: T4`.
+5. **Thresholds are provisional** until validated against real (T3/T4) data. The
+   first full harness runs report against them; only T1 is measured today.
+
+### What signing changed
+STORY-378's harness now **enforces** Profile A on measured tiers (T1 today,
+passing) instead of running report-only, and STORY-376's validation stage may
+report against the bar. The unsigned-state guarantee has been replaced by the
+signed-state one; both are pinned by tests.

@@ -88,6 +88,31 @@ all-digit SHAs), both found by using it rather than by reading it. Its tests
 generating fixtures from live git state — not fixed strings — is what surfaced
 both.
 
+## COMPLETION-BAR SIGN-OFF (owner decision, 2026-07-21)
+Owner chose **Profile A (recall-weighted)** for T1–T3, reasoning: the product
+claim is examiner-grade evidence, so a false negative contradicts the claim
+while a false positive is triage cost; all three buyer personas operate
+over-flag-and-triage; SummitCare is shadow mode where recall-weighting's noise
+downside is cheapest.
+
+Conditions attached, all satisfied/recorded:
+1. **Per-pack precision FLOOR required, not recall-only.** VERIFIED already
+   present in Profile A (T1 0.99 / T2 0.90 / T3 0.85, both packs). Added a
+   structural guard test so a future recall-only edit fails.
+2. **Severity/confidence on each flagged item for reviewer sorting** (the
+   pressure valve). Severity already on every Finding; confidence is
+   definitionally certain for deterministic rules → documented, not fabricated.
+3. **T4 stays blank; must NOT be backfilled** — set jointly with SummitCare on
+   pilot-labeled data. `t4_backfill_prohibited: true` + guard test.
+4. **Profile choice revisitable at T4** — `revisit_profile_at_tier: T4` +
+   strategy-doc clause.
+5. Numbers PROVISIONAL until validated against real data.
+
+Consequence: signing flips STORY-378 from report-only to ENFORCING on T1 (passes
+1.0/1.0 ≥ 0.99). Every test that pinned the *unsigned* state must move to the
+signed state — that is the state legitimately changing by owner decision, not a
+weakening.
+
 ## STORY-380 — premise check (PLAN stage 3a) — the numbering-correction story
 | Referenced artifact | Verified? | Path |
 |---|---|---|

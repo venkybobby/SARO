@@ -5,7 +5,7 @@
 - **Generated:** 2026-07-22
 - **Corpus tier measured:** T1 (synthetic-deterministic)
 - **Corpus records:** 11
-- **Completion bar:** PROPOSED_AWAITING_SIGNOFF - **not yet signed** (see Limitations)
+- **Completion bar:** SIGNED
 
 ## What this measures
 
@@ -44,7 +44,7 @@ Understatement over overstatement. These results are real but narrow:
 - **Only tier T1 was measured.** Tiers not yet covered: T2 (synthetic-adversarial), T3 (offline labeled), T4 (pilot labeled). A perfect score on a synthetic tier does not demonstrate behaviour on adversarial or real-world data.
 - **The corpus is synthetic.** It is deterministic and labeled by construction, which makes it reproducible - but it is not real customer traffic. Real-world (T3) and pilot (T4) data are how these rates are validated against reality, and that data is not yet in place.
 - **2 rule-pack(s)** were measured: RP-OBS-COMPLETE@1.0.0, RP-TOOL-SCOPE@1.0.0. Other packs are not covered by this report.
-- **No completion bar is signed yet.** The pass/fail thresholds (STORY-377) are proposed and awaiting owner sign-off. Until then these are *measured rates*, not a pass against an agreed bar - this report describes behaviour, it does not validate it against a target.
+- **The completion bar is signed, but coverage is tier-limited.** The bar (Profile A_recall_weighted) is met on the tier measured here (T1) - but a pass on T1 is **not full validation**. The bar is signed for T1-T3 and its numeric thresholds are provisional until validated against real (T3/T4) data; T4 thresholds are set jointly with the pilot partner and are not backfilled here.
 - **Adapters not yet validated on real data:** the observation adapters (Azure OpenAI, Vertex AI) are exercised by the conformance suite but their FP/FN rates on real provider logs are not yet measured.
 
 ## How these numbers were produced

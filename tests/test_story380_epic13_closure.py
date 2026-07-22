@@ -90,16 +90,19 @@ def test_audit_records_the_strategy_version_correction():
 # ── AC-3: closed, but honestly — open items named ───────────────────────────
 
 
-def test_audit_names_the_human_gate_rather_than_claiming_completeness():
+def test_audit_is_honest_about_remaining_coverage_not_claiming_completeness():
+    """The 377 sign-off gate is now closed (Profile A); what remains open is data
+    coverage, and the audit must say so rather than claim the track is done."""
     doc = _audit()
-    assert "[HUMAN — OPEN]" in doc
     assert "STORY-377" in doc
+    assert "SIGNED" in doc, "the sign-off is now closed and the audit should reflect it"
     assert "not \"complete\"" in doc or "not complete" in doc.lower()
+    assert "tier-limited" in doc.lower() or "not full validation" in doc.lower()
 
 
 def test_audit_discloses_only_t1_is_measured():
-    doc = _audit().lower()
-    assert "only tier t1" in doc
+    doc = re.sub(r"[*\s]+", " ", _audit()).lower()  # strip markdown emphasis
+    assert "only tier t1 is measured" in doc
     for tier in ("t2", "t3", "t4"):
         assert tier in doc
 

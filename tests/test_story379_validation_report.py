@@ -84,17 +84,21 @@ def test_limitations_name_the_tiers_not_covered():
         assert uncovered in md
 
 
-def test_limitations_disclose_synthetic_corpus_and_unsigned_bar():
+def test_limitations_disclose_synthetic_corpus():
     md = report.build_markdown().lower()
     assert "synthetic" in md
     assert "not real customer traffic" in md
-    assert "no completion bar is signed" in md
 
 
-def test_report_does_not_imply_a_pass_while_the_bar_is_unsigned():
+def test_signed_report_states_a_t1_pass_is_not_full_validation():
+    """The bar is signed; the report must not let a T1 pass read as full validation."""
+    import services.validation_bar as vb
+
+    assert vb.is_in_force() is True, "expected the signed bar in this repo state"
     md = report.build_markdown().lower()
-    assert "measured rates" in md
-    assert "not a pass against an agreed bar" in md
+    assert "not full validation" in md
+    assert "provisional" in md
+    assert "tier-limited" in md or "tier measured" in md
 
 
 # ── AC-3: language guardrails ───────────────────────────────────────────────

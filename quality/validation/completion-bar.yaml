@@ -1,0 +1,80 @@
+# SARO validation completion bar — SIGNED (STORY-377).
+#
+# Machine-readable form of docs/validation/validation-strategy-v1.0.md. `status`
+# is the enforcement switch. Now SIGNED: STORY-378's harness enforces the chosen
+# profile's thresholds on measured tiers, and STORY-376's validation stage may
+# report against them.
+
+status: SIGNED
+strategy_version: "1.0"
+signed_by: "Venky (owner)"
+signed_date: "2026-07-21"
+signed_via: "decision recorded in session 2026-07-21"
+chosen_profile: A_recall_weighted
+
+# Owner reasoning (2026-07-21): the product claim is examiner-grade runtime
+# evidence, so a false NEGATIVE contradicts the claim while a false positive is
+# triage cost; the Compliance Lead / Risk Officer / AI Auditor personas all
+# operate over-flag-and-triage; and SummitCare's shadow-mode deployment is where
+# recall-weighting's noise downside is cheapest (flags block no workflow).
+tradeoff_note: >
+  Recall-weighted: for an evidence tool a false negative (missing a real gap)
+  contradicts the examiner-grade claim, while a false positive is triage cost.
+
+# CONDITIONS attached at sign-off (strategy §6):
+conditions:
+  # 1. A per-pack precision FLOOR must accompany the recall targets — a
+  #    recall-weighted profile without one is how repeated noise erodes trust.
+  #    VERIFIED present for both packs (T1 0.99 / T2 0.90 / T3 0.85); guarded by
+  #    tests/test_story377_completion_bar.py so it cannot become recall-only.
+  precision_floor_required: true
+  # 2. Reviewers sort flagged items by severity (the pressure valve for a
+  #    recall-weighted tool). Every Finding carries `severity`; confidence is
+  #    definitionally certain for these deterministic rules, so it is not a
+  #    varying per-item score and is deliberately not fabricated.
+  severity_sort_key: severity
+  # 3. T4 (pilot) thresholds stay null and MUST NOT be backfilled here — they are
+  #    set jointly with SummitCare once pilot-labeled data exists (state this in
+  #    the pilot agreement alongside case-study rights). Guarded by test.
+  t4_backfill_prohibited: true
+  # 4. The profile CHOICE itself is re-evaluated when T4 data lands — Profile A
+  #    is signed for T1–T3 now; T4 arrival reopens the A-vs-B decision.
+  revisit_profile_at_tier: T4
+  # 5. The numeric thresholds are PROVISIONAL until validated against real
+  #    (T3/T4) data; the first full harness runs report against them.
+  thresholds_provisional_until_real_data: true
+
+profiles:
+  A_recall_weighted:
+    description: Prioritise catching real gaps; tolerate more false positives.
+    thresholds:
+      RP-OBS-COMPLETE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.90, recall: 0.95}
+        T3: {precision: 0.85, recall: 0.90}
+        T4: null   # pending pilot-labeled data — do not set before it exists
+      RP-TOOL-SCOPE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.90, recall: 0.95}
+        T3: {precision: 0.85, recall: 0.90}
+        T4: null
+
+  B_balanced:
+    description: Treat FP and FN symmetrically; quieter, at the cost of some misses.
+    thresholds:
+      RP-OBS-COMPLETE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.93, recall: 0.93}
+        T3: {precision: 0.88, recall: 0.88}
+        T4: null
+      RP-TOOL-SCOPE:
+        T1: {precision: 0.99, recall: 0.99}
+        T2: {precision: 0.93, recall: 0.93}
+        T3: {precision: 0.88, recall: 0.88}
+        T4: null
+
+tiers:
+  T1: synthetic-deterministic   # available
+  T2: synthetic-adversarial     # partial
+  T3: offline-labeled           # qa_lab harness exists; labeled set to build
+  T4: pilot-labeled             # not available until the pilot runs

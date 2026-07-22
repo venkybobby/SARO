@@ -1,9 +1,15 @@
-"""STORY-377 — the completion bar is a PROPOSAL, and cannot enforce unsigned.
+"""STORY-377 — the completion bar, SIGNED (Profile A, 2026-07-21).
 
-This is a human-gated story. The load-bearing test —
-``test_proposed_bar_is_not_in_force`` — is the structural guarantee that a
-validation bar SARO wrote for itself does not become active without an owner's
-signature. If a future change accidentally marks it signed, this fails.
+The owner signed Profile A (recall-weighted) for T1–T3 with binding conditions.
+These tests pin the SIGNED state and — load-bearing — the conditions that keep a
+recall-weighted bar honest: a per-pack precision floor must accompany the recall
+targets, and T4 must stay blank until pilot data exists.
+
+History: this suite previously pinned the UNSIGNED state (no self-certified bar).
+That guarantee did its job through the whole build; signing is the owner's
+decision legitimately changing the state, so the assertions moved to the signed
+state rather than being dropped. The unsigned mechanism is still exercised by
+`test_unsigned_bar_would_not_enforce` against a temp file.
 """
 
 from __future__ import annotations
@@ -22,84 +28,111 @@ import services.validation_bar as bar  # noqa: E402
 pytestmark = pytest.mark.unit
 
 STRATEGY = ROOT / "docs" / "validation" / "validation-strategy-v1.0.md"
-PROPOSAL = ROOT / "quality" / "validation" / "completion-bar.proposed.yaml"
+SIGNED_BAR = ROOT / "quality" / "validation" / "completion-bar.yaml"
 
 
-def _proposal() -> dict:
-    return yaml.safe_load(PROPOSAL.read_text(encoding="utf-8"))
+def _bar() -> dict:
+    return yaml.safe_load(SIGNED_BAR.read_text(encoding="utf-8"))
 
 
-# ── The gate: unsigned cannot enforce ───────────────────────────────────────
+# ── Signed state ────────────────────────────────────────────────────────────
 
 
-def test_proposed_bar_is_not_in_force():
-    """AC-3: no self-certified bar. Until an owner signs, nothing enforces it."""
-    assert bar.is_in_force() is False
-    assert bar.active_thresholds() is None, (
-        "an unsigned proposal must expose NO enforceable thresholds"
-    )
-    assert bar.status() == "PROPOSED_AWAITING_SIGNOFF"
+def test_bar_is_signed_and_in_force():
+    assert bar.status() == "SIGNED"
+    assert bar.is_in_force() is True
+    assert bar.active_thresholds() is not None
 
 
-def test_proposal_file_is_not_marked_signed():
-    p = _proposal()
-    assert p["status"] == "PROPOSED_AWAITING_SIGNOFF"
-    assert p["signed_by"] is None
-    assert p["chosen_profile"] is None, "the profile is the owner's choice, not preset"
+def test_chosen_profile_is_a_recall_weighted():
+    b = _bar()
+    assert b["chosen_profile"] == "A_recall_weighted"
+    assert b["signed_by"], "a signed bar must name who signed it"
+    assert b["signed_date"] == "2026-07-21"
 
 
-def test_a_signed_bar_would_take_precedence_and_enforce(tmp_path, monkeypatch):
-    """Prove the mechanism works: a SIGNED file DOES put thresholds in force.
+def test_active_thresholds_are_profile_a():
+    th = bar.active_thresholds()
+    # recall-weighted: recall >= precision at the messier tiers
+    assert th["RP-OBS-COMPLETE"]["T2"]["recall"] == 0.95
+    assert th["RP-OBS-COMPLETE"]["T2"]["precision"] == 0.90
 
-    This does not sign the real bar — it points the loader at a temp signed file,
-    so the enforcement path is exercised without self-certifying anything.
-    """
-    signed = tmp_path / "completion-bar.yaml"
-    signed.write_text(
-        yaml.safe_dump(
-            {
-                "status": "SIGNED",
-                "chosen_profile": "A_recall_weighted",
-                "profiles": {
-                    "A_recall_weighted": {
-                        "thresholds": {"RP-OBS-COMPLETE": {"T1": {"precision": 0.99, "recall": 0.99}}}
-                    }
-                },
-            }
-        ),
+
+def test_unsigned_bar_would_not_enforce(tmp_path, monkeypatch):
+    """The mechanism still fails closed: point the loader at an unsigned file."""
+    proposed = tmp_path / "completion-bar.proposed.yaml"
+    proposed.write_text(
+        yaml.safe_dump({"status": "PROPOSED_AWAITING_SIGNOFF", "profiles": {}}),
         encoding="utf-8",
     )
-    monkeypatch.setattr(bar, "_SIGNED", signed)
-    assert bar.is_in_force() is True
-    thresholds = bar.active_thresholds()
-    assert thresholds["RP-OBS-COMPLETE"]["T1"]["recall"] == 0.99
+    monkeypatch.setattr(bar, "_SIGNED", tmp_path / "nonexistent.yaml")
+    monkeypatch.setattr(bar, "_PROPOSED", proposed)
+    assert bar.is_in_force() is False
+    assert bar.active_thresholds() is None
 
 
-# ── AC-1: thresholds proposed with rationale, per tier ──────────────────────
+# ── Condition 1: precision floor, not recall-only (the trust guard) ─────────
 
 
-def test_two_profiles_are_offered_not_one_preset_choice():
-    """AC-3: present tradeoffs, do not decide. Two profiles = an owner choice."""
-    profiles = _proposal()["profiles"]
-    assert "A_recall_weighted" in profiles
-    assert "B_balanced" in profiles
+def test_profile_a_carries_a_precision_floor_for_every_pack_and_tier():
+    """The signed condition: a recall-weighted bar WITHOUT a precision floor is
+    how repeated false positives erode trust. This fails if any measured tier
+    becomes recall-only."""
+    th = _bar()["profiles"]["A_recall_weighted"]["thresholds"]
+    for pack in ("RP-OBS-COMPLETE", "RP-TOOL-SCOPE"):
+        for tier in ("T1", "T2", "T3"):
+            cell = th[pack][tier]
+            assert cell is not None
+            assert "precision" in cell and cell["precision"] is not None, (
+                f"{pack} {tier} has no precision floor — recall-only violates the sign-off condition"
+            )
+            assert "recall" in cell and cell["recall"] is not None
 
 
-def test_thresholds_cover_both_packs_across_available_tiers():
-    profiles = _proposal()["profiles"]
-    for profile in profiles.values():
-        th = profile["thresholds"]
-        for pack in ("RP-OBS-COMPLETE", "RP-TOOL-SCOPE"):
-            assert pack in th
-            for tier in ("T1", "T2", "T3"):
-                assert th[pack][tier] is not None
+def test_precision_floor_condition_is_recorded_in_the_bar():
+    assert _bar()["conditions"]["precision_floor_required"] is True
 
 
-def test_t4_pilot_thresholds_are_blank_because_no_data_exists():
-    """Proposing a number for data that does not exist is the failure to avoid."""
-    for profile in _proposal()["profiles"].values():
-        for pack in profile["thresholds"].values():
-            assert pack["T4"] is None, "T4 must stay unset until pilot data exists"
+def test_severity_is_the_recorded_reviewer_sort_key():
+    """The pressure valve for a recall-weighted tool — must be a real finding field."""
+    from rule_packs.observation.evaluate import Finding
+
+    assert _bar()["conditions"]["severity_sort_key"] == "severity"
+    assert "severity" in Finding.__dataclass_fields__
+
+
+# ── Condition 3: T4 blank and NOT backfilled ────────────────────────────────
+
+
+def test_t4_thresholds_are_null_and_backfill_is_prohibited():
+    """Pilot thresholds are set jointly with SummitCare — not here, not by a
+    future session."""
+    th = _bar()["profiles"]["A_recall_weighted"]["thresholds"]
+    for pack in ("RP-OBS-COMPLETE", "RP-TOOL-SCOPE"):
+        assert th[pack]["T4"] is None, "T4 must stay blank until pilot-labeled data exists"
+    assert _bar()["conditions"]["t4_backfill_prohibited"] is True
+
+
+# ── Condition 4: profile revisited at T4 ────────────────────────────────────
+
+
+def test_profile_choice_is_revisitable_at_t4():
+    assert _bar()["conditions"]["revisit_profile_at_tier"] == "T4"
+    doc = STRATEGY.read_text(encoding="utf-8")
+    assert "revisited at T4" in doc or "revisit" in doc.lower()
+
+
+def test_thresholds_are_recorded_as_provisional():
+    assert _bar()["conditions"]["thresholds_provisional_until_real_data"] is True
+
+
+# ── AC-1: strategy doc still carries the tradeoff + both profiles remain ─────
+
+
+def test_both_profiles_remain_documented_for_the_t4_revisit():
+    """B stays available: the A-vs-B choice reopens when T4 data lands."""
+    profiles = _bar()["profiles"]
+    assert "A_recall_weighted" in profiles and "B_balanced" in profiles
 
 
 def test_strategy_doc_states_the_fp_fn_tradeoff():
@@ -108,27 +141,25 @@ def test_strategy_doc_states_the_fp_fn_tradeoff():
     assert "recall" in doc and "precision" in doc
 
 
-def test_strategy_doc_carries_a_human_signoff_gate():
-    doc = STRATEGY.read_text(encoding="utf-8")
-    assert "[HUMAN — OPEN]" in doc
-    assert "sign-off" in doc.lower() or "signed" in doc.lower()
-    assert "self-certify" in doc.lower()
-
-
 def test_strategy_records_the_numbering_correction():
-    """v1.1 never existed — say so, so a future plan does not re-assume it."""
     import re
 
     doc = re.sub(r"\s+", " ", STRATEGY.read_text(encoding="utf-8")).lower()
     assert "v1.0" in doc
-    assert "no such document ever existed" in doc, "the numbering correction must be explicit"
+    assert "no such document ever existed" in doc
+
+
+def test_strategy_doc_records_the_signature_and_conditions():
+    doc = STRATEGY.read_text(encoding="utf-8")
+    assert "SIGNED" in doc
+    assert "Profile A" in doc
+    assert "Precision floor" in doc or "precision floor" in doc
 
 
 # ── AC-2: measurement protocol ──────────────────────────────────────────────
 
 
 def test_protocol_is_per_tier_not_a_blended_average():
-    """Averaging across tiers hides poor real-world behaviour behind good synthetic."""
     doc = STRATEGY.read_text(encoding="utf-8").lower()
     assert "per-tier" in doc
     assert "not a blended average" in doc or "averaging across tiers" in doc
@@ -138,15 +169,12 @@ def test_protocol_states_exclusions_cadence_and_triggers():
     doc = STRATEGY.read_text(encoding="utf-8").lower()
     assert "exclusion" in doc
     assert "cadence" in doc
-    assert "re-validation trigger" in doc or "re-validation" in doc
+    assert "re-validation" in doc
 
 
-# ── AC-4 dependency: downstream stays inert while unsigned ──────────────────
+# ── Downstream now enforces ─────────────────────────────────────────────────
 
 
-def test_376_validation_stage_still_defers_to_this_bar():
-    import services.rule_pack_lifecycle as lifecycle
-
-    assert lifecycle.BAR_PENDING == "bar_pending:STORY-377"
-    # And the bar it is waiting on is genuinely not in force.
-    assert bar.is_in_force() is False
+def test_harness_now_enforces_because_the_bar_is_signed():
+    assert bar.is_in_force() is True
+    assert bar.active_thresholds() is not None

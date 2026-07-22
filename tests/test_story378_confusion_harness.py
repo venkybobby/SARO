@@ -100,15 +100,29 @@ def test_a_planted_label_disagreement_is_measured_not_hidden():
 # ── AC-3: report-only until signed ──────────────────────────────────────────
 
 
-def test_verdict_is_report_only_while_the_bar_is_unsigned():
+def test_verdict_enforces_now_that_the_bar_is_signed():
+    """The bar was signed (Profile A, 2026-07-21), so the harness enforces.
+
+    Previously this pinned report_only; signing legitimately flipped it. The
+    report-only path is still exercised below against a temp unsigned bar, so the
+    unsigned guarantee is not lost — it moved.
+    """
     m = harness.apply_bar(harness.compute_matrix())
-    assert validation_bar.is_in_force() is False
+    assert validation_bar.is_in_force() is True
+    assert m["verdict"] in ("pass", "fail")
+    assert m["verdict"] == "pass", "T1 is 1.0/1.0, above the Profile A floors"
+
+
+def test_report_only_path_still_works_when_unsigned(monkeypatch):
+    """The AC-3 mechanism must remain intact for a future unsigned pack/bar."""
+    monkeypatch.setattr(validation_bar, "active_thresholds", lambda: None)
+    monkeypatch.setattr(validation_bar, "status", lambda: "PROPOSED_AWAITING_SIGNOFF")
+    m = harness.apply_bar(harness.compute_matrix())
     assert m["verdict"] == "report_only"
-    assert "no signed completion bar" in m["verdict_note"].lower()
 
 
-def test_check_mode_does_not_fail_the_build_while_unsigned():
-    """The AC-3 guarantee, concrete: --check cannot fail on an unsigned bar."""
+def test_check_mode_passes_because_t1_meets_the_signed_bar():
+    """--check enforces now; it exits 0 because T1 meets Profile A's floors."""
     assert harness.main(["--check"]) == 0
 
 

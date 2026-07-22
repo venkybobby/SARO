@@ -83,8 +83,8 @@ numbering correction instead of triaging stories that never existed.
 | STORY-374 | Usage metering + billing export (delta) | IMPLEMENTED | 6d77268 · `tests/test_story374_metering_export.py` 12 pass |
 | STORY-375 | Versioned release process | IMPLEMENTED | b0cca87 · `tests/test_story375_release_process.py` 15 pass · rehearsal human-gated |
 | STORY-376 | Rule-pack authoring workflow (delta) | IMPLEMENTED | 65f7b8f · `tests/test_story376_rule_pack_lifecycle.py` 12 pass · FP/FN validation blocked on STORY-377 |
-| STORY-377 | Oracle completion bar (FP/FN) | IMPLEMENTED | 0790f3c · `tests/test_story377_completion_bar.py` 12 pass · thresholds PROPOSED, sign-off OPEN [HUMAN] |
-| STORY-378 | Confusion-matrix harness | IMPLEMENTED | a28d3a2 · `tests/test_story378_confusion_harness.py` 10 pass · report-only until 377 signed; caught FND-068 |
+| STORY-377 | Oracle completion bar (FP/FN) | IMPLEMENTED | 0790f3c · `tests/test_story377_completion_bar.py` 12 pass · SIGNED 2026-07-21 Profile A (recall-weighted) |
+| STORY-378 | Confusion-matrix harness | IMPLEMENTED | a28d3a2 · `tests/test_story378_confusion_harness.py` 10 pass · enforcing Profile A on T1 (pass); caught FND-068 |
 | STORY-379 | Validation report generator | IMPLEMENTED | 06a4556 · `tests/test_story379_validation_report.py` 17 pass · md+pdf, generated from 378 artifact |
 | STORY-380 | Epic 13 closure audit (corrected) | IMPLEMENTED | a1caf9c · `tests/test_story380_epic13_closure.py` 10 pass · numbering correction recorded |
 | STORY-381 | Privacy-safe product analytics | SPECIFIED | — |
@@ -125,5 +125,5 @@ Prioritised ahead of STORY-359 at the owner's direction.
 | Rotate FND-003 credential in prod; verify old credential dead | 363 AC-4 | Do this first — rotation is the real control for a public-repo exposure |
 | History scrub vs repo re-cut decision | 363 AC-5 | Rotate-only now; revisit before any visibility change |
 | DR restore rehearsal (scratch project only) | 370 AC-4 | Never against prod |
-| FP/FN threshold sign-off | 377 AC-3 | Numbers are proposed with tradeoffs; not self-certified |
+| ~~FP/FN threshold sign-off~~ | 377 AC-3 | **SIGNED 2026-07-21 — Profile A** (recall-weighted, per-pack precision floor, T4 blank/revisit conditions) |
 | Alert channel / status page / uptime SaaS signup | 368, 372 | Options documented; no accounts created |

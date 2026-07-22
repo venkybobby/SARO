@@ -46,8 +46,8 @@ because the prior work assumed did not exist.
 
 | Item | Verdict | Evidence |
 |---|---|---|
-| **STORY-377** — completion bar (FP/FN targets) | **Done — proposal, human sign-off OPEN** | `docs/validation/validation-strategy-v1.0.md`; `quality/validation/completion-bar.proposed.yaml`; `services/validation_bar.py` (unsigned ⇒ inert) |
-| **STORY-378** — confusion-matrix harness | **Done — report-only until 377 signed** | `scripts/confusion_matrix_harness.py`; `quality/validation/confusion-latest.json` + `trend.jsonl`. Surfaced and fixed **FND-068** on its first run. |
+| **STORY-377** — completion bar (FP/FN targets) | **Done — SIGNED 2026-07-21, Profile A** | `docs/validation/validation-strategy-v1.0.md` §6; `quality/validation/completion-bar.yaml` (`status: SIGNED`); `services/validation_bar.py` |
+| **STORY-378** — confusion-matrix harness | **Done — enforcing (Profile A) on measured tiers** | `scripts/confusion_matrix_harness.py`; `quality/validation/confusion-latest.json` + `trend.jsonl`. Surfaced and fixed **FND-068** on its first run; now passes T1 at 1.0/1.0. |
 | **STORY-379** — buyer-facing validation report | **Done** | `scripts/generate_validation_report.py` → `docs/validation/validation-report.{md,pdf}` |
 | **STORY-380** — this closure audit | **Done** | this document |
 
@@ -66,18 +66,23 @@ because the prior work assumed did not exist.
 
 ## Open items — the validation track is not "complete", and says so
 
-- **STORY-377 sign-off is [HUMAN — OPEN].** Until an owner chooses a threshold
-  profile and signs, the completion bar is a proposal; STORY-378 is report-only
-  and STORY-376's rule-pack validation stage reports `bar_pending`. This is the
-  single gate blocking the validation track from being enforcing rather than
-  advisory.
-- **Only tier T1 is measured.** T2 (adversarial), T3 (offline-labeled, via the
-  STORY-338 harness), and T4 (pilot) are defined but not yet populated — see the
-  validation report's Limitations section.
+- **The completion bar is signed (Profile A, 2026-07-21), but coverage is
+  tier-limited.** Only tier **T1** is measured. T2 (adversarial), T3
+  (offline-labeled, via the STORY-338 harness), and T4 (pilot) are defined but
+  not yet populated — see the validation report's Limitations section. A T1 pass
+  is not full validation.
+- **T4 stays blank by condition of the sign-off** — pilot thresholds are set
+  jointly with SummitCare once pilot-labeled data exists, and must not be
+  backfilled. The **profile choice itself is revisited at T4**.
+- **Thresholds are provisional** until validated against real (T3/T4) data.
+
+The human gate that blocked the track — the STORY-377 sign-off — is **now
+closed** (Profile A, with a per-pack precision floor and the T4/revisit
+conditions). What remains open is data coverage, not a decision.
 
 ## Verdict
 
 Epic 13 as described did not exist; the validation foundation (335..338) and the
 completion bar (377..380) do, with the evidence linked above. This audit is the
-closure — an honest one, with the numbering corrected and the human gate named,
-rather than a claim of a completeness the track has not yet reached.
+closure — an honest one, with the numbering corrected and the remaining coverage
+gaps named, rather than a claim of a completeness the track has not yet reached.

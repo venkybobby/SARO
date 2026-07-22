@@ -1,7 +1,8 @@
 {
-  "bar_status": "PROPOSED_AWAITING_SIGNOFF",
+  "bar_status": "SIGNED",
   "corpus_records": 11,
-  "generated_at": "2026-07-22T01:35:33.876943+00:00",
+  "failures": [],
+  "generated_at": "2026-07-22T02:59:52.757543+00:00",
   "packs": {
     "RP-OBS-COMPLETE@1.0.0": {
       "overall": {
@@ -95,6 +96,5 @@
   },
   "schema": "saro.confusion-matrix.v1",
   "tier": "T1",
-  "verdict": "report_only",
-  "verdict_note": "No signed completion bar in force (STORY-377 awaiting sign-off). Rates are reported; no pass/fail is asserted."
+  "verdict": "pass"
 }
