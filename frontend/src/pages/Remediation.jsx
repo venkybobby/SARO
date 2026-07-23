@@ -22,6 +22,8 @@ export default function Remediation({ token, tenantId }) {
 
   async function load() {
     setLoading(true);
+    setNoteFor(null);
+    setActionError(null);
     try {
       const r = await fetch(
         `/api/v1/remediation${tenantId ? `?tenant_id=${tenantId}` : ""}`,
@@ -48,6 +50,7 @@ export default function Remediation({ token, tenantId }) {
   }
 
   async function markRemediated(id) {
+    if (updating) return; // double-click before re-render must not double-PATCH
     const note = noteText.trim();
     if (!note) return; // backend 422s on a blank note — don't send it
     setUpdating(true);

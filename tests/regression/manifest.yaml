@@ -352,3 +352,8 @@ findings:
     test: frontend/src/pages/Remediation.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-074
+    title: "No CI workflow runs vitest — frontend-pinned FNDs (021/022/023/029/031/052/053/054/073…) have no CI guarantee (reviewer, STORY-TAB-001, pre-existing)"
+    test: tests/regression/test_fnd_074_vitest_ci_gate.py
+    status: open
+    quarantine_expires: null
