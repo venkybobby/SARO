@@ -347,3 +347,8 @@ findings:
     test: tests/regression/test_fnd_072_check_mode_detects_stale_artifact.py
     status: pinned
     quarantine_expires: null
+  - id: FND-073
+    title: "Remediation tab structurally dead — read d.items from a {traces,...} response (permanent 'all clear' overclaim) and PATCHed the nonexistent /remediation/{id}/complete route (STORY-TAB-001)"
+    test: frontend/src/pages/Remediation.test.jsx
+    status: pinned
+    quarantine_expires: null

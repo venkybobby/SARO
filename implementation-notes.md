@@ -1,48 +1,40 @@
-# FND-072 — harness --check must detect a stale committed confusion matrix
+# STORY-TAB-001 — Remediation tab response-contract fix
 
-Stage: trivial
+Stage: standard
 
-Security-audit follow-up from PR #125. FND-071 correctly made
-`confusion_matrix_harness.py --check` read-only, but that removed an
-*accidental* freshness gate: the old rewrite of
-`quality/validation/confusion-latest.json` in the CI workspace meant the next
-conformance.yml step (`generate_validation_report.py --check`) compared the
-committed report against CURRENT rule-pack behaviour. Now both sides are
-committed files (self-referential), so a rule-pack precision/recall regression
-leaves the committed evidence artifact silently stale and no CI step notices.
+## Lifecycle
+- [x] discover   (skipped — subsystem audited end-to-end earlier this session; premise/evidence tables in specs/stories/STORY-TAB-001.md)
+- [x] shape      (interview skipped — autonomous session per owner instruction "move to the contract fixes"; decisions defaulted + logged below)
+- [x] preview    (skipped — no visual/design change: existing card layout retained; only data binding, field mapping, and the endpoint are corrected)
+- [ ] plan
+- [ ] build
+- [ ] verify
+- [ ] sell       (n/a)
+
+## Premise check (Stage 3a)
+
+| referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
+|---|---|---|
+| `GET /api/v1/remediation` → `{traces, total, page, page_size, pages}` | yes | routers/remediation.py:513-589 |
+| Trace fields: id, check_name, gate_name, result, reason, remediation_hint, regulation_ref, effort_estimate, domain, created_at | yes | routers/remediation.py:569-581 |
+| `PATCH /api/v1/remediation/traces/{id}/remediate` requires body `{remediation_note}` (422 if blank) | yes | routers/remediation.py:168-186 (`RemediateTraceIn`) |
+| Frontend reads `d.items`; PATCHes nonexistent `/remediation/{id}/complete` | yes | frontend/src/pages/Remediation.jsx:21,35 |
+| Vitest + testing-library present; fetch-mock pattern in repo | yes | frontend/package.json:10, frontend/src/pages/ComplianceHub.test.jsx:13-34 |
+| Story index gate scans `specs/stories/*INDEX*.md` (closed vocabulary, SHA evidence) | yes | scripts/check_story_index.py:25,39-41,164 |
+| Prior open findings on Remediation.jsx | none found | quality/findings.md (grep "Remediation" — only backend/other-surface rows) |
 
 ## Decision Log
 
-| decision | choice | why |
+| Question | Answer (defaulted) | Architectural consequence |
 |---|---|---|
-| WARN vs exit-nonzero on stale artifact | **exit non-zero** | Evidence-freshness is the whole point of the conformance gate; a WARN in CI logs is FM-3 bait (drafted read as delivered). Task brief prefers non-zero. |
-| Where to compare | in-memory diff of fresh `apply_bar(compute_matrix())` vs committed `MATRIX_OUT`, excluding `generated_at` | `generated_at` is the only field legitimately allowed to differ (same exclusion STORY-378's determinism test uses). Zero writes — FND-071's read-only pin stays green. |
-| Missing / corrupt committed artifact | also stale → exit 1 | An absent artifact of record is the worst staleness, not a pass. |
-| Ordering vs signed-bar failure | signed-bar failure first, staleness second | Bar failure is the root-cause message; staleness of the committed file is a consequence. |
-
-## Steps (= build stage for a trivial finding)
-
-- [x] FND-072 assigned (highest existing: FND-071)
-- [x] Root cause (5-whys) + row in quality/findings.md
-- [x] Red-first regression test (3 staleness cases red pre-fix, 4/4 green post-fix)
-- [x] Minimal fix in scripts/confusion_matrix_harness.py (`stale_reason()` + --check exit-1)
-- [x] Manifest entry status pinned
-- [x] pytest tests/regression -q → 182 passed; scripts/verify.sh → PASS (pytest, ruff, mypy, security_scan; pip-audit advisory WARN pre-existing)
-- [x] CI command sanity: `python scripts/confusion_matrix_harness.py --check` → exit 0, tree untouched
-
-## Constraints pinned by existing tests
-
-- `test_fnd_071_check_mode_is_read_only.py` — --check writes nothing (must stay green)
-- `test_story378_confusion_harness.py::test_check_mode_passes_because_t1_meets_the_signed_bar`
-  — `main(["--check"]) == 0` against the real committed artifact (currently fresh, so green)
-- `test_trend_line_excludes_the_timestamp_so_stable_rates_do_not_churn` — source-slice
-  assertion between `trend_line = {` and `with TREND_OUT`; new code stays outside that slice
+| Backend requires a non-blank `remediation_note`; UI has no note input — collect one or change the backend? | Collect in UI. Clicking "Mark Complete" reveals an inline note textarea + Confirm/Cancel; PATCH sends `{remediation_note}`. Backend untouched. | Preserves the HITL evidence posture (note is audit evidence — an AuditEvent is written server-side); story stays frontend-only, no authz surface change → no security-auditor requirement triggered by backend edits. |
+| Severity display: API has `result` (fail/warn/flagged/triggered), not `severity` | Map result→badge: fail→high(red), warn→medium(amber), flagged/triggered→neutral(gray). Keep existing SEV_COLOR palette. | Pure presentation mapping; no fabricated severity claim (badge shows the actual result word, color only groups it). |
+| Pagination (page_size=50) | Indicator only: "showing N of M" when total > traces.length. No pager UI. | Matches story Out of Scope; avoids new API params. |
+| Where does the story index row live? | New `specs/stories/STORY-TAB-INDEX.md` covering TAB-001..008 (SPECIFIED), TAB-001 → IMPLEMENTED w/ SHA in this PR. | Satisfies check_story_index.py + FM-4 (row changes in the implementing PR). |
+| Regression pinning for the two bugs (always-empty list; dead endpoint) | Vitest contract-pin tests in Remediation.test.jsx + FND rows in quality/findings.md, pinned-by-frontend-test (precedent: FND-021/029/031/052). | Frontend bugs pin in vitest (fast tier); tests/regression/ stays backend-only per existing convention. |
 
 ## Deviations
-
-- Branch stacked on `test/demo-live-e2e-gate` (PR #125, open): FND-071 has not
-  merged to main yet and this finding depends on it. Fast-forwarded
-  `claude/kind-cannon-1d0423` (zero unique commits) onto the PR head rather
-  than duplicating the FND-071 change off main. Previous task's
-  implementation-notes.md (PR #125's, already committed there) replaced by
-  this task's notes.
+- /story step-2 "wait for confirmation before implementing" and the 1b interview
+  are collapsed into defaulted decisions above — autonomous session; owner
+  pre-authorized proceeding to contract fixes. Conservative option chosen
+  everywhere (frontend conforms to backend; no backend edits).
