@@ -1,0 +1,37 @@
+name: Debug Anthropic key (temporary)
+
+# TEMPORARY diagnostic — probes the ANTHROPIC_API_KEY secret against the
+# Messages API to read the exact error class (billing / auth / model-not-found)
+# behind the Claude Code Review failures. Prints only the API's error JSON,
+# never the key. Delete this file once the root cause is confirmed.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  probe:
+    name: Anthropic API key probe
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe claude-sonnet-4-6 (model used by PR review)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          curl -sS -o resp1.json -w "HTTP %{http_code}\n" https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{"model":"claude-sonnet-4-6","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}' || true
+          cat resp1.json | head -c 2000; echo
+
+      - name: Probe claude-haiku-4-5 (known-good model control)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          curl -sS -o resp2.json -w "HTTP %{http_code}\n" https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}' || true
+          cat resp2.json | head -c 2000; echo
