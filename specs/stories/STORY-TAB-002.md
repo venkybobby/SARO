@@ -1,6 +1,6 @@
 # STORY-TAB-002: Onboarding tab — render the backend checklist instead of a divergent hardcoded one
 
-**Status:** ready
+**Status:** done
 **Screen/Area:** Onboarding tab (frontend/src/pages/Onboarding.jsx ↔ routers/onboarding.py)
 
 ## Premise verification
@@ -36,3 +36,19 @@ The Onboarding tab always shows 0% with 7 permanently-unchecked steps because th
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `Onboarding.test.jsx`: "renders exactly the API's steps with their labels, checked iff completed" (old hardcoded labels asserted absent) | Onboarding.jsx, Onboarding.test.jsx |
+| AC-2 | `Onboarding.test.jsx`: "AC-2: progress derives from API fields, not a local list" | Onboarding.jsx, Onboarding.test.jsx |
+| AC-3 | `Onboarding.test.jsx`: "AC-3: onboarding_complete renders the completion banner" | Onboarding.jsx, Onboarding.test.jsx |
+| AC-4 | `Onboarding.test.jsx`: "first_scan gets a Go button that navigates to upload; profile/sso get none" + "renders no raw /api/v1 hrefs" | Onboarding.jsx, config/onboardingNav.js, Onboarding.test.jsx |
+| AC-5 | `Onboarding.test.jsx`: "non-2xx renders an error state, never a fake 0% checklist" | Onboarding.jsx, Onboarding.test.jsx |
+
+**Edge cases covered:** empty `steps` → neutral message (no divide-by-zero — pct
+is API-supplied); unknown future keys render from `label`. Both in `Onboarding.test.jsx`.
+
+**Scope extension (logged deviation):** AppShell's `OnboardingWizard` (first-login
+modal) had the identical contract bug against the same endpoint and is fixed in
+the same change, sharing `config/onboardingNav.js`; pinned by three
+"STORY-TAB-002 / FND-075" cases in `frontend/src/components/AppShell.test.jsx`.
+
+**Finding:** FND-075 (quality/findings.md) — pinned red-first (11/14 failed
+pre-fix across the two test files), manifest entry `status: pinned`.

@@ -55,3 +55,66 @@ describe("AppShell — STORY-412: navigation guard for demo sessions", () => {
     await waitFor(() => expect(screen.getByText("Upload page content")).toBeTruthy());
   });
 });
+
+/**
+ * STORY-TAB-002 / FND-075 — OnboardingWizard shares the Onboarding tab's
+ * contract bug: it hardcoded 7 step ids and read flat booleans from
+ * GET /api/v1/onboarding/status, which returns
+ * {steps:[{key,label,completed,cta_url}], completed_steps, total_steps,
+ *  completion_pct, onboarding_complete} — so every first login showed 0/7.
+ */
+const ONBOARDING_STATUS = {
+  tenant_id: "tid",
+  completed_steps: 2,
+  total_steps: 4,
+  completion_pct: 50,
+  onboarding_complete: false,
+  steps: [
+    { key: "profile",    label: "Complete tenant profile",  completed: true,  cta_url: "/api/v1/clients/me" },
+    { key: "first_scan", label: "Run your first risk scan", completed: false, cta_url: "/api/v1/scan" },
+    { key: "aims_doc",   label: "Register an AI model in the AIMS document library", completed: true, cta_url: "/api/v1/aims/documents" },
+    { key: "sso",        label: "Configure SAML 2.0 SSO (optional)", completed: false, cta_url: "/api/v1/sso/configure" },
+  ],
+};
+
+describe("AppShell — STORY-TAB-002 / FND-075: OnboardingWizard binds the real contract", () => {
+  beforeEach(() => {
+    localStorage.removeItem("saro_onboarding_dismissed");
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/api/v1/onboarding/status")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(ONBOARDING_STATUS) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ db_ok: true }) });
+    }));
+  });
+  afterEach(() => localStorage.removeItem("saro_onboarding_dismissed"));
+
+  it("first-login wizard shows API progress and API step labels, not 0/7 hardcoded ones", async () => {
+    render(<AppShell token="t" user={{ role: "admin", persona_role: "admin" }} onSignOut={() => {}} onUserUpdate={() => {}} toast={TOAST} />);
+    expect(await screen.findByText(/2\/4 steps complete/)).toBeTruthy();
+    expect(screen.getByText("Run your first risk scan")).toBeTruthy();
+    expect(screen.queryByText("Tenant Created")).toBeNull();
+    expect(screen.queryByText(/0\/7 steps complete/)).toBeNull();
+  });
+
+  it("wizard Go on first_scan dismisses and navigates to Upload", async () => {
+    render(<AppShell token="t" user={{ role: "admin", persona_role: "admin" }} onSignOut={() => {}} onUserUpdate={() => {}} toast={TOAST} />);
+    await screen.findByText("Run your first risk scan");
+    const goButtons = screen.getAllByText(/Go →/);
+    expect(goButtons).toHaveLength(1); // only first_scan: incomplete AND mapped
+    fireEvent.click(goButtons[0]);
+    await waitFor(() => expect(screen.getByText("Upload page content")).toBeTruthy());
+  });
+
+  it("wizard fetch failure shows a neutral line, never fake progress", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/api/v1/onboarding/status")) {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ db_ok: true }) });
+    }));
+    render(<AppShell token="t" user={{ role: "admin", persona_role: "admin" }} onSignOut={() => {}} onUserUpdate={() => {}} toast={TOAST} />);
+    expect(await screen.findByText(/Couldn.t load setup progress/i)).toBeTruthy();
+    expect(screen.queryByText(/steps complete/)).toBeNull();
+  });
+});
