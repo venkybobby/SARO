@@ -19,7 +19,7 @@ Two properties are load-bearing:
 
 Usage:
     python scripts/confusion_matrix_harness.py                 # write artifact + trend
-    python scripts/confusion_matrix_harness.py --check         # read-only: fail only if the bar is SIGNED and unmet (FND-071: writes nothing)
+    python scripts/confusion_matrix_harness.py --check         # read-only (FND-071: writes nothing): fail if a SIGNED bar is unmet, or if the committed artifact no longer matches current rule-pack behaviour (FND-072)
 """
 
 from __future__ import annotations
@@ -199,6 +199,43 @@ def apply_bar(matrix: dict[str, Any]) -> dict[str, Any]:
     return matrix
 
 
+def stale_reason(fresh: dict[str, Any]) -> str | None:
+    """FND-072: why the committed artifact no longer matches ``fresh`` (or None).
+
+    FND-071 made --check read-only, which silently removed an accidental
+    freshness gate: --check used to rewrite MATRIX_OUT in the CI workspace, so
+    the next conformance.yml step compared the committed validation report
+    against CURRENT rule-pack behaviour. This restores that gate explicitly —
+    a read-only comparison, ``generated_at`` excluded (the only field
+    legitimately allowed to differ, same exclusion as the STORY-378
+    determinism test).
+    """
+    if not MATRIX_OUT.exists():
+        return "the artifact of record is missing"
+    try:
+        committed = json.loads(MATRIX_OUT.read_text(encoding="utf-8"))
+    except ValueError:
+        return "the committed artifact is not valid JSON"
+    if not isinstance(committed, dict):
+        return "the committed artifact is not a JSON object"
+    fresh_cmp = {k: v for k, v in fresh.items() if k != "generated_at"}
+    committed_cmp = {k: v for k, v in committed.items() if k != "generated_at"}
+    if fresh_cmp != committed_cmp:
+        # Sentinel default so a key present on only one side with value None
+        # still shows up as differing.
+        missing = object()
+        differing = sorted(
+            k
+            for k in set(fresh_cmp) | set(committed_cmp)
+            if fresh_cmp.get(k, missing) != committed_cmp.get(k, missing)
+        )
+        return (
+            "committed metrics no longer match current rule-pack behaviour "
+            f"(differing keys: {', '.join(differing)})"
+        )
+    return None
+
+
 def main(argv: list[str]) -> int:
     matrix = apply_bar(compute_matrix())
 
@@ -232,11 +269,23 @@ def main(argv: list[str]) -> int:
 
     # Fail the build ONLY when a signed bar is unmet. An unsigned bar is never
     # enforced — this is the AC-3 guarantee, made concrete.
-    if "--check" in argv and matrix["verdict"] == "fail":
-        print("FAIL: signed completion bar not met:")
-        for f in matrix.get("failures", []):
-            print(f"  {f}")
-        return 1
+    if "--check" in argv:
+        if matrix["verdict"] == "fail":
+            print("FAIL: signed completion bar not met:")
+            for f in matrix.get("failures", []):
+                print(f"  {f}")
+            return 1
+
+        # FND-072: the committed artifact of record must match what the packs
+        # do NOW, or the evidence CI ships is stale. Read-only comparison —
+        # FND-071's zero-writes guarantee holds on every --check path.
+        reason = stale_reason(matrix)
+        if reason is not None:
+            print(f"FAIL: quality/validation/confusion-latest.json is STALE — {reason}")
+            print(
+                "  regenerate: python scripts/confusion_matrix_harness.py  (then commit the diff)"
+            )
+            return 1
     return 0
 
 

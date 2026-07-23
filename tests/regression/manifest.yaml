@@ -342,3 +342,8 @@ findings:
     test: tests/regression/test_fnd_071_check_mode_is_read_only.py
     status: pinned
     quarantine_expires: null
+  - id: FND-072
+    title: "confusion_matrix_harness --check validated nothing about the committed artifact — FND-071's read-only fix removed the accidental freshness gate, so a rule-pack regression left confusion-latest.json silently stale in CI"
+    test: tests/regression/test_fnd_072_check_mode_detects_stale_artifact.py
+    status: pinned
+    quarantine_expires: null
