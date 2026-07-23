@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +70,22 @@ def _fmt(value: Any) -> str:
     return "-" if value is None else str(value)
 
 
+def _artifact_date(m: dict[str, Any]) -> str:
+    """FND-070: the report date is the ARTIFACT's date, never the wall clock —
+    STORY-379 AC-1 pins the committed report byte-equal to build_markdown(),
+    so any now() in the output turns green tests red the next day."""
+    generated_at = m.get("generated_at")
+    if not generated_at:
+        # Fail loudly rather than fall back to the wall clock — a silent
+        # fallback would quietly reintroduce the FND-070 nondeterminism.
+        raise KeyError(
+            "confusion-matrix artifact has no generated_at — regenerate it with "
+            "scripts/confusion_matrix_harness.py (default mode) before building "
+            "the report"
+        )
+    return datetime.fromisoformat(generated_at).date().isoformat()
+
+
 def build_markdown() -> str:
     m = _load_matrix()
     import services.validation_bar as validation_bar
@@ -86,7 +102,7 @@ def build_markdown() -> str:
         "not asserted — regenerating this report cannot state a number the "
         "harness did not produce.",
         "",
-        f"- **Generated:** {datetime.now(tz=timezone.utc).date().isoformat()}",
+        f"- **Generated:** {_artifact_date(m)}",
         f"- **Corpus tier measured:** {tier} ({ALL_TIERS.get(tier, 'unknown')})",
         f"- **Corpus records:** {m.get('corpus_records', '?')}",
         f"- **Completion bar:** {bar['status']}"
@@ -128,7 +144,9 @@ def build_markdown() -> str:
             )
         lines.append("")
 
-    uncovered = [f"{t} ({ALL_TIERS[t]})" for t in ("T1", "T2", "T3", "T4") if t not in covered]
+    uncovered = [
+        f"{t} ({ALL_TIERS[t]})" for t in ("T1", "T2", "T3", "T4") if t not in covered
+    ]
     lines += [
         "## Limitations - read this before relying on the numbers above",
         "",
@@ -220,7 +238,13 @@ def build_pdf(markdown: str) -> bytes:
             pdf.multi_cell(0, 4.5, _ascii(line), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         elif line:
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 5.5, _ascii(line.lstrip("> ").lstrip("- ")), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(
+                0,
+                5.5,
+                _ascii(line.lstrip("> ").lstrip("- ")),
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
         else:
             pdf.ln(2)
     return bytes(pdf.output())
@@ -232,7 +256,9 @@ def main(argv: list[str]) -> int:
     violations = _check_language(md)
     if violations:
         print(f"FAIL: prohibited claim language in the validation report: {violations}")
-        print("See docs/compliance-claims.md - SARO reports measurements, not verdicts.")
+        print(
+            "See docs/compliance-claims.md - SARO reports measurements, not verdicts."
+        )
         return 1
 
     if "--check" in argv:

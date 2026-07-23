@@ -3,230 +3,168 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Change Debrief — TM-F1 / FND-061: Signed Jira OAuth State</title>
+<title>Change Debrief — Live Demo E2E Gate (Playwright)</title>
 <style>
-  :root { --ink:#1a2332; --muted:#5b6b80; --accent:#0b5fff; --bad:#c0392b; --good:#1e8e4e;
-          --warn:#b7791f; --card:#f6f8fb; --border:#dbe2ec; }
-  * { box-sizing:border-box; }
-  body { font:16px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
-         max-width:900px; margin:0 auto; padding:2rem 1.25rem 5rem; background:#fff; }
-  h1 { font-size:1.7rem; line-height:1.25; } h2 { margin-top:2.4rem; border-bottom:2px solid var(--border); padding-bottom:.3rem; }
-  h3 { margin-top:1.6rem; }
-  .tag { display:inline-block; font-size:.75rem; font-weight:600; padding:.1rem .55rem;
-         border-radius:99px; background:var(--card); border:1px solid var(--border); margin-right:.4rem; }
-  .tag.sec { background:#fdeeee; border-color:#eec4c4; color:var(--bad); }
-  .tag.ok  { background:#eaf7ef; border-color:#bfe3cc; color:var(--good); }
-  code { background:var(--card); padding:.1rem .35rem; border-radius:4px; font-size:.88em; }
-  pre  { background:var(--card); border:1px solid var(--border); border-radius:8px; padding: .9rem 1rem; overflow-x:auto; font-size:.85rem; }
-  table { border-collapse:collapse; width:100%; font-size:.92rem; }
-  th,td { border:1px solid var(--border); padding:.5rem .65rem; text-align:left; vertical-align:top; }
-  th { background:var(--card); }
-  .risk-cov { color:var(--good); font-weight:600; } .risk-gap { color:var(--warn); font-weight:600; }
-  .dev { border-left:4px solid var(--warn); background:#fdf8ee; padding:.6rem .9rem; border-radius:0 8px 8px 0; margin:.8rem 0; }
-  figure { margin:1.5rem 0; } figcaption { font-size:.85rem; color:var(--muted); text-align:center; margin-top:.4rem; }
-  details.q { border:1px solid var(--border); border-radius:8px; margin:.7rem 0; background:var(--card); }
-  details.q summary { cursor:pointer; padding:.7rem 1rem; font-weight:600; }
-  details.q div { padding:0 1rem .8rem; border-top:1px solid var(--border); }
+  :root { --bg:#0f1117; --card:#151a26; --border:#242c3d; --text:#dbe2ee; --muted:#8b98ad;
+          --accent:#14b8a6; --red:#f87171; --amber:#fbbf24; --green:#4ade80; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",sans-serif;
+         max-width:900px; margin:0 auto; padding:32px 20px 80px; line-height:1.6; }
+  h1 { color:var(--accent); font-size:26px; } h2 { border-bottom:1px solid var(--border); padding-bottom:6px; margin-top:40px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin:14px 0; }
+  code { background:#1c2333; padding:1px 6px; border-radius:4px; font-size:0.9em; }
+  table { border-collapse:collapse; width:100%; font-size:14px; } td,th { border:1px solid var(--border); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#1a2132; } .pass{color:var(--green)} .fail{color:var(--red)} .warn{color:var(--amber)}
+  .dev { border-left:4px solid var(--amber); padding-left:12px; }
+  details { background:var(--card); border:1px solid var(--border); border-radius:8px; margin:10px 0; padding:10px 16px; }
+  summary { cursor:pointer; font-weight:600; } details[open] summary { color:var(--accent); }
+  svg text { fill:var(--text); font-size:12px; font-family:inherit; }
   .muted { color:var(--muted); }
 </style>
 </head>
 <body>
+<h1>Live Demo E2E Gate — Playwright automation of RB-006</h1>
+<p class="muted"><b>Task:</b> "Run Playwright and create the end-to-end flow for the use cases planned for Demo"
+against <code>sarofrontend.fly.dev</code> / <code>saro-backend.fly.dev</code> · 2026-07-22</p>
 
-<h1>Signed Jira OAuth State <span class="muted">— TM-F1 fix debrief</span></h1>
-<p>
-  <span class="tag sec">security: OAuth CSRF</span>
-  <span class="tag">FND-061 pinned</span>
-  <span class="tag">FND-062 pinned</span>
-  <span class="tag">FND-063 open</span>
-  <span class="tag ok">auditor: PASS-WITH-FINDINGS (fixed in-PR)</span>
-  <span class="tag ok">reviewer: APPROVE</span>
-</p>
+<h2>1 · Context — why this exists</h2>
+<div class="card">
+<p>The demo readiness review (2026-07-19) found the CI "E2E Smoke Tests" job was <b>vacuous</b>:
+all 13 <code>@pytest.mark.e2e</code> tests were <code>pass</code> placeholders, so no real browser
+ever loaded the demo pages before an attendee did (finding F3 — the structural gap that let the
+"1286/100" badge and the red "API offline" dot ship). The pre-demo checklist RB-006 existed only
+as manual curl blocks. This change turns RB-006 §§A–E and §H into one command:</p>
+<p><code>SARO_LIVE_E2E=1 pytest tests/e2e -m e2e -q</code></p>
+<p>The demo itself runs on the public <code>/demo</code> flow and shows five planned use cases from
+<code>scripts/demo_manifest.yaml</code>: UC-1 PHI leakage, UC-2 hallucinated clinical guidance,
+UC-3 missing disclaimer, UC-4 prompt-injection echo, UC-5 unapproved model
+(→ <code>ENV-MODEL-ALLOWLIST-1</code>). UC-1/2/5 are expected to fire; UC-3/4 are planted-pending-rule.</p>
+</div>
 
-<h2>Context — why this exists</h2>
-<p>
-SARO can file Jira tickets for audit findings. To do that, a tenant connects their Jira Cloud
-account through OAuth: SARO sends the user to Atlassian, Atlassian redirects back to SARO's
-<em>callback</em> URL with a one-time <code>code</code>, and SARO trades that code for access
-tokens which it encrypts and stores for the tenant.
-</p>
-<p>
-The problem (threat-model finding <strong>TM-F1</strong>): the callback identified the tenant
-purely from a <code>state</code> query parameter that anyone could set to any tenant's UUID.
-The callback is necessarily unauthenticated (it's a browser redirect from Atlassian), so
-nothing stopped an attacker from completing a <em>forged</em> callback: authorize their own
-Jira account, then hit SARO's callback with their code and a victim tenant's UUID as
-<code>state</code>. The victim tenant's Jira integration would silently become the attacker's
-Jira account — every subsequent "create issue" would leak finding details to the attacker.
-This is the textbook OAuth CSRF the <code>state</code> parameter exists to prevent.
-</p>
-
-<h2>Intuition — the mental model</h2>
-<p>
-Think of <code>state</code> as a <strong>claim ticket</strong>. Before, SARO accepted a claim
-ticket that anyone could write themselves ("this coat belongs to tenant X"). Now the ticket is
-printed by SARO on tamper-evident paper: it contains the tenant id, an issue timestamp, and a
-random nonce, all covered by an HMAC-SHA256 signature only SARO can produce. And SARO keeps a
-stub (the nonce, on the tenant's row) — the ticket is honored once, within 10 minutes, and the
-stub is destroyed <em>before</em> the coat is handed over.
-</p>
-
-<figure>
-<svg viewBox="0 0 860 400" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto" font-family="-apple-system,'Segoe UI',Roboto,sans-serif">
-  <!-- BEFORE -->
-  <text x="20" y="28" font-size="15" font-weight="700" fill="#c0392b">BEFORE — forgeable binding</text>
-  <rect x="20" y="45" width="180" height="46" rx="8" fill="#fdeeee" stroke="#eec4c4"/>
-  <text x="110" y="66" font-size="12" text-anchor="middle">Attacker's browser</text>
-  <text x="110" y="82" font-size="11" text-anchor="middle" fill="#5b6b80">has own Atlassian code</text>
-  <rect x="330" y="45" width="200" height="46" rx="8" fill="#f6f8fb" stroke="#dbe2ec"/>
-  <text x="430" y="66" font-size="12" text-anchor="middle">GET /oauth/jira/callback</text>
-  <text x="430" y="82" font-size="11" text-anchor="middle" fill="#c0392b">state = victim tenant UUID ✗</text>
-  <rect x="660" y="45" width="180" height="46" rx="8" fill="#fdeeee" stroke="#eec4c4"/>
-  <text x="750" y="66" font-size="12" text-anchor="middle">Victim tenant</text>
-  <text x="750" y="82" font-size="11" text-anchor="middle" fill="#c0392b">bound to attacker's Jira</text>
-  <line x1="200" y1="68" x2="325" y2="68" stroke="#c0392b" stroke-width="2" marker-end="url(#ar)"/>
-  <line x1="530" y1="68" x2="655" y2="68" stroke="#c0392b" stroke-width="2" marker-end="url(#ar)"/>
-  <text x="262" y="60" font-size="10" text-anchor="middle" fill="#c0392b">forged</text>
-  <text x="592" y="60" font-size="10" text-anchor="middle" fill="#c0392b">tokens stored*</text>
-  <text x="20" y="118" font-size="10.5" fill="#5b6b80">*and even the legitimate flow never persisted tokens — written to a nonexistent ClientConfig.settings_json column (FND-062)</text>
-
-  <!-- AFTER -->
-  <text x="20" y="160" font-size="15" font-weight="700" fill="#1e8e4e">AFTER — signed, single-use, verified before exchange</text>
-  <rect x="20" y="178" width="185" height="60" rx="8" fill="#eaf7ef" stroke="#bfe3cc"/>
-  <text x="112" y="199" font-size="12" text-anchor="middle" font-weight="600">/oauth/jira/start</text>
-  <text x="112" y="215" font-size="10.5" text-anchor="middle" fill="#5b6b80">state = tenant.ts.nonce.HMAC</text>
-  <text x="112" y="229" font-size="10.5" text-anchor="middle" fill="#5b6b80">nonce → Tenant.settings_json</text>
-  <rect x="255" y="178" width="160" height="60" rx="8" fill="#f6f8fb" stroke="#dbe2ec"/>
-  <text x="335" y="205" font-size="12" text-anchor="middle">Atlassian consent</text>
-  <text x="335" y="221" font-size="10.5" text-anchor="middle" fill="#5b6b80">redirect w/ code + state</text>
-  <rect x="465" y="178" width="185" height="60" rx="8" fill="#eaf7ef" stroke="#bfe3cc"/>
-  <text x="557" y="196" font-size="12" text-anchor="middle" font-weight="600">callback gate</text>
-  <text x="557" y="211" font-size="10.5" text-anchor="middle" fill="#5b6b80">sig ✓ TTL ✓ nonce ✓</text>
-  <text x="557" y="226" font-size="10.5" text-anchor="middle" fill="#5b6b80">consume nonce (row-locked)</text>
-  <rect x="700" y="178" width="140" height="60" rx="8" fill="#eaf7ef" stroke="#bfe3cc"/>
-  <text x="770" y="199" font-size="12" text-anchor="middle">token exchange</text>
-  <text x="770" y="215" font-size="10.5" text-anchor="middle" fill="#5b6b80">encrypt → persist on</text>
-  <text x="770" y="228" font-size="10.5" text-anchor="middle" fill="#5b6b80">Tenant.settings_json</text>
-  <line x1="205" y1="208" x2="250" y2="208" stroke="#1e8e4e" stroke-width="2" marker-end="url(#ag)"/>
-  <line x1="415" y1="208" x2="460" y2="208" stroke="#1e8e4e" stroke-width="2" marker-end="url(#ag)"/>
-  <line x1="650" y1="208" x2="695" y2="208" stroke="#1e8e4e" stroke-width="2" marker-end="url(#ag)"/>
-
-  <!-- reject fan -->
-  <rect x="465" y="280" width="185" height="94" rx="8" fill="#fdf8ee" stroke="#ecd9b0"/>
-  <text x="557" y="300" font-size="11.5" text-anchor="middle" font-weight="600" fill="#b7791f">rejected → 400, zero egress</text>
-  <text x="557" y="318" font-size="10.5" text-anchor="middle" fill="#5b6b80">missing · malformed · bad sig</text>
-  <text x="557" y="334" font-size="10.5" text-anchor="middle" fill="#5b6b80">forged key · expired (&gt;10 min)</text>
-  <text x="557" y="350" font-size="10.5" text-anchor="middle" fill="#5b6b80">replayed / unissued nonce</text>
-  <text x="557" y="366" font-size="10.5" text-anchor="middle" fill="#5b6b80">non-ASCII garbage</text>
-  <line x1="557" y1="238" x2="557" y2="275" stroke="#b7791f" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#aw)"/>
-  <defs>
-    <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c0392b"/></marker>
-    <marker id="ag" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e8e4e"/></marker>
-    <marker id="aw" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b7791f"/></marker>
-  </defs>
+<h2>2 · Intuition — before / after</h2>
+<div class="card">
+<svg viewBox="0 0 840 210" width="100%" role="img" aria-label="before/after flow">
+  <text x="10" y="20" font-weight="bold">BEFORE</text>
+  <rect x="10" y="32" width="180" height="44" rx="6" fill="#1a2132" stroke="#242c3d"/>
+  <text x="20" y="50">RB-006 runbook</text><text x="20" y="66">10 manual curl blocks</text>
+  <rect x="230" y="32" width="180" height="44" rx="6" fill="#1a2132" stroke="#242c3d"/>
+  <text x="240" y="50">CI e2e job</text><text x="240" y="66">13 `pass` placeholders</text>
+  <rect x="470" y="32" width="180" height="44" rx="6" fill="#2a1414" stroke="#7f1d1d"/>
+  <text x="480" y="50">Demo day</text><text x="480" y="66">first real browser load</text>
+  <line x1="410" y1="54" x2="470" y2="54" stroke="#7f1d1d" marker-end="url(#a)"/>
+  <text x="10" y="120" font-weight="bold">AFTER</text>
+  <rect x="10" y="132" width="240" height="60" rx="6" fill="#12241f" stroke="#14b8a6"/>
+  <text x="20" y="152">tests/e2e/test_demo_live_flow.py</text>
+  <text x="20" y="168">23 tests · RB-006 §A–E + §H</text>
+  <text x="20" y="184">armed by SARO_LIVE_E2E=1</text>
+  <rect x="310" y="132" width="200" height="60" rx="6" fill="#1a2132" stroke="#242c3d"/>
+  <text x="320" y="152">Deployed apps (Fly.io)</text>
+  <text x="320" y="168">demo token → census →</text>
+  <text x="320" y="184">write-guard → /demo walk</text>
+  <rect x="570" y="132" width="240" height="60" rx="6" fill="#1a2132" stroke="#242c3d"/>
+  <text x="580" y="152">Verdict + screenshots</text>
+  <text x="580" y="168">artifacts/demo-e2e/*.png</text>
+  <text x="580" y="184">failure text = runbook remedy</text>
+  <line x1="250" y1="162" x2="310" y2="162" stroke="#14b8a6"/>
+  <line x1="510" y1="162" x2="570" y2="162" stroke="#14b8a6"/>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#7f1d1d"/></marker></defs>
 </svg>
-<figcaption>The callback now proves three independent things before any external call: SARO minted this state (signature), recently (TTL), and it has never been used (nonce).</figcaption>
-</figure>
+<p><b>Mental model:</b> the suite is a <i>deployment gate</i>, not a unit test. It asserts the
+demo-ready state of the live system; when the system isn't demo-ready, the correct output is a
+red test whose message quotes the runbook remedy. That is exactly what happened on the first run.</p>
+</div>
 
-<h2>What was done, file by file</h2>
+<h2>3 · File-by-file</h2>
 <table>
-<tr><th>File</th><th>Change</th></tr>
-<tr><td><code>routers/remediation.py</code></td><td>
-  New helpers: <code>_oauth_state_secret</code> (env <code>OAUTH_STATE_SECRET</code> →
-  <code>jwt_secret_key</code> fallback, fail-closed 500, <em>no hardcoded default</em>),
-  <code>_sign_state_payload</code>, <code>_generate_oauth_state</code>,
-  <code>_verify_oauth_state</code> (constant-time bytes compare, TTL bounded both directions),
-  <code>_reject_state</code> (logs a reason category, never the state itself).
-  <code>/oauth/jira/start</code> signs the state and persists the nonce on the tenant row.
-  The callback rejects all invalid states with a uniform 400 <em>before</em> the token
-  exchange, consumes the nonce under <code>with_for_update()</code>, then stores encrypted
-  tokens on <code>Tenant.settings_json</code>. <code>create_jira_issue</code> reads tokens
-  from the same place (FND-062).</td></tr>
-<tr><td><code>tests/regression/test_fnd_061_jira_oauth_signed_state.py</code></td><td>
-  11 tests, written red-first against the vulnerable code: happy path (decrypt round-trip on
-  the Tenant row), state-shape pin, and rejection of missing / tampered / bare-tenant-UUID
-  (the exact pre-fix attack) / wrong-key forged / expired / replayed / unissued-nonce /
-  non-ASCII states — each rejection also asserting <strong>zero</strong> calls to the token
-  endpoint — plus the fail-closed 500 when no signing key is configured.</td></tr>
-<tr><td><code>tests/regression/manifest.yaml</code></td><td>FND-061 + FND-062 (pinned), FND-063 (open).</td></tr>
-<tr><td><code>quality/findings.md</code></td><td>Full ledger rows for all three findings.</td></tr>
-<tr><td><code>implementation-notes.md</code></td><td>Lifecycle record: decision log, plan, deviations.</td></tr>
+<tr><th>File</th><th>What was done</th></tr>
+<tr><td><code>tests/e2e/conftest.py</code> (new)</td>
+<td>Session fixtures: <code>api</code> (httpx client → backend), <code>demo_token</code> (mints the
+public demo JWT, RB-006 §A), <code>auth_headers</code>, base-URL fixtures overridable via
+<code>SARO_E2E_BACKEND</code>/<code>SARO_E2E_FRONTEND</code> (default = Fly.io prod), and
+<code>artifact_dir</code> → <code>artifacts/demo-e2e/</code>.</td></tr>
+<tr><td><code>tests/e2e/test_demo_live_flow.py</code> (new)</td>
+<td>23 tests named by runbook section: §A health + JWT claims (read_only, demo_viewer,
+compliance_lead persona); §B the 10-endpoint census (same list STORY-412 pins in CI); §C seeded
+audits present + FND-059 guard (no stored score &gt; 1.0); §D UC-5
+<code>ENV-MODEL-ALLOWLIST-1</code> in a live trace + UC-1/UC-2 domain evidence; §E write guards
+(ingest POST and readiness PUT both 403); §H Playwright walk of <code>/demo</code> — entry render,
+FND-060 "API offline" badge guard, 4-tab walk with a zero-≥400-responses network watch +
+"sample" caption and &gt;100 risk-badge guards, TRACE detail open, hard-refresh re-auth with a
+no-JWT-in-localStorage check.</td></tr>
+<tr><td><code>RB-006-live-demo-verification.md</code></td>
+<td>One callout added: §§A–E/§H are automated by this suite; §F/§G (fly ssh) stay manual.</td></tr>
+<tr><td class="dev"><code>implementation-notes.md</code></td>
+<td class="dev"><b>Deviation logged:</b> live demo tenant found EMPTY during discovery — suite built
+to report that precisely instead of skipping, since an empty tenant is a demo blocker.</td></tr>
 </table>
 
-<h3>Logged deviations</h3>
-<div class="dev"><strong>FND-062 storage move.</strong> The callback wrote tokens to
-<code>ClientConfig.settings_json</code> — a column that does not exist on that model, so the
-write raised <code>AttributeError</code>, was swallowed by a broad <code>except</code>, and the
-endpoint returned 200 anyway. Token persistence (write <em>and</em> the
-<code>create_jira_issue</code> read) moved to <code>Tenant.settings_json</code>, which exists.
-The aggressive alternative (a migration adding the column) was rejected as larger blast radius.</div>
-<div class="dev"><strong>Finding IDs renumbered</strong> from 058/059/060 to 061/062/063
-mid-task: origin/main advanced 4 commits during the work and claimed the original IDs
-(PR #124). The append-only ledger stays append-only.</div>
+<h2>4 · Deliberately NOT done</h2>
+<div class="card"><ul>
+<li><b>No reseed of the production demo tenant</b> — a prod DB write needing operator
+secrets/fly access (RB-006 §C remedy). Surfaced instead.</li>
+<li><b>CI does not hit fly.dev per-PR</b> — the suite skips unless <code>SARO_LIVE_E2E=1</code>;
+making prod availability a PR gate is a team decision.</li>
+<li><b>No UC-3/UC-4 finding assertions</b> — manifest marks them <code>planted_pending_rule</code>;
+asserting them would assert unbuilt rules (FM-1 discipline).</li>
+<li><b>No /app login flow</b> — needs interactive credentials; the planned demo runs on /demo.</li>
+<li><b>§F/§G not automated</b> — require <code>fly ssh</code> from an operator machine.</li>
+</ul></div>
 
-<h2>What was deliberately NOT done</h2>
-<ul>
-  <li><strong>No role gate on <code>/oauth/jira/start</code></strong> — any authenticated
-      tenant user can still (re)bind the tenant's Jira connection. Pre-existing posture,
-      logged as <strong>FND-063 (open)</strong> per the auditor's own recommendation rather
-      than silently widening this diff.</li>
-  <li><strong>No async <code>httpx.AsyncClient</code> conversion</strong> — the sync
-      <code>httpx.post</code> in an async handler predates this change and matches the file's
-      (already-ledgered, FND-024-class) pattern.</li>
-  <li><strong>No per-nonce multi-flow support</strong> — one pending OAuth flow per tenant
-      (second <code>/start</code> overwrites the first). Adequate for the integration's usage;
-      noted under FND-063.</li>
-  <li><strong>No migration</strong> — deliberately zero schema change.</li>
-</ul>
-
-<h2>Risk map</h2>
+<h2>5 · Risk map</h2>
 <table>
-<tr><th>Risk</th><th>Covering test / status</th></tr>
-<tr><td>Forged callback binds tokens to a victim tenant (TM-F1)</td>
-    <td class="risk-cov">test_bare_tenant_uuid_state_is_400, test_state_forged_with_wrong_key_is_400, test_tampered_state_is_400</td></tr>
-<tr><td>Stolen state reused later (replay)</td><td class="risk-cov">test_replayed_state_is_400 (+ egress count stays 1)</td></tr>
-<tr><td>Stale state honored long after issue</td><td class="risk-cov">test_expired_state_is_400 (10-min TTL, lower bound too)</td></tr>
-<tr><td>Unverified input triggers external calls</td><td class="risk-cov">every rejection test asserts exchange mock call_count == 0</td></tr>
-<tr><td>Attacker-crafted garbage crashes the route (500 oracle)</td><td class="risk-cov">test_non_ascii_state_is_400_not_500</td></tr>
-<tr><td>Deploy with no signing secret silently issues unsigned states</td><td class="risk-cov">test_start_fails_closed_without_signing_key (500, env-var names not in response)</td></tr>
-<tr><td>Tokens silently not persisted (FND-062)</td><td class="risk-cov">test_valid_state_binds_tokens_to_tenant (decrypt round-trip on the Tenant row)</td></tr>
-<tr><td>Concurrent double-spend of one nonce (TOCTOU)</td>
-    <td class="risk-gap">mitigated by <code>with_for_update()</code> on Postgres — not testable on the SQLite harness (FOR UPDATE is a no-op there); no pinning test</td></tr>
-<tr><td>Insider rebinds tenant Jira connection (no role gate)</td><td class="risk-gap">accepted, tracked as FND-063 (open)</td></tr>
-<tr><td>state/code appear in edge access logs (GET params)</td><td class="risk-gap">inherent to the OAuth code flow; bounded by TTL + single-use nonce + single-use code</td></tr>
+<tr><th>Risk</th><th>Covered by / gap</th></tr>
+<tr><td>Sidebar labels change → tab walk silently clicks nothing</td><td class="pass">Click timeout fails the test loudly with the tab name; labels sourced from Sidebar.jsx NAV (cited in premise table)</td></tr>
+<tr><td>Census list drifts from STORY-412's</td><td class="warn">Textual copy — CI census + RB-006 + this suite must be edited together; comment cross-references all three. Gap: no single shared constant (the CI census lives in a regression test that imports the app; importing it here would couple the live gate to app imports)</td></tr>
+<tr><td>Suite runs in CI and reddens main when fly.dev hiccups</td><td class="pass">Verified: unarmed <code>pytest tests/ -m e2e</code> → 23 skipped, 13 legacy pass</td></tr>
+<tr><td>Empty tenant makes browser tests hang on selectors</td><td class="pass">Chip-count check fails fast with the reseed remedy (fixed after first run's raw timeout)</td></tr>
+<tr><td>Token leakage into repo</td><td class="pass">No credentials anywhere; the demo JWT is public by design; localStorage check pins DemoEntry's state-held invariant</td></tr>
+<tr><td>UC-5 detection depends on trace response wording</td><td class="warn">Substring match on <code>ENV-MODEL-ALLOWLIST-1</code> over trace JSON — robust to shape changes but not to rule-id renames (acceptable: the rule id IS the contract, rule_packs/envelope/1.0.0)</td></tr>
 </table>
 
-<h2>Quiz — do you actually hold the model?</h2>
+<h2>6 · Current live verdict (run 2026-07-22, twice, consistent)</h2>
+<table>
+<tr><th>RB-006</th><th>Result</th></tr>
+<tr><td>§A token + health</td><td class="pass">PASS — token 200, read-only claims correct, db_ok, no missing migrations</td></tr>
+<tr><td>§B census ×10</td><td class="pass">PASS — all 200</td></tr>
+<tr><td>§C seeded data</td><td class="fail">FAIL — audits list is [] (demo tenant empty)</td></tr>
+<tr><td>§D UC exemplars</td><td class="fail">FAIL — no traces to search (same root cause)</td></tr>
+<tr><td>§E write guards</td><td class="pass">PASS — both writes 403</td></tr>
+<tr><td>§H browser walk</td><td class="warn">4/5 PASS — entry, badge ("API online · DB ok", FND-060 live), tab walk zero red rows, refresh re-auth; TRACE detail FAIL (no chips — same root cause)</td></tr>
+</table>
 
-<details class="q"><summary>1. Why does the callback have to trust <code>state</code> at all — why can't it just use the logged-in user's tenant?</summary>
-<div>The callback is a browser redirect <em>from Atlassian</em>, not an authenticated API call — there is no SARO session or JWT on that request. The tenant identity must ride inside the redirect itself, which is exactly why it must be integrity-protected.</div></details>
-
-<details class="q"><summary>2. The HMAC signature already proves SARO minted the state. Why is the nonce still necessary?</summary>
-<div>A signature verifies forever — a leaked or intercepted state would stay valid for its whole TTL, replayable any number of times. The nonce, stored server-side and destroyed on first use, adds the one property signatures can't give: single use.</div></details>
-
-<details class="q"><summary>3. Why is the nonce consumed <em>before</em> the token exchange instead of after success?</summary>
-<div>If it were consumed only on success, a callback that fails mid-exchange would leave the nonce alive — and a captured state could be replayed against the token endpoint. Consuming first means a replay can never cause egress; the worst case is the legitimate user restarting the flow.</div></details>
-
-<details class="q"><summary>4. What breaks if the timestamp were <em>outside</em> the HMAC'd payload?</summary>
-<div>An attacker could take a validly signed state and swap in a fresh timestamp forever, defeating the TTL. Every field an attacker could benefit from altering — tenant, time, nonce — must be under the MAC.</div></details>
-
-<details class="q"><summary>5. Why compare signatures with <code>hmac.compare_digest</code> on <em>bytes</em>, and not <code>==</code> on strings?</summary>
-<div>Two reasons: <code>==</code> short-circuits at the first differing byte, leaking timing information an attacker can use to forge a signature byte-by-byte; and str-mode <code>compare_digest</code> raises <code>TypeError</code> on non-ASCII input, turning attacker garbage into a 500 instead of a clean 400.</div></details>
-
-<details class="q"><summary>6. What would have happened if we'd "fixed" TM-F1 but left token storage on <code>ClientConfig.settings_json</code>?</summary>
-<div>The CSRF fix would have been untestable theater: the happy-path test asserts the decrypt round-trip on the stored tokens, and that write silently never persisted (nonexistent column, swallowed AttributeError). Binding tokens securely to a tenant is meaningless if the binding is never written.</div></details>
-
-<details class="q"><summary>7. Why does a missing signing secret return 500 rather than falling back to a built-in default key?</summary>
-<div>A known default key means anyone can mint valid states — TM-F1 reintroduced with extra steps. This repo has already ledgered exactly that bug class (FND-044, the <code>EXPORT_HMAC_SECRET</code> hardcoded default). Fail-closed is the only safe behavior.</div></details>
-
-<details class="q"><summary>8. What attack does <code>with_for_update()</code> close, and why can't our test suite prove it?</summary>
-<div>Two concurrent callbacks carrying the same state could both read the pending nonce before either commits the delete — both "spend" it once (TOCTOU race). The row lock serializes verify-and-consume on Postgres. The test harness runs SQLite, where <code>FOR UPDATE</code> is a no-op, so this is verified by code review, not by a pinning test.</div></details>
-
-<details class="q"><summary>9. An attacker steals a victim's <em>unexpired, unused</em> state value. What can they do with it?</summary>
-<div>Race the victim: whoever reaches the callback first consumes the nonce. If the attacker wins with their own authorization code, they bind their Jira account to the victim tenant — which is why state values must be treated as secrets in transit (TTL + single-use bound the window; FND-063's role gate would further limit who can mint them).</div></details>
-
-<details class="q"><summary>10. Why 400 for every rejection reason rather than distinguishing "expired" from "bad signature" in the response?</summary>
-<div>Distinct responses give an attacker an oracle to probe the verifier one property at a time (e.g. confirm a signature is valid but expired). The reason category goes to server logs for defenders; the caller gets one uniform answer.</div></details>
-
-<p class="muted" style="margin-top:2.5rem">Generated as the VERIFY-stage debrief for FND-061/FND-062 · SARO lifecycle · 2026-07-20</p>
+<h2>7 · Quiz — do you actually hold the model?</h2>
+<details><summary>1. Why does the suite skip unless SARO_LIVE_E2E=1 instead of just being marked e2e?</summary>
+<p>Because CI runs <code>pytest tests/ -m e2e</code> on every PR with no deployment in scope. Unarmed,
+these tests would either fail CI whenever fly.dev is unreachable or force every PR to depend on prod
+state. The env-var arm makes "hermetic CI" and "live pre-demo gate" two modes of one suite.</p></details>
+<details><summary>2. All five failures today have one root cause. What is it, and what's the remedy?</summary>
+<p>The live demo tenant has zero audits — the STORY-407 corpus was never ingested (or was reset).
+Remedy per RB-006 §C: <code>python cli.py demo reset --tenant &lt;id&gt; --yes</code> then re-ingest;
+re-run the gate and expect 23/23.</p></details>
+<details><summary>3. Why are UC-3 and UC-4 not asserted as findings when they're planned demo use cases?</summary>
+<p><code>demo_manifest.yaml</code> marks them <code>expected: planted_pending_rule</code> — the rules
+(missing-disclaimer, RP-INJ-BOUNDARY) don't exist yet. Asserting findings for them would encode a
+phantom implementation (failure mode FM-1/FM-2).</p></details>
+<details><summary>4. What breaks if someone reseeds with the pre-FND-059 seeder?</summary>
+<p>Stored <code>overall_risk_score</code> would be 0–100 instead of 0–1; the frontend multiplies by
+100 once, so badges read "1286/100". <code>test_c_risk_scores_are_probabilities</code> fails on any
+stored score &gt; 1.0 — catching the F1 blocker before an attendee sees it.</p></details>
+<details><summary>5. Why does the browser flow enter at /demo and never /app?</summary>
+<p>/app requires interactive login credentials; /demo mints a public read-only JWT via
+<code>GET /api/v1/demo/token</code> and renders the trimmed DEMO_TABS shell — which is exactly the
+surface the planned demo uses (RB-006 §H).</p></details>
+<details><summary>6. What would a 2xx from test_e_demo_token_cannot_ingest mean?</summary>
+<p>That the PUBLIC demo token can write to SARO — anyone on the internet could ingest data into the
+demo tenant. RB-006's words: "stop everything and fix." It also violates non-negotiables #3/#6.</p></details>
+<details><summary>7. Why watch network responses during the tab walk instead of just checking pages render?</summary>
+<p>A React page can render its chrome while every data fetch 403s/500s underneath. The ≥400 watch is
+the automated version of "DevTools Network open, zero red rows" — it catches whitelist violations
+and 500s that the DOM hides behind empty states.</p></details>
+<details><summary>8. What does the hard-refresh test actually pin, beyond "the page loads again"?</summary>
+<p>Two invariants: DemoEntry re-mints the token cleanly (the demo doesn't die on an accidental F5
+mid-pitch), and the JWT never lands in localStorage — it's React-state-held, so a shared/kiosk
+machine doesn't retain a token after the tab closes.</p></details>
+<details><summary>9. If CI's STORY-412 census test is green but §B fails live, what does that tell you?</summary>
+<p>The deployed build is behind main (CI pins the census against the in-process app; this suite pins
+it against the deployment). The failure message says exactly that — deploy, don't debug.</p></details>
 </body>
 </html>
