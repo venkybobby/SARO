@@ -26,7 +26,7 @@ Reduce nav sprawl and eliminate "empty tab" impressions for prospects/admins: fi
 2. Coverage Gap → "Coverage" view inside Compliance Hub; tab removed.
 3. Remediation → "Open findings" filter + remediate action inside TRACE View; Dashboard card "N open remediations" deep-links there; tab removed (operator persona keeps a direct entry point via TRACE View).
 4. Onboarding → dismissible Dashboard first-run checklist shown until `onboarding_complete`; tab removed.
-5. Evaluations → section under Admin Settings (role-gated per STORY-TAB-004); latest completed run surfaces as a "detection quality evidence" card in Trust Center.
+5. Evaluations → section under Admin Settings (role-gated per STORY-TAB-004); latest completed run surfaces as a "detection quality evidence" card in Trust Center. NOTE (security-auditor, STORY-TAB-004): `GET /evaluations/latest` and `GET /evaluations/{run_id}` remain super_admin/operator-only — if this consolidation adds a run-detail drill-down for admin, widen those gates in the same change or the FND-077 visible-but-403 class recurs.
 6. AIMS → rename label to "Model Inventory"; keep top-level.
 
 ## Acceptance Criteria (to be finalized at sign-off)

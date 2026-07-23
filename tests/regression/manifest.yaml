@@ -382,3 +382,13 @@ findings:
     test: frontend/src/pages/Evaluations.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-078
+    title: "Evaluations LIST response exposes api_url + raw error_message internals to every listing role (security-auditor, STORY-TAB-004, pre-existing)"
+    test: tests/regression/test_fnd_078_evaluations_list_field_hygiene.py
+    status: open
+    quarantine_expires: null
+  - id: FND-079
+    title: "require_role 403 echoes the required role tuple; require_role_or_persona deliberately doesn't — inconsistent disclosure posture (security-auditor, STORY-TAB-004, pre-existing)"
+    test: tests/regression/test_fnd_079_require_role_generic_denial.py
+    status: open
+    quarantine_expires: null
