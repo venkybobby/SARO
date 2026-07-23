@@ -30,9 +30,22 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from playwright.sync_api import Page
+
+# CI's unit/integration/regression jobs install only requirements.txt —
+# playwright lives solely in the dedicated e2e job. Skip at collection time so
+# `pytest tests/` stays collectable everywhere.
+_playwright = pytest.importorskip(
+    "playwright.sync_api",
+    reason="playwright not installed — live demo gate runs only where the e2e deps exist",
+)
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
+else:
+    Page = _playwright.Page
 
 pytestmark = [
     pytest.mark.e2e,
