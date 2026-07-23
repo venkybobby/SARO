@@ -1,11 +1,11 @@
-# STORY-TAB-002 — Onboarding renders the backend checklist
+# STORY-TAB-003 — Coverage Gap field alignment with the coverage API
 
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (skipped — endpoint + both consumers mapped this session; premise table in specs/stories/STORY-TAB-002.md)
+- [x] discover   (skipped — endpoint + consumer audited this session; premise table in specs/stories/STORY-TAB-003.md)
 - [x] shape      (interview skipped — autonomous session; decisions defaulted + logged below)
-- [x] preview    (skipped — existing checklist layout retained; only data binding corrected)
+- [x] preview    (skipped — same card/list layout; only field bindings + a summary row change)
 - [x] plan
 - [ ] build
 - [ ] verify
@@ -15,23 +15,17 @@ Stage: standard
 
 | referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
 |---|---|---|
-| `GET /api/v1/onboarding/status` → `{tenant_id, completed_steps, total_steps, completion_pct, onboarding_complete, steps:[{key,label,completed,cta_url}]}` (4 steps: profile, first_scan, aims_doc, sso) | yes | routers/onboarding.py:68-105; live probe 2026-07-23 |
-| Onboarding tab hardcodes 7 divergent ids, flat-boolean reads | yes | frontend/src/pages/Onboarding.jsx:6-14,29 |
-| SAME defect in AppShell's OnboardingWizard (first-login modal, same endpoint, 7 old ids + STEP_ACTIONS on old ids) | yes | frontend/src/components/AppShell.jsx:95-123 |
-| No existing tests pin the wizard's onboarding behavior | yes | grep Onboarding in AppShell.test.jsx → no matches |
-| Pages receive `onNavigate` from AppShell | yes | frontend/src/components/AppShell.jsx:271 |
+| `GET /api/v1/compliance-matrix/coverage` → `{frameworks:[{framework,total_rules,covered,partial,not_covered,coverage_pct,last_updated}], overall_coverage_pct, framework_count, total_rules}` | yes | routers/compliance_matrix.py:174-207; live probe 2026-07-23 (AIGP 0%, ISO 42001 0%) |
+| Frontend reads `fw.name`/`fw.gaps`/`fw.gaps_count`/`fw.controls_covered`/`fw.controls_total` — none exist | yes | frontend/src/pages/CoverageGap.jsx:47,56,62,77-98 |
+| ComplianceHub already consumes this endpoint correctly (`fw.framework`) — reference implementation | yes | frontend/src/pages/ComplianceHub.test.jsx:36-45 (COVERAGE_3FW fixture) |
 
 ## Decision Log
 
 | Question | Answer (defaulted) | Architectural consequence |
 |---|---|---|
-| Wizard has the identical contract bug — fix here or separate story? | Fix both surfaces here. Same endpoint, same defect class (FND-075); fixing only the tab leaves the bug user-visible on every first login. | One shared steps-source module (`config/onboardingNav.js`) holding the step-key → in-app-page map; both consumers render API `steps` verbatim. |
-| CTA mapping for backend keys (AC-4): which keys get in-app destinations? | Map only where the destination is unambiguous: `first_scan` → `upload`, `aims_doc` → `aims`. `profile`/`sso` render no link (no clearly-owned in-app page; API cta_urls are API paths, not navigable). | No dead links; unknown/future keys degrade to label-only rendering (data-driven). |
-| Progress math | Always from API fields (`completion_pct`, `completed_steps`, `total_steps`) — never recomputed locally. | Single source of truth; empty `steps` can't divide-by-zero. |
-| Error handling (tab currently fakes 0% on failure; wizard swallows) | Tab: explicit error banner (AC-5). Wizard: on fetch failure render nothing-harmful — keep modal with a neutral "couldn't load progress" line instead of a fake 0/7. | No fabricated progress claims on either surface. |
+| "Gap" semantics without a per-rule gap endpoint | `not_covered` (and `partial`) counts ARE the gap signal: detail shows "N of M rules not covered" + a covered/partial/not-covered breakdown. No fabricated per-control gap list. | Honest rendering of what the API measures; per-rule drill-down stays a backend follow-up (story Out of Scope). |
+| Selection state keyed how? | By `fw.framework` string (stable, unique per response). | Fixes the pre-fix `key={fw.name}` = undefined duplicate-key bug. |
+| Overall summary | One row above the list: overall_coverage_pct across framework_count frameworks / total_rules rules (AC-4). | Surfaces the API's own rollup; nothing recomputed. |
 
 ## Deviations
-- Scope extends beyond the two files named in the story (adds AppShell.jsx wizard
-  binding + shared config module) — same-defect-same-endpoint rationale above;
-  conservative alternative (leave wizard broken) rejected as it ships a known
-  false rendering. Logged as FND-075 alongside the tab fix.
+None yet.

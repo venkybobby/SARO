@@ -362,3 +362,8 @@ findings:
     test: frontend/src/pages/Onboarding.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-076
+    title: "Coverage Gap read phantom fields (fw.name/gaps/controls_*) — blank names + 'No gaps identified for undefined' positive claim from absent data (STORY-TAB-003)"
+    test: frontend/src/pages/CoverageGap.test.jsx
+    status: pinned
+    quarantine_expires: null
