@@ -7,6 +7,10 @@ Fly.io + Supabase per PT-012, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 scoring never calls external AI models, see [`docs/COMPLIANCE_CLAIMS_MATRIX.md`](docs/COMPLIANCE_CLAIMS_MATRIX.md)).
 RB-005 §§1–3, 5–6 (gap check, TRACE gate, claims audit, persona matching) remain in force.
 
+> **Automated:** §§A–E and §H are automated by `tests/e2e/test_demo_live_flow.py` —
+> run `SARO_LIVE_E2E=1 pytest tests/e2e -m e2e -q` (screenshots land in
+> `artifacts/demo-e2e/`). §F/§G still require `fly ssh` and stay manual below.
+
 ---
 
 ## A. Backend reachability and demo token (the single most demo-critical check)

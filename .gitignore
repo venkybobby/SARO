@@ -66,3 +66,6 @@ demo-capture/shots/
 
 # Continuous-learning hook output (session-local, advisory)
 .claude/learnings/
+
+# E2E/demo run outputs (screenshots regenerated per run)
+artifacts/
