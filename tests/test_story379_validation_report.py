@@ -41,6 +41,7 @@ def test_numbers_come_from_the_matrix_not_the_source(monkeypatch, tmp_path):
     fake.write_text(
         json.dumps(
             {
+                "generated_at": "2001-02-03T04:05:06+00:00",
                 "tier": "T1",
                 "corpus_records": 3,
                 "packs": {

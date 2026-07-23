@@ -43,9 +43,10 @@ _playwright = pytest.importorskip(
 )
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page
+    from playwright.sync_api import Page, expect
 else:
     Page = _playwright.Page
+    expect = _playwright.expect
 
 pytestmark = [
     pytest.mark.e2e,
@@ -69,9 +70,11 @@ RESEED_HINT = (
     "the STORY-407 corpus per the operator runbook) before any external demo."
 )
 
-# RB-006 §B census — kept textually in sync with RB-006-live-demo-verification.md
-# and tests/regression/test_story_412_demo_tab_endpoint_census.py (CI pins the
-# same list against the in-process app; this pins it against the deployment).
+# RB-006 §B census — this is the runbook's exact 10-endpoint list, verbatim.
+# tests/regression/test_story_412_demo_tab_endpoint_census.py pins the same
+# ROUTES against the in-process app but with the frontend's own query params
+# (limit=200/limit=10, per-tab duplicates); authz coverage is equivalent, the
+# literals are not. Edit RB-006 and this list together.
 CENSUS_ENDPOINTS = [
     "/api/v1/risk/summary",
     "/api/v1/risk/whats-changed",
@@ -129,7 +132,7 @@ def test_a_demo_token_claims(demo_token):
     claims = decode_jwt_payload(demo_token)
     assert claims.get("read_only") is True, f"demo token is NOT read-only: {claims}"
     assert claims.get("role") == "demo_viewer", claims
-    assert claims.get("persona_role", "compliance_lead") == "compliance_lead", claims
+    assert claims.get("persona_role") == "compliance_lead", claims
     assert claims.get("tenant_id") or claims.get("sub"), (
         f"no tenant identity in demo token: {claims}"
     )
@@ -233,10 +236,15 @@ def test_d_uc1_uc2_exemplars_present_live(api, auth_headers):
 
 
 def test_e_demo_token_cannot_ingest(api, auth_headers):
+    # Sentinel body: if the guard were ever broken, the one junk record this
+    # probe writes is identifiable and cleanable in the demo tenant.
     r = api.post(
         "/api/v1/ingest",
         headers=auth_headers,
-        json={"prompt": "x", "raw_output": "y"},
+        json={
+            "prompt": "SARO-E2E-READONLY-PROBE",
+            "raw_output": "SARO-E2E-READONLY-PROBE (RB-006 §E negative test)",
+        },
     )
     assert r.status_code == 403, (
         f"POST /api/v1/ingest with the PUBLIC demo token returned {r.status_code} "
@@ -294,7 +302,10 @@ def test_h_sidebar_health_badge_is_online(page: Page, frontend_url):
     """FND-060 live guard: the sidebar /health poll must resolve through the
     nginx proxy — a red 'API offline' badge in front of attendees was F2."""
     _open_demo(page, frontend_url)
-    page.wait_for_timeout(2_000)  # give the health poll a beat
+    # Wait for the poll to resolve to the positive state ("API online · DB ok")
+    # instead of sleeping a fixed beat — a slow first /health response would
+    # otherwise make the offline check pass vacuously.
+    expect(page.get_by_text("API online", exact=False)).to_be_visible(timeout=15_000)
     assert page.get_by_text("API offline").count() == 0, (
         "Sidebar shows 'API offline' — frontend/nginx.conf /health proxy fix "
         "(FND-060) is not live; redeploy sarofrontend."
@@ -357,10 +368,23 @@ def test_h_hard_refresh_reauthenticates(page: Page, frontend_url):
     _open_demo(page, frontend_url)
     page.reload(wait_until="networkidle", timeout=60_000)
     page.get_by_text("Dashboard", exact=True).first.wait_for(timeout=30_000)
+    # Scan KEYS and VALUES of both web storages: a JWT hidden under an
+    # innocuous key (or in sessionStorage) must still trip this. JWT segments
+    # always start with "eyJ" (base64 of '{"').
     token_in_storage = page.evaluate(
-        "() => Object.keys(localStorage).filter(k => /token|jwt/i.test(k))"
+        """() => {
+          const hits = [];
+          for (const store of [localStorage, sessionStorage]) {
+            for (let i = 0; i < store.length; i++) {
+              const k = store.key(i);
+              const v = store.getItem(k) || "";
+              if (/token|jwt/i.test(k) || v.includes("eyJ")) hits.push(k);
+            }
+          }
+          return hits;
+        }"""
     )
     assert not token_in_storage, (
-        f"demo JWT appears to be persisted in localStorage ({token_in_storage}) — "
+        f"demo JWT appears to be persisted in web storage (keys: {token_in_storage}) — "
         "DemoEntry.jsx's CRITICAL invariant is state-held-only."
     )

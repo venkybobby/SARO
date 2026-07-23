@@ -38,6 +38,14 @@ Stage: standard
 - Q: Assert UC-3/UC-4 findings? → No — demo_manifest.yaml marks them `planted_pending_rule`; asserting them would assert unbuilt rules (FM-1 discipline).
 - Q: (FND-070, discovered via stop hook) Fix time-bomb by regenerating report daily or deriving date from artifact? → Derive `Generated:` from the artifact's `generated_at` — STORY-379's own principle (everything in the report comes from the artifact); makes build_markdown deterministic.
 
+## Review round (PR #125) — both agents APPROVE; applying advisory fixes
+- reviewer: strict persona_role assert; census comment accuracy; try/finally in
+  FND-071 test; _artifact_date fails loudly on missing generated_at; health-badge
+  wait de-raced with expect(); /artifacts/ anchored; PDF churn reverted.
+- security-auditor: sentinel string in the ingest 403 probe; localStorage AND
+  sessionStorage VALUES scanned for eyJ prefix; drift-detection follow-up (its
+  MEDIUM #1) logged as a spawned follow-up task, not scope-crept into this PR.
+
 ## Deviations
 - Live demo tenant is EMPTY (audits [], risk score 0). §C/§D/§H-data tests will fail
   against prod until the tenant is reseeded (`cli.py demo reset` + re-ingest per

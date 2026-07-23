@@ -35,13 +35,15 @@ def test_check_mode_writes_nothing(tmp_path):
     matrix_before = harness.MATRIX_OUT.read_bytes()
     trend_before = harness.TREND_OUT.read_bytes()
 
-    exit_code = harness.main(["--check"])
-
-    matrix_after = harness.MATRIX_OUT.read_bytes()
-    trend_after = harness.TREND_OUT.read_bytes()
-    # Restore first so even a red run leaves the tree clean.
-    harness.MATRIX_OUT.write_bytes(matrix_before)
-    harness.TREND_OUT.write_bytes(trend_before)
+    # finally-restore so even a regressed main() that writes AND raises cannot
+    # leave the tree dirty — that contamination is exactly what this FND pins.
+    try:
+        exit_code = harness.main(["--check"])
+        matrix_after = harness.MATRIX_OUT.read_bytes()
+        trend_after = harness.TREND_OUT.read_bytes()
+    finally:
+        harness.MATRIX_OUT.write_bytes(matrix_before)
+        harness.TREND_OUT.write_bytes(trend_before)
 
     assert exit_code == 0
     assert matrix_after == matrix_before, (

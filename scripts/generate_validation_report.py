@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,9 +75,15 @@ def _artifact_date(m: dict[str, Any]) -> str:
     STORY-379 AC-1 pins the committed report byte-equal to build_markdown(),
     so any now() in the output turns green tests red the next day."""
     generated_at = m.get("generated_at")
-    if generated_at:
-        return datetime.fromisoformat(generated_at).date().isoformat()
-    return datetime.now(tz=timezone.utc).date().isoformat()
+    if not generated_at:
+        # Fail loudly rather than fall back to the wall clock — a silent
+        # fallback would quietly reintroduce the FND-070 nondeterminism.
+        raise KeyError(
+            "confusion-matrix artifact has no generated_at — regenerate it with "
+            "scripts/confusion_matrix_harness.py (default mode) before building "
+            "the report"
+        )
+    return datetime.fromisoformat(generated_at).date().isoformat()
 
 
 def build_markdown() -> str:

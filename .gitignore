@@ -68,4 +68,4 @@ demo-capture/shots/
 .claude/learnings/
 
 # E2E/demo run outputs (screenshots regenerated per run)
-artifacts/
+/artifacts/
