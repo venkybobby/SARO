@@ -1,6 +1,6 @@
 # STORY-TAB-001: Remediation tab — fix response-contract mismatch so open findings actually render
 
-**Status:** in-progress
+**Status:** done
 **Screen/Area:** Remediation tab (frontend/src/pages/Remediation.jsx ↔ routers/remediation.py)
 
 ## Premise verification
