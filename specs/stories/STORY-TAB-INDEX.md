@@ -11,7 +11,7 @@
 | Story | Title | Status | Evidence |
 |---|---|---|---|
 | STORY-TAB-001 | Remediation tab response-contract fix (FND-073) | IMPLEMENTED | ecdc23a — frontend/src/pages/Remediation.test.jsx 10/10 green (red-first 8/10), full vitest 212/212 |
-| STORY-TAB-002 | Onboarding tab renders backend checklist | SPECIFIED | spec: specs/stories/STORY-TAB-002.md |
+| STORY-TAB-002 | Onboarding tab renders backend checklist | IMPLEMENTED | e69541b — Onboarding.test.jsx + AppShell.test.jsx (red-first 11/14), full vitest 223/223 |
 | STORY-TAB-003 | Coverage Gap field alignment with coverage API | SPECIFIED | spec: specs/stories/STORY-TAB-003.md |
 | STORY-TAB-004 | Evaluations RBAC / nav visibility alignment | SPECIFIED | spec: specs/stories/STORY-TAB-004.md |
 | STORY-TAB-005 | Drift Alerts version grid from real response keys | SPECIFIED | spec: specs/stories/STORY-TAB-005.md |
