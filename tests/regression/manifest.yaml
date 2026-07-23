@@ -332,3 +332,13 @@ findings:
     test: tests/regression/test_fnd_069_route_enumeration_nesting.py
     status: pinned
     quarantine_expires: null
+  - id: FND-070
+    title: "Validation report 'Generated:' stamped datetime.now() while STORY-379 AC-1 pins the committed report byte-equal to build_markdown() — suite turned red the day after every regeneration (time-bomb)"
+    test: tests/regression/test_fnd_070_validation_report_date_from_artifact.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-071
+    title: "confusion_matrix_harness --check rewrote confusion-latest.json and appended trend.jsonl on every pytest/CI run — checked-in validation artifacts mutated by the test suite (7 duplicate trend lines of churn)"
+    test: tests/regression/test_fnd_071_check_mode_is_read_only.py
+    status: pinned
+    quarantine_expires: null

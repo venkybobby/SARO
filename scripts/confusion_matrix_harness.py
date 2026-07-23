@@ -19,7 +19,7 @@ Two properties are load-bearing:
 
 Usage:
     python scripts/confusion_matrix_harness.py                 # write artifact + trend
-    python scripts/confusion_matrix_harness.py --check         # fail only if the bar is SIGNED and unmet
+    python scripts/confusion_matrix_harness.py --check         # read-only: fail only if the bar is SIGNED and unmet (FND-071: writes nothing)
 """
 
 from __future__ import annotations
@@ -45,8 +45,18 @@ MATRIX_OUT = OUT_DIR / "confusion-latest.json"
 TREND_OUT = OUT_DIR / "trend.jsonl"
 
 PACKS = {
-    "RP-OBS-COMPLETE@1.0.0": ROOT / "rule_packs" / "observation" / "rp_obs_complete" / "1.0.0" / "pack.yaml",
-    "RP-TOOL-SCOPE@1.0.0": ROOT / "rule_packs" / "observation" / "rp_tool_scope" / "1.0.0" / "pack.yaml",
+    "RP-OBS-COMPLETE@1.0.0": ROOT
+    / "rule_packs"
+    / "observation"
+    / "rp_obs_complete"
+    / "1.0.0"
+    / "pack.yaml",
+    "RP-TOOL-SCOPE@1.0.0": ROOT
+    / "rule_packs"
+    / "observation"
+    / "rp_tool_scope"
+    / "1.0.0"
+    / "pack.yaml",
 }
 
 
@@ -82,13 +92,22 @@ class Counts:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "tp": self.tp, "fp": self.fp, "fn": self.fn, "tn": self.tn,
-            "precision": self.precision, "recall": self.recall, "f1": self.f1,
+            "tp": self.tp,
+            "fp": self.fp,
+            "fn": self.fn,
+            "tn": self.tn,
+            "precision": self.precision,
+            "recall": self.recall,
+            "f1": self.f1,
         }
 
 
 def _load_labeled() -> list[dict]:
-    return [json.loads(ln) for ln in CORPUS.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    return [
+        json.loads(ln)
+        for ln in CORPUS.read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    ]
 
 
 def _evaluate(pack_path: Path, record_dict: dict, allowed_tools: list[str]) -> set[str]:
@@ -140,7 +159,9 @@ def compute_matrix() -> dict[str, Any]:
         "packs": {
             ref: {
                 "overall": per_pack[ref].as_dict(),
-                "rules": {rid: per_rule[ref][rid].as_dict() for rid in sorted(per_rule[ref])},
+                "rules": {
+                    rid: per_rule[ref][rid].as_dict() for rid in sorted(per_rule[ref])
+                },
             }
             for ref in PACKS
         },
@@ -160,7 +181,10 @@ def apply_bar(matrix: dict[str, Any]) -> dict[str, Any]:
         return matrix
 
     failures: list[str] = []
-    for ref, packname in (("RP-OBS-COMPLETE@1.0.0", "RP-OBS-COMPLETE"), ("RP-TOOL-SCOPE@1.0.0", "RP-TOOL-SCOPE")):
+    for ref, packname in (
+        ("RP-OBS-COMPLETE@1.0.0", "RP-OBS-COMPLETE"),
+        ("RP-TOOL-SCOPE@1.0.0", "RP-TOOL-SCOPE"),
+    ):
         tier_th = (thresholds.get(packname) or {}).get("T1")
         if not tier_th:
             continue
@@ -178,22 +202,28 @@ def apply_bar(matrix: dict[str, Any]) -> dict[str, Any]:
 def main(argv: list[str]) -> int:
     matrix = apply_bar(compute_matrix())
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    MATRIX_OUT.write_text(json.dumps(matrix, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # FND-071: --check is a read-only verification mode (verdict + exit code
+    # only). It runs inside pytest and CI, so any write here dirties the tree
+    # (fresh generated_at, duplicate trend lines) and breaks STORY-379's
+    # committed-report-equals-generated equality. Only a real (default-mode)
+    # run persists the artifact of record and its trend line.
+    if "--check" not in argv:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        MATRIX_OUT.write_text(
+            json.dumps(matrix, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
 
-    # Trend: one compact line per run so regressions are diffable (AC-4). The
-    # generated_at timestamp is excluded from the trend key so identical rates
-    # do not churn the diff.
-    trend_line = {
-        "tier": matrix["tier"],
-        "bar_status": matrix["bar_status"],
-        "verdict": matrix["verdict"],
-        "packs": {
-            ref: matrix["packs"][ref]["overall"] for ref in PACKS
-        },
-    }
-    with TREND_OUT.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(trend_line, sort_keys=True) + "\n")
+        # Trend: one compact line per run so regressions are diffable (AC-4).
+        # The generated_at timestamp is excluded from the trend key so
+        # identical rates do not churn the diff.
+        trend_line = {
+            "tier": matrix["tier"],
+            "bar_status": matrix["bar_status"],
+            "verdict": matrix["verdict"],
+            "packs": {ref: matrix["packs"][ref]["overall"] for ref in PACKS},
+        }
+        with TREND_OUT.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(trend_line, sort_keys=True) + "\n")
 
     for ref in PACKS:
         o = matrix["packs"][ref]["overall"]
