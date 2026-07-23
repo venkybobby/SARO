@@ -39,7 +39,7 @@ export default function CoverageGap({ token, tenantId }) {
       {loading && <div style={{ color: "#9ca3af" }}>Loading coverage data…</div>}
       {error && (
         <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "12px 16px", color: "#b91c1c", fontSize: 13 }}>
-          ⚠ {error}
+          ⚠ Failed to load coverage data ({error})
         </div>
       )}
 

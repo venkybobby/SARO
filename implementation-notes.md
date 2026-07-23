@@ -21,6 +21,8 @@ Stage: standard
 
 ## Decision Log
 
+(format: question → defaulted answer → architectural consequence)
+
 | Question | Answer (defaulted) | Architectural consequence |
 |---|---|---|
 | "Gap" semantics without a per-rule gap endpoint | `not_covered` (and `partial`) counts ARE the gap signal: detail shows "N of M rules not covered" + a covered/partial/not-covered breakdown. No fabricated per-control gap list. | Honest rendering of what the API measures; per-rule drill-down stays a backend follow-up (story Out of Scope). |
@@ -28,4 +30,6 @@ Stage: standard
 | Overall summary | One row above the list: overall_coverage_pct across framework_count frameworks / total_rules rules (AC-4). | Surfaces the API's own rollup; nothing recomputed. |
 
 ## Deviations
-None yet.
+- Reviewer round (TAB-002+003 batch, both APPROVE) — NITs applied post-commit:
+  FND-075 manifest now carries a second entry for the AppShell wizard pin file;
+  CoverageGap error banner wording matched to the sibling pages.

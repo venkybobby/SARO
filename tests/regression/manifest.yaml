@@ -358,8 +358,13 @@ findings:
     status: open
     quarantine_expires: null
   - id: FND-075
-    title: "Onboarding progress fabricated on two surfaces — tab and first-login wizard hardcoded 7 phantom step ids, permanent 0% (STORY-TAB-002)"
+    title: "Onboarding progress fabricated on two surfaces — tab and first-login wizard hardcoded 7 phantom step ids, permanent 0% (STORY-TAB-002; tab half of the pin)"
     test: frontend/src/pages/Onboarding.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-075
+    title: "Onboarding progress fabricated on two surfaces — wizard half of the pin (AppShell OnboardingWizard, same defect/endpoint; STORY-TAB-002)"
+    test: frontend/src/components/AppShell.test.jsx
     status: pinned
     quarantine_expires: null
   - id: FND-076
