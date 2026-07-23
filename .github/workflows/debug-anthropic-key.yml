@@ -25,6 +25,14 @@ jobs:
             -d '{"model":"claude-sonnet-4-6","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}' || true
           cat resp1.json | head -c 2000; echo
 
+      - name: List available model ids (validates claude-sonnet-4-6 exists)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          curl -sS -w "\nHTTP %{http_code}\n" "https://api.anthropic.com/v1/models?limit=100" \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" | head -c 4000; echo
+
       - name: Probe claude-haiku-4-5 (known-good model control)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
