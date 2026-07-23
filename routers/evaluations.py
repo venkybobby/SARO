@@ -230,7 +230,9 @@ def get_latest_evaluation(db: Session = Depends(get_db)) -> EvaluationRunDetailO
 @router.get(
     "",
     response_model=list[EvaluationRunOut],
-    dependencies=[Depends(require_role("super_admin", "operator"))],
+    # STORY-TAB-004: admin may LIST runs (read-only QA metadata — the admin
+    # persona's nav surfaces this tab); trigger below stays super_admin-only.
+    dependencies=[Depends(require_role("super_admin", "operator", "admin"))],
     summary="List evaluation runs (most recent first)",
 )
 def list_evaluations(

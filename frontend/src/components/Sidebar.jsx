@@ -10,10 +10,13 @@ import { StatusDot } from "./ui/index.jsx";
 import DEMO_TABS from "../config/demoTabs.json";
 
 const PERSONA_TABS = {
+  // STORY-TAB-004: evaluations removed — the backend list gate is role-based
+  // (super_admin/operator/admin) and a compliance_lead persona's account role
+  // would 403; the tab was a dead entry for them.
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
     "trust_center",
-    "aims","onboarding","upload","evaluations","reports",
+    "aims","onboarding","upload","reports",
   ],
   risk_officer: ["dashboard","risk_register","trace_view","ai_insights","reports"],
   ai_auditor: [

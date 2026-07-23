@@ -25,8 +25,11 @@ const STATUS_STYLE = {
 };
 
 export default function Evaluations({ token, user }) {
-  const persona = user?.persona_role || user?.role || "operator";
-  const canTrigger = ["ai_auditor", "admin", "super_admin"].includes(persona);
+  // STORY-TAB-004: gate off the ACCOUNT role, never the persona — the backend
+  // trigger gate is require_role("super_admin"), and require_role checks
+  // user.role. A persona-switched super_admin keeps the button; an
+  // admin-persona viewer does not gain it.
+  const canTrigger = user?.role === "super_admin";
 
   const [evals, setEvals]       = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -46,7 +49,15 @@ export default function Evaluations({ token, user }) {
     fetch("/api/v1/evaluations", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((d) => { setEvals(Array.isArray(d) ? d : d.items || []); setLoading(false); })
-      .catch((e) => { setError(`${e}`); setLoading(false); });
+      .catch((e) => {
+        // STORY-TAB-004: a 403 is an access decision, not a failure — say so.
+        setError(
+          `${e}` === "403"
+            ? "Your role does not have access to evaluation runs. Evaluation history is limited to admin, operator and super-admin accounts."
+            : `${e}`
+        );
+        setLoading(false);
+      });
   }
 
   useEffect(loadEvals, [token]); // eslint-disable-line react-hooks/exhaustive-deps

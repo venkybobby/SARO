@@ -74,7 +74,10 @@ describe("Sidebar — STORY-412 AC-3: persona switcher hidden for demo sessions"
 
 describe("Sidebar — STORY-412 AC-5: non-demo tab sets unchanged", () => {
   const PERSONA_EXPECTED = {
-    compliance_lead: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "AIMS", "Onboarding", "Upload & Scan", "Evaluations", "Reports"],
+    // STORY-TAB-004: "Evaluations" removed from compliance_lead — the backend
+    // list gate is role-based (super_admin/operator/admin), so the tab was a
+    // guaranteed 403 for a real compliance lead account.
+    compliance_lead: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "AIMS", "Onboarding", "Upload & Scan", "Reports"],
     risk_officer:    ["Dashboard", "Risk Register", "TRACE View", "AI Insights", "Reports"],
     ai_auditor:      ["Dashboard", "TRACE View", "Rule Packs", "Coverage Gap", "Remediation", "Drift Alerts", "Upload & Scan", "Knowledge Portal"],
     operator:        ["Dashboard", "Upload & Scan", "TRACE View", "Remediation", "Knowledge Portal"],

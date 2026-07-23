@@ -372,3 +372,13 @@ findings:
     test: frontend/src/pages/CoverageGap.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-077
+    title: "Evaluations RBAC/nav disagreement — admin's own tab 403'd on its only endpoint; trigger button keyed to personas the backend rejects (STORY-TAB-004; backend half)"
+    test: tests/regression/test_fnd_077_evaluations_list_rbac.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-077
+    title: "Evaluations RBAC/nav disagreement — frontend half: trigger button off account role, compliance_lead nav entry removed, 403 explained (STORY-TAB-004)"
+    test: frontend/src/pages/Evaluations.test.jsx
+    status: pinned
+    quarantine_expires: null
