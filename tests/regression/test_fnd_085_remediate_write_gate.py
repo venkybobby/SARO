@@ -56,7 +56,13 @@ _seed()
 
 def _user(read_only: bool):
     class _U:
-        pass
+        id: uuid.UUID
+        role: str
+        persona_role: str | None
+        tenant_id: uuid.UUID
+        is_active: bool
+        read_only: bool
+        email: str
 
     u = _U()
     u.id = uuid.uuid4()
