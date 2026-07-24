@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Change Debrief — STORY-TAB-001..007: /app tab contract fixes</title>
+<title>Change Debrief — Azure OpenAI + Vertex AI E2E Demo Kit</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; line-height: 1.55; color: #1f2937; background: #fafafa; }
@@ -16,107 +16,108 @@
   details { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; background: #fff; }
   summary { cursor: pointer; font-weight: 600; }
   .dev { background: #fffbeb; border-left: 4px solid #ca8a04; padding: 8px 12px; margin: 8px 0; font-size: 13px; display: block; }
-  svg text { font-family: inherit; }
+  @media (prefers-color-scheme: dark) { .dev { background:#37301a; } }
+  svg text { font-family: inherit; fill: currentColor; }
 </style>
 </head>
 <body>
-
-<h1>Change Debrief — STORY-TAB-001..007<br><small style="font-weight:400;font-size:15px;color:#6b7280">Seven /app tabs that rendered improper values, fixed as a stacked chain (PRs #128–#134)</small></h1>
+<h1>Change Debrief — Azure OpenAI + Vertex AI End-to-End Demo Kit</h1>
 
 <h2>Context — why this exists</h2>
 <div class="card">
-<p>A review of the deployed UI (<code>sarofrontend.fly.dev/app</code>) found seven tabs showing wrong or empty values. The root cause was not missing data: <strong>the frontend and backend had been written against imagined versions of each other's contracts</strong>. Pages read response keys the API never returns (<code>d.items</code> vs <code>{traces}</code>), called endpoints that don't exist, hardcoded step lists the backend replaced, and — worst for a compliance product — two backends emitted <em>fabricated</em> values (hardcoded risk tiers, lifecycle stages, framework coverage) that rendered as recorded facts on evidence surfaces.</p>
-<p>Each fix treats the backend contract as canonical, pins it with a red-first test, and logs a finding (FND-073..083) so a revert can never merge silently once vitest runs in CI (FND-074, in progress).</p>
+<p>Sales and design-partner conversations need a repeatable way to show SARO working
+against the two cloud AI providers prospects actually run: Azure OpenAI and Vertex AI.
+The adapters for both have existed since STORY-359/360, and their corpora are
+byte-verified in CI — but there was no packaged way to <em>walk</em> the pipeline in
+front of someone, no setup instructions for the customer's cloud side, and no
+demo video. This change adds all three without modifying a single line of existing
+pipeline code.</p>
 </div>
 
-<h2>Mental model — before / after</h2>
+<h2>Intuition — the mental model</h2>
 <div class="card">
-<svg viewBox="0 0 860 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Before: page reads phantom fields, renders empty or fabricated state. After: page binds real contract, pinned by test.">
-  <rect x="10" y="20" width="180" height="50" rx="8" fill="#fee2e2" stroke="#dc2626"/>
-  <text x="100" y="41" text-anchor="middle" font-size="12" fill="#7f1d1d">BEFORE: page reads</text>
-  <text x="100" y="58" text-anchor="middle" font-size="12" fill="#7f1d1d">phantom fields (d.items…)</text>
-  <line x1="190" y1="45" x2="300" y2="45" stroke="#dc2626" stroke-dasharray="5,4"/>
-  <rect x="300" y="20" width="200" height="50" rx="8" fill="#fff" stroke="#9ca3af"/>
-  <text x="400" y="41" text-anchor="middle" font-size="12">API returns {traces, total…}</text>
-  <text x="400" y="58" text-anchor="middle" font-size="12">(keys never match)</text>
-  <line x1="500" y1="45" x2="620" y2="45" stroke="#dc2626" stroke-dasharray="5,4"/>
-  <rect x="620" y="20" width="225" height="50" rx="8" fill="#fee2e2" stroke="#dc2626"/>
-  <text x="732" y="41" text-anchor="middle" font-size="12" fill="#7f1d1d">Permanent empty state /</text>
-  <text x="732" y="58" text-anchor="middle" font-size="12" fill="#7f1d1d">fabricated "all clear"</text>
-
-  <rect x="10" y="115" width="180" height="50" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
-  <text x="100" y="136" text-anchor="middle" font-size="12" fill="#14532d">AFTER: page binds the</text>
-  <text x="100" y="153" text-anchor="middle" font-size="12" fill="#14532d">real response shape</text>
-  <line x1="190" y1="140" x2="300" y2="140" stroke="#16a34a"/>
-  <rect x="300" y="115" width="200" height="50" rx="8" fill="#fff" stroke="#16a34a"/>
-  <text x="400" y="136" text-anchor="middle" font-size="12">contract-pin test fixture =</text>
-  <text x="400" y="153" text-anchor="middle" font-size="12">exact backend serializer</text>
-  <line x1="500" y1="140" x2="620" y2="140" stroke="#16a34a"/>
-  <rect x="620" y="115" width="225" height="50" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
-  <text x="732" y="136" text-anchor="middle" font-size="12" fill="#14532d">Real data renders; revert</text>
-  <text x="732" y="153" text-anchor="middle" font-size="12" fill="#14532d">turns the pin red</text>
+<p>The demo is a guided replay of what production does. Nothing new is computed;
+the new runner narrates the existing seam:</p>
+<svg viewBox="0 0 860 150" width="100%" role="img" aria-label="pipeline flow">
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0d9488"/></marker></defs>
+  <rect x="10" y="45" width="150" height="56" rx="8" fill="none" stroke="#64748b"/><text x="85" y="68" text-anchor="middle" font-size="12">customer log export</text><text x="85" y="84" text-anchor="middle" font-size="11" opacity="0.7">(committed corpora)</text>
+  <rect x="200" y="45" width="130" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="265" y="68" text-anchor="middle" font-size="12">adapter parse</text><text x="265" y="84" text-anchor="middle" font-size="11" opacity="0.7">STORY-359/360</text>
+  <rect x="370" y="45" width="150" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="445" y="68" text-anchor="middle" font-size="12">normalized record</text><text x="445" y="84" text-anchor="middle" font-size="11" opacity="0.7">body-free (INV-2)</text>
+  <rect x="560" y="45" width="130" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="625" y="68" text-anchor="middle" font-size="12">rule packs</text><text x="625" y="84" text-anchor="middle" font-size="11" opacity="0.7">2 genesis packs</text>
+  <rect x="730" y="45" width="120" height="56" rx="8" fill="none" stroke="#64748b"/><text x="790" y="68" text-anchor="middle" font-size="12">evidence</text><text x="790" y="84" text-anchor="middle" font-size="11" opacity="0.7">human review</text>
+  <line x1="160" y1="73" x2="198" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
+  <line x1="330" y1="73" x2="368" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
+  <line x1="520" y1="73" x2="558" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
+  <line x1="690" y1="73" x2="728" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
+  <text x="430" y="20" text-anchor="middle" font-size="12" fill="#0d9488">the demo runner narrates this seam — it adds no new computation</text>
+  <text x="430" y="135" text-anchor="middle" font-size="12" opacity="0.7">the screencast is a recording of a real run, regenerated deterministically</text>
 </svg>
 </div>
 
 <h2>File-by-file</h2>
 <table>
-<tr><th>Story / PR</th><th>What was done</th><th>Files</th></tr>
-<tr><td><b>TAB-001</b> #128<br>FND-073</td><td>Remediation list binds <code>traces/total</code>; cards render real trace fields; Mark&nbsp;Complete opens a required-note input and PATCHes the canonical <code>/remediation/traces/{id}/remediate</code> (the old target never existed; the old flow also sent no note, so it would have 422'd anyway).</td><td>Remediation.jsx (+test)</td></tr>
-<tr><td><b>TAB-002</b> #129<br>FND-075</td><td>Onboarding renders the API's 4-step checklist verbatim; progress from <code>completion_pct</code> only. <span class="dev">DEVIATION: the same bug existed in AppShell's first-login <code>OnboardingWizard</code> — fixed in the same story (same endpoint, same defect class); shared <code>config/onboardingNav.js</code> maps step keys → in-app pages.</span></td><td>Onboarding.jsx, AppShell.jsx, config/onboardingNav.js (+tests)</td></tr>
-<tr><td><b>TAB-003</b> #130<br>FND-076</td><td>Coverage Gap keys off <code>framework</code>; detail = the API's covered/partial/not_covered counts ("N of M rules not covered" is the gap signal); overall rollup row; the impossible "No gaps identified for undefined" positive claim is gone.</td><td>CoverageGap.jsx (+test)</td></tr>
-<tr><td><b>TAB-004</b> #131<br>FND-077</td><td>Evaluations RBAC/nav agreement: <code>admin</code> added to the LIST gate only (one word; security-audited PASS); trigger stays super_admin; compliance_lead loses the dead nav entry; trigger button keyed off <code>user.role</code>; 403 explained. <span class="dev">Forward: FND-078 (list exposes api_url/error_message), FND-079 (require_role echoes roles).</span></td><td>routers/evaluations.py, Sidebar.jsx, Evaluations.jsx (+3 test files)</td></tr>
-<tr><td><b>TAB-005</b> #132<br>FND-080</td><td>Drift Alerts grid merges tracked ∪ packed frameworks (a tracked framework with no pack shows "no pack" — that absence is signal); phantom what-changed/affected-packs sections deleted; the green no-drift state now carries <code>checked_at</code> (FND-030 anti-overclaim class).</td><td>DriftAlerts.jsx (+test)</td></tr>
-<tr><td><b>TAB-006</b> #133<br>FND-081</td><td><code>get_pack_by_name</code> returns full detail (rules + description; additive, sole caller is the detail route, YAML untouched); frontend fetches per-pack detail with loading/error states and a stale-response guard; list deliberately stays count-only (pinned).</td><td>services/rule_service.py, RulePacks.jsx (+2 test files)</td></tr>
-<tr><td><b>TAB-007</b> #134<br>FND-082</td><td>AIMS emits ONLY stored columns — the hardcoded <code>risk_tier/lifecycle_stage/framework_coverage</code> constants are omitted, never defaulted; ASCII note (mojibake fix). <span class="dev">DEVIATION: <code>framework_coverage</code> was removed even though AC-2 listed it as renderable — the premise check showed it was a constant, i.e. the defect class the story exists to remove. Conditional tag rendering exists for a future real field (reviewer-verified, pinned).</span></td><td>routers/aims.py, Aims.jsx (+2 test files)</td></tr>
-<tr><td>Batch review round</td><td>Double-submit guard + stale-banner reset (TAB-001 NITs); FND-075 manifest covers both pin files; FND-083 vitest flake (explicit 20s timeouts on typing-heavy tests, no assertions weakened); FND-084 ruff pinned in CI workflows.</td><td>various (see FND rows)</td></tr>
+<tr><th>File</th><th>What was done</th></tr>
+<tr><td><code>scripts/demo_azure_vertex_e2e.py</code> (new)</td><td>Offline demo runner. Reads the committed corpora, parses via the real adapters, evaluates the two genesis packs (tool-scope pack bound to a demo allowlist via <code>with_allowed_tools</code>), prints a 5-step walk per provider + disclaimer. <code>--provider/--json-out/--pace/--no-color</code>, and <code>--azure-corpus/--vertex-corpus</code> to point the same walk at a real export.</td></tr>
+<tr><td><code>scripts/build_demo_screencast.py</code> (new)</td><td>Runs the demo, captures ANSI output, renders the animated SVG (pure CSS, loops, plays inline on GitHub) and the self-contained HTML player (play/pause/replay/speed).</td></tr>
+<tr><td><code>docs/demo/AZURE_VERTEX_E2E_DEMO.md</code> (new)</td><td>Setup instructions: Azure Diagnostic Settings export + RBAC (Part 1), GCP audit-log sink to GCS (Part 2), SARO-side run (Part 3), 5-step talk track with exact expected numbers (Part 4), screencast + troubleshooting (Part 5).</td></tr>
+<tr><td><code>docs/demo/azure-vertex-e2e-screencast.{svg,html}</code> (new, generated)</td><td>The committed screen-capture-style video, ~62s, both providers.</td></tr>
+<tr><td><code>tests/test_demo_azure_vertex_e2e.py</code> (new)</td><td>7 pins: exact corpus counts, determinism, provider selection, claims-boundary language guard (verdict vocabulary + Tier-3 framework names), pack-hash provenance, ANSI parse/wrap, screencast-in-sync byte check.</td></tr>
+<tr><td><code>implementation-notes.md</code>, <code>change-debrief.html</code></td><td>Rewritten for this task (lifecycle artifacts).</td></tr>
 </table>
+<span class="dev">Deviation: the SHAPE interview was not conducted live — autonomous session; conservative
+defaults chosen and logged in the Decision Log (notably: demo replays committed corpora rather than
+provisioning live cloud accounts).</span>
+<span class="dev">Caught during build: step 3 was initially titled “Contract guarantees”; the test
+suite's own forbidden-phrase guard flagged “guarantee” and it was renamed to “Contract invariants” —
+the guard demonstrably works.</span>
 
 <h2>What was deliberately NOT done</h2>
 <div class="card"><ul>
-<li><b>No backend contract changes for TAB-001/002/003/005</b> — the API is canonical; only the frontend conformed.</li>
-<li><b>No per-rule coverage drill-down</b> (Coverage Gap) — needs a new endpoint; noted as follow-up, not faked.</li>
-<li><b>No real lifecycle/risk-tier model for AIMS</b> — needs a product definition + migration; fields omitted instead of invented.</li>
-<li><b>No trigger-rights widening for Evaluations</b> — super_admin only, unchanged.</li>
-<li><b>STORY-TAB-008 (tab consolidation)</b> — signed off and shipped; see the addendum below.</li>
+<li>No live Azure/GCP calls anywhere — the demo replays byte-verified corpora; the real-export path is documented, not executed.</li>
+<li>No new API routes, DB writes, or frontend changes — zero AUDITED/DATA_PLANE surface change.</li>
+<li>No SDKs added (<code>openai</code>, <code>google-cloud-*</code> remain absent) — INV-1 stays structural.</li>
+<li>No GIF/MP4 binary committed — the “video” is text-rendered SVG/HTML, regenerable and diffable.</li>
+<li>No framework-alignment claims in demo materials (EVF status is Internal Review Only — Tier 3).</li>
 </ul></div>
 
 <h2>Risk map</h2>
 <table>
-<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
-<tr><td class="risk">Revert to phantom-field reads merges silently</td><td class="cover">Contract-pin tests per tab (all shown red against pre-fix code); gap: vitest not in CI yet — FND-074 in progress in a separate session</td></tr>
-<tr><td class="risk">Evaluations gate widening leaks data / demo access</td><td class="cover">security-auditor PASS; role-matrix pytest (admin 200, personas/demo 403); trigger-gate pins</td></tr>
-<tr><td class="risk">Remediate flow 422s (blank note) or double-PATCHes</td><td class="cover">Blank-note guard test (no request sent); <code>updating</code> re-entry guard; failed-PATCH-keeps-card test</td></tr>
-<tr><td class="risk">Wizard fix breaks STORY-412 demo nav guard</td><td class="cover">Original AppShell demo tests untouched and green (reviewer-verified append-only)</td></tr>
-<tr><td class="risk">Rule-pack detail exposes YAML beyond intent</td><td class="cover">Detail is the same authenticated read surface; list pinned light; YAML untouched</td></tr>
-<tr><td class="risk">AIMS tenant scoping regressed while editing the response</td><td class="cover"><code>test_tenant_scoping_unchanged</code> + hostile <code>?tenant_id=&lt;other&gt;</code> case</td></tr>
-<tr><td class="risk">CI toolchain drifts again (ruff class)</td><td class="cover">FND-084: ruff pinned to the validated 0.15.15 in all three workflows + regression test asserting the pin</td></tr>
+<tr><th>Risk</th><th>Covering control</th></tr>
+<tr><td class="risk">Demo numbers drift from corpora → talk track lies</td><td class="cover">test_both_providers_match_the_committed_corpora pins exact counts; corpus builders' --check pins the bytes</td></tr>
+<tr><td class="risk">Screencast goes stale after a demo change</td><td class="cover">test_committed_screencast_is_in_sync_with_the_demo re-renders and byte-compares both artifacts</td></tr>
+<tr><td class="risk">Demo output drifts into verdict language</td><td class="cover">test_output_stays_inside_the_claims_boundary rejects forbidden phrases; disclaimer asserted present</td></tr>
+<tr><td class="risk">Runner silently starts dialing out</td><td class="cover">no_network fixture patches socket.connect to fail the test</td></tr>
+<tr><td class="risk">Nondeterminism creeps in (ordering, timestamps)</td><td class="cover">test_run_is_deterministic double-runs and compares; no wall-clock values in output</td></tr>
+<tr><td class="risk">GAP: SVG animation behavior on GitHub's renderer isn't CI-tested</td><td class="cover">verified manually via Chromium screenshots this session; the HTML player is the fallback surface</td></tr>
 </table>
 
-<h2>Quiz — check your understanding</h2>
-<details><summary>1. Why did the Remediation tab show "all findings addressed" even for tenants with open failures?</summary>
-<p>It read <code>d.items</code> from a response shaped <code>{traces, total, …}</code> — the key never existed, so the list was always empty and the empty-state (an implicit all-clear) always rendered. The data was there; the binding wasn't.</p></details>
-<details><summary>2. Why does Mark Complete now demand a note before sending anything?</summary>
-<p>The canonical endpoint 422s on a blank <code>remediation_note</code> — the note is the human-in-the-loop audit evidence (an AuditEvent is written server-side). Sending without one would always fail; collecting it preserves SARO's HITL posture.</p></details>
-<details><summary>3. What breaks if someone re-adds <code>lifecycle_stage: "production"</code> as a default in the AIMS response?</summary>
-<p><code>test_no_fabricated_classification_fields</code> fails (asserts the key is absent), and the frontend pin fails on any default badge (regex covers all five stage words). Conceptually: a fabricated classification would again render as recorded fact on an ISO 42001 evidence surface — Non-Negotiable 4 territory.</p></details>
-<details><summary>4. Why was the Evaluations fix a one-word backend change instead of granting the compliance_lead persona access?</summary>
-<p>Least privilege: personas are a display/navigation axis; the backend gates on account roles. Widening to a persona would let any role wearing that persona read global QA runs. Instead <code>admin</code> (a super_admin-provisioned role whose nav already showed the tab) joined the read-only list gate, and compliance_lead lost the dead nav entry.</p></details>
-<details><summary>5. Why does the Drift Alerts "no drift" state now show a timestamp?</summary>
-<p>An unverifiable green claim is the FND-030 class (unbacked "verified" banner). Rendering <code>checked_at</code> makes the reassurance evidently a fresh computation, not static copy.</p></details>
-<details><summary>6. Why does the Rule Packs list still NOT include rules inline — isn't that the bug?</summary>
-<p>No: the list is deliberately light (<code>rule_count</code> only) and that asymmetry is now pinned. The bug was that nothing ever fetched the per-pack detail. Master/detail keeps the list cheap while the detail endpoint serves the full rules array.</p></details>
-<details><summary>7. What made all four CI jobs fail on PR #128 when everything was green locally?</summary>
-<p>One root cause, two gates: (a) CI installs unpinned ruff, and a new release added rules → 1491 errors in pre-existing files, which also tripped the quality ratchet's ruff-count; (b) the lifecycle guard demanded the verify-stage debrief this document satisfies. Neither failure was caused by the diff under test — the FND-069 lesson repeating.</p></details>
-<details><summary>8. If the onboarding backend adds a fifth step next quarter, what frontend work is needed?</summary>
-<p>None — both surfaces render the API's <code>steps</code> array data-driven (label + completed). Only an optional entry in <code>ONBOARDING_STEP_NAV</code> if the new step deserves an in-app Go button; unknown keys already render label-only (pinned by the "unknown future step keys" test).</p></details>
-
-<p style="margin-top:32px;font-size:12px;color:#9ca3af">Generated for the STORY-TAB batch (PRs #128–#134) · reviewer APPROVE ×7 · security-auditor PASS ×2 · findings FND-073..084 in quality/findings.md</p>
-
-<h2>Addendum — STORY-TAB-008: tab consolidation (this PR)</h2>
-<div class="card">
-<p>With the seven contract fixes landed, the consolidation folds five thin tabs into their natural homes using the STORY-112 embed-unchanged pattern (hosts render the ORIGINAL components — every FND pin above stays valid): Drift Alerts &rarr; Rule Packs; Coverage Gap &rarr; Compliance Hub (EVF cards now focus the embedded section instead of navigating); Remediation &rarr; TRACE View ("Open findings" queue, hidden for demo sessions); Onboarding &rarr; dismissible Dashboard first-run checklist; Evaluations &rarr; Admin Settings, with a role-gated detection-quality evidence card in Trust Center. AIMS is renamed "Model Inventory". Admin sidebar: 19 &rarr; 14 entries; super_admin: 17 &rarr; 12.</p>
-<p><b>FND-085</b> (found by the premise check, fixed red-first): <code>PATCH /remediation/traces/{id}/remediate</code> lacked <code>require_write_access</code> &mdash; a read-only demo token could mark traces remediated. Embedding the queue on demo-visible TRACE View made the gap load-bearing; the backend gate is now the control and the UI hides the affordance (FND-054 pattern). Old page keys redirect to their hosts in PAGE_COMPONENTS (FND-007 discipline &mdash; no silent fall-through to Dashboard).</p>
-</div>
-
+<h2>Quiz — do you actually understand this change?</h2>
+<details><summary>1. Why does the demo runner never need an Azure or GCP credential?</summary>
+<p>It replays committed log-export corpora through the adapters. In production the adapters also
+only read a customer-owned storage export — SARO never calls the provider APIs at all (INV-1/INV-6).</p></details>
+<details><summary>2. What breaks if someone adds a <code>prompt_text</code> field to <code>NormalizedInvocationRecord</code>?</summary>
+<p><code>test_contract_has_no_content_bearing_field</code> (STORY-358) fails — and the demo's step 3 would
+show 16 fields. The body-free property is structural, which is exactly what step 3 demonstrates.</p></details>
+<details><summary>3. Why does Vertex show 66 findings but Azure only 14?</summary>
+<p>Vertex audit logs never report token counts, so OBS-TOKEN-COUNTS-1 fires per record — at INFO severity
+because the absence is a provider limitation (<code>field_unavailable</code>), not a customer data gap.
+Coverage honesty, not extra risk — and a deliberate talking point in Part 4 of the runbook.</p></details>
+<details><summary>4. Why is the tool-scope allowlist supplied by the demo script instead of edited into the pack YAML?</summary>
+<p><code>allowed_tools</code> is tenant configuration; <code>with_allowed_tools</code> returns a new pack so
+tenant policy never mutates shared pack state (INV-3), and the reported hash stays that of the shipped pack.</p></details>
+<details><summary>5. What happens to a malformed corpus line, and why is that the right behavior?</summary>
+<p>The adapter raises; the runner counts it as "rejected". A half-populated record would be a fabricated
+observation — worse than a missing one in an evidence system.</p></details>
+<details><summary>6. What breaks if you edit the runner's output text but don't rerun <code>build_demo_screencast.py</code>?</summary>
+<p><code>test_committed_screencast_is_in_sync_with_the_demo</code> fails: it re-renders from a live run and
+byte-compares against the committed SVG/HTML — same discipline as the corpus builders' <code>--check</code>.</p></details>
+<details><summary>7. Why would "SARO found the customer compliant with EU AI Act Art. 9" be forbidden in this demo?</summary>
+<p>Two independent reasons: SARO never issues compliance verdicts (positioning non-negotiable), and all
+four frameworks are in Internal Review Only EVF state — Tier 3: no external framework-alignment claims
+until a QCO exists.</p></details>
+<details><summary>8. On a standard (non-enriched) Azure export, RP-TOOL-SCOPE returns zero findings. Clean result?</summary>
+<p>No — the standard schema carries no tool data, so there is nothing to evaluate. The capability matrix
+reports it as "not supported", never as coverage. The demo corpora include enriched records precisely so
+the rules can be shown firing.</p></details>
 </body>
 </html>
