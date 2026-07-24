@@ -50,6 +50,40 @@ beforeEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("STORY-TAB-008 AC-1: Drift Alerts folded into Rule Packs", () => {
+  const DRIFT_OK = {
+    alerts: [], alert_count: 0,
+    current_versions: { "EU-AI-ACT-2024": "1.0.0" },
+    latest_known_versions: { "EU-AI-ACT-2024": "1.0.0", "AIGP": "2.0.0" },
+    checked_at: "2026-07-23T20:00:00",
+  };
+
+  it("renders the embedded drift section (original component) alongside the pack list", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/rules/drift-alerts")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(DRIFT_OK) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(LIST) });
+    }));
+    render(<RulePacks token="t" />);
+    expect(await screen.findByText("Framework Drift")).toBeInTheDocument();
+    expect(await screen.findByText(/No drift alerts/)).toBeInTheDocument();
+    expect(screen.getByText("EU AI Act")).toBeInTheDocument(); // packs list intact
+  });
+
+  it("edge: a drift-endpoint failure must not blank the packs list (independent sections)", async () => {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("/rules/drift-alerts")) {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(LIST) });
+    }));
+    render(<RulePacks token="t" />);
+    expect(await screen.findByText("EU AI Act")).toBeInTheDocument();
+    expect(await screen.findByText(/Could not reach drift-check endpoint/)).toBeInTheDocument();
+  });
+});
+
 describe("STORY-TAB-006 AC-1 / FND-081: list shows the API's rule_count", () => {
   it("renders 'N rules' from rule_count, never 0-from-missing-array", async () => {
     vi.stubGlobal("fetch", routeFetch(EU_DETAIL));
@@ -75,8 +109,9 @@ describe("STORY-TAB-006 AC-2/AC-4: selecting a pack fetches and renders its rule
     // detail URL was the per-framework endpoint
     const detailCall = fetchMock.mock.calls.find(([u]) => /\/rules\/packs\/EU-AI-ACT-2024$/.test(String(u)));
     expect(detailCall).toBeTruthy();
-    // AC-4: header metadata + changelog
-    expect(screen.getByText(/active/i)).toBeInTheDocument();
+    // AC-4: header metadata + changelog (exact badge text — the TAB-008 drift
+    // section's prose also contains the word "active", so no loose regex)
+    expect(screen.getByText("active")).toBeInTheDocument();
     expect(screen.getByText(/Initial release covering Annex III/)).toBeInTheDocument();
   });
 

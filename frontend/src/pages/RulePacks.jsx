@@ -7,6 +7,7 @@
  * The list stays light; selecting a pack fetches its rules.
  */
 import React, { useEffect, useState } from "react";
+import DriftAlerts from "./DriftAlerts.jsx";
 
 export default function RulePacks({ token }) {
   const [packs, setPacks]   = useState([]);
@@ -62,6 +63,13 @@ export default function RulePacks({ token }) {
           ⚠ Failed to load rule packs ({error})
         </div>
       )}
+
+      {/* STORY-TAB-008: Drift Alerts folded in — the original component, hosted
+          as a section; its fetch/error lifecycle is independent of the list. */}
+      <div style={{ margin: "0 0 24px" }}>
+        <h2 style={{ fontSize: 15, marginBottom: 8 }}>Framework Drift</h2>
+        <DriftAlerts token={token} embedded />
+      </div>
 
       <div style={{ display: "flex", gap: 20 }}>
         {/* Pack list — light summaries */}

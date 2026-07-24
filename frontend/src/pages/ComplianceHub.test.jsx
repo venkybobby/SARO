@@ -35,13 +35,15 @@ function routeFetch(routes) {
 
 const COVERAGE_3FW = {
   frameworks: [
-    { framework: "EU AI Act", coverage_pct: 62.5, last_updated: "2026-06-01" },
-    { framework: "NIST AI RMF", coverage_pct: 40.0, last_updated: "2026-05-20" },
-    { framework: "ISO 42001", coverage_pct: 75.0, last_updated: null },
+    // STORY-TAB-008: full row shape (the embedded CoverageGap section renders
+    // the covered/partial/not_covered breakdown from these fields).
+    { framework: "EU AI Act", total_rules: 8, covered: 5, partial: 0, not_covered: 3, coverage_pct: 62.5, last_updated: "2026-06-01" },
+    { framework: "NIST AI RMF", total_rules: 10, covered: 4, partial: 0, not_covered: 6, coverage_pct: 40.0, last_updated: "2026-05-20" },
+    { framework: "ISO 42001", total_rules: 4, covered: 3, partial: 0, not_covered: 1, coverage_pct: 75.0, last_updated: null },
   ],
   overall_coverage_pct: 59.2,
   framework_count: 3,
-  total_rules: 24,
+  total_rules: 22,
 };
 
 beforeEach(() => {
@@ -112,7 +114,7 @@ describe("STORY-CHUB-001: EVF Validation Status card — real tier data + invari
       "validation-status": { json: [{ framework: "EU_AI_ACT", tier: "tier_3", label: "Internal" }] },
     }));
     render(<ComplianceHub token="t" tenantId="ten-1" />);
-    await screen.findByText("62.5%"); // wait for coverage data in the card
+    await screen.findAllByText("62.5%"); // wait for coverage data (EVF card + TAB-008 embedded section both render it)
     const card = within(evfCard());
     expect(card.getByText("EU AI Act")).toBeInTheDocument();
     expect(card.getByText("NIST AI RMF")).toBeInTheDocument();
@@ -125,7 +127,7 @@ describe("STORY-CHUB-001: EVF Validation Status card — real tier data + invari
       "validation-status": { json: [] },
     }));
     render(<ComplianceHub token="t" tenantId="ten-1" />);
-    await screen.findByText("62.5%");
+    await screen.findAllByText("62.5%");
     // each of the 3 coverage cards must show an INTERNAL ONLY tier badge
     const badges = within(evfCard()).getAllByText(/INTERNAL ONLY/);
     expect(badges.length).toBe(3);
@@ -147,7 +149,7 @@ describe("STORY-CHUB-001: EVF Validation Status card — real tier data + invari
       "validation-status": { ok: false, status: 403, json: { detail: "forbidden" } },
     }));
     render(<ComplianceHub token="t" tenantId="ten-1" />);
-    await screen.findByText("62.5%");
+    await screen.findAllByText("62.5%");
     expect(await screen.findByText(/treated as internal only/i)).toBeInTheDocument();
     const badges = within(evfCard()).getAllByText(/INTERNAL ONLY/);
     expect(badges.length).toBe(3);
@@ -229,7 +231,7 @@ describe("STORY-CHUB-005: overall coverage headline + provenance", () => {
     render(<ComplianceHub token="t" tenantId="ten-1" />);
     expect(await screen.findByText("59.2%")).toBeInTheDocument();
     expect(screen.getByText("Matrix coverage")).toBeInTheDocument();
-    expect(screen.getByText(/3 frameworks · 24 rules/)).toBeInTheDocument();
+    expect(screen.getByText(/3 frameworks · 22 rules/)).toBeInTheDocument();
     expect(screen.getByText(/as of 2026-06-01/)).toBeInTheDocument();
   });
 
@@ -323,13 +325,25 @@ describe("STORY-CHUB-006: actions + drill-throughs", () => {
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
-  it("AC-3: clicking a framework card navigates to the matrix filtered by framework", async () => {
+  it("AC-3 (relocated by STORY-TAB-008): clicking a framework card focuses the embedded Coverage section on that framework", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
     setup({}, onNavigate);
     await screen.findByText("59.2%");
     await user.click(within(evfCard()).getByText("EU AI Act"));
-    expect(onNavigate).toHaveBeenCalledWith("coverage_gap", { framework: "EU AI Act" });
+    // the coverage_gap page no longer exists — no navigation fires...
+    expect(onNavigate).not.toHaveBeenCalledWith("coverage_gap", expect.anything());
+    // ...instead the embedded section (original CoverageGap component) selects
+    // the framework and shows its real gap signal.
+    expect(await screen.findByText(/3 of 8 rules not covered for this framework/)).toBeInTheDocument();
+  });
+
+  it("STORY-TAB-008 AC-1: the Coverage by Framework section renders the embedded component", async () => {
+    setup();
+    expect(await screen.findByText("Coverage by Framework")).toBeInTheDocument();
+    // framework list rendered by the embedded CoverageGap (scoped outside the EVF card)
+    const section = screen.getByText("Coverage by Framework").parentElement;
+    expect(within(section).getByText("NIST AI RMF")).toBeInTheDocument();
   });
 
   it("AC-4: clicking an audit row navigates to its TRACE view by audit id", async () => {

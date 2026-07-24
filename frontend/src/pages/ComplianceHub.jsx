@@ -5,8 +5,9 @@
  * CHUB-007: refactored onto the shared design system — PageHeader + design tokens
  * (no hardcoded hex / system-ui literals; colours come from var(--color-*)).
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button, PageHeader, Skeleton } from "../components/ui/index.jsx";
+import CoverageGap from "./CoverageGap.jsx";
 
 // Tier badge config — colours are design tokens (paired fg / bg / border).
 const TIER_CONFIG = {
@@ -409,6 +410,16 @@ export default function ComplianceHub({ token, tenantId, user, onNavigate }) {
 
   const evfRows = buildEvfRows({ coverage, statuses, tierUnavailable });
 
+  // STORY-TAB-008: Coverage Gap folded in as a section. Clicking an EVF card
+  // focuses the embedded section on that framework instead of navigating to
+  // the removed coverage_gap page.
+  const [coverageFocus, setCoverageFocus] = useState(null);
+  const coverageSectionRef = useRef(null);
+  function focusCoverage(frameworkLabel) {
+    setCoverageFocus(frameworkLabel);
+    coverageSectionRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
+
   // CHUB-004: persist a manual item toggle; derived (read-only) items are ignored.
   // STORY-412: a read-only session (e.g. the public demo token) can't write regardless
   // of item.editable — services/readiness_service.py has no read_only/role awareness,
@@ -544,10 +555,10 @@ export default function ComplianceHub({ token, tenantId, user, onNavigate }) {
                   key={row.key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => onNavigate?.("coverage_gap", { framework: row.label })}
-                  onKeyDown={(e) => { if (e.key === "Enter") onNavigate?.("coverage_gap", { framework: row.label }); }}
+                  onClick={() => focusCoverage(row.label)}
+                  onKeyDown={(e) => { if (e.key === "Enter") focusCoverage(row.label); }}
                   style={{ border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", cursor: "pointer" }}
-                  title={`View compliance matrix for ${row.label}`}
+                  title={`View coverage breakdown for ${row.label}`}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>{row.label}</span>
@@ -568,6 +579,15 @@ export default function ComplianceHub({ token, tenantId, user, onNavigate }) {
           ) : (
             <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>No framework coverage data yet.</div>
           )}
+        </Card>
+
+        {/* STORY-TAB-008: Coverage Gap folded in — the original component,
+            embedded; EVF cards above focus it on a framework. */}
+        <Card style={{ marginBottom: "var(--space-5)" }}>
+          <div ref={coverageSectionRef}>
+            <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)", color: "var(--color-text-primary)" }}>Coverage by Framework</h2>
+            <CoverageGap token={token} tenantId={tenantId} embedded initialFramework={coverageFocus} />
+          </div>
         </Card>
 
         <div style={{ display: "flex", gap: "var(--space-5)", flexWrap: "wrap" }}>
