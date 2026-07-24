@@ -417,3 +417,8 @@ findings:
     test: frontend/src/pages/Aims.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-083
+    title: "Remediation contract-pin tests flaky under full-suite parallel load — explicit 20s timeouts applied, no assertions weakened (reviewer, TAB batch)"
+    test: frontend/src/pages/Remediation.test.jsx
+    status: pinned
+    quarantine_expires: null

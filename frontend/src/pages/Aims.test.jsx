@@ -62,7 +62,8 @@ describe("STORY-TAB-007 AC-2/AC-3 / FND-082: cards render real fields, no fabric
     vi.stubGlobal("fetch", vi.fn(() => ok(MODELS)));
     const { container } = render(<Aims token="t" tenantId="tid" />);
     await screen.findByText("Claims triage model");
-    expect(screen.queryByText("PRODUCTION")).not.toBeInTheDocument();
+    // any default badge is a fabrication — not just the old PRODUCTION one
+    expect(screen.queryByText(/^(DEVELOPMENT|TESTING|PRODUCTION|DEPRECATED|RETIRED)$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Vendor:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Risk Category:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Last Audit:/)).not.toBeInTheDocument();
@@ -81,6 +82,19 @@ describe("STORY-TAB-007 AC-2/AC-3 / FND-082: cards render real fields, no fabric
     render(<Aims token="t" tenantId="tid" />);
     expect(await screen.findByText("Sparse model")).toBeInTheDocument();
     expect(screen.getByText(/0 linked audits/)).toBeInTheDocument();
+  });
+
+  it("future-proofing: coverage tags render ONLY when the API returns real framework_coverage", async () => {
+    const withCoverage = {
+      ...MODELS,
+      models: [{ ...MODELS.models[0], framework_coverage: ["ISO-42001"] }, MODELS.models[1]],
+    };
+    vi.stubGlobal("fetch", vi.fn(() => ok(withCoverage)));
+    render(<Aims token="t" tenantId="tid" />);
+    expect(await screen.findByText("ISO-42001")).toBeInTheDocument();
+    // the sparse model (no field) renders no tag row — the current API shape
+    const sparse = screen.getByText("Sparse model").closest("div").parentElement;
+    expect(sparse.textContent).not.toMatch(/ISO-42001/);
   });
 });
 

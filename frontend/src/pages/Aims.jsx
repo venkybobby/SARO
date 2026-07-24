@@ -71,6 +71,15 @@ export default function Aims({ token, tenantId }) {
               <div style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}>
                 {model.linked_audit_count ?? 0} linked audit{model.linked_audit_count === 1 ? "" : "s"}
               </div>
+              {Array.isArray(model.framework_coverage) && model.framework_coverage.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                  {model.framework_coverage.map((fw) => (
+                    <span key={fw} style={{ background: "#eff6ff", color: "#1d4ed8", padding: "1px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                      {fw}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{ marginTop: 8, fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
                 Audit evidence for ISO 42001 document lifecycle review
               </div>

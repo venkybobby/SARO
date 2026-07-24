@@ -124,3 +124,17 @@ def test_tenant_scoping_unchanged():
     body = _client_as(_user(TENANT_A)).get("/api/v1/aims/models").json()
     titles = {m["name"] for m in body["models"]}
     assert "Other tenant model" not in titles
+
+
+def test_cross_tenant_query_param_is_ignored():
+    """The hostile form: a TENANT_A user requesting ?tenant_id=<TENANT_B>
+    still gets only TENANT_A's models — the query param is display-compat
+    only and never widens scope."""
+    body = (
+        _client_as(_user(TENANT_A))
+        .get(f"/api/v1/aims/models?tenant_id={TENANT_B}")
+        .json()
+    )
+    titles = {m["name"] for m in body["models"]}
+    assert "Other tenant model" not in titles
+    assert body["tenant_id"] == str(TENANT_A)

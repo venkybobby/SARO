@@ -37,3 +37,10 @@ Stage: standard
   defect class this story exists to remove). Frontend renders coverage tags
   only when the field is present, so a future real implementation lights up
   without a frontend change.
+- Reviewer round (TAB-004..007 batch, all APPROVE; security PASS): the
+  coverage-tag conditional the sentence above describes was initially a doc
+  claim without code (FM-3 class, reviewer SHOULD-FIX) — the conditional tag
+  rendering is now actually implemented in Aims.jsx and pinned by a
+  future-proofing test; the no-badge assertion was strengthened to cover all
+  stage words; the hostile cross-tenant query-param case was added to the
+  backend pin (security NIT).
