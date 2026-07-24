@@ -372,6 +372,26 @@ findings:
     test: frontend/src/pages/CoverageGap.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-077
+    title: "Evaluations RBAC/nav disagreement — admin's own tab 403'd on its only endpoint; trigger button keyed to personas the backend rejects (STORY-TAB-004; backend half)"
+    test: tests/regression/test_fnd_077_evaluations_list_rbac.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-077
+    title: "Evaluations RBAC/nav disagreement — frontend half: trigger button off account role, compliance_lead nav entry removed, 403 explained (STORY-TAB-004)"
+    test: frontend/src/pages/Evaluations.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-078
+    title: "Evaluations LIST response exposes api_url + raw error_message internals to every listing role (security-auditor, STORY-TAB-004, pre-existing)"
+    test: tests/regression/test_fnd_078_evaluations_list_field_hygiene.py
+    status: open
+    quarantine_expires: null
+  - id: FND-079
+    title: "require_role 403 echoes the required role tuple; require_role_or_persona deliberately doesn't — inconsistent disclosure posture (security-auditor, STORY-TAB-004, pre-existing)"
+    test: tests/regression/test_fnd_079_require_role_generic_denial.py
+    status: open
+    quarantine_expires: null
   - id: FND-084
     title: "Unpinned ruff in CI workflows - new ruff release turned every PR red with 1491 errors in untouched files; pinned to the validated 0.15.15 (ci-debugger, PR #128)"
     test: tests/regression/test_fnd_084_ruff_pinned_in_ci.py

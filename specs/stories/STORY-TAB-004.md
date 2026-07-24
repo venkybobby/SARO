@@ -1,6 +1,6 @@
 # STORY-TAB-004: Evaluations tab — make nav visibility, trigger button, and backend RBAC agree
 
-**Status:** ready
+**Status:** done
 **Screen/Area:** Evaluations tab (frontend/src/pages/Evaluations.jsx, frontend/src/components/Sidebar.jsx ↔ routers/evaluations.py)
 
 ## Premise verification
@@ -40,3 +40,14 @@ Decision (least-privilege): narrow the frontend to match the backend, with one b
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `test_tab004_evaluations_rbac.py::test_list_permitted_roles[admin/super_admin/operator]` + `test_list_denied_roles` (persona-alone, demo_viewer, bare role all 403); regression pin `test_fnd_077_evaluations_list_rbac.py` | routers/evaluations.py, tests/test_tab004_evaluations_rbac.py, tests/regression/test_fnd_077_evaluations_list_rbac.py |
+| AC-2 | `Sidebar.test.jsx` PERSONA_EXPECTED: compliance_lead set no longer contains "Evaluations"; admin/super_admin sets unchanged (exact-count assertion) | frontend/src/components/Sidebar.jsx, Sidebar.test.jsx |
+| AC-3 | `Evaluations.test.jsx`: button renders for role=super_admin (even persona-switched), not for role=admin, not for ai_auditor persona on unprivileged role; backend `test_trigger_still_denied_to_admin` | frontend/src/pages/Evaluations.jsx, Evaluations.test.jsx, tests/test_tab004_evaluations_rbac.py |
+| AC-4 | `Evaluations.test.jsx`: 403 renders the access explanation; non-403 keeps generic banner | frontend/src/pages/Evaluations.jsx, Evaluations.test.jsx |
+| AC-5 | `test_trigger_gate_still_admits_super_admin` (422-on-unknown-dataset proves the gate admits super_admin with zero background side effects) + `test_trigger_denied_operator` | routers/evaluations.py, tests/test_tab004_evaluations_rbac.py |
+
+**Edge cases covered:** persona-switched super_admin (gating off `user.role`);
+missing `user` prop renders no button and doesn't crash — in `Evaluations.test.jsx`.
+
+**Finding:** FND-077 (quality/findings.md) — pinned red-first (admin-list case
+failed pre-fix); two manifest entries (backend regression file + frontend half).
