@@ -6,6 +6,96 @@ import LiveFeed     from "../components/LiveFeed";
 import MetricsRow   from "../components/MetricsRow";
 import RegCoverage  from "../components/RegCoverage";
 import EngineScores from "../components/EngineScores";
+import Onboarding   from "./Onboarding.jsx";
+
+// STORY-TAB-008: the Onboarding tab is gone — its checklist lives here as a
+// dismissible first-run banner (admin/super_admin, until onboarding_complete).
+// Separate localStorage key from the first-login wizard's dismissal.
+const LS_ONBOARDING_BANNER_DISMISSED = "saro_onboarding_banner_dismissed";
+
+function OnboardingBanner({ token, tenantId, onNavigate }) {
+  const [status, setStatus] = useState(null);
+  const [dismissed, setDismissed] = useState(
+    () => !!localStorage.getItem(LS_ONBOARDING_BANNER_DISMISSED)
+  );
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/v1/onboarding/status${tenantId ? `?tenant_id=${tenantId}` : ""}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setStatus(d))
+      .catch(() => setStatus(null));
+  }, [token, tenantId]);
+
+  // Render only on a well-shaped, incomplete checklist — a failed or shapeless
+  // response must never fabricate a setup state (fail-silent).
+  if (dismissed || !status || !Array.isArray(status.steps) || status.steps.length === 0 || status.onboarding_complete) {
+    return null;
+  }
+
+  return (
+    <div style={{
+      background: "var(--color-bg-surface)", border: "1px solid var(--color-border-default)",
+      borderRadius: "var(--radius-md)", padding: "var(--space-4)", marginBottom: "var(--space-5)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+        <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>
+          Finish setting up SARO — {status.completed_steps}/{status.total_steps} steps complete
+        </span>
+        <button
+          aria-label="Dismiss setup checklist"
+          onClick={() => { localStorage.setItem(LS_ONBOARDING_BANNER_DISMISSED, "1"); setDismissed(true); }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 16, lineHeight: 1 }}
+        >
+          ×
+        </button>
+      </div>
+      <Onboarding token={token} tenantId={tenantId} onNavigate={onNavigate} embedded />
+    </div>
+  );
+}
+
+// STORY-TAB-008: the Remediation tab is gone — the Dashboard surfaces the open
+// queue size and deep-links to its new home in TRACE View. Renders only on a
+// well-shaped response (fail-silent: no card on error, never a fake zero).
+function RemediationQueueCard({ token, onNavigate }) {
+  const [total, setTotal] = useState(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/v1/remediation", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTotal(typeof d?.total === "number" ? d.total : null))
+      .catch(() => setTotal(null));
+  }, [token]);
+
+  if (total === null) return null;
+
+  return (
+    <div style={{
+      background: "var(--color-bg-surface)", border: "1px solid var(--color-border-default)",
+      borderRadius: "var(--radius-md)", padding: "var(--space-3) var(--space-4)",
+      marginBottom: "var(--space-5)", display: "flex", alignItems: "center",
+      justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap",
+    }}>
+      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-primary)" }}>
+        <strong>{total}</strong> open remediation item{total === 1 ? "" : "s"} awaiting human review
+      </span>
+      <button
+        onClick={() => onNavigate?.("trace_view")}
+        style={{
+          padding: "5px 12px", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)",
+          fontWeight: "var(--weight-semibold)", background: "var(--color-info-bg)",
+          color: "var(--color-info)", border: "1px solid var(--color-info-border)", cursor: "pointer",
+        }}
+      >
+        Review in TRACE View →
+      </button>
+    </div>
+  );
+}
 
 const POSTURE_STYLES = {
   CRITICAL: { bg: "var(--color-critical-bg)", border: "var(--color-critical-border)", color: "var(--color-critical)" },
@@ -610,6 +700,16 @@ export default function Dashboard({ token, tenantId, user, onNavigate }) {
         {/* Drift alerts inline — STORY-015: ai_auditor, admin, compliance_lead */}
         {["ai_auditor","admin","super_admin","compliance_lead"].includes(persona) && (
           <DriftAlertsBanner token={token} onNavigate={onNavigate} />
+        )}
+
+        {/* STORY-TAB-008: relocated surfaces — first-run checklist (admin setup
+            owners only) + open-remediation deep link. Both hidden for demo
+            sessions (demo tab surface unchanged; STORY-412 census). */}
+        {user?.role !== "demo_viewer" && ["admin","super_admin"].includes(persona) && (
+          <OnboardingBanner token={token} tenantId={tenantId} onNavigate={onNavigate} />
+        )}
+        {user?.role !== "demo_viewer" && (
+          <RemediationQueueCard token={token} onNavigate={onNavigate} />
         )}
 
         {isEmpty ? (

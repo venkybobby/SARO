@@ -33,5 +33,9 @@ FND-085 because the consolidation embeds the queue on a demo-visible page.
 | Onboarding banner vs existing first-login wizard | Both stay: wizard = first-login modal (TAB-002); banner = persistent Dashboard card until complete/dismissed, embedding the same API-driven component. Separate localStorage keys. | One data contract, two presentations; no duplicated step logic. |
 | Removed page keys in AppShell | Drop from PAGE_COMPONENTS + Sidebar registry/personas; component files stay (they are the embedded implementations). Stale keys fall back to Dashboard (existing behavior). | No dead nav entries; no deleted pins. |
 
+## Build progress
+- folds 1-2 committed (59b9a85); fold 3 (remediation → TRACE View + FND-085
+  write gate) in progress.
+
 ## Deviations
 None yet.

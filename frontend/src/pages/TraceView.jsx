@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { PageHeader, Skeleton } from "../components/ui/index.jsx";
 import { TRACE_METHODOLOGY_READY } from "../config/traceGate";
+import Remediation from "./Remediation.jsx";
 
 const STEPS = [
   { key: "ingest",    label: "1. Ingest" },
@@ -561,6 +562,19 @@ export default function TraceView({ token, initialAuditId, user, onNavigate, met
           )}
         </>
       ) : null}
+
+      {/* STORY-TAB-008: the Remediation queue folded in — open fail/warn traces
+          across audits, with the remediate action. Hidden for demo sessions
+          (the demo surface is unchanged; the backend write gate FND-085 is the
+          actual control for read-only tokens). */}
+      {user?.role !== "demo_viewer" && (
+        <div style={{ marginTop: "var(--space-6)" }}>
+          <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)", color: "var(--color-text-primary)" }}>
+            Open findings — remediation queue
+          </h2>
+          <Remediation token={token} user={user} embedded />
+        </div>
+      )}
       </div>
     </div>
   );

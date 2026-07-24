@@ -56,6 +56,47 @@ describe("normalizeTrace (render-contract helper)", () => {
   });
 });
 
+describe("TraceView — STORY-TAB-008: Remediation queue folded in", () => {
+  const OPEN_TRACE = {
+    id: "t-1", audit_id: "a-1", check_name: "PII: email address detected",
+    gate_name: "Gate 2", result: "fail", reason: "raw email present",
+    remediation_hint: null, regulation_ref: null, effort_estimate: null,
+    domain: "PII", created_at: null,
+  };
+
+  function stubWithQueue(traces) {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      const u = String(url);
+      if (u === "/api/v1/audit/audit-123456789/trace") {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TIMELINE) });
+      }
+      if (u === "/api/v1/audits/audit-123456789") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(AUDIT) });
+      }
+      if (u.startsWith("/api/v1/remediation")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ traces, total: traces.length, page: 1, page_size: 50, pages: 1 }) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+    }));
+  }
+
+  it("renders the queue section (original Remediation component) for a signed-in user", async () => {
+    stubWithQueue([OPEN_TRACE]);
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={{ role: "operator" }} />);
+    expect(await screen.findByText("Open findings — remediation queue")).toBeInTheDocument();
+    expect(await screen.findByText("PII: email address detected")).toBeInTheDocument();
+  });
+
+  it("never renders the queue for a demo session (demo surface unchanged)", async () => {
+    stubWithQueue([OPEN_TRACE]);
+    render(<TraceView token="t" initialAuditId="audit-123456789" user={{ role: "demo_viewer", read_only: true, persona_role: "compliance_lead" }} />);
+    await waitFor(() => expect(screen.getByText("74/100")).toBeInTheDocument());
+    expect(screen.queryByText("Open findings — remediation queue")).not.toBeInTheDocument();
+    // and the remediation endpoint was never called for demo
+    expect(fetch.mock.calls.map((c) => String(c[0])).some((u) => u.startsWith("/api/v1/remediation"))).toBe(false);
+  });
+});
+
 describe("TraceView TRACE-001 render contract", () => {
   it("fetches the timeline endpoint (not /traces/{id})", async () => {
     render(<TraceView token="t" initialAuditId="audit-123456789" />);

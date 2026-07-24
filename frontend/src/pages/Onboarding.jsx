@@ -11,7 +11,10 @@
 import React, { useEffect, useState } from "react";
 import { ONBOARDING_STEP_NAV } from "../config/onboardingNav.js";
 
-export default function Onboarding({ token, tenantId, onNavigate }) {
+// STORY-TAB-008: `embedded` renders the checklist without the page chrome so
+// the Dashboard first-run banner can host it (component behavior and every
+// FND-075 pin unchanged).
+export default function Onboarding({ token, tenantId, onNavigate, embedded = false }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
@@ -29,11 +32,15 @@ export default function Onboarding({ token, tenantId, onNavigate }) {
   const pct = data?.completion_pct ?? 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 800 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🏢 Onboarding</h1>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Track your SARO setup progress. Complete all steps to be fully operational.
-      </p>
+    <div style={embedded ? {} : { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 800 }}>
+      {!embedded && (
+        <>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>🏢 Onboarding</h1>
+          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+            Track your SARO setup progress. Complete all steps to be fully operational.
+          </p>
+        </>
+      )}
 
       {loading && <div style={{ color: "#9ca3af" }}>Loading onboarding status…</div>}
       {error && (

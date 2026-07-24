@@ -10,7 +10,12 @@ import React, { useEffect, useState } from "react";
 // The API reports the trace `result`, not a severity; color only groups it.
 const RESULT_COLOR = { fail: "#dc2626", warn: "#ca8a04" };
 
-export default function Remediation({ token, tenantId }) {
+// STORY-TAB-008: `embedded` renders without page chrome (TRACE View hosts the
+// queue as its "Open findings" section); `user` gates the Mark Complete
+// affordance for read-only sessions (FND-054 pattern — the backend
+// require_write_access gate is the control, this is defense in depth).
+export default function Remediation({ token, tenantId, embedded = false, user = null }) {
+  const readOnly = !!user?.read_only;
   const [traces, setTraces] = useState([]);
   const [total, setTotal]   = useState(0);
   const [loading, setLoading] = useState(true);
@@ -76,11 +81,15 @@ export default function Remediation({ token, tenantId }) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🔧 Remediation</h1>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Open remediation actions requiring human review and sign-off.
-      </p>
+    <div style={embedded ? {} : { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
+      {!embedded && (
+        <>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>🔧 Remediation</h1>
+          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+            Open remediation actions requiring human review and sign-off.
+          </p>
+        </>
+      )}
 
       {loading && <div style={{ color: "#9ca3af" }}>Loading…</div>}
       {error && (
@@ -171,7 +180,7 @@ export default function Remediation({ token, tenantId }) {
                   </div>
                 )}
               </div>
-              {!noteOpen && (
+              {!noteOpen && !readOnly && (
                 <div>
                   <button
                     onClick={() => openNote(t.id)}
