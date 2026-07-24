@@ -14,6 +14,20 @@ def load_rule_pack(pack_file: Path) -> dict:
         return yaml.safe_load(f)
 
 
+def _pack_summary(pack: dict, yaml_file: Path) -> dict:
+    """Light metadata shape served by the LIST endpoint (no inline rules)."""
+    return {
+        "name": pack.get("name"),
+        "version": pack.get("version"),
+        "framework": pack.get("framework"),
+        "last_updated": pack.get("last_updated"),
+        "status": pack.get("status", "active"),
+        "rule_count": len(pack.get("rules", [])),
+        "changelog": pack.get("changelog", []),
+        "file": yaml_file.name,
+    }
+
+
 def list_rule_packs() -> list[dict]:
     """Return metadata for all available rule packs."""
     if not RULE_PACKS_DIR.exists():
@@ -22,27 +36,31 @@ def list_rule_packs() -> list[dict]:
     packs = []
     for yaml_file in sorted(RULE_PACKS_DIR.glob("*.yaml")):
         try:
-            pack = load_rule_pack(yaml_file)
-            packs.append({
-                "name": pack.get("name"),
-                "version": pack.get("version"),
-                "framework": pack.get("framework"),
-                "last_updated": pack.get("last_updated"),
-                "status": pack.get("status", "active"),
-                "rule_count": len(pack.get("rules", [])),
-                "changelog": pack.get("changelog", []),
-                "file": yaml_file.name,
-            })
+            packs.append(_pack_summary(load_rule_pack(yaml_file), yaml_file))
         except Exception:
             continue
     return packs
 
 
 def get_pack_by_name(framework: str) -> Optional[dict]:
-    """Find a rule pack by framework identifier."""
-    for pack in list_rule_packs():
-        if pack.get("framework", "").lower() == framework.lower():
-            return pack
+    """Find a rule pack by framework identifier — full detail, rules included.
+
+    STORY-TAB-006: the detail shape is the summary plus the pack's `rules`
+    list, so GET /api/v1/rules/packs/{framework} can show an auditor exactly
+    which rules the pack applies (the list endpoint stays count-only).
+    """
+    if not RULE_PACKS_DIR.exists():
+        return None
+    for yaml_file in sorted(RULE_PACKS_DIR.glob("*.yaml")):
+        try:
+            pack = load_rule_pack(yaml_file)
+        except Exception:
+            continue
+        if (pack.get("framework") or "").lower() == framework.lower():
+            detail = _pack_summary(pack, yaml_file)
+            detail["rules"] = pack.get("rules", [])
+            detail["description"] = pack.get("description")
+            return detail
     return None
 
 

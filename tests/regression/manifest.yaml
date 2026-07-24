@@ -397,3 +397,13 @@ findings:
     test: frontend/src/pages/DriftAlerts.test.jsx
     status: pinned
     quarantine_expires: null
+  - id: FND-081
+    title: "Rule Packs showed '0 rules' for every pack; detail lookup returned count-only summary — transparency surface empty (STORY-TAB-006; frontend half)"
+    test: frontend/src/pages/RulePacks.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-081
+    title: "Rule Packs — backend half: get_pack_by_name returns full detail incl. rules; list stays count-only (STORY-TAB-006)"
+    test: tests/test_tab006_rule_pack_detail.py
+    status: pinned
+    quarantine_expires: null
