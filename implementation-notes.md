@@ -31,11 +31,21 @@ FND-085 because the consolidation embeds the queue on a demo-visible page.
 | Demo session sees TRACE View + Compliance Hub (DEMO_TABS) — do embeds change the demo surface? | Remediation embed hidden entirely for `role=demo_viewer` (defense in depth on top of the new backend write gate); coverage embed is fine (endpoint already demo-census-safe via ComplianceHub). | STORY-412 census unchanged. |
 | remediate PATCH write gate | Add `Depends(require_write_access)` (FND-085, red-first pin). UI additionally hides Mark Complete for `read_only` users (FND-054 pattern). | routers/ touched → security-auditor required. |
 | Onboarding banner vs existing first-login wizard | Both stay: wizard = first-login modal (TAB-002); banner = persistent Dashboard card until complete/dismissed, embedding the same API-driven component. Separate localStorage keys. | One data contract, two presentations; no duplicated step logic. |
-| Removed page keys in AppShell | Drop from PAGE_COMPONENTS + Sidebar registry/personas; component files stay (they are the embedded implementations). Stale keys fall back to Dashboard (existing behavior). | No dead nav entries; no deleted pins. |
+| Removed page keys in AppShell | Drop from Sidebar registry/personas; in PAGE_COMPONENTS the old keys REDIRECT to their host pages (FND-007 discipline — a navigated key never silently falls through to Dashboard). Component files stay (they are the embedded implementations). | No dead nav entries; no deleted pins; deep-links land on the host. |
 
 ## Build progress
-- folds 1-2 committed (59b9a85); folds 3-4 committed (24b9e0e); fold 5
-  committed (8360c29); sidebar/AppShell consolidation + AIMS rename in progress.
+- folds 1-2 (59b9a85); folds 3-4 (24b9e0e); fold 5 (8360c29); sidebar/AppShell
+  consolidation + rename + close (ba7456e); review round applied after
+  reviewer APPROVE + security PASS (FND-086 gates, redirect pin, doc truthing).
 
 ## Deviations
-None yet.
+- CoverageGap's fetch URL normalized (dropped `tenant_id`/`window` params +
+  the `!tenantId` guard) — semantically a no-op (the endpoint declares no
+  query params; tenant derives from the JWT) but required by the CHUB-009
+  pin once embedded in Compliance Hub. Named here per reviewer NIT (it
+  exceeded the "embed unchanged" framing).
+- Security audit (PASS) found FND-085's remediation incomplete: the batch
+  (`bulk-remediate`) and Jira (`create-jira-issue`) mutation twins had the
+  same missing write gate — PoC'd with a public demo token. Fixed in-PR as
+  FND-086 (red-first), rather than deferred, because the exploit credential
+  is public.

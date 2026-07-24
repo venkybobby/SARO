@@ -432,3 +432,8 @@ findings:
     test: tests/regression/test_fnd_085_remediate_write_gate.py
     status: pinned
     quarantine_expires: null
+  - id: FND-086
+    title: "FND-085 incomplete - bulk-remediate + create-jira-issue lacked require_write_access; public demo token could bulk-mutate traces (security-auditor PoC, STORY-TAB-008)"
+    test: tests/regression/test_fnd_086_bulk_and_jira_write_gates.py
+    status: pinned
+    quarantine_expires: null

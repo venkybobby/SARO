@@ -236,7 +236,12 @@ async def remediate_trace(
     }
 
 
-@router.post("/remediation/traces/{trace_id}/create-jira-issue")
+# FND-086: same write-gate as the remediate route (FND-085) — this mutation
+# writes detail_json + an AuditEvent and triggers an outbound Jira call.
+@router.post(
+    "/remediation/traces/{trace_id}/create-jira-issue",
+    dependencies=[Depends(require_write_access)],
+)
 async def create_jira_issue(
     trace_id: uuid.UUID,
     payload: CreateJiraIssueIn,
@@ -599,7 +604,12 @@ class BulkRemediateIn(BaseModel):
     remediation_note: str
 
 
-@router.post("/remediation/bulk-remediate")
+# FND-086: the batch twin of the FND-085 route — a public read-only demo token
+# could bulk-mark traces remediated (security-auditor PoC, STORY-TAB-008).
+@router.post(
+    "/remediation/bulk-remediate",
+    dependencies=[Depends(require_write_access)],
+)
 async def bulk_remediate_traces(
     payload: BulkRemediateIn,
     db: Annotated[Session, Depends(get_db)],

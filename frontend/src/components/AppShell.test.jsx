@@ -17,11 +17,14 @@ vi.mock("../pages/Dashboard", () => ({
       <span>Dashboard content</span>
       <button onClick={() => onNavigate?.("upload")}>Go off-whitelist</button>
       <button onClick={() => onNavigate?.("trace_view")}>Go on-whitelist</button>
+      <button onClick={() => onNavigate?.("coverage_gap")}>Go legacy coverage_gap</button>
+      <button onClick={() => onNavigate?.("remediation")}>Go legacy remediation</button>
     </div>
   ),
 }));
 vi.mock("../pages/Upload", () => ({ default: () => <div>Upload page content</div> }));
 vi.mock("../pages/TraceView", () => ({ default: () => <div>TraceView page content</div> }));
+vi.mock("../pages/ComplianceHub", () => ({ default: () => <div>ComplianceHub page content</div> }));
 
 import AppShell from "./AppShell";
 
@@ -53,6 +56,28 @@ describe("AppShell — STORY-412: navigation guard for demo sessions", () => {
     await waitFor(() => expect(screen.getByText("Dashboard content")).toBeTruthy());
     fireEvent.click(screen.getByText("Go off-whitelist"));
     await waitFor(() => expect(screen.getByText("Upload page content")).toBeTruthy());
+  });
+});
+
+/**
+ * STORY-TAB-008: removed page keys must REDIRECT to their host pages —
+ * FND-007 discipline: a navigated key never silently falls through to
+ * Dashboard. (Reverting the PAGE_COMPONENTS redirects makes these fail.)
+ */
+describe("AppShell — STORY-TAB-008: legacy page keys redirect to hosts", () => {
+  it("coverage_gap renders Compliance Hub (not Dashboard)", async () => {
+    render(<AppShell token="t" user={{ role: "operator", persona_role: "operator" }} onSignOut={() => {}} onUserUpdate={() => {}} toast={TOAST} />);
+    await waitFor(() => expect(screen.getByText("Dashboard content")).toBeTruthy());
+    fireEvent.click(screen.getByText("Go legacy coverage_gap"));
+    await waitFor(() => expect(screen.getByText("ComplianceHub page content")).toBeTruthy());
+    expect(screen.queryByText("Dashboard content")).toBeNull();
+  });
+
+  it("remediation renders TRACE View (its new host)", async () => {
+    render(<AppShell token="t" user={{ role: "operator", persona_role: "operator" }} onSignOut={() => {}} onUserUpdate={() => {}} toast={TOAST} />);
+    await waitFor(() => expect(screen.getByText("Dashboard content")).toBeTruthy());
+    fireEvent.click(screen.getByText("Go legacy remediation"));
+    await waitFor(() => expect(screen.getByText("TraceView page content")).toBeTruthy());
   });
 });
 
