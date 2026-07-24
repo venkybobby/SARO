@@ -391,8 +391,10 @@ function DriftAlertsBanner({ token, onNavigate }) {
           )}
         </div>
       </div>
+      {/* STORY-TAB-008: drift now lives inside Rule Packs (the old key still
+          redirects there in PAGE_COMPONENTS, but navigate to the real page). */}
       <button
-        onClick={() => onNavigate?.("drift_alerts")}
+        onClick={() => onNavigate?.("rule_packs")}
         style={{
           padding: "4px 10px", background: "#fef3c7", border: "1px solid #fcd34d",
           borderRadius: 5, cursor: "pointer", fontSize: "var(--text-xs)",

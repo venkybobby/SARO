@@ -7,8 +7,8 @@ Stage: standard
 - [x] shape      (sign-off = owner invoking /story STORY-TAB-008; remaining decisions defaulted + logged below)
 - [x] preview    (skipped — no new visual design: hosts embed the existing components unchanged, STORY-112 precedent)
 - [x] plan       (host-by-host plan in task list; spec finalized to ready with G/W/T ACs + edge cases)
-- [ ] build
-- [ ] verify
+- [x] build      (five folds + sidebar consolidation implemented; gates green — see PR)
+- [x] verify     (change-debrief.html extended with the TAB-008 consolidation section)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
@@ -35,7 +35,7 @@ FND-085 because the consolidation embeds the queue on a demo-visible page.
 
 ## Build progress
 - folds 1-2 committed (59b9a85); folds 3-4 committed (24b9e0e); fold 5
-  (evaluations → Admin Settings + Trust Center card) in progress.
+  committed (8360c29); sidebar/AppShell consolidation + AIMS rename in progress.
 
 ## Deviations
 None yet.

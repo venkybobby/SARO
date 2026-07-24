@@ -16,20 +16,17 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+// STORY-TAB-008: coverage_gap/remediation/drift_alerts/onboarding/evaluations
+// are no longer top-level tabs (consolidated into hosts); aims renamed.
 const TAB_LABELS = {
   dashboard:        "Dashboard",
   compliance_hub:   "Compliance Hub",
   trace_view:       "TRACE View",
   trust_center:     "Trust Center",
   rule_packs:       "Rule Packs",
-  coverage_gap:     "Coverage Gap",
-  remediation:      "Remediation",
-  drift_alerts:     "Drift Alerts",
-  onboarding:       "Onboarding",
   upload:           "Upload & Scan",
   admin_settings:   "Admin Settings",
-  aims:             "AIMS",
-  evaluations:      "Evaluations",
+  aims:             "Model Inventory",
   evf_admin:        "EVF Status",
   risk_register:    "Risk Register",
   ai_insights:      "AI Insights",
@@ -39,8 +36,11 @@ const TAB_LABELS = {
 };
 
 const OFF_WHITELIST_LABELS = [
-  "AIMS", "Evaluations", "Trust Center", "Upload & Scan", "Onboarding", "Admin Settings",
+  "Model Inventory", "Trust Center", "Upload & Scan", "Admin Settings",
 ];
+
+// STORY-TAB-008 AC-1: these must not exist as top-level tabs for ANY persona.
+const CONSOLIDATED_LABELS = ["Coverage Gap", "Remediation", "Drift Alerts", "Onboarding", "Evaluations", "AIMS"];
 
 describe("Sidebar — STORY-412 AC-2: demo session renders exactly DEMO_TABS", () => {
   it("shows every DEMO_TABS entry and nothing off the whitelist, for a demo_viewer with no persona_role", () => {
@@ -72,36 +72,44 @@ describe("Sidebar — STORY-412 AC-3: persona switcher hidden for demo sessions"
   });
 });
 
-describe("Sidebar — STORY-412 AC-5: non-demo tab sets unchanged", () => {
+describe("Sidebar — STORY-412 AC-5 / STORY-TAB-008 AC-1+AC-2: consolidated persona tab sets", () => {
+  // STORY-TAB-008: five tabs consolidated into hosts; AIMS renamed
+  // "Model Inventory". Exact-count assertions retained (no weakening).
   const PERSONA_EXPECTED = {
-    // STORY-TAB-004: "Evaluations" removed from compliance_lead — the backend
-    // list gate is role-based (super_admin/operator/admin), so the tab was a
-    // guaranteed 403 for a real compliance lead account.
-    compliance_lead: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "AIMS", "Onboarding", "Upload & Scan", "Reports"],
+    compliance_lead: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Model Inventory", "Upload & Scan", "Reports"],
     risk_officer:    ["Dashboard", "Risk Register", "TRACE View", "AI Insights", "Reports"],
-    ai_auditor:      ["Dashboard", "TRACE View", "Rule Packs", "Coverage Gap", "Remediation", "Drift Alerts", "Upload & Scan", "Knowledge Portal"],
-    operator:        ["Dashboard", "Upload & Scan", "TRACE View", "Remediation", "Knowledge Portal"],
-    admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs", "Coverage Gap",
-            "Remediation", "Drift Alerts", "AIMS", "Onboarding", "Upload & Scan", "Admin Settings",
-            "Evaluations", "EVF Status", "Risk Register", "AI Insights", "Reports", "Settings",
+    ai_auditor:      ["Dashboard", "TRACE View", "Rule Packs", "Upload & Scan", "Knowledge Portal"],
+    operator:        ["Dashboard", "Upload & Scan", "TRACE View", "Knowledge Portal"],
+    admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs",
+            "Model Inventory", "Upload & Scan", "Admin Settings",
+            "EVF Status", "Risk Register", "AI Insights", "Reports", "Settings",
             "Knowledge Portal"],
-    super_admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs", "Coverage Gap",
-                  "Remediation", "Drift Alerts", "AIMS", "Onboarding", "Upload & Scan", "Admin Settings",
-                  "Evaluations", "Risk Register", "AI Insights", "Reports", "Settings"],
+    super_admin: ["Dashboard", "Compliance Hub", "TRACE View", "Trust Center", "Rule Packs",
+                  "Model Inventory", "Upload & Scan", "Admin Settings",
+                  "Risk Register", "AI Insights", "Reports", "Settings"],
   };
 
   for (const [persona, expectedLabels] of Object.entries(PERSONA_EXPECTED)) {
-    it(`${persona} still sees exactly its pre-STORY-412 tab set`, () => {
+    it(`${persona} sees exactly its post-consolidation tab set`, () => {
       render(<Sidebar user={{ role: persona, persona_role: persona }} activePage="dashboard" onNavigate={() => {}} />);
       for (const label of expectedLabels) {
         expect(screen.getByText(label)).toBeTruthy();
       }
-      // None of the demo-only-adjacent labels beyond this persona's own set leak in.
+      // exact count — no extra tab labels leak in
       const allTabButtons = screen.getAllByRole("button").map((b) => b.textContent);
       const shown = allTabButtons.filter((t) => Object.values(TAB_LABELS).some((l) => t.includes(l)));
       expect(shown.length).toBe(expectedLabels.length);
+      // AC-1: none of the consolidated tabs render for any persona
+      for (const gone of CONSOLIDATED_LABELS) {
+        expect(screen.queryByText(gone)).toBeNull();
+      }
     });
   }
+
+  it("STORY-TAB-008 AC-2: admin sidebar shrank from 19 to 14 entries; super_admin to 12", () => {
+    expect(PERSONA_EXPECTED.admin).toHaveLength(14);
+    expect(PERSONA_EXPECTED.super_admin).toHaveLength(12);
+  });
 
   it("admin's switcher still opens on click (positive control — canSwitch is keyed off role, unaffected by STORY-412)", () => {
     render(<Sidebar user={{ role: "admin", persona_role: "admin", email: "admin@saro.io" }} activePage="dashboard" onNavigate={() => {}} />);

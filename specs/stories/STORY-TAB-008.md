@@ -1,6 +1,6 @@
 # STORY-TAB-008: Tab consolidation — fold 5 thin tabs into their natural homes
 
-**Status:** in-progress
+**Status:** done
 **Screen/Area:** Sidebar navigation + host pages (Sidebar.jsx, AppShell.jsx, RulePacks, ComplianceHub, TraceView, Dashboard, AdminSettings, TrustCenter)
 
 > Product sign-off: owner invoked `/story STORY-TAB-008` on 2026-07-23 after the
@@ -55,3 +55,19 @@ Five of the seven audited tabs are filters or sub-views of surfaces that already
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `RulePacks.test.jsx` "Drift Alerts folded into Rule Packs" (2 cases incl. independent-failure edge); `ComplianceHub.test.jsx` "Coverage by Framework section renders the embedded component"; `TraceView.test.jsx` "Remediation queue folded in" (2 cases); `Dashboard.test.jsx` STORY-TAB-008 block; `AdminSettings.test.jsx` (3 cases); `Sidebar.test.jsx` CONSOLIDATED_LABELS assertion per persona | RulePacks.jsx, ComplianceHub.jsx, TraceView.jsx, Dashboard.jsx, AdminSettings.jsx, Sidebar.jsx + tests |
+| AC-2 | `Sidebar.test.jsx` "admin sidebar shrank from 19 to 14 entries; super_admin to 12" + exact-count per-persona assertions | Sidebar.jsx, Sidebar.test.jsx |
+| AC-3 | `Dashboard.test.jsx`: incomplete → dismissible checklist (embedded TAB-002 component, FND-075 pins intact); complete → never renders; dismissal persists | Dashboard.jsx, Onboarding.jsx, Dashboard.test.jsx |
+| AC-4 | `Dashboard.test.jsx`: card shows API total + deep-links to trace_view; absent on fetch failure (no fake zero) | Dashboard.jsx, Dashboard.test.jsx |
+| AC-5 | backend `test_fnd_085_remediate_write_gate.py` (read-only 403 red-first + writable regression guard); `TraceView.test.jsx` demo never renders/fetches the queue; `Remediation.test.jsx` read_only hides Mark Complete; `Dashboard.test.jsx` demo sees neither surface | routers/remediation.py, TraceView.jsx, Remediation.jsx, Dashboard.jsx + tests |
+| AC-6 | `TrustCenter.test.jsx` detection-quality block: renders for admin role; no card + no fetch for unadmitted roles; fail-silent on empty list | TrustCenter.jsx, TrustCenter.test.jsx |
+| AC-7 | `Sidebar.test.jsx` PERSONA_EXPECTED rewritten with exact counts (documented in-file as STORY-TAB-008); `ComplianceHub.test.jsx` AC-3 relocated (EVF card focuses the embedded section, asserts the real gap signal); full suite 274/274; STORY-412 demo tests untouched and green | Sidebar.test.jsx, ComplianceHub.test.jsx |
+| AC-8 | `Sidebar.test.jsx` TAB_LABELS/PERSONA_EXPECTED use "Model Inventory"; "AIMS" asserted absent via CONSOLIDATED_LABELS | Sidebar.jsx, Sidebar.test.jsx |
+
+**Old page keys** (`coverage_gap`, `remediation`, `drift_alerts`, `onboarding`,
+`evaluations`) redirect to their HOST pages in AppShell PAGE_COMPONENTS —
+FND-007 discipline: a navigated key never silently falls through to Dashboard.
+Dashboard's drift banner now navigates to `rule_packs` directly.
+
+**Finding:** FND-085 (write gate on the remediate mutation) — pinned red-first,
+manifest entry `status: pinned`.

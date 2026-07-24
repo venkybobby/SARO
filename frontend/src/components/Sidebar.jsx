@@ -1,45 +1,45 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, Shield, Search, Package,
-  Map, Wrench, Activity, Building2, Upload, Settings,
-  ClipboardList, BookOpen, Users, Lightbulb, FileText,
-  AlertTriangle, Lock, ShieldCheck, LogOut, ChevronRight,
+  Upload, Settings,
+  ClipboardList, BookOpen,
+  Lock, ShieldCheck, LogOut, ChevronRight,
   ShieldAlert, Sparkles, LineChart, ChevronDown,
 } from "lucide-react";
 import { StatusDot } from "./ui/index.jsx";
 import DEMO_TABS from "../config/demoTabs.json";
 
+// STORY-TAB-008 consolidation: drift_alerts lives inside Rule Packs,
+// coverage_gap inside Compliance Hub, remediation inside TRACE View,
+// onboarding as a Dashboard first-run banner, and evaluations inside Admin
+// Settings (with a Trust Center evidence card) — none is a top-level tab.
+// (STORY-TAB-004 had already removed evaluations from compliance_lead.)
 const PERSONA_TABS = {
-  // STORY-TAB-004: evaluations removed — the backend list gate is role-based
-  // (super_admin/operator/admin) and a compliance_lead persona's account role
-  // would 403; the tab was a dead entry for them.
   compliance_lead: [
     "dashboard","compliance_hub","trace_view",
     "trust_center",
-    "aims","onboarding","upload","reports",
+    "aims","upload","reports",
   ],
   risk_officer: ["dashboard","risk_register","trace_view","ai_insights","reports"],
   ai_auditor: [
     "dashboard","trace_view",
-    "rule_packs","coverage_gap","remediation","drift_alerts","upload",
+    "rule_packs","upload",
     "knowledge_portal",
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
     "trust_center",
-    "rule_packs","coverage_gap","remediation",
-    "drift_alerts","aims","onboarding","upload",
-    "admin_settings","evaluations","evf_admin",
+    "rule_packs","aims","upload",
+    "admin_settings","evf_admin",
     "risk_register","ai_insights","reports","settings","knowledge_portal",
   ],
   super_admin: [
     "dashboard","compliance_hub","trace_view",
     "trust_center",
-    "rule_packs","coverage_gap","remediation",
-    "drift_alerts","aims","onboarding","upload",
-    "admin_settings","evaluations","risk_register","ai_insights","reports","settings",
+    "rule_packs","aims","upload",
+    "admin_settings","risk_register","ai_insights","reports","settings",
   ],
-  operator: ["dashboard","upload","trace_view","remediation","knowledge_portal"],
+  operator: ["dashboard","upload","trace_view","knowledge_portal"],
 };
 
 const TAB_REGISTRY = {
@@ -50,14 +50,13 @@ const TAB_REGISTRY = {
   // STORY-113: Risk Summary (and its Vendor Risk alias) merged into Risk Register.
   trust_center:     { label: "Trust Center",       icon: ShieldCheck,     page: "trust_center" },
   rule_packs:       { label: "Rule Packs",         icon: Package,         page: "rule_packs" },
-  coverage_gap:     { label: "Coverage Gap",       icon: Map,             page: "coverage_gap" },
-  remediation:      { label: "Remediation",        icon: Wrench,          page: "remediation" },
-  drift_alerts:     { label: "Drift Alerts",       icon: Activity,        page: "drift_alerts" },
-  onboarding:       { label: "Onboarding",         icon: Building2,       page: "onboarding" },
+  // STORY-TAB-008: coverage_gap, remediation, drift_alerts, onboarding and
+  // evaluations registry entries removed — the pages live inside their hosts
+  // (Compliance Hub / TRACE View / Rule Packs / Dashboard / Admin Settings).
   upload:           { label: "Upload & Scan",      icon: Upload,          page: "upload" },
   admin_settings:   { label: "Admin Settings",     icon: Settings,        page: "admin_settings" },
-  aims:             { label: "AIMS",               icon: ClipboardList,   page: "aims" },
-  evaluations:      { label: "Evaluations",        icon: BookOpen,        page: "evaluations" },
+  // STORY-TAB-008 AC-8: renamed from "AIMS" (jargon) — same page.
+  aims:             { label: "Model Inventory",    icon: ClipboardList,   page: "aims" },
   evf_admin:        { label: "EVF Status",         icon: Lock,            page: "evf_admin" },
   // STORY-114: Demo Requests admin tab deferred (page already removed in STORY-016;
   // demo-request intake is feature-flagged off by default — see routers/demo.py).
