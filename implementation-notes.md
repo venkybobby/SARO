@@ -6,9 +6,9 @@ Stage: standard
 - [x] discover   (skipped — subsystem audited end-to-end earlier this session; premise/evidence tables in specs/stories/STORY-TAB-001.md)
 - [x] shape      (interview skipped — autonomous session per owner instruction "move to the contract fixes"; decisions defaulted + logged below)
 - [x] preview    (skipped — no visual/design change: existing card layout retained; only data binding, field mapping, and the endpoint are corrected)
-- [ ] plan
-- [ ] build
-- [ ] verify
+- [x] plan
+- [x] build      (implemented; gates green -- see PR)
+- [x] verify     (batch change-debrief.html for STORY-TAB-001..007 -- committed on story/STORY-TAB-001, PR #128)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
