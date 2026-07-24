@@ -61,6 +61,12 @@ def list_aims_models(
         .all()
     )
 
+    # STORY-TAB-007 / FND-082: emit ONLY stored data. AIMSDocument has no
+    # risk/lifecycle/coverage columns, so the previous hardcoded
+    # risk_tier="high" / lifecycle_stage="production" /
+    # framework_coverage=[...] constants were fabricated classification
+    # values on an ISO 42001 evidence surface — omitted, never defaulted.
+    # (A real lifecycle model needs its own story + migration.)
     models_out = []
     for doc in docs:
         models_out.append(
@@ -73,9 +79,6 @@ def list_aims_models(
                 else None,
                 "owner_email": doc.owner_email,
                 "linked_audit_count": len(doc.linked_audit_ids or []),
-                "risk_tier": "high",  # default — override once risk_tier column added
-                "lifecycle_stage": "production",
-                "framework_coverage": ["ISO-42001", "EU-AI-ACT-2024"],
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
             }
         )
@@ -84,8 +87,10 @@ def list_aims_models(
         "models": models_out,
         "total": len(models_out),
         "tenant_id": str(effective_tenant),
+        # ASCII-only: the em-dash here arrived as mojibake through the deploy
+        # pipeline (AC-5).
         "note": "Model registry derived from AIMS document lifecycle records. "
-        "Evidence-based — human review required for classification decisions.",
+        "Evidence-based - human review required for classification decisions.",
     }
 
 

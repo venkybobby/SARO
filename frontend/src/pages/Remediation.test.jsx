@@ -136,7 +136,9 @@ describe("STORY-TAB-001 AC-3: remediate flow hits the canonical endpoint with a 
       expect(screen.queryByText("PII: email address detected")).not.toBeInTheDocument();
     });
     expect(await screen.findByText(/No open remediation actions/)).toBeInTheDocument();
-  });
+    // FND-083: userEvent typing under full-suite parallel jsdom load can
+    // exceed vitest's 5s default — explicit timeout keeps the pin non-flaky.
+  }, 20000);
 
   it("does not PATCH while the note is blank (backend would 422)", async () => {
     const user = userEvent.setup();
@@ -169,7 +171,7 @@ describe("STORY-TAB-001 AC-3: remediate flow hits the canonical endpoint with a 
 
     expect(await screen.findByText(/Failed to mark as remediated/i)).toBeInTheDocument();
     expect(screen.getByText("PII: email address detected")).toBeInTheDocument();
-  });
+  }, 20000); // FND-083: see note above
 });
 
 describe("STORY-TAB-001 AC-4/AC-5: empty vs error states", () => {

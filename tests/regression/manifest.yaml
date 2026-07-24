@@ -407,6 +407,21 @@ findings:
     test: tests/test_tab006_rule_pack_detail.py
     status: pinned
     quarantine_expires: null
+  - id: FND-082
+    title: "AIMS registry fabricated risk_tier/lifecycle_stage/framework_coverage constants on an ISO 42001 evidence surface (STORY-TAB-007; backend half)"
+    test: tests/test_tab007_aims_models_honest_fields.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-082
+    title: "AIMS registry — frontend half: cards render only stored fields, no default stage badge, actionable empty state (STORY-TAB-007)"
+    test: frontend/src/pages/Aims.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-083
+    title: "Remediation contract-pin tests flaky under full-suite parallel load — explicit 20s timeouts applied, no assertions weakened (reviewer, TAB batch)"
+    test: frontend/src/pages/Remediation.test.jsx
+    status: pinned
+    quarantine_expires: null
   - id: FND-084
     title: "Unpinned ruff in CI workflows - new ruff release turned every PR red with 1491 errors in untouched files; pinned to the validated 0.15.15 (ci-debugger, PR #128)"
     test: tests/regression/test_fnd_084_ruff_pinned_in_ci.py
