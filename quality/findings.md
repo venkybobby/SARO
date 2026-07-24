@@ -97,6 +97,11 @@ Workflow: log here → root-cause → fix → write `tests/regression/test_fnd_#
 
 | FND-084 | Unpinned `pip install ruff` in three CI workflows -- a new ruff release turned every PR (and any fresh main run) red with 1491 errors in untouched files | ci-debugger (PR #128 first CI run, 2026-07-23) | 2026-07 | ci.yml, deploy.yml and quality-gates.yml all installed ruff unpinned, so CI ran whatever ruff shipped last, while the tree is validated against ruff 0.15.15 (locally green, `ruff check .` = 0). A release with new/changed rules (I001 function-scope import sorting, B017, ...) produced 1491 errors in pre-existing files, failing the Lint job, the test job's lint step, AND the quality ratchet (ruff-count gate: 1491 > baseline 0) on a diff that touched none of those files. Same class as FND-069 (unpinned fastapi/starlette: green locally, red in CI). Fix: pin `ruff==0.15.15` at all three install sites; version bumps become deliberate commits that revalidate the tree. Pinned by `tests/regression/test_fnd_084_ruff_pinned_in_ci.py` (red-first: failed against the unpinned workflows). | pinned |
 
+
+
+
+
+
 **`verify-pinned`** = fix believed shipped, but no regression test confirms it stays fixed.
 First task of any auth story: convert these to `pinned` by writing the tests.
 
