@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Evaluations from "./Evaluations.jsx";
 
 const PERSONAS = [
   { value: "compliance_lead", label: "Compliance Lead" },
@@ -12,13 +13,13 @@ const PERSONAS = [
 const PERMISSIONS_REF = [
   { persona: "Compliance Lead", landing: "Compliance Hub",  perms: "TRACE (executive), evidence export, claims matrix, DPA" },
   { persona: "Risk Officer",    landing: "Risk Summary",    perms: "Risk dashboard, trace view, AI insights, reports" },
-  { persona: "AI Auditor",      landing: "Dashboard",       perms: "TRACE (technical), rule packs, coverage gap, remediation" },
+  { persona: "AI Auditor",      landing: "Dashboard",       perms: "TRACE (technical, incl. remediation queue), rule packs (incl. drift)" },
   { persona: "Admin",           landing: "Dashboard",       perms: "All tabs and actions" },
   { persona: "Super Admin",     landing: "Dashboard",       perms: "All tabs except EVF admin and demo requests" },
-  { persona: "Operator",        landing: "Dashboard",       perms: "Dashboard, upload, trace view, remediation" },
+  { persona: "Operator",        landing: "Dashboard",       perms: "Dashboard, upload, trace view (incl. remediation queue)" },
 ];
 
-export default function AdminSettings({ token }) {
+export default function AdminSettings({ token, user }) {
   const [users,      setUsers]      = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
@@ -157,6 +158,17 @@ export default function AdminSettings({ token }) {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* STORY-TAB-008: Evaluations folded in — the original component (TAB-004
+          role gating unchanged: list admits admin/operator/super_admin, trigger
+          renders only for role=super_admin). */}
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Evaluation Runs</div>
+        <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 12px" }}>
+          Batch evaluation run history — TruthfulQA, PII detection, toxicity analysis.
+        </p>
+        <Evaluations token={token} user={user} embedded />
       </div>
 
       {/* Permissions reference */}

@@ -24,7 +24,9 @@ const STATUS_STYLE = {
   pending:   { bg: "#f3f4f6", color: "#6b7280" },
 };
 
-export default function Evaluations({ token, user }) {
+// STORY-TAB-008: `embedded` renders without the page chrome so Admin Settings
+// can host the run history + trigger as a section (TAB-004 gating unchanged).
+export default function Evaluations({ token, user, embedded = false }) {
   // STORY-TAB-004: gate off the ACCOUNT role, never the persona — the backend
   // trigger gate is require_role("super_admin"), and require_role checks
   // user.role. A persona-switched super_admin keeps the button; an
@@ -103,14 +105,18 @@ export default function Evaluations({ token, user }) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
+    <div style={embedded ? {} : { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, marginBottom: 4 }}>🧪 Evaluations</h1>
-          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
-            Batch evaluation run history — TruthfulQA, PII detection, toxicity analysis.
-          </p>
+          {!embedded && (
+            <>
+              <h1 style={{ fontSize: 22, marginBottom: 4 }}>🧪 Evaluations</h1>
+              <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
+                Batch evaluation run history — TruthfulQA, PII detection, toxicity analysis.
+              </p>
+            </>
+          )}
         </div>
         {canTrigger && (
           <button

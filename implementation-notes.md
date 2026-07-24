@@ -34,8 +34,8 @@ FND-085 because the consolidation embeds the queue on a demo-visible page.
 | Removed page keys in AppShell | Drop from PAGE_COMPONENTS + Sidebar registry/personas; component files stay (they are the embedded implementations). Stale keys fall back to Dashboard (existing behavior). | No dead nav entries; no deleted pins. |
 
 ## Build progress
-- folds 1-2 committed (59b9a85); fold 3 (remediation → TRACE View + FND-085
-  write gate) in progress.
+- folds 1-2 committed (59b9a85); folds 3-4 committed (24b9e0e); fold 5
+  (evaluations → Admin Settings + Trust Center card) in progress.
 
 ## Deviations
 None yet.
