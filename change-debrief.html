@@ -2,169 +2,114 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Change Debrief — Live Demo E2E Gate (Playwright)</title>
+<title>Change Debrief — STORY-TAB-001..007: /app tab contract fixes</title>
 <style>
-  :root { --bg:#0f1117; --card:#151a26; --border:#242c3d; --text:#dbe2ee; --muted:#8b98ad;
-          --accent:#14b8a6; --red:#f87171; --amber:#fbbf24; --green:#4ade80; }
-  body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",sans-serif;
-         max-width:900px; margin:0 auto; padding:32px 20px 80px; line-height:1.6; }
-  h1 { color:var(--accent); font-size:26px; } h2 { border-bottom:1px solid var(--border); padding-bottom:6px; margin-top:40px; }
-  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin:14px 0; }
-  code { background:#1c2333; padding:1px 6px; border-radius:4px; font-size:0.9em; }
-  table { border-collapse:collapse; width:100%; font-size:14px; } td,th { border:1px solid var(--border); padding:7px 10px; text-align:left; vertical-align:top; }
-  th { background:#1a2132; } .pass{color:var(--green)} .fail{color:var(--red)} .warn{color:var(--amber)}
-  .dev { border-left:4px solid var(--amber); padding-left:12px; }
-  details { background:var(--card); border:1px solid var(--border); border-radius:8px; margin:10px 0; padding:10px 16px; }
-  summary { cursor:pointer; font-weight:600; } details[open] summary { color:var(--accent); }
-  svg text { fill:var(--text); font-size:12px; font-family:inherit; }
-  .muted { color:var(--muted); }
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; line-height: 1.55; color: #1f2937; background: #fafafa; }
+  @media (prefers-color-scheme: dark) { body { color: #e5e7eb; background: #111827; } .card, td, th, details { background: #1f2937 !important; border-color: #374151 !important; } code { background:#374151 !important; } }
+  h1 { font-size: 26px; } h2 { font-size: 20px; margin-top: 36px; border-bottom: 2px solid #0d9488; padding-bottom: 4px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; margin: 14px 0; }
+  code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; vertical-align: top; background: #fff; }
+  .risk { color: #b91c1c; font-weight: 600; } .cover { color: #166534; }
+  details { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; background: #fff; }
+  summary { cursor: pointer; font-weight: 600; }
+  .dev { background: #fffbeb; border-left: 4px solid #ca8a04; padding: 8px 12px; margin: 8px 0; font-size: 13px; display: block; }
+  svg text { font-family: inherit; }
 </style>
 </head>
 <body>
-<h1>Live Demo E2E Gate — Playwright automation of RB-006</h1>
-<p class="muted"><b>Task:</b> "Run Playwright and create the end-to-end flow for the use cases planned for Demo"
-against <code>sarofrontend.fly.dev</code> / <code>saro-backend.fly.dev</code> · 2026-07-22</p>
 
-<h2>1 · Context — why this exists</h2>
+<h1>Change Debrief — STORY-TAB-001..007<br><small style="font-weight:400;font-size:15px;color:#6b7280">Seven /app tabs that rendered improper values, fixed as a stacked chain (PRs #128–#134)</small></h1>
+
+<h2>Context — why this exists</h2>
 <div class="card">
-<p>The demo readiness review (2026-07-19) found the CI "E2E Smoke Tests" job was <b>vacuous</b>:
-all 13 <code>@pytest.mark.e2e</code> tests were <code>pass</code> placeholders, so no real browser
-ever loaded the demo pages before an attendee did (finding F3 — the structural gap that let the
-"1286/100" badge and the red "API offline" dot ship). The pre-demo checklist RB-006 existed only
-as manual curl blocks. This change turns RB-006 §§A–E and §H into one command:</p>
-<p><code>SARO_LIVE_E2E=1 pytest tests/e2e -m e2e -q</code></p>
-<p>The demo itself runs on the public <code>/demo</code> flow and shows five planned use cases from
-<code>scripts/demo_manifest.yaml</code>: UC-1 PHI leakage, UC-2 hallucinated clinical guidance,
-UC-3 missing disclaimer, UC-4 prompt-injection echo, UC-5 unapproved model
-(→ <code>ENV-MODEL-ALLOWLIST-1</code>). UC-1/2/5 are expected to fire; UC-3/4 are planted-pending-rule.</p>
+<p>A review of the deployed UI (<code>sarofrontend.fly.dev/app</code>) found seven tabs showing wrong or empty values. The root cause was not missing data: <strong>the frontend and backend had been written against imagined versions of each other's contracts</strong>. Pages read response keys the API never returns (<code>d.items</code> vs <code>{traces}</code>), called endpoints that don't exist, hardcoded step lists the backend replaced, and — worst for a compliance product — two backends emitted <em>fabricated</em> values (hardcoded risk tiers, lifecycle stages, framework coverage) that rendered as recorded facts on evidence surfaces.</p>
+<p>Each fix treats the backend contract as canonical, pins it with a red-first test, and logs a finding (FND-073..083) so a revert can never merge silently once vitest runs in CI (FND-074, in progress).</p>
 </div>
 
-<h2>2 · Intuition — before / after</h2>
+<h2>Mental model — before / after</h2>
 <div class="card">
-<svg viewBox="0 0 840 210" width="100%" role="img" aria-label="before/after flow">
-  <text x="10" y="20" font-weight="bold">BEFORE</text>
-  <rect x="10" y="32" width="180" height="44" rx="6" fill="#1a2132" stroke="#242c3d"/>
-  <text x="20" y="50">RB-006 runbook</text><text x="20" y="66">10 manual curl blocks</text>
-  <rect x="230" y="32" width="180" height="44" rx="6" fill="#1a2132" stroke="#242c3d"/>
-  <text x="240" y="50">CI e2e job</text><text x="240" y="66">13 `pass` placeholders</text>
-  <rect x="470" y="32" width="180" height="44" rx="6" fill="#2a1414" stroke="#7f1d1d"/>
-  <text x="480" y="50">Demo day</text><text x="480" y="66">first real browser load</text>
-  <line x1="410" y1="54" x2="470" y2="54" stroke="#7f1d1d" marker-end="url(#a)"/>
-  <text x="10" y="120" font-weight="bold">AFTER</text>
-  <rect x="10" y="132" width="240" height="60" rx="6" fill="#12241f" stroke="#14b8a6"/>
-  <text x="20" y="152">tests/e2e/test_demo_live_flow.py</text>
-  <text x="20" y="168">23 tests · RB-006 §A–E + §H</text>
-  <text x="20" y="184">armed by SARO_LIVE_E2E=1</text>
-  <rect x="310" y="132" width="200" height="60" rx="6" fill="#1a2132" stroke="#242c3d"/>
-  <text x="320" y="152">Deployed apps (Fly.io)</text>
-  <text x="320" y="168">demo token → census →</text>
-  <text x="320" y="184">write-guard → /demo walk</text>
-  <rect x="570" y="132" width="240" height="60" rx="6" fill="#1a2132" stroke="#242c3d"/>
-  <text x="580" y="152">Verdict + screenshots</text>
-  <text x="580" y="168">artifacts/demo-e2e/*.png</text>
-  <text x="580" y="184">failure text = runbook remedy</text>
-  <line x1="250" y1="162" x2="310" y2="162" stroke="#14b8a6"/>
-  <line x1="510" y1="162" x2="570" y2="162" stroke="#14b8a6"/>
-  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#7f1d1d"/></marker></defs>
+<svg viewBox="0 0 860 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Before: page reads phantom fields, renders empty or fabricated state. After: page binds real contract, pinned by test.">
+  <rect x="10" y="20" width="180" height="50" rx="8" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="100" y="41" text-anchor="middle" font-size="12" fill="#7f1d1d">BEFORE: page reads</text>
+  <text x="100" y="58" text-anchor="middle" font-size="12" fill="#7f1d1d">phantom fields (d.items…)</text>
+  <line x1="190" y1="45" x2="300" y2="45" stroke="#dc2626" stroke-dasharray="5,4"/>
+  <rect x="300" y="20" width="200" height="50" rx="8" fill="#fff" stroke="#9ca3af"/>
+  <text x="400" y="41" text-anchor="middle" font-size="12">API returns {traces, total…}</text>
+  <text x="400" y="58" text-anchor="middle" font-size="12">(keys never match)</text>
+  <line x1="500" y1="45" x2="620" y2="45" stroke="#dc2626" stroke-dasharray="5,4"/>
+  <rect x="620" y="20" width="225" height="50" rx="8" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="732" y="41" text-anchor="middle" font-size="12" fill="#7f1d1d">Permanent empty state /</text>
+  <text x="732" y="58" text-anchor="middle" font-size="12" fill="#7f1d1d">fabricated "all clear"</text>
+
+  <rect x="10" y="115" width="180" height="50" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="100" y="136" text-anchor="middle" font-size="12" fill="#14532d">AFTER: page binds the</text>
+  <text x="100" y="153" text-anchor="middle" font-size="12" fill="#14532d">real response shape</text>
+  <line x1="190" y1="140" x2="300" y2="140" stroke="#16a34a"/>
+  <rect x="300" y="115" width="200" height="50" rx="8" fill="#fff" stroke="#16a34a"/>
+  <text x="400" y="136" text-anchor="middle" font-size="12">contract-pin test fixture =</text>
+  <text x="400" y="153" text-anchor="middle" font-size="12">exact backend serializer</text>
+  <line x1="500" y1="140" x2="620" y2="140" stroke="#16a34a"/>
+  <rect x="620" y="115" width="225" height="50" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="732" y="136" text-anchor="middle" font-size="12" fill="#14532d">Real data renders; revert</text>
+  <text x="732" y="153" text-anchor="middle" font-size="12" fill="#14532d">turns the pin red</text>
 </svg>
-<p><b>Mental model:</b> the suite is a <i>deployment gate</i>, not a unit test. It asserts the
-demo-ready state of the live system; when the system isn't demo-ready, the correct output is a
-red test whose message quotes the runbook remedy. That is exactly what happened on the first run.</p>
 </div>
 
-<h2>3 · File-by-file</h2>
+<h2>File-by-file</h2>
 <table>
-<tr><th>File</th><th>What was done</th></tr>
-<tr><td><code>tests/e2e/conftest.py</code> (new)</td>
-<td>Session fixtures: <code>api</code> (httpx client → backend), <code>demo_token</code> (mints the
-public demo JWT, RB-006 §A), <code>auth_headers</code>, base-URL fixtures overridable via
-<code>SARO_E2E_BACKEND</code>/<code>SARO_E2E_FRONTEND</code> (default = Fly.io prod), and
-<code>artifact_dir</code> → <code>artifacts/demo-e2e/</code>.</td></tr>
-<tr><td><code>tests/e2e/test_demo_live_flow.py</code> (new)</td>
-<td>23 tests named by runbook section: §A health + JWT claims (read_only, demo_viewer,
-compliance_lead persona); §B the 10-endpoint census (same list STORY-412 pins in CI); §C seeded
-audits present + FND-059 guard (no stored score &gt; 1.0); §D UC-5
-<code>ENV-MODEL-ALLOWLIST-1</code> in a live trace + UC-1/UC-2 domain evidence; §E write guards
-(ingest POST and readiness PUT both 403); §H Playwright walk of <code>/demo</code> — entry render,
-FND-060 "API offline" badge guard, 4-tab walk with a zero-≥400-responses network watch +
-"sample" caption and &gt;100 risk-badge guards, TRACE detail open, hard-refresh re-auth with a
-no-JWT-in-localStorage check.</td></tr>
-<tr><td><code>RB-006-live-demo-verification.md</code></td>
-<td>One callout added: §§A–E/§H are automated by this suite; §F/§G (fly ssh) stay manual.</td></tr>
-<tr><td class="dev"><code>implementation-notes.md</code></td>
-<td class="dev"><b>Deviation logged:</b> live demo tenant found EMPTY during discovery — suite built
-to report that precisely instead of skipping, since an empty tenant is a demo blocker.</td></tr>
+<tr><th>Story / PR</th><th>What was done</th><th>Files</th></tr>
+<tr><td><b>TAB-001</b> #128<br>FND-073</td><td>Remediation list binds <code>traces/total</code>; cards render real trace fields; Mark&nbsp;Complete opens a required-note input and PATCHes the canonical <code>/remediation/traces/{id}/remediate</code> (the old target never existed; the old flow also sent no note, so it would have 422'd anyway).</td><td>Remediation.jsx (+test)</td></tr>
+<tr><td><b>TAB-002</b> #129<br>FND-075</td><td>Onboarding renders the API's 4-step checklist verbatim; progress from <code>completion_pct</code> only. <span class="dev">DEVIATION: the same bug existed in AppShell's first-login <code>OnboardingWizard</code> — fixed in the same story (same endpoint, same defect class); shared <code>config/onboardingNav.js</code> maps step keys → in-app pages.</span></td><td>Onboarding.jsx, AppShell.jsx, config/onboardingNav.js (+tests)</td></tr>
+<tr><td><b>TAB-003</b> #130<br>FND-076</td><td>Coverage Gap keys off <code>framework</code>; detail = the API's covered/partial/not_covered counts ("N of M rules not covered" is the gap signal); overall rollup row; the impossible "No gaps identified for undefined" positive claim is gone.</td><td>CoverageGap.jsx (+test)</td></tr>
+<tr><td><b>TAB-004</b> #131<br>FND-077</td><td>Evaluations RBAC/nav agreement: <code>admin</code> added to the LIST gate only (one word; security-audited PASS); trigger stays super_admin; compliance_lead loses the dead nav entry; trigger button keyed off <code>user.role</code>; 403 explained. <span class="dev">Forward: FND-078 (list exposes api_url/error_message), FND-079 (require_role echoes roles).</span></td><td>routers/evaluations.py, Sidebar.jsx, Evaluations.jsx (+3 test files)</td></tr>
+<tr><td><b>TAB-005</b> #132<br>FND-080</td><td>Drift Alerts grid merges tracked ∪ packed frameworks (a tracked framework with no pack shows "no pack" — that absence is signal); phantom what-changed/affected-packs sections deleted; the green no-drift state now carries <code>checked_at</code> (FND-030 anti-overclaim class).</td><td>DriftAlerts.jsx (+test)</td></tr>
+<tr><td><b>TAB-006</b> #133<br>FND-081</td><td><code>get_pack_by_name</code> returns full detail (rules + description; additive, sole caller is the detail route, YAML untouched); frontend fetches per-pack detail with loading/error states and a stale-response guard; list deliberately stays count-only (pinned).</td><td>services/rule_service.py, RulePacks.jsx (+2 test files)</td></tr>
+<tr><td><b>TAB-007</b> #134<br>FND-082</td><td>AIMS emits ONLY stored columns — the hardcoded <code>risk_tier/lifecycle_stage/framework_coverage</code> constants are omitted, never defaulted; ASCII note (mojibake fix). <span class="dev">DEVIATION: <code>framework_coverage</code> was removed even though AC-2 listed it as renderable — the premise check showed it was a constant, i.e. the defect class the story exists to remove. Conditional tag rendering exists for a future real field (reviewer-verified, pinned).</span></td><td>routers/aims.py, Aims.jsx (+2 test files)</td></tr>
+<tr><td>Batch review round</td><td>Double-submit guard + stale-banner reset (TAB-001 NITs); FND-075 manifest covers both pin files; FND-083 vitest flake (explicit 20s timeouts on typing-heavy tests, no assertions weakened); FND-084 ruff pinned in CI workflows.</td><td>various (see FND rows)</td></tr>
 </table>
 
-<h2>4 · Deliberately NOT done</h2>
+<h2>What was deliberately NOT done</h2>
 <div class="card"><ul>
-<li><b>No reseed of the production demo tenant</b> — a prod DB write needing operator
-secrets/fly access (RB-006 §C remedy). Surfaced instead.</li>
-<li><b>CI does not hit fly.dev per-PR</b> — the suite skips unless <code>SARO_LIVE_E2E=1</code>;
-making prod availability a PR gate is a team decision.</li>
-<li><b>No UC-3/UC-4 finding assertions</b> — manifest marks them <code>planted_pending_rule</code>;
-asserting them would assert unbuilt rules (FM-1 discipline).</li>
-<li><b>No /app login flow</b> — needs interactive credentials; the planned demo runs on /demo.</li>
-<li><b>§F/§G not automated</b> — require <code>fly ssh</code> from an operator machine.</li>
+<li><b>No backend contract changes for TAB-001/002/003/005</b> — the API is canonical; only the frontend conformed.</li>
+<li><b>No per-rule coverage drill-down</b> (Coverage Gap) — needs a new endpoint; noted as follow-up, not faked.</li>
+<li><b>No real lifecycle/risk-tier model for AIMS</b> — needs a product definition + migration; fields omitted instead of invented.</li>
+<li><b>No trigger-rights widening for Evaluations</b> — super_admin only, unchanged.</li>
+<li><b>STORY-TAB-008 (tab consolidation, 7→2 top-level)</b> — drafted, blocked on product sign-off.</li>
 </ul></div>
 
-<h2>5 · Risk map</h2>
+<h2>Risk map</h2>
 <table>
-<tr><th>Risk</th><th>Covered by / gap</th></tr>
-<tr><td>Sidebar labels change → tab walk silently clicks nothing</td><td class="pass">Click timeout fails the test loudly with the tab name; labels sourced from Sidebar.jsx NAV (cited in premise table)</td></tr>
-<tr><td>Census list drifts from STORY-412's</td><td class="warn">Textual copy — CI census + RB-006 + this suite must be edited together; comment cross-references all three. Gap: no single shared constant (the CI census lives in a regression test that imports the app; importing it here would couple the live gate to app imports)</td></tr>
-<tr><td>Suite runs in CI and reddens main when fly.dev hiccups</td><td class="pass">Verified: unarmed <code>pytest tests/ -m e2e</code> → 23 skipped, 13 legacy pass</td></tr>
-<tr><td>Empty tenant makes browser tests hang on selectors</td><td class="pass">Chip-count check fails fast with the reseed remedy (fixed after first run's raw timeout)</td></tr>
-<tr><td>Token leakage into repo</td><td class="pass">No credentials anywhere; the demo JWT is public by design; localStorage check pins DemoEntry's state-held invariant</td></tr>
-<tr><td>UC-5 detection depends on trace response wording</td><td class="warn">Substring match on <code>ENV-MODEL-ALLOWLIST-1</code> over trace JSON — robust to shape changes but not to rule-id renames (acceptable: the rule id IS the contract, rule_packs/envelope/1.0.0)</td></tr>
+<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
+<tr><td class="risk">Revert to phantom-field reads merges silently</td><td class="cover">Contract-pin tests per tab (all shown red against pre-fix code); gap: vitest not in CI yet — FND-074 in progress in a separate session</td></tr>
+<tr><td class="risk">Evaluations gate widening leaks data / demo access</td><td class="cover">security-auditor PASS; role-matrix pytest (admin 200, personas/demo 403); trigger-gate pins</td></tr>
+<tr><td class="risk">Remediate flow 422s (blank note) or double-PATCHes</td><td class="cover">Blank-note guard test (no request sent); <code>updating</code> re-entry guard; failed-PATCH-keeps-card test</td></tr>
+<tr><td class="risk">Wizard fix breaks STORY-412 demo nav guard</td><td class="cover">Original AppShell demo tests untouched and green (reviewer-verified append-only)</td></tr>
+<tr><td class="risk">Rule-pack detail exposes YAML beyond intent</td><td class="cover">Detail is the same authenticated read surface; list pinned light; YAML untouched</td></tr>
+<tr><td class="risk">AIMS tenant scoping regressed while editing the response</td><td class="cover"><code>test_tenant_scoping_unchanged</code> + hostile <code>?tenant_id=&lt;other&gt;</code> case</td></tr>
+<tr><td class="risk">CI toolchain drifts again (ruff class)</td><td class="cover">FND-084: ruff pinned to the validated 0.15.15 in all three workflows + regression test asserting the pin</td></tr>
 </table>
 
-<h2>6 · Current live verdict (run 2026-07-22, twice, consistent)</h2>
-<table>
-<tr><th>RB-006</th><th>Result</th></tr>
-<tr><td>§A token + health</td><td class="pass">PASS — token 200, read-only claims correct, db_ok, no missing migrations</td></tr>
-<tr><td>§B census ×10</td><td class="pass">PASS — all 200</td></tr>
-<tr><td>§C seeded data</td><td class="fail">FAIL — audits list is [] (demo tenant empty)</td></tr>
-<tr><td>§D UC exemplars</td><td class="fail">FAIL — no traces to search (same root cause)</td></tr>
-<tr><td>§E write guards</td><td class="pass">PASS — both writes 403</td></tr>
-<tr><td>§H browser walk</td><td class="warn">4/5 PASS — entry, badge ("API online · DB ok", FND-060 live), tab walk zero red rows, refresh re-auth; TRACE detail FAIL (no chips — same root cause)</td></tr>
-</table>
+<h2>Quiz — check your understanding</h2>
+<details><summary>1. Why did the Remediation tab show "all findings addressed" even for tenants with open failures?</summary>
+<p>It read <code>d.items</code> from a response shaped <code>{traces, total, …}</code> — the key never existed, so the list was always empty and the empty-state (an implicit all-clear) always rendered. The data was there; the binding wasn't.</p></details>
+<details><summary>2. Why does Mark Complete now demand a note before sending anything?</summary>
+<p>The canonical endpoint 422s on a blank <code>remediation_note</code> — the note is the human-in-the-loop audit evidence (an AuditEvent is written server-side). Sending without one would always fail; collecting it preserves SARO's HITL posture.</p></details>
+<details><summary>3. What breaks if someone re-adds <code>lifecycle_stage: "production"</code> as a default in the AIMS response?</summary>
+<p><code>test_no_fabricated_classification_fields</code> fails (asserts the key is absent), and the frontend pin fails on any default badge (regex covers all five stage words). Conceptually: a fabricated classification would again render as recorded fact on an ISO 42001 evidence surface — Non-Negotiable 4 territory.</p></details>
+<details><summary>4. Why was the Evaluations fix a one-word backend change instead of granting the compliance_lead persona access?</summary>
+<p>Least privilege: personas are a display/navigation axis; the backend gates on account roles. Widening to a persona would let any role wearing that persona read global QA runs. Instead <code>admin</code> (a super_admin-provisioned role whose nav already showed the tab) joined the read-only list gate, and compliance_lead lost the dead nav entry.</p></details>
+<details><summary>5. Why does the Drift Alerts "no drift" state now show a timestamp?</summary>
+<p>An unverifiable green claim is the FND-030 class (unbacked "verified" banner). Rendering <code>checked_at</code> makes the reassurance evidently a fresh computation, not static copy.</p></details>
+<details><summary>6. Why does the Rule Packs list still NOT include rules inline — isn't that the bug?</summary>
+<p>No: the list is deliberately light (<code>rule_count</code> only) and that asymmetry is now pinned. The bug was that nothing ever fetched the per-pack detail. Master/detail keeps the list cheap while the detail endpoint serves the full rules array.</p></details>
+<details><summary>7. What made all four CI jobs fail on PR #128 when everything was green locally?</summary>
+<p>One root cause, two gates: (a) CI installs unpinned ruff, and a new release added rules → 1491 errors in pre-existing files, which also tripped the quality ratchet's ruff-count; (b) the lifecycle guard demanded the verify-stage debrief this document satisfies. Neither failure was caused by the diff under test — the FND-069 lesson repeating.</p></details>
+<details><summary>8. If the onboarding backend adds a fifth step next quarter, what frontend work is needed?</summary>
+<p>None — both surfaces render the API's <code>steps</code> array data-driven (label + completed). Only an optional entry in <code>ONBOARDING_STEP_NAV</code> if the new step deserves an in-app Go button; unknown keys already render label-only (pinned by the "unknown future step keys" test).</p></details>
 
-<h2>7 · Quiz — do you actually hold the model?</h2>
-<details><summary>1. Why does the suite skip unless SARO_LIVE_E2E=1 instead of just being marked e2e?</summary>
-<p>Because CI runs <code>pytest tests/ -m e2e</code> on every PR with no deployment in scope. Unarmed,
-these tests would either fail CI whenever fly.dev is unreachable or force every PR to depend on prod
-state. The env-var arm makes "hermetic CI" and "live pre-demo gate" two modes of one suite.</p></details>
-<details><summary>2. All five failures today have one root cause. What is it, and what's the remedy?</summary>
-<p>The live demo tenant has zero audits — the STORY-407 corpus was never ingested (or was reset).
-Remedy per RB-006 §C: <code>python cli.py demo reset --tenant &lt;id&gt; --yes</code> then re-ingest;
-re-run the gate and expect 23/23.</p></details>
-<details><summary>3. Why are UC-3 and UC-4 not asserted as findings when they're planned demo use cases?</summary>
-<p><code>demo_manifest.yaml</code> marks them <code>expected: planted_pending_rule</code> — the rules
-(missing-disclaimer, RP-INJ-BOUNDARY) don't exist yet. Asserting findings for them would encode a
-phantom implementation (failure mode FM-1/FM-2).</p></details>
-<details><summary>4. What breaks if someone reseeds with the pre-FND-059 seeder?</summary>
-<p>Stored <code>overall_risk_score</code> would be 0–100 instead of 0–1; the frontend multiplies by
-100 once, so badges read "1286/100". <code>test_c_risk_scores_are_probabilities</code> fails on any
-stored score &gt; 1.0 — catching the F1 blocker before an attendee sees it.</p></details>
-<details><summary>5. Why does the browser flow enter at /demo and never /app?</summary>
-<p>/app requires interactive login credentials; /demo mints a public read-only JWT via
-<code>GET /api/v1/demo/token</code> and renders the trimmed DEMO_TABS shell — which is exactly the
-surface the planned demo uses (RB-006 §H).</p></details>
-<details><summary>6. What would a 2xx from test_e_demo_token_cannot_ingest mean?</summary>
-<p>That the PUBLIC demo token can write to SARO — anyone on the internet could ingest data into the
-demo tenant. RB-006's words: "stop everything and fix." It also violates non-negotiables #3/#6.</p></details>
-<details><summary>7. Why watch network responses during the tab walk instead of just checking pages render?</summary>
-<p>A React page can render its chrome while every data fetch 403s/500s underneath. The ≥400 watch is
-the automated version of "DevTools Network open, zero red rows" — it catches whitelist violations
-and 500s that the DOM hides behind empty states.</p></details>
-<details><summary>8. What does the hard-refresh test actually pin, beyond "the page loads again"?</summary>
-<p>Two invariants: DemoEntry re-mints the token cleanly (the demo doesn't die on an accidental F5
-mid-pitch), and the JWT never lands in localStorage — it's React-state-held, so a shared/kiosk
-machine doesn't retain a token after the tab closes.</p></details>
-<details><summary>9. If CI's STORY-412 census test is green but §B fails live, what does that tell you?</summary>
-<p>The deployed build is behind main (CI pins the census against the in-process app; this suite pins
-it against the deployment). The failure message says exactly that — deploy, don't debug.</p></details>
+<p style="margin-top:32px;font-size:12px;color:#9ca3af">Generated for the STORY-TAB batch (PRs #128–#134) · reviewer APPROVE ×7 · security-auditor PASS ×2 · findings FND-073..084 in quality/findings.md</p>
 </body>
 </html>
