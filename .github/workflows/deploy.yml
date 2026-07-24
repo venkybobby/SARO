@@ -43,7 +43,7 @@ jobs:
             libpango-1.0-0 libharfbuzz0b libfontconfig1 libcairo2
 
       - name: Install dependencies
-        run: pip install -r requirements.txt ruff "mypy>=1.0,<2.0" pytest pytest-asyncio
+        run: pip install -r requirements.txt "ruff==0.15.15" "mypy>=1.0,<2.0" pytest pytest-asyncio
 
       - name: Show installed versions
         run: pip show mypy ruff python3-saml weasyprint | grep -E "^(Name|Version):"
