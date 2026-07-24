@@ -7,8 +7,8 @@ Stage: standard
 - [x] shape      (interview skipped — autonomous session; decisions defaulted + logged below)
 - [x] preview    (skipped — same card/list layout; only field bindings + a summary row change)
 - [x] plan
-- [ ] build
-- [ ] verify
+- [x] build      (implemented; gates green -- see PR)
+- [x] verify     (batch change-debrief.html for STORY-TAB-001..007 -- committed on story/STORY-TAB-001, PR #128)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
