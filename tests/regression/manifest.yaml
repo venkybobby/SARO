@@ -347,3 +347,18 @@ findings:
     test: tests/regression/test_fnd_072_check_mode_detects_stale_artifact.py
     status: pinned
     quarantine_expires: null
+  - id: FND-073
+    title: "Remediation tab structurally dead — read d.items from a {traces,...} response (permanent 'all clear' overclaim) and PATCHed the nonexistent /remediation/{id}/complete route (STORY-TAB-001)"
+    test: frontend/src/pages/Remediation.test.jsx
+    status: pinned
+    quarantine_expires: null
+  - id: FND-074
+    title: "No CI workflow runs vitest — frontend-pinned FNDs (021/022/023/029/031/052/053/054/073…) have no CI guarantee (reviewer, STORY-TAB-001, pre-existing)"
+    test: tests/regression/test_fnd_074_vitest_ci_gate.py
+    status: open
+    quarantine_expires: null
+  - id: FND-084
+    title: "Unpinned ruff in CI workflows - new ruff release turned every PR red with 1491 errors in untouched files; pinned to the validated 0.15.15 (ci-debugger, PR #128)"
+    test: tests/regression/test_fnd_084_ruff_pinned_in_ci.py
+    status: pinned
+    quarantine_expires: null
