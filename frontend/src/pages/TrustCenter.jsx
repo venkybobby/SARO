@@ -1,8 +1,53 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Governance from "./Governance";
 import HowSaroReasons from "./HowSaroReasons";
 import ClaimsMatrix from "./ClaimsMatrix";
 import GovernanceDocs from "./GovernanceDocs";
+
+// STORY-TAB-008 AC-6: latest completed evaluation run as detection-quality
+// evidence. Uses the LIST endpoint (TAB-004: admits admin/operator/super_admin
+// by account role) and renders ONLY for those roles — other Trust Center
+// viewers get no card and no 403. Evidence language only (no pass/fail claim
+// beyond the run's own recorded counts).
+const EVAL_LIST_ROLES = ["admin", "operator", "super_admin"];
+
+function DetectionQualityCard({ token, user }) {
+  const [run, setRun] = useState(null);
+  const allowed = EVAL_LIST_ROLES.includes(user?.role);
+
+  useEffect(() => {
+    if (!token || !allowed) return;
+    fetch("/api/v1/evaluations?status=completed&limit=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setRun(Array.isArray(d) && d.length > 0 ? d[0] : null))
+      .catch(() => setRun(null));
+  }, [token, allowed]);
+
+  if (!allowed || !run) return null;
+
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
+      padding: "12px 16px", margin: "0 0 16px",
+      display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", fontSize: 13,
+    }}>
+      <span style={{ fontWeight: 700 }}>Detection quality evidence</span>
+      <span style={{ color: "#374151" }}>
+        Latest completed evaluation run:
+        {run.datasets_passed != null && run.datasets_attempted != null && (
+          <> {run.datasets_passed}/{run.datasets_attempted} datasets passed</>
+        )}
+        {run.total_samples_uploaded != null && <> · {run.total_samples_uploaded.toLocaleString()} samples</>}
+        {run.completed_at && <> · {String(run.completed_at).slice(0, 10)}</>}
+      </span>
+      <span style={{ color: "#9ca3af", fontSize: 11 }}>
+        Offline batch evaluation — human review required before acting on any finding.
+      </span>
+    </div>
+  );
+}
 
 /**
  * STORY-112: Trust Center consolidates the four previously-separate governance
@@ -21,7 +66,7 @@ const TABS = [
   { id: "dpa_governance", label: "DPA & Governance" },
 ];
 
-export default function TrustCenter({ token, initialTab, initialSection }) {
+export default function TrustCenter({ token, user, initialTab, initialSection }) {
   const [tab, setTab] = useState(
     TABS.some((t) => t.id === initialTab) ? initialTab : "governance"
   );
@@ -34,6 +79,7 @@ export default function TrustCenter({ token, initialTab, initialSection }) {
           Governance principles, how SARO reasons, the compliance claims matrix, and
           governance documents — consolidated in one place.
         </p>
+        <DetectionQualityCard token={token} user={user} />
         <div role="tablist" aria-label="Trust Center sections" style={{ display: "flex", gap: 4, flexWrap: "wrap", borderBottom: "1px solid var(--color-border-subtle, #e5e7eb)" }}>
           {TABS.map((t) => {
             const active = tab === t.id;

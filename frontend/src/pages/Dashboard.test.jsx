@@ -45,6 +45,82 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+describe("Dashboard — STORY-TAB-008: relocated Remediation + Onboarding surfaces", () => {
+  const ONBOARDING_INCOMPLETE = {
+    tenant_id: "t", completed_steps: 1, total_steps: 4, completion_pct: 25,
+    onboarding_complete: false,
+    steps: [
+      { key: "profile", label: "Complete tenant profile", completed: true, cta_url: null },
+      { key: "first_scan", label: "Run your first risk scan", completed: false, cta_url: null },
+    ],
+  };
+
+  function stubTab008({ remediation, onboarding } = {}) {
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      const u = String(url);
+      if (u.startsWith("/api/v1/remediation")) {
+        if (remediation === "error") return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(remediation ?? { traces: [], total: 0 }) });
+      }
+      if (u.includes("/onboarding/status")) {
+        if (onboarding === "error") return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(onboarding ?? ONBOARDING_INCOMPLETE) });
+      }
+      return routedFetch(u);
+    }));
+  }
+
+  afterEach(() => localStorage.removeItem("saro_onboarding_banner_dismissed"));
+
+  it("AC-4: open-remediations card shows the API total and deep-links to TRACE View", async () => {
+    const onNavigate = vi.fn();
+    stubTab008({ remediation: { traces: [], total: 3 } });
+    render(<Dashboard token="t" user={{ persona_role: "risk_officer" }} onNavigate={onNavigate} />);
+    const card = await screen.findByText(/open remediation item/);
+    expect(card.textContent).toMatch(/^3 open remediation items awaiting human review$/);
+    screen.getByRole("button", { name: /Review in TRACE View/ }).click();
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith("trace_view"));
+  });
+
+  it("AC-4: the card is absent on fetch failure — never a fake zero", async () => {
+    stubTab008({ remediation: "error" });
+    render(<Dashboard token="t" user={{ persona_role: "risk_officer" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Risk Posture")).toBeTruthy());
+    expect(screen.queryByText(/open remediation item/)).not.toBeInTheDocument();
+  });
+
+  it("AC-3: incomplete onboarding renders the dismissible checklist for admin (the TAB-002 component)", async () => {
+    stubTab008({});
+    render(<Dashboard token="t" user={{ persona_role: "admin", role: "admin" }} onNavigate={() => {}} />);
+    expect(await screen.findByText(/Finish setting up SARO — 1\/4 steps complete/)).toBeInTheDocument();
+    // the embedded component renders the API steps (FND-075 pins intact)
+    expect(await screen.findByText("Run your first risk scan")).toBeInTheDocument();
+    // dismiss hides it and persists
+    screen.getByRole("button", { name: /Dismiss setup checklist/ }).click();
+    await waitFor(() => expect(screen.queryByText(/Finish setting up SARO/)).not.toBeInTheDocument());
+    expect(localStorage.getItem("saro_onboarding_banner_dismissed")).toBe("1");
+  });
+
+  it("AC-3: onboarding_complete never renders the banner", async () => {
+    stubTab008({ onboarding: { ...ONBOARDING_INCOMPLETE, completed_steps: 4, completion_pct: 100, onboarding_complete: true } });
+    render(<Dashboard token="t" user={{ persona_role: "admin", role: "admin" }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Risk Posture")).toBeTruthy());
+    expect(screen.queryByText(/Finish setting up SARO/)).not.toBeInTheDocument();
+  });
+
+  it("AC-5: a demo session sees neither relocated surface (demo tab unchanged)", async () => {
+    stubTab008({ remediation: { traces: [], total: 5 } });
+    render(<Dashboard token="t" user={{ role: "demo_viewer", persona_role: "compliance_lead", read_only: true }} onNavigate={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Risk Posture")).toBeTruthy());
+    expect(screen.queryByText(/open remediation item/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Finish setting up SARO/)).not.toBeInTheDocument();
+    // and neither endpoint was fetched for demo
+    const urls = fetch.mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.startsWith("/api/v1/remediation"))).toBe(false);
+    expect(urls.some((u) => u.includes("/onboarding/status"))).toBe(false);
+  });
+});
+
 describe("Dashboard — FND-021: duplicate Quick Actions block removed", () => {
   it("renders the primary action exactly once", async () => {
     render(<Dashboard token="t" user={{ persona_role: "risk_officer" }} onNavigate={() => {}} />);

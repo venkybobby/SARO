@@ -11,7 +11,10 @@
  */
 import React, { useEffect, useState } from "react";
 
-export default function DriftAlerts({ token }) {
+// STORY-TAB-008: `embedded` renders the same content without the page chrome
+// (padding/h1) so Rule Packs can host it as a section — component behavior,
+// data source, and every FND-080 pin stay identical.
+export default function DriftAlerts({ token, embedded = false }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
@@ -32,11 +35,15 @@ export default function DriftAlerts({ token }) {
   const checkedDate = data?.checked_at ? data.checked_at.slice(0, 10) : null;
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>📡 Drift Alerts</h1>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Framework version drift detection — compares active rule packs against the latest known framework versions.
-      </p>
+    <div style={embedded ? {} : { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
+      {!embedded && (
+        <>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>📡 Drift Alerts</h1>
+          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+            Framework version drift detection — compares active rule packs against the latest known framework versions.
+          </p>
+        </>
+      )}
 
       {loading && <div style={{ color: "#9ca3af" }}>Loading…</div>}
       {error && (

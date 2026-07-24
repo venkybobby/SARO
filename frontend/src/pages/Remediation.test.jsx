@@ -193,6 +193,26 @@ describe("STORY-TAB-001 AC-4/AC-5: empty vs error states", () => {
   });
 });
 
+describe("STORY-TAB-008 AC-5: read-only sessions get no Mark Complete affordance", () => {
+  it("hides the button for user.read_only (FND-054 pattern; backend FND-085 gate is the control)", async () => {
+    vi.stubGlobal("fetch", mockFetchOnce([
+      { match: (u) => u.includes("/api/v1/remediation"), json: listResponse([TRACE_FULL]) },
+    ]));
+    render(<Remediation token="t" tenantId="tid" user={{ role: "demo_viewer", read_only: true }} />);
+    await screen.findByText("PII: email address detected");
+    expect(screen.queryByRole("button", { name: /Mark Complete/i })).not.toBeInTheDocument();
+  });
+
+  it("embedded mode renders the queue without the page chrome", async () => {
+    vi.stubGlobal("fetch", mockFetchOnce([
+      { match: (u) => u.includes("/api/v1/remediation"), json: listResponse([TRACE_FULL]) },
+    ]));
+    render(<Remediation token="t" tenantId="tid" embedded />);
+    await screen.findByText("PII: email address detected");
+    expect(screen.queryByRole("heading", { name: /Remediation/ })).not.toBeInTheDocument();
+  });
+});
+
 describe("STORY-TAB-001 edge cases", () => {
   it("sparse trace renders without 'undefined'/'null' text and without optional rows", async () => {
     vi.stubGlobal("fetch", mockFetchOnce([

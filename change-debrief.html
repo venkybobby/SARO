@@ -77,7 +77,7 @@
 <li><b>No per-rule coverage drill-down</b> (Coverage Gap) — needs a new endpoint; noted as follow-up, not faked.</li>
 <li><b>No real lifecycle/risk-tier model for AIMS</b> — needs a product definition + migration; fields omitted instead of invented.</li>
 <li><b>No trigger-rights widening for Evaluations</b> — super_admin only, unchanged.</li>
-<li><b>STORY-TAB-008 (tab consolidation, 7→2 top-level)</b> — drafted, blocked on product sign-off.</li>
+<li><b>STORY-TAB-008 (tab consolidation)</b> — signed off and shipped; see the addendum below.</li>
 </ul></div>
 
 <h2>Risk map</h2>
@@ -111,5 +111,12 @@
 <p>None — both surfaces render the API's <code>steps</code> array data-driven (label + completed). Only an optional entry in <code>ONBOARDING_STEP_NAV</code> if the new step deserves an in-app Go button; unknown keys already render label-only (pinned by the "unknown future step keys" test).</p></details>
 
 <p style="margin-top:32px;font-size:12px;color:#9ca3af">Generated for the STORY-TAB batch (PRs #128–#134) · reviewer APPROVE ×7 · security-auditor PASS ×2 · findings FND-073..084 in quality/findings.md</p>
+
+<h2>Addendum — STORY-TAB-008: tab consolidation (this PR)</h2>
+<div class="card">
+<p>With the seven contract fixes landed, the consolidation folds five thin tabs into their natural homes using the STORY-112 embed-unchanged pattern (hosts render the ORIGINAL components — every FND pin above stays valid): Drift Alerts &rarr; Rule Packs; Coverage Gap &rarr; Compliance Hub (EVF cards now focus the embedded section instead of navigating); Remediation &rarr; TRACE View ("Open findings" queue, hidden for demo sessions); Onboarding &rarr; dismissible Dashboard first-run checklist; Evaluations &rarr; Admin Settings, with a role-gated detection-quality evidence card in Trust Center. AIMS is renamed "Model Inventory". Admin sidebar: 19 &rarr; 14 entries; super_admin: 17 &rarr; 12.</p>
+<p><b>FND-085</b> (found by the premise check, fixed red-first): <code>PATCH /remediation/traces/{id}/remediate</code> lacked <code>require_write_access</code> &mdash; a read-only demo token could mark traces remediated. Embedding the queue on demo-visible TRACE View made the gap load-bearing; the backend gate is now the control and the UI hides the affordance (FND-054 pattern). Old page keys redirect to their hosts in PAGE_COMPONENTS (FND-007 discipline &mdash; no silent fall-through to Dashboard).</p>
+</div>
+
 </body>
 </html>

@@ -17,4 +17,4 @@
 | STORY-TAB-005 | Drift Alerts version grid from real response keys | IMPLEMENTED | cadbc57 — DriftAlerts.test.jsx 7/7 (red-first 6/7), full vitest 243/243 |
 | STORY-TAB-006 | Rule Packs detail fetch (rules actually display) | IMPLEMENTED | bf18776 — pytest 3/3 (red-first 2/3) + RulePacks.test.jsx 5/5 (red-first 5/5), vitest 248/248 |
 | STORY-TAB-007 | AIMS honest fields (no fabricated stage/tier) | IMPLEMENTED | 7fbd576 — pytest 4/4 (red-first 2/4) + Aims.test.jsx 6/6 (red-first 4/6), vitest 254/254 |
-| STORY-TAB-008 | Tab consolidation (7 → 2 top-level entries) | DRAFTED | spec: specs/stories/STORY-TAB-008.md — needs product sign-off; blocked on TAB-001..007 |
+| STORY-TAB-008 | Tab consolidation (5 tabs folded into hosts; admin 19→14) | IMPLEMENTED | 8360c29 (folds; +59b9a85, 24b9e0e) — full vitest 274/274, pytest unit 819 / integration 349 / regression 189, FND-085 pinned |

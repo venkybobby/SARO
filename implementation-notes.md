@@ -1,46 +1,51 @@
-# STORY-TAB-007 — AIMS honest fields (no fabricated model metadata)
+# STORY-TAB-008 — Tab consolidation (fold 5 tabs into their hosts)
 
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (skipped — endpoint/model/consumer audited this session; premise table in specs/stories/STORY-TAB-007.md)
-- [x] shape      (interview skipped — autonomous session; decisions defaulted + logged below)
-- [x] preview    (skipped — same card grid; fabricated badges removed, real fields bound)
-- [x] plan
-- [x] build      (implemented; gates green -- see PR)
-- [x] verify     (batch change-debrief.html for STORY-TAB-001..007 -- committed on story/STORY-TAB-001, PR #128)
+- [x] discover   (skipped — all five surfaces + hosts audited across TAB-001..007 this session; premise table in specs/stories/STORY-TAB-008.md)
+- [x] shape      (sign-off = owner invoking /story STORY-TAB-008; remaining decisions defaulted + logged below)
+- [x] preview    (skipped — no new visual design: hosts embed the existing components unchanged, STORY-112 precedent)
+- [x] plan       (host-by-host plan in task list; spec finalized to ready with G/W/T ACs + edge cases)
+- [x] build      (five folds + sidebar consolidation implemented; gates green — see PR)
+- [x] verify     (change-debrief.html extended with the TAB-008 consolidation section)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
 
-| referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
-|---|---|---|
-| `GET /api/v1/aims/models` hardcodes `risk_tier:"high"`, `lifecycle_stage:"production"` | yes | routers/aims.py:76-77 |
-| `framework_coverage` is ALSO a hardcoded constant `["ISO-42001","EU-AI-ACT-2024"]` | yes | routers/aims.py:78 — story AC-2 listed it as renderable; it is fabricated too |
-| AIMSDocument has NO status/lifecycle/risk column (id, tenant_id, title, version, effective_date, owner_email, linked_audit_ids, created_at, updated_at) | yes | models.py:1065-1095 |
-| Frontend reads `vendor`/`risk_category`/`last_audit_date` — never returned | yes | frontend/src/pages/Aims.jsx:56-63 |
-| Note string mojibake on live deployment (`â€"`) | yes | live probe 2026-07-23; routers/aims.py:87 em-dash literal |
+See the Premise verification table in specs/stories/STORY-TAB-008.md — every
+referenced artifact cites a file path; the one load-bearing discovery is that
+`PATCH /remediation/traces/{id}/remediate` lacks `require_write_access`
+(routers/remediation.py:168; helper exists at auth.py:238) — hardened here as
+FND-085 because the consolidation embeds the queue on a demo-visible page.
 
 ## Decision Log
 
 (format: question → defaulted answer → architectural consequence)
 
-| Question | Answer (defaulted) | Architectural consequence |
+| Question | Answer | Architectural consequence |
 |---|---|---|
-| `lifecycle_stage` from stored data? | No column exists → omit the field entirely (AC-1's verify-in-BUILD branch). No default badge of any kind renders. | Adding a real lifecycle model = follow-up story with a migration (story Out of Scope). |
-| `framework_coverage` — AC-2 says render as tags, but it's a hardcoded constant | Remove from the response too (same fabricated-evidence class as risk_tier/lifecycle_stage). AC-2's tag rendering becomes conditional: renders only if the API ever returns real data. | Deviation from AC-2's letter, aligned with the story's stated goal ("SARO's compliance posture forbids presenting fabricated values as evidence"). Logged under Deviations. |
-| Mojibake fix | Replace the em-dash in the `note` literal with an ASCII hyphen (AC-5). | Deployment-encoding-proof. |
+| Rewrite relocated features into hosts, or embed the components? | Embed unchanged (STORY-112 precedent) with an `embedded` prop that suppresses the page chrome (h1/padding). | Every TAB-001..007 FND pin on those components stays valid; hosts gain a section, not logic. |
+| ai_auditor loses coverage_gap — grant them compliance_hub? | No. Compliance Hub aggregates compliance-persona endpoints (readiness, EVF calendar) not all verified for ai_auditor — adding it risks the FND-077 visible-but-403 class. Coverage rollup is compliance-lead material; auditor keeps TRACE/Rule Packs/drift/remediation. | Deliberate persona-surface narrowing, logged in spec Edge Cases. |
+| Trust Center detection-quality card: /latest is super_admin/operator-only | Use the LIST endpoint (`?status=completed&limit=1`) which admits admin too (TAB-004), and render the card only when `user.role ∈ {admin, operator, super_admin}` — others get no card, no fetch, no 403. | No authz widening; no dead card. |
+| Demo session sees TRACE View + Compliance Hub (DEMO_TABS) — do embeds change the demo surface? | Remediation embed hidden entirely for `role=demo_viewer` (defense in depth on top of the new backend write gate); coverage embed is fine (endpoint already demo-census-safe via ComplianceHub). | STORY-412 census unchanged. |
+| remediate PATCH write gate | Add `Depends(require_write_access)` (FND-085, red-first pin). UI additionally hides Mark Complete for `read_only` users (FND-054 pattern). | routers/ touched → security-auditor required. |
+| Onboarding banner vs existing first-login wizard | Both stay: wizard = first-login modal (TAB-002); banner = persistent Dashboard card until complete/dismissed, embedding the same API-driven component. Separate localStorage keys. | One data contract, two presentations; no duplicated step logic. |
+| Removed page keys in AppShell | Drop from Sidebar registry/personas; in PAGE_COMPONENTS the old keys REDIRECT to their host pages (FND-007 discipline — a navigated key never silently falls through to Dashboard). Component files stay (they are the embedded implementations). | No dead nav entries; no deleted pins; deep-links land on the host. |
+
+## Build progress
+- folds 1-2 (59b9a85); folds 3-4 (24b9e0e); fold 5 (8360c29); sidebar/AppShell
+  consolidation + rename + close (ba7456e); review round applied after
+  reviewer APPROVE + security PASS (FND-086 gates, redirect pin, doc truthing).
 
 ## Deviations
-- `framework_coverage` removed from the API response (AC-2 listed it as a real
-  renderable field; premise check showed it is a hardcoded constant — the exact
-  defect class this story exists to remove). Frontend renders coverage tags
-  only when the field is present, so a future real implementation lights up
-  without a frontend change.
-- Reviewer round (TAB-004..007 batch, all APPROVE; security PASS): the
-  coverage-tag conditional the sentence above describes was initially a doc
-  claim without code (FM-3 class, reviewer SHOULD-FIX) — the conditional tag
-  rendering is now actually implemented in Aims.jsx and pinned by a
-  future-proofing test; the no-badge assertion was strengthened to cover all
-  stage words; the hostile cross-tenant query-param case was added to the
-  backend pin (security NIT).
+- CoverageGap's fetch URL normalized (dropped `tenant_id`/`window` params +
+  the `!tenantId` guard) — semantically a no-op (the endpoint declares no
+  query params; tenant derives from the JWT) but required by the CHUB-009
+  pin once embedded in Compliance Hub. Named here per reviewer NIT (it
+  exceeded the "embed unchanged" framing).
+- Security audit (PASS) found FND-085's remediation incomplete: the batch
+  (`bulk-remediate`) and Jira (`create-jira-issue`) mutation twins had the
+  same missing write gate — PoC'd with a public demo token. Fixed in-PR as
+  FND-086 (red-first), rather than deferred, because the exploit credential
+  is public.

@@ -24,13 +24,11 @@ const TraceView     = lazy(() => import("../pages/TraceView"));
 // consolidated into the Trust Center, which imports them as tabbed sections.
 const TrustCenter   = lazy(() => import("../pages/TrustCenter"));
 const RulePacks     = lazy(() => import("../pages/RulePacks"));
-const CoverageGap   = lazy(() => import("../pages/CoverageGap"));
-const Remediation   = lazy(() => import("../pages/Remediation"));
-const DriftAlerts   = lazy(() => import("../pages/DriftAlerts"));
+// STORY-TAB-008: CoverageGap, Remediation, DriftAlerts, Onboarding and
+// Evaluations are no longer routed pages — their hosts (ComplianceHub,
+// TraceView, RulePacks, Dashboard, AdminSettings) import them directly.
 const Aims          = lazy(() => import("../pages/Aims"));
-const Onboarding    = lazy(() => import("../pages/Onboarding"));
 const Upload        = lazy(() => import("../pages/Upload"));
-const Evaluations   = lazy(() => import("../pages/Evaluations"));
 const EvfAdmin      = lazy(() => import("../pages/EvfAdmin"));
 const AdminSettings = lazy(() => import("../pages/AdminSettings"));
 // DemoRequests removed — STORY-016: page deprecated, entry points already removed from nav
@@ -59,14 +57,17 @@ const PAGE_COMPONENTS = {
   dpa_governance:   TrustCenter,
   governance_docs:  TrustCenter,
   rule_packs:       RulePacks,
-  coverage_gap:     CoverageGap,
-  remediation:      Remediation,
-  drift_alerts:     DriftAlerts,
+  // STORY-TAB-008: the five consolidated pages are no longer standalone routes.
+  // Old keys redirect to the HOST page (FND-007 discipline: a navigated key
+  // must never silently fall through to Dashboard).
+  coverage_gap:     ComplianceHub,
+  remediation:      TraceView,
+  drift_alerts:     RulePacks,
   aims:             Aims,
   governance:       TrustCenter,
-  onboarding:       Onboarding,
+  onboarding:       Dashboard,
   upload:           Upload,
-  evaluations:      Evaluations,
+  evaluations:      AdminSettings,
   evf_admin:        EvfAdmin,
   admin_settings:   AdminSettings,
   // demo_requests removed — STORY-016

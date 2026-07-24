@@ -11,15 +11,27 @@
  */
 import React, { useEffect, useState } from "react";
 
-export default function CoverageGap({ token, tenantId }) {
+// STORY-TAB-008: `embedded` renders without page chrome and without the
+// overall rollup row (the host shows its own headline); `initialFramework`
+// preselects a framework (Compliance Hub's EVF cards focus the section).
+export default function CoverageGap({ token, tenantId, embedded = false, initialFramework = null }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
   const [selectedFw, setSelectedFw] = useState(null);
 
   useEffect(() => {
-    if (!token || !tenantId) return;
-    fetch(`/api/v1/compliance-matrix/coverage?tenant_id=${tenantId}&window=90d`, {
+    if (!initialFramework || !data?.frameworks) return;
+    const match = data.frameworks.find((fw) => fw.framework === initialFramework);
+    if (match) setSelectedFw(match);
+  }, [initialFramework, data]);
+
+  useEffect(() => {
+    if (!token) return;
+    // CHUB-009: /coverage takes no query params — tenant derives from the JWT
+    // and `window` is not honored by the backend. (tenantId prop retained for
+    // signature compatibility.)
+    fetch(`/api/v1/compliance-matrix/coverage`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
@@ -30,11 +42,15 @@ export default function CoverageGap({ token, tenantId }) {
   const frameworks = data?.frameworks || [];
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>🗺️ Coverage Gap</h1>
-      <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
-        Per-framework compliance coverage analysis — identifies rules not yet covered by your scanning regime.
-      </p>
+    <div style={embedded ? {} : { padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 1000 }}>
+      {!embedded && (
+        <>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>🗺️ Coverage Gap</h1>
+          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+            Per-framework compliance coverage analysis — identifies rules not yet covered by your scanning regime.
+          </p>
+        </>
+      )}
 
       {loading && <div style={{ color: "#9ca3af" }}>Loading coverage data…</div>}
       {error && (
@@ -51,7 +67,8 @@ export default function CoverageGap({ token, tenantId }) {
 
       {!loading && !error && frameworks.length > 0 && (
         <>
-          {/* Overall rollup — straight from the API */}
+          {/* Overall rollup — straight from the API (host shows its own headline in embedded mode) */}
+          {!embedded && (
           <div style={{
             background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8,
             padding: "12px 16px", marginBottom: 16,
@@ -64,6 +81,7 @@ export default function CoverageGap({ token, tenantId }) {
               {data.framework_count} frameworks · {data.total_rules} rules
             </span>
           </div>
+          )}
 
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
             {/* Framework list */}
