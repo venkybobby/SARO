@@ -392,3 +392,8 @@ findings:
     test: tests/regression/test_fnd_079_require_role_generic_denial.py
     status: open
     quarantine_expires: null
+  - id: FND-080
+    title: "Drift Alerts version grid never rendered (phantom framework_versions key); alert cards referenced never-produced fields; green state carried no freshness (STORY-TAB-005)"
+    test: frontend/src/pages/DriftAlerts.test.jsx
+    status: pinned
+    quarantine_expires: null

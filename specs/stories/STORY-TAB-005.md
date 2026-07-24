@@ -1,6 +1,6 @@
 # STORY-TAB-005: Drift Alerts tab — render the framework-version grid from the real drift response
 
-**Status:** ready
+**Status:** done
 **Screen/Area:** Drift Alerts tab (frontend/src/pages/DriftAlerts.jsx ↔ routers/rule_packs.py)
 
 ## Premise verification
@@ -36,3 +36,14 @@ The "Current Framework Versions" grid on Drift Alerts never renders because the 
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `DriftAlerts.test.jsx`: "one card per tracked framework; packless frameworks say so" + "shows the latest version when it differs" | DriftAlerts.jsx, DriftAlerts.test.jsx |
+| AC-2 | `DriftAlerts.test.jsx`: "renders the alert message; no what-changed/affected-packs sections" (blocks removed, asserted absent) | DriftAlerts.jsx, DriftAlerts.test.jsx |
+| AC-3 | `DriftAlerts.test.jsx`: "the no-drift state carries checked_at" | DriftAlerts.jsx, DriftAlerts.test.jsx |
+| AC-4 | `DriftAlerts.test.jsx`: "a failed fetch renders the error banner and never the green no-drift state" | DriftAlerts.jsx, DriftAlerts.test.jsx |
+
+**Edge cases covered:** framework in `current_versions` but absent from
+`latest_known_versions` still renders (LEGACY-FW case); empty version maps →
+neutral "No tracked framework versions" state — both in `DriftAlerts.test.jsx`.
+
+**Finding:** FND-080 (quality/findings.md) — pinned red-first (6/7 failed
+pre-fix), manifest entry `status: pinned`.

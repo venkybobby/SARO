@@ -1,11 +1,11 @@
-# STORY-TAB-004 — Evaluations RBAC / nav visibility alignment
+# STORY-TAB-005 — Drift Alerts renders the real drift response
 
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (skipped — gates + consumers audited this session; premise table in specs/stories/STORY-TAB-004.md)
+- [x] discover   (skipped — endpoint + consumer audited this session; premise table in specs/stories/STORY-TAB-005.md)
 - [x] shape      (interview skipped — autonomous session; decisions defaulted + logged below)
-- [x] preview    (skipped — no visual change; a nav entry disappears for one persona, button visibility keyed to role)
+- [x] preview    (skipped — same card grid; bindings corrected, dead sections removed)
 - [x] plan
 - [ ] build
 - [ ] verify
@@ -15,13 +15,9 @@ Stage: standard
 
 | referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
 |---|---|---|
-| List gate `require_role("super_admin","operator")` | yes | routers/evaluations.py:230-234 |
-| Trigger gate `require_role("super_admin")` | yes | routers/evaluations.py:156-160 |
-| `require_role` checks `current_user.role` (roles axis, not persona) | yes | auth.py:287-306 |
-| Sidebar shows `evaluations` to compliance_lead + admin + super_admin personas | yes | frontend/src/components/Sidebar.jsx:12-38 |
-| Trigger button keyed off persona (`ai_auditor`/`admin`/`super_admin`) | yes | frontend/src/pages/Evaluations.jsx:28-29 |
-| HTTP role-matrix test pattern (dependency overrides, in-memory SQLite) | yes | tests/regression/test_fnd_028_trace_audit_read_access.py:74-92 |
-| Trigger 422s on unknown dataset BEFORE creating a run/background task | yes | routers/evaluations.py:175-181 |
+| `GET /api/v1/rules/drift-alerts` → `{alerts, alert_count, current_versions:{fw:ver}, latest_known_versions:{fw:ver}, checked_at}` | yes | routers/rule_packs.py:46-77; live probe 2026-07-23 |
+| Alert dict: `{framework, current_version, latest_version, alert_type, message}` — no what_changed / affected_rule_packs | yes | services/rule_service.py:59-72 |
+| Frontend reads `data.framework_versions` (array) → grid never renders; alert cards reference the two phantom lists | yes | frontend/src/pages/DriftAlerts.jsx:20,37-52,71-86 |
 
 ## Decision Log
 
@@ -29,10 +25,9 @@ Stage: standard
 
 | Question | Answer (defaulted) | Architectural consequence |
 |---|---|---|
-| Widen backend or narrow frontend? | Both, minimally (least privilege): backend list gate gains `admin` (read-only run metadata for the operations owner whose persona nav already surfaces the tab); trigger stays `super_admin`-only; `evaluations` removed from the `compliance_lead` persona list. | One-word authz change on a read endpoint; no new write capability. security-auditor review required (routers/ touched). |
-| Frontend gating axis | `user.role`, never `persona_role` — a persona-switched super_admin keeps the backend-granted capability; an admin-persona viewer doesn't gain it. | Matches `require_role` semantics; pinned in vitest. |
-| AC-5 regression guard without running a real eval in tests | super_admin POST /trigger with an unknown dataset → 422 proves the auth gate admits super_admin while the validation (which precedes run creation) stops any background work; admin POST → 403 proves the gate didn't widen. | No network/background side effects in the suite. |
-| 403 UX on the list | Distinct message ("your role does not have access to evaluation runs") when the list GET 403s; generic banner otherwise. | No bare "⚠ 403". |
+| Grid source | Merge keys of `latest_known_versions` ∪ `current_versions` → one card per framework: current pack version (or "no pack"), latest shown when it differs. | Tracked-but-packless frameworks (AIGP, ISO-42001 on the live deployment) become visible instead of silently absent — that IS the coverage signal. |
+| Alert card body | Render `message` + framework/current→latest line; delete the what_changed / affected_rule_packs blocks (fields have never existed). | No dead code paths; no implied change-analysis capability the backend doesn't have. |
+| "No drift" freshness | Green state renders `checked_at` ("Last checked …") so the reassurance is evidently a fresh computation, not static copy. | Anti-overclaim: an unverifiable green state is the FND-030 class. |
 
 ## Deviations
 None yet.
