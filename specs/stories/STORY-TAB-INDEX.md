@@ -10,7 +10,7 @@
 
 | Story | Title | Status | Evidence |
 |---|---|---|---|
-| STORY-TAB-001 | Remediation tab response-contract fix (FND-073) | IMPLEMENTED | ecdc23a — frontend/src/pages/Remediation.test.jsx 10/10 green (red-first 8/10), full vitest 212/212 |
+| STORY-TAB-001 | Remediation tab response-contract fix (FND-073) | IMPLEMENTED | 6a520fd (squash-merge of PR #128; pre-squash implementing commit ecdc23a) — frontend/src/pages/Remediation.test.jsx 10/10 green (red-first 8/10), full vitest 212/212 |
 | STORY-TAB-002 | Onboarding tab renders backend checklist | IMPLEMENTED | e69541b — Onboarding.test.jsx + AppShell.test.jsx (red-first 11/14), full vitest 223/223 |
 | STORY-TAB-003 | Coverage Gap field alignment with coverage API | IMPLEMENTED | f8005ad — CoverageGap.test.jsx 7/7 (red-first 6/7), full vitest 230/230 |
 | STORY-TAB-004 | Evaluations RBAC / nav visibility alignment | IMPLEMENTED | c660c77 — pytest role matrix 10/10 + regression 185/185, vitest 236/236 |
