@@ -1,6 +1,6 @@
 # STORY-TAB-003: Coverage Gap tab — align field names with the coverage API (no more blank frameworks / "undefined")
 
-**Status:** ready
+**Status:** done
 **Screen/Area:** Coverage Gap tab (frontend/src/pages/CoverageGap.jsx ↔ routers/compliance_matrix.py)
 
 ## Premise verification
@@ -36,3 +36,14 @@ Coverage Gap renders progress bars with blank framework names and a nonsense "No
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `CoverageGap.test.jsx`: "renders each framework's name and coverage_pct — including a 0% one" (asserts no 'undefined' text; selection keyed by `framework`) | CoverageGap.jsx, CoverageGap.test.jsx |
+| AC-2 | `CoverageGap.test.jsx`: "selected framework shows covered/partial/not-covered against total_rules and last_updated" (phantom-field artifacts asserted absent) | CoverageGap.jsx, CoverageGap.test.jsx |
+| AC-3 | `CoverageGap.test.jsx`: "1 of 8 rules not covered" gap signal + "fully covered framework shows a positive state naming it" | CoverageGap.jsx, CoverageGap.test.jsx |
+| AC-4 | `CoverageGap.test.jsx`: "renders overall coverage across frameworks and rules" | CoverageGap.jsx, CoverageGap.test.jsx |
+| AC-5 | `CoverageGap.test.jsx`: "non-2xx renders the error banner" + "empty frameworks array renders an explicit no-data state" | CoverageGap.jsx, CoverageGap.test.jsx |
+
+**Edge cases covered:** 0% framework renders with visible name; `last_updated`
+null → row omitted, no "null" text — both in `CoverageGap.test.jsx`.
+
+**Finding:** FND-076 (quality/findings.md) — pinned red-first (6/7 failed
+pre-fix), manifest entry `status: pinned`.
