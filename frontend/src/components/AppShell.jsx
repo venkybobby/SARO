@@ -12,6 +12,7 @@ import { useDirtyNavGuard } from "../hooks/useDirtyNavGuard.js";
 import { TRACE_METHODOLOGY_READY } from "../config/traceGate";
 import { parseJwt } from "../utils/jwt.js";
 import DEMO_TABS from "../config/demoTabs.json";
+import { ONBOARDING_STEP_NAV } from "../config/onboardingNav.js";
 
 // Lazy-load pages
 const Dashboard     = lazy(() => import("../pages/Dashboard"));
@@ -92,35 +93,26 @@ function Loader() {
   );
 }
 
-const ONBOARDING_STEPS = [
-  { id: "tenant_created",     label: "Tenant Created" },
-  { id: "users_invited",      label: "Users Invited" },
-  { id: "personas_assigned",  label: "Personas Assigned" },
-  { id: "first_scan",         label: "First Scan Completed" },
-  { id: "rule_packs_reviewed",label: "Rule Packs Reviewed" },
-  { id: "integrations",       label: "Integrations Configured" },
-  { id: "compliance_review",  label: "Compliance Review Booked" },
-];
-
+// STORY-TAB-002 / FND-075: the wizard renders the backend checklist verbatim
+// (routers/onboarding.py returns {steps:[{key,label,completed}], completed_steps,
+// total_steps, completion_pct}); it previously hardcoded 7 divergent step ids
+// and read flat booleans, so every first login showed 0/7.
 function OnboardingWizard({ token, tenantId, onDismiss, onNavigate }) {
-  const [progress, setProgress] = useState({});
+  const [status, setStatus] = useState(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const url = `/api/v1/onboarding/status${tenantId ? `?tenant_id=${tenantId}` : ""}`;
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.ok ? r.json() : {})
-      .then(setProgress)
-      .catch(() => {});
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d) => { setStatus(d); setFailed(false); })
+      .catch(() => setFailed(true));
   }, [token, tenantId]);
 
-  const completed = ONBOARDING_STEPS.filter((s) => progress[s.id]).length;
-  const pct = Math.round((completed / ONBOARDING_STEPS.length) * 100);
-
-  const STEP_ACTIONS = {
-    first_scan:   () => onNavigate?.("upload"),
-    rule_packs_reviewed: () => onNavigate?.("rule_packs"),
-    personas_assigned: () => onNavigate?.("admin_settings"),
-  };
+  const steps = status?.steps || [];
+  const completed = status?.completed_steps ?? 0;
+  const totalSteps = status?.total_steps ?? steps.length;
+  const pct = status?.completion_pct ?? 0;
 
   return (
     <div style={{
@@ -144,23 +136,32 @@ function OnboardingWizard({ token, tenantId, onDismiss, onNavigate }) {
           <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 12 }}>
             Complete these steps to get fully operational. You can revisit this checklist any time from Settings.
           </div>
-          <div style={{ height: 6, background: "var(--color-bg-elevated)", borderRadius: 3 }}>
-            <div style={{ height: 6, width: `${pct}%`, background: "var(--color-info)", borderRadius: 3, transition: "width 0.4s" }} />
-          </div>
-          <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
-            {completed}/{ONBOARDING_STEPS.length} steps complete
-          </div>
+          {!failed && (
+            <>
+              <div style={{ height: 6, background: "var(--color-bg-elevated)", borderRadius: 3 }}>
+                <div style={{ height: 6, width: `${pct}%`, background: "var(--color-info)", borderRadius: 3, transition: "width 0.4s" }} />
+              </div>
+              <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
+                {completed}/{totalSteps} steps complete
+              </div>
+            </>
+          )}
+          {failed && (
+            <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+              Couldn't load setup progress — you can revisit this checklist from the Onboarding tab.
+            </div>
+          )}
         </div>
 
-        {/* Steps */}
+        {/* Steps — rendered from the API checklist */}
         <div style={{ padding: "12px 24px" }}>
-          {ONBOARDING_STEPS.map((s, i) => {
-            const done = !!progress[s.id];
-            const action = STEP_ACTIONS[s.id];
+          {steps.map((s, i) => {
+            const done = !!s.completed;
+            const navTarget = ONBOARDING_STEP_NAV[s.key];
             return (
-              <div key={s.id} style={{
+              <div key={s.key} style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                borderBottom: i < ONBOARDING_STEPS.length - 1 ? "1px solid var(--color-border-subtle)" : "none",
+                borderBottom: i < steps.length - 1 ? "1px solid var(--color-border-subtle)" : "none",
               }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
@@ -175,8 +176,8 @@ function OnboardingWizard({ token, tenantId, onDismiss, onNavigate }) {
                   {s.label}
                   {done && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--color-info)" }}>Done</span>}
                 </span>
-                {!done && action && (
-                  <button onClick={() => { action(); onDismiss(); }} style={{
+                {!done && navTarget && (
+                  <button onClick={() => { onNavigate?.(navTarget); onDismiss(); }} style={{
                     padding: "4px 10px", background: "var(--color-info-bg)", color: "var(--color-info)",
                     border: "1px solid var(--color-info-border)", borderRadius: 5,
                     cursor: "pointer", fontSize: 11, fontWeight: 600,

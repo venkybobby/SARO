@@ -1,11 +1,11 @@
-# STORY-TAB-001 — Remediation tab response-contract fix
+# STORY-TAB-002 — Onboarding renders the backend checklist
 
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (skipped — subsystem audited end-to-end earlier this session; premise/evidence tables in specs/stories/STORY-TAB-001.md)
-- [x] shape      (interview skipped — autonomous session per owner instruction "move to the contract fixes"; decisions defaulted + logged below)
-- [x] preview    (skipped — no visual/design change: existing card layout retained; only data binding, field mapping, and the endpoint are corrected)
+- [x] discover   (skipped — endpoint + both consumers mapped this session; premise table in specs/stories/STORY-TAB-002.md)
+- [x] shape      (interview skipped — autonomous session; decisions defaulted + logged below)
+- [x] preview    (skipped — existing checklist layout retained; only data binding corrected)
 - [x] plan
 - [x] build      (implemented; gates green -- see PR)
 - [x] verify     (batch change-debrief.html for STORY-TAB-001..007 -- committed on story/STORY-TAB-001, PR #128)
@@ -15,26 +15,23 @@ Stage: standard
 
 | referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
 |---|---|---|
-| `GET /api/v1/remediation` → `{traces, total, page, page_size, pages}` | yes | routers/remediation.py:513-589 |
-| Trace fields: id, check_name, gate_name, result, reason, remediation_hint, regulation_ref, effort_estimate, domain, created_at | yes | routers/remediation.py:569-581 |
-| `PATCH /api/v1/remediation/traces/{id}/remediate` requires body `{remediation_note}` (422 if blank) | yes | routers/remediation.py:168-186 (`RemediateTraceIn`) |
-| Frontend reads `d.items`; PATCHes nonexistent `/remediation/{id}/complete` | yes | frontend/src/pages/Remediation.jsx:21,35 |
-| Vitest + testing-library present; fetch-mock pattern in repo | yes | frontend/package.json:10, frontend/src/pages/ComplianceHub.test.jsx:13-34 |
-| Story index gate scans `specs/stories/*INDEX*.md` (closed vocabulary, SHA evidence) | yes | scripts/check_story_index.py:25,39-41,164 |
-| Prior open findings on Remediation.jsx | none found | quality/findings.md (grep "Remediation" — only backend/other-surface rows) |
+| `GET /api/v1/onboarding/status` → `{tenant_id, completed_steps, total_steps, completion_pct, onboarding_complete, steps:[{key,label,completed,cta_url}]}` (4 steps: profile, first_scan, aims_doc, sso) | yes | routers/onboarding.py:68-105; live probe 2026-07-23 |
+| Onboarding tab hardcodes 7 divergent ids, flat-boolean reads | yes | frontend/src/pages/Onboarding.jsx:6-14,29 |
+| SAME defect in AppShell's OnboardingWizard (first-login modal, same endpoint, 7 old ids + STEP_ACTIONS on old ids) | yes | frontend/src/components/AppShell.jsx:95-123 |
+| No existing tests pin the wizard's onboarding behavior | yes | grep Onboarding in AppShell.test.jsx → no matches |
+| Pages receive `onNavigate` from AppShell | yes | frontend/src/components/AppShell.jsx:271 |
 
 ## Decision Log
 
 | Question | Answer (defaulted) | Architectural consequence |
 |---|---|---|
-| Backend requires a non-blank `remediation_note`; UI has no note input — collect one or change the backend? | Collect in UI. Clicking "Mark Complete" reveals an inline note textarea + Confirm/Cancel; PATCH sends `{remediation_note}`. Backend untouched. | Preserves the HITL evidence posture (note is audit evidence — an AuditEvent is written server-side); story stays frontend-only, no authz surface change → no security-auditor requirement triggered by backend edits. |
-| Severity display: API has `result` (fail/warn/flagged/triggered), not `severity` | Map result→badge: fail→red (#dc2626), warn→amber (#ca8a04), flagged/triggered→neutral gray. Colors reused from the pre-existing palette. | Pure presentation mapping; no fabricated severity claim (badge shows the actual result word, color only groups it). |
-| Pagination (page_size=50) | Indicator only: "showing N of M" when total > traces.length. No pager UI. | Matches story Out of Scope; avoids new API params. |
-| Where does the story index row live? | New `specs/stories/STORY-TAB-INDEX.md` covering TAB-001..008 (SPECIFIED), TAB-001 → IMPLEMENTED w/ SHA in this PR. | Satisfies check_story_index.py + FM-4 (row changes in the implementing PR). |
-| Regression pinning for the two bugs (always-empty list; dead endpoint) | Vitest contract-pin tests in Remediation.test.jsx + FND rows in quality/findings.md, pinned-by-frontend-test (precedent: FND-021/029/031/052). | Frontend bugs pin in vitest (fast tier); tests/regression/ stays backend-only per existing convention. |
+| Wizard has the identical contract bug — fix here or separate story? | Fix both surfaces here. Same endpoint, same defect class (FND-075); fixing only the tab leaves the bug user-visible on every first login. | One shared steps-source module (`config/onboardingNav.js`) holding the step-key → in-app-page map; both consumers render API `steps` verbatim. |
+| CTA mapping for backend keys (AC-4): which keys get in-app destinations? | Map only where the destination is unambiguous: `first_scan` → `upload`, `aims_doc` → `aims`. `profile`/`sso` render no link (no clearly-owned in-app page; API cta_urls are API paths, not navigable). | No dead links; unknown/future keys degrade to label-only rendering (data-driven). |
+| Progress math | Always from API fields (`completion_pct`, `completed_steps`, `total_steps`) — never recomputed locally. | Single source of truth; empty `steps` can't divide-by-zero. |
+| Error handling (tab currently fakes 0% on failure; wizard swallows) | Tab: explicit error banner (AC-5). Wizard: on fetch failure render nothing-harmful — keep modal with a neutral "couldn't load progress" line instead of a fake 0/7. | No fabricated progress claims on either surface. |
 
 ## Deviations
-- /story step-2 "wait for confirmation before implementing" and the 1b interview
-  are collapsed into defaulted decisions above — autonomous session; owner
-  pre-authorized proceeding to contract fixes. Conservative option chosen
-  everywhere (frontend conforms to backend; no backend edits).
+- Scope extends beyond the two files named in the story (adds AppShell.jsx wizard
+  binding + shared config module) — same-defect-same-endpoint rationale above;
+  conservative alternative (leave wizard broken) rejected as it ships a known
+  false rendering. Logged as FND-075 alongside the tab fix.
