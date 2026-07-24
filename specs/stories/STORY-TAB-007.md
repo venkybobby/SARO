@@ -1,6 +1,6 @@
 # STORY-TAB-007: AIMS tab — stop rendering fabricated model metadata; show only real registry fields
 
-**Status:** ready
+**Status:** done
 **Screen/Area:** AIMS tab (frontend/src/pages/Aims.jsx ↔ routers/aims.py)
 
 ## Premise verification
@@ -37,3 +37,21 @@ AIMS is an ISO 42001 evidence surface; SARO's compliance posture forbids present
 ## Traceability (filled at close by /story)
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 | `test_tab007_aims_models_honest_fields.py::test_no_fabricated_classification_fields` — AIMSDocument verified to have NO status/lifecycle column (models.py:1065-1095), so the fields are omitted, never defaulted | routers/aims.py, tests/test_tab007_aims_models_honest_fields.py |
+| AC-2 | backend `test_real_fields_survive`; frontend `Aims.test.jsx` "shows name, version, owner, effective date, and linked-audit count" + "renders NO stage badge and no vendor/risk-category/last-audit rows" | routers/aims.py, Aims.jsx, both test files |
+| AC-3 | `Aims.test.jsx`: no stage badge for models without stored lifecycle data (badge logic renders only from a present field) | Aims.jsx, Aims.test.jsx |
+| AC-4 | `Aims.test.jsx`: empty state names POST /api/v1/aims/documents / Compliance Hub | Aims.jsx, Aims.test.jsx |
+| AC-5 | backend `test_note_has_no_mojibake_prone_chars` (note is ASCII-only) | routers/aims.py, tests/test_tab007_aims_models_honest_fields.py |
+
+**Edge cases covered:** sparse model (null dates, 0 audits) renders cleanly, no
+"undefined"/"null"; tenant scoping regression-guarded
+(`test_tenant_scoping_unchanged`). Compliance-guard NFR: ISO 42001
+evidence-language footer retained (pinned in `Aims.test.jsx`).
+
+**Logged deviation:** `framework_coverage` was ALSO a hardcoded constant
+(routers/aims.py:78) — removed with the other fabricated fields; the frontend
+renders coverage tags only if the API ever returns real data. See
+implementation-notes.md ## Deviations.
+
+**Finding:** FND-082 (quality/findings.md) — pinned red-first (backend 2/4,
+frontend 4/6 failed pre-fix); two manifest entries (backend + frontend halves).

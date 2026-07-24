@@ -407,3 +407,13 @@ findings:
     test: tests/test_tab006_rule_pack_detail.py
     status: pinned
     quarantine_expires: null
+  - id: FND-082
+    title: "AIMS registry fabricated risk_tier/lifecycle_stage/framework_coverage constants on an ISO 42001 evidence surface (STORY-TAB-007; backend half)"
+    test: tests/test_tab007_aims_models_honest_fields.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-082
+    title: "AIMS registry — frontend half: cards render only stored fields, no default stage badge, actionable empty state (STORY-TAB-007)"
+    test: frontend/src/pages/Aims.test.jsx
+    status: pinned
+    quarantine_expires: null
