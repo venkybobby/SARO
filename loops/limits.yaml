@@ -29,19 +29,22 @@ defaults:
 # loop id must match an id in loops/registry.yaml (cross-checked by the test).
 loops:
   pr-babysitter:
-    enabled: true
+    # 2026-07-25: paused by owner — Anthropic API spend cap (re-enable when budgeted)
+    enabled: false
     workflow: claude-pr-review.yml
     daily_run_cap: 120         # high-churn PRs; ~event-driven
     daily_token_budget: 2000000
 
   ci-sweeper:
-    enabled: true
+    # 2026-07-25: paused by owner — Anthropic API spend cap (re-enable when budgeted)
+    enabled: false
     workflow: claude-ci-fix.yml
     daily_run_cap: 50
     daily_token_budget: 2000000
 
   security-sweeper:
-    enabled: true
+    # 2026-07-25: paused by owner — Anthropic API spend cap (re-enable when budgeted)
+    enabled: false
     workflow: claude-security-audit.yml
     daily_run_cap: 4
     daily_token_budget: 500000
