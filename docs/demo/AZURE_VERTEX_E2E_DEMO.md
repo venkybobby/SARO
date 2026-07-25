@@ -1,0 +1,244 @@
+# Azure OpenAI + Vertex AI — End-to-End Demo Setup & Runbook
+
+> **Owner:** Venky (Lead) · **Status:** DRAFTED · **Scope:** demo kit for the
+> Azure OpenAI (STORY-359) and Vertex AI (STORY-360) observation adapters.
+> Pre-flight checklists RB-005 §§1–3/5–6 and RB-006 still apply before any
+> external demo.
+
+## What this demo shows
+
+SARO's observation pipeline, end to end, for both providers:
+
+```
+customer-owned log export ──► adapter parse ──► NormalizedInvocationRecord ──► rule packs ──► evidence findings
+ (Azure Diagnostic Settings /      (per provider)     (one body-free schema)     (RP-OBS-COMPLETE,     (for human
+  GCP Cloud Logging sink)                                                         RP-TOOL-SCOPE)        auditor review)
+```
+
+**What this demo deliberately does NOT do** (positioning non-negotiables):
+
+- SARO never calls Azure OpenAI or Vertex AI. The adapters parse the
+  *customer's own log exports*; there is no SDK, no API key, and no model
+  invocation anywhere in the pipeline (INV-1).
+- SARO never reads prompt or completion content. The normalized record has no
+  field capable of holding message content (INV-2) — step 3 of the demo proves
+  this on screen.
+- SARO never writes to the customer's cloud (INV-6). Access is read-only,
+  scoped to one container/prefix per tenant.
+- The output is audit **evidence for human review** — never a compliance
+  verdict or certification.
+
+The demo run itself is **fully offline and deterministic**: it replays the two
+committed corpora (`tests/fixtures/azure/corpus.ndjson`, 54 records;
+`tests/fixtures/vertex/corpus.ndjson`, 56 records) — the same bytes CI
+byte-verifies. No cloud account is needed to *run the demo*. Parts 1–2 below
+document how a real customer wires the equivalent exports in their own cloud.
+
+---
+
+## Part 1 — Azure OpenAI: producing the log export (customer's cloud)
+
+Everything in this part happens in the **customer's** Azure subscription. SARO
+receives read-only access to the resulting storage container, nothing else.
+
+### 1.1 Prerequisites
+
+- An Azure subscription with an **Azure OpenAI** resource and at least one
+  model deployment (any chat/completions/embeddings deployment works — the
+  demo corpus contains all three operation types).
+- A **Storage Account** in the same region to receive diagnostic logs.
+
+### 1.2 Enable Diagnostic Settings (category `RequestResponse`)
+
+Portal: *Azure OpenAI resource → Monitoring → Diagnostic settings → Add
+diagnostic setting* → check **RequestResponse** → destination **Archive to a
+storage account**.
+
+CLI equivalent:
+
+```bash
+RG=<resource-group>
+AOAI=<azure-openai-resource-name>
+SA=<storage-account-name>
+
+az monitor diagnostic-settings create \
+  --name saro-observation-export \
+  --resource "$(az cognitiveservices account show -g $RG -n $AOAI --query id -o tsv)" \
+  --storage-account "$(az storage account show -g $RG -n $SA --query id -o tsv)" \
+  --logs '[{"category":"RequestResponse","enabled":true}]'
+```
+
+Azure delivers NDJSON log blobs to a container named
+`insights-logs-requestresponse` within ~15 minutes of traffic. These records
+carry `time`, `operationName`, `correlationId`, `location`, and a `properties`
+bag with model identity and (on some configurations) token counts. They carry
+**no prompt/completion content** — this source is body-free by nature.
+
+### 1.3 Grant SARO read-only access
+
+Create a role assignment scoped to the container (least privilege, read-only):
+
+```bash
+az role assignment create \
+  --assignee <saro-reader-principal-id> \
+  --role "Storage Blob Data Reader" \
+  --scope "/subscriptions/<sub>/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$SA/blobServices/default/containers/insights-logs-requestresponse"
+```
+
+Operator-side binding in SARO (never read from the log — INV-3):
+`tenant_id` + `container` + `prefix` are supplied as operator configuration
+(`adapters/azure_openai/records.py::AzureAdapterConfig`).
+
+---
+
+## Part 2 — Vertex AI: producing the log export (customer's cloud)
+
+Everything here happens in the **customer's** GCP project.
+
+### 2.1 Prerequisites
+
+- A GCP project with the **Vertex AI API** (`aiplatform.googleapis.com`)
+  enabled and some generative traffic (e.g. Gemini via
+  `GenerateContent`/`StreamGenerateContent`).
+- A **GCS bucket** to receive the log export.
+
+### 2.2 Enable Data Access audit logs for Vertex AI
+
+Console: *IAM & Admin → Audit Logs → filter "Vertex AI API"* → enable
+**Data Read** and **Data Write**. Or via the project IAM policy:
+
+```yaml
+auditConfigs:
+  - service: aiplatform.googleapis.com
+    auditLogConfigs:
+      - logType: DATA_READ
+      - logType: DATA_WRITE
+```
+
+### 2.3 Route the audit logs to a customer-owned GCS bucket
+
+```bash
+PROJECT=<gcp-project-id>
+BUCKET=<export-bucket-name>
+
+gcloud logging sinks create saro-observation-export \
+  storage.googleapis.com/$BUCKET \
+  --project=$PROJECT \
+  --log-filter='protoPayload.serviceName="aiplatform.googleapis.com"'
+
+# Grant the sink's writer identity permission to write to the bucket
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
+  --member="$(gcloud logging sinks describe saro-observation-export \
+              --project=$PROJECT --format='value(writerIdentity)')" \
+  --role=roles/storage.objectCreator
+```
+
+Cloud Logging delivers hourly NDJSON `LogEntry` objects. Grant SARO's reader
+principal `roles/storage.objectViewer` on the bucket (read-only, INV-6).
+
+> **Content hazard, handled by construction:** Vertex *Data Access* audit logs
+> can include `protoPayload.request`/`.response` — for generative calls, the
+> actual prompt and output. SARO's Vertex parser is **body-blind**: no code
+> path reads those keys, pinned by
+> `tests/test_story360_vertex_adapter.py::test_phi_payload_present_in_source_never_reaches_the_record`.
+> The demo corpus plants PHI-shaped payloads so this guard is exercised, not
+> vacuous.
+
+---
+
+## Part 3 — SARO side: running the demo
+
+### 3.1 Setup
+
+```bash
+git clone https://github.com/venkybobby/SARO && cd SARO
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+No environment variables, no database, and no cloud credentials are required
+for the demo run.
+
+### 3.2 Run it
+
+```bash
+# Both providers, full walk (the version captured in the screencast):
+python scripts/demo_azure_vertex_e2e.py
+
+# One provider at a time:
+python scripts/demo_azure_vertex_e2e.py --provider azure
+python scripts/demo_azure_vertex_e2e.py --provider vertex
+
+# Machine-readable summary for follow-up analysis:
+python scripts/demo_azure_vertex_e2e.py --json-out artifacts/demo-e2e/summary.json
+
+# Slowed output for live screen capture:
+python scripts/demo_azure_vertex_e2e.py --pace 0.35
+```
+
+To point the same walk at a **real export** downloaded from Part 1/Part 2
+storage (NDJSON, one record per line):
+
+```bash
+python scripts/demo_azure_vertex_e2e.py \
+  --azure-corpus  /path/to/insights-logs-requestresponse/....ndjson \
+  --vertex-corpus /path/to/gcs-export/....ndjson
+```
+
+---
+
+## Part 4 — The five demo steps and the talk track
+
+Each provider walks the same five steps. Expected numbers below are exact —
+the corpora and the pipeline are deterministic, so any drift from these values
+is a regression, not noise.
+
+| Step | What appears on screen | What to say |
+|---|---|---|
+| **[1/5] Read export** | 54 (Azure) / 56 (Vertex) records read from the corpus | "This is the customer's own log export. SARO reads it read-only — we hold no write scope in their cloud." |
+| **[2/5] Adapter parse** | Azure: 52 normalized · 1 skipped · 1 rejected. Vertex: 53 normalized · 1 skipped · 2 rejected | "Records SARO can't interpret are skipped or rejected, never guessed at — a fabricated observation is worse than a missing one." |
+| **[3/5] Contract invariants** | The full 15-field contract; availability rollup per field | "Notice what's *not* there: no prompt, no completion field at all. Content can't leak into evidence because the schema has nowhere to put it. And where a provider doesn't emit a field — Vertex never reports token counts — we say `unavailable`, we don't silently pass." |
+| **[4/5] Rule-pack evaluation** | Pack refs + content hashes, findings by rule, the out-of-scope tool warning | "Two genesis packs, content-hashed for provenance. The high-signal one: the agent invoked `delete_patient_record` (Azure) / `purge_audit_log` (Vertex) — tools outside the tenant's declared scope." |
+| **[5/5] Evidence summary** | Azure: 14 findings / 52 invocations. Vertex: 66 findings / 53 invocations. Disclaimer | "Every finding is evidence for a human auditor — rule id, pack hash, remediation guidance, and the request id that joins back to the record's source cursor. SARO does not certify; people do." |
+
+Why Vertex shows more findings than Azure: Vertex audit logs never report
+token counts, so `OBS-TOKEN-COUNTS-1` fires (at INFO severity — a disclosed
+provider limitation, not a customer defect) on every record. That asymmetry is
+itself a talking point: SARO reports coverage honestly instead of hiding gaps.
+
+---
+
+## Part 5 — Screencast & troubleshooting
+
+### The screen-capture video
+
+An animated screencast of the exact run above is committed at:
+
+- **[`docs/demo/azure-vertex-e2e-screencast.svg`](azure-vertex-e2e-screencast.svg)**
+  — plays inline on GitHub (open the file, it animates).
+- **[`docs/demo/azure-vertex-e2e-screencast.html`](azure-vertex-e2e-screencast.html)**
+  — self-contained HTML player with play/pause/restart/speed controls; open
+  locally in any browser.
+
+Regenerate both from a fresh run (output is deterministic, so this is
+reproducible byte-for-byte):
+
+```bash
+python scripts/build_demo_screencast.py
+```
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `ModuleNotFoundError: pydantic` | Dependencies not installed — `pip install -r requirements.txt`. |
+| Counts differ from Part 4's table | Corpus drift — run `python scripts/azure_corpus_builder.py --check` and `python scripts/vertex_corpus_builder.py --check`; CI enforces byte-identity. |
+| No `TOOL-SCOPE-*` findings on a real export | Expected on standard Azure/Vertex logs: neither schema carries tool data (see `docs/adapter-capability-matrix.md`). Zero findings here means **no data to evaluate**, not a clean result — the demo corpora include enriched records precisely to show the rules firing. |
+| Real Vertex export parses 0 records | The sink filter likely captured a different service — records with `protoPayload.serviceName != aiplatform.googleapis.com` are skipped by design. |
+
+---
+
+> *This report is audit evidence generated by SARO v8.0.0. It does not
+> constitute regulatory certification, legal advice, or compliance approval.
+> Human review and sign-off by qualified personnel is required before any
+> regulatory submission.*
