@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Change Debrief — Azure OpenAI + Vertex AI E2E Demo Kit</title>
+<title>Change Debrief — FND-074: vitest gains a CI gate</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; line-height: 1.55; color: #1f2937; background: #fafafa; }
@@ -16,108 +16,94 @@
   details { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; background: #fff; }
   summary { cursor: pointer; font-weight: 600; }
   .dev { background: #fffbeb; border-left: 4px solid #ca8a04; padding: 8px 12px; margin: 8px 0; font-size: 13px; display: block; }
-  @media (prefers-color-scheme: dark) { .dev { background:#37301a; } }
-  svg text { font-family: inherit; fill: currentColor; }
+  svg text { font-family: inherit; }
 </style>
 </head>
 <body>
-<h1>Change Debrief — Azure OpenAI + Vertex AI End-to-End Demo Kit</h1>
+
+<h1>Change Debrief — FND-074<br><small style="font-weight:400;font-size:15px;color:#6b7280">The frontend regression tier finally gates CI: vitest (+ eslint) wired into deploy.yml and a new ci.yml job, pinned by a workflow-YAML regression test</small></h1>
 
 <h2>Context — why this exists</h2>
 <div class="card">
-<p>Sales and design-partner conversations need a repeatable way to show SARO working
-against the two cloud AI providers prospects actually run: Azure OpenAI and Vertex AI.
-The adapters for both have existed since STORY-359/360, and their corpora are
-byte-verified in CI — but there was no packaged way to <em>walk</em> the pipeline in
-front of someone, no setup instructions for the customer's cloud side, and no
-demo video. This change adds all three without modifying a single line of existing
-pipeline code.</p>
+<p>SARO's enforcement model says a pinned finding is <strong>guaranteed by CI</strong>: revert the fix and a red gate blocks the merge. That was true for the pytest tier — and silently false for the frontend tier. The ~10 manifest entries pinned by <code>frontend/src/**/*.test.jsx</code> (FND-021/022/023/029/031/052/053/054/073…) ran only on developer machines, because <code>deploy.yml</code>'s frontend job did just <code>npm ci</code> + <code>npm run build</code> and <code>ci.yml</code> ran pytest only. A revert of, say, the Remediation contract fix (back to <code>d.items</code>) would have merged and deployed green.</p>
+<p>The reviewer logged this during STORY-TAB-001 as FND-074 (status <code>open</code>). This change closes it — and, per the repo's convention for CI-config findings (precedent: FND-084's ruff pin), the pin is a pytest that parses the workflow YAML itself, so deleting the gate turns the backend suite red.</p>
 </div>
 
-<h2>Intuition — the mental model</h2>
+<h2>Mental model — before / after</h2>
 <div class="card">
-<p>The demo is a guided replay of what production does. Nothing new is computed;
-the new runner narrates the existing seam:</p>
-<svg viewBox="0 0 860 150" width="100%" role="img" aria-label="pipeline flow">
-  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0d9488"/></marker></defs>
-  <rect x="10" y="45" width="150" height="56" rx="8" fill="none" stroke="#64748b"/><text x="85" y="68" text-anchor="middle" font-size="12">customer log export</text><text x="85" y="84" text-anchor="middle" font-size="11" opacity="0.7">(committed corpora)</text>
-  <rect x="200" y="45" width="130" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="265" y="68" text-anchor="middle" font-size="12">adapter parse</text><text x="265" y="84" text-anchor="middle" font-size="11" opacity="0.7">STORY-359/360</text>
-  <rect x="370" y="45" width="150" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="445" y="68" text-anchor="middle" font-size="12">normalized record</text><text x="445" y="84" text-anchor="middle" font-size="11" opacity="0.7">body-free (INV-2)</text>
-  <rect x="560" y="45" width="130" height="56" rx="8" fill="none" stroke="#0d9488"/><text x="625" y="68" text-anchor="middle" font-size="12">rule packs</text><text x="625" y="84" text-anchor="middle" font-size="11" opacity="0.7">2 genesis packs</text>
-  <rect x="730" y="45" width="120" height="56" rx="8" fill="none" stroke="#64748b"/><text x="790" y="68" text-anchor="middle" font-size="12">evidence</text><text x="790" y="84" text-anchor="middle" font-size="11" opacity="0.7">human review</text>
-  <line x1="160" y1="73" x2="198" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
-  <line x1="330" y1="73" x2="368" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
-  <line x1="520" y1="73" x2="558" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
-  <line x1="690" y1="73" x2="728" y2="73" stroke="#0d9488" marker-end="url(#ar)"/>
-  <text x="430" y="20" text-anchor="middle" font-size="12" fill="#0d9488">the demo runner narrates this seam — it adds no new computation</text>
-  <text x="430" y="135" text-anchor="middle" font-size="12" opacity="0.7">the screencast is a recording of a real run, regenerated deterministically</text>
+<svg viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Before: frontend pin revert merges green because CI only builds. After: vitest runs in PR CI and deploy; a workflow-YAML pin test guards the gate itself.">
+  <rect x="10" y="20" width="200" height="52" rx="8" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="110" y="42" text-anchor="middle" font-size="12" fill="#7f1d1d">BEFORE: PR reverts a</text>
+  <text x="110" y="59" text-anchor="middle" font-size="12" fill="#7f1d1d">frontend pin (.test.jsx red)</text>
+  <line x1="210" y1="46" x2="330" y2="46" stroke="#dc2626" stroke-dasharray="5,4"/>
+  <rect x="330" y="20" width="210" height="52" rx="8" fill="#fff" stroke="#9ca3af"/>
+  <text x="435" y="42" text-anchor="middle" font-size="12">CI: pytest ✓ · npm ci ✓</text>
+  <text x="435" y="59" text-anchor="middle" font-size="12">build ✓ — vitest never runs</text>
+  <line x1="540" y1="46" x2="640" y2="46" stroke="#dc2626" stroke-dasharray="5,4"/>
+  <rect x="640" y="20" width="205" height="52" rx="8" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="742" y="42" text-anchor="middle" font-size="12" fill="#7f1d1d">Merges + deploys green;</text>
+  <text x="742" y="59" text-anchor="middle" font-size="12" fill="#7f1d1d">"pinned" was a local claim</text>
+
+  <rect x="10" y="120" width="200" height="52" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="110" y="142" text-anchor="middle" font-size="12" fill="#14532d">AFTER: same revert →</text>
+  <text x="110" y="159" text-anchor="middle" font-size="12" fill="#14532d">212-test vitest suite red</text>
+  <line x1="210" y1="146" x2="330" y2="146" stroke="#16a34a"/>
+  <rect x="330" y="120" width="210" height="52" rx="8" fill="#fff" stroke="#16a34a"/>
+  <text x="435" y="142" text-anchor="middle" font-size="12">ci.yml frontend-test (PR gate)</text>
+  <text x="435" y="159" text-anchor="middle" font-size="12">deploy.yml: ci → vitest → build</text>
+  <line x1="540" y1="146" x2="640" y2="146" stroke="#16a34a"/>
+  <rect x="640" y="120" width="205" height="52" rx="8" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="742" y="142" text-anchor="middle" font-size="12" fill="#14532d">Blocked pre-merge; gate itself</text>
+  <text x="742" y="159" text-anchor="middle" font-size="12" fill="#14532d">pinned by pytest (YAML parse)</text>
 </svg>
 </div>
 
 <h2>File-by-file</h2>
 <table>
 <tr><th>File</th><th>What was done</th></tr>
-<tr><td><code>scripts/demo_azure_vertex_e2e.py</code> (new)</td><td>Offline demo runner. Reads the committed corpora, parses via the real adapters, evaluates the two genesis packs (tool-scope pack bound to a demo allowlist via <code>with_allowed_tools</code>), prints a 5-step walk per provider + disclaimer. <code>--provider/--json-out/--pace/--no-color</code>, and <code>--azure-corpus/--vertex-corpus</code> to point the same walk at a real export.</td></tr>
-<tr><td><code>scripts/build_demo_screencast.py</code> (new)</td><td>Runs the demo, captures ANSI output, renders the animated SVG (pure CSS, loops, plays inline on GitHub) and the self-contained HTML player (play/pause/replay/speed).</td></tr>
-<tr><td><code>docs/demo/AZURE_VERTEX_E2E_DEMO.md</code> (new)</td><td>Setup instructions: Azure Diagnostic Settings export + RBAC (Part 1), GCP audit-log sink to GCS (Part 2), SARO-side run (Part 3), 5-step talk track with exact expected numbers (Part 4), screencast + troubleshooting (Part 5).</td></tr>
-<tr><td><code>docs/demo/azure-vertex-e2e-screencast.{svg,html}</code> (new, generated)</td><td>The committed screen-capture-style video, ~62s, both providers.</td></tr>
-<tr><td><code>tests/test_demo_azure_vertex_e2e.py</code> (new)</td><td>7 pins: exact corpus counts, determinism, provider selection, claims-boundary language guard (verdict vocabulary + Tier-3 framework names), pack-hash provenance, ANSI parse/wrap, screencast-in-sync byte check.</td></tr>
-<tr><td><code>implementation-notes.md</code>, <code>change-debrief.html</code></td><td>Rewritten for this task (lifecycle artifacts).</td></tr>
+<tr><td><code>.github/workflows/deploy.yml</code></td><td>Frontend job gains <code>npx vitest run</code> then <code>npm run lint</code>, after <code>npm ci</code> and before <code>npm run build</code> (job-level <code>working-directory: frontend</code> already applies). Since <code>deploy needs: [test, frontend]</code>, a red frontend now blocks deploy too. <span class="dev">DEVIATION (reviewer-sanctioned drive-by): pre-existing <code>cache-dependency-path</code> corrected <code>package.json → package-lock.json</code> so the npm cache key rotates on transitive bumps; <code>npm ci</code> semantics unchanged.</span></td></tr>
+<tr><td><code>.github/workflows/ci.yml</code></td><td>New <code>frontend-test</code> job (node 20, npm cache keyed on the lockfile): <code>npm ci</code> → <code>npx vitest run</code> → <code>npm run lint</code>. Runs on <code>pull_request</code>, so the gate fires <em>before</em> merge, not at deploy.</td></tr>
+<tr><td><code>tests/regression/test_fnd_074_vitest_ci_gate.py</code></td><td>The pin (new, red-first: 2/3 asserts failed against pre-fix main). YAML-parses both workflows and asserts: deploy's frontend job orders npm ci → vitest → build in the frontend dir; ci.yml has a job running vitest (npm ci first, frontend dir); both keep their eslint step; ci.yml still triggers on <code>pull_request</code>. Guard-the-guard asserts (job/step existence) prevent vacuous green.</td></tr>
+<tr><td><code>quality/findings.md</code> · <code>tests/regression/manifest.yaml</code></td><td>FND-074 row: fix + verification evidence recorded, status <code>open → pinned</code> — in the implementing commit (FM-4).</td></tr>
+<tr><td><code>implementation-notes.md</code></td><td>Lifecycle record for this task: premise table (including that FND-074 only reached origin/main mid-session via PR #128), decision log, deviations.</td></tr>
 </table>
-<span class="dev">Deviation: the SHAPE interview was not conducted live — autonomous session; conservative
-defaults chosen and logged in the Decision Log (notably: demo replays committed corpora rather than
-provisioning live cloud accounts).</span>
-<span class="dev">Caught during build: step 3 was initially titled “Contract guarantees”; the test
-suite's own forbidden-phrase guard flagged “guarantee” and it was renamed to “Contract invariants” —
-the guard demonstrably works.</span>
 
 <h2>What was deliberately NOT done</h2>
 <div class="card"><ul>
-<li>No live Azure/GCP calls anywhere — the demo replays byte-verified corpora; the real-export path is documented, not executed.</li>
-<li>No new API routes, DB writes, or frontend changes — zero AUDITED/DATA_PLANE surface change.</li>
-<li>No SDKs added (<code>openai</code>, <code>google-cloud-*</code> remain absent) — INV-1 stays structural.</li>
-<li>No GIF/MP4 binary committed — the “video” is text-rendered SVG/HTML, regenerable and diffable.</li>
-<li>No framework-alignment claims in demo materials (EVF status is Internal Review Only — Tier 3).</li>
+<li><b>No <code>--max-warnings 0</code> on eslint</b> — the tree has 194 warnings today; lint gates on errors only (exit 0 verified). Ratcheting warnings down is separate, deliberate work.</li>
+<li><b>No coverage/threshold flags on vitest</b> — the finding is about existence of the gate; adding thresholds would be a born-red or arbitrary bar.</li>
+<li><b>No consolidation of the two vitest runs</b> — deploy.yml's frontend job and ci.yml's frontend-test both run on PRs. Owner-specified defense-in-depth (deploy.yml also protects direct pushes to main); costs one duplicate job.</li>
+<li><b>No Playwright/E2E frontend tier</b> — out of scope; the E2E smoke job in ci.yml is unchanged.</li>
 </ul></div>
 
 <h2>Risk map</h2>
 <table>
-<tr><th>Risk</th><th>Covering control</th></tr>
-<tr><td class="risk">Demo numbers drift from corpora → talk track lies</td><td class="cover">test_both_providers_match_the_committed_corpora pins exact counts; corpus builders' --check pins the bytes</td></tr>
-<tr><td class="risk">Screencast goes stale after a demo change</td><td class="cover">test_committed_screencast_is_in_sync_with_the_demo re-renders and byte-compares both artifacts</td></tr>
-<tr><td class="risk">Demo output drifts into verdict language</td><td class="cover">test_output_stays_inside_the_claims_boundary rejects forbidden phrases; disclaimer asserted present</td></tr>
-<tr><td class="risk">Runner silently starts dialing out</td><td class="cover">no_network fixture patches socket.connect to fail the test</td></tr>
-<tr><td class="risk">Nondeterminism creeps in (ordering, timestamps)</td><td class="cover">test_run_is_deterministic double-runs and compares; no wall-clock values in output</td></tr>
-<tr><td class="risk">GAP: SVG animation behavior on GitHub's renderer isn't CI-tested</td><td class="cover">verified manually via Chromium screenshots this session; the HTML player is the fallback surface</td></tr>
+<tr><th>Risk</th><th>Covering test / mitigation</th></tr>
+<tr><td class="risk">Someone deletes the vitest step and CI silently stops guarding frontend pins again</td><td class="cover">The pin test fails in the pytest tier (both workflows asserted independently); manifest row keeps it in the regression manifest forever</td></tr>
+<tr><td class="risk">Gate is born red and blocks unrelated PRs</td><td class="cover">Verified pre-wire: 212/212 vitest tests green (17 files), eslint exit 0; reviewer independently re-ran both</td></tr>
+<tr><td class="risk">Step order regression (vitest after build → red frontend still ships an artifact)</td><td class="cover"><code>ci_idx &lt; vitest_idx &lt; build_idx</code> ordering assert</td></tr>
+<tr><td class="risk">Job runs in repo root and vitest resolves nothing (vacuous pass)</td><td class="cover">working-directory assert on the effective (step-or-job-default) dir</td></tr>
+<tr><td class="risk">ci.yml stops triggering on PRs — gate exists but never fires pre-merge</td><td class="cover"><code>test_ci_yml_gate_fires_on_pull_requests</code> (handles the YAML-1.1 <code>on:</code>→<code>True</code> key quirk)</td></tr>
+<tr><td class="risk">Node toolchain drift (vitest 4 / vite 8 engines)</td><td class="cover">Node 20 pinned in both jobs — same version the deploy build already used; reviewer checked engine ranges</td></tr>
 </table>
 
-<h2>Quiz — do you actually understand this change?</h2>
-<details><summary>1. Why does the demo runner never need an Azure or GCP credential?</summary>
-<p>It replays committed log-export corpora through the adapters. In production the adapters also
-only read a customer-owned storage export — SARO never calls the provider APIs at all (INV-1/INV-6).</p></details>
-<details><summary>2. What breaks if someone adds a <code>prompt_text</code> field to <code>NormalizedInvocationRecord</code>?</summary>
-<p><code>test_contract_has_no_content_bearing_field</code> (STORY-358) fails — and the demo's step 3 would
-show 16 fields. The body-free property is structural, which is exactly what step 3 demonstrates.</p></details>
-<details><summary>3. Why does Vertex show 66 findings but Azure only 14?</summary>
-<p>Vertex audit logs never report token counts, so OBS-TOKEN-COUNTS-1 fires per record — at INFO severity
-because the absence is a provider limitation (<code>field_unavailable</code>), not a customer data gap.
-Coverage honesty, not extra risk — and a deliberate talking point in Part 4 of the runbook.</p></details>
-<details><summary>4. Why is the tool-scope allowlist supplied by the demo script instead of edited into the pack YAML?</summary>
-<p><code>allowed_tools</code> is tenant configuration; <code>with_allowed_tools</code> returns a new pack so
-tenant policy never mutates shared pack state (INV-3), and the reported hash stays that of the shipped pack.</p></details>
-<details><summary>5. What happens to a malformed corpus line, and why is that the right behavior?</summary>
-<p>The adapter raises; the runner counts it as "rejected". A half-populated record would be a fabricated
-observation — worse than a missing one in an evidence system.</p></details>
-<details><summary>6. What breaks if you edit the runner's output text but don't rerun <code>build_demo_screencast.py</code>?</summary>
-<p><code>test_committed_screencast_is_in_sync_with_the_demo</code> fails: it re-renders from a live run and
-byte-compares against the committed SVG/HTML — same discipline as the corpus builders' <code>--check</code>.</p></details>
-<details><summary>7. Why would "SARO found the customer compliant with EU AI Act Art. 9" be forbidden in this demo?</summary>
-<p>Two independent reasons: SARO never issues compliance verdicts (positioning non-negotiable), and all
-four frameworks are in Internal Review Only EVF state — Tier 3: no external framework-alignment claims
-until a QCO exists.</p></details>
-<details><summary>8. On a standard (non-enriched) Azure export, RP-TOOL-SCOPE returns zero findings. Clean result?</summary>
-<p>No — the standard schema carries no tool data, so there is nothing to evaluate. The capability matrix
-reports it as "not supported", never as coverage. The demo corpora include enriched records precisely so
-the rules can be shown firing.</p></details>
+<h2>Quiz — check your understanding</h2>
+<details><summary>1. Before this change, what happened if a PR reverted Remediation.jsx back to reading <code>d.items</code>?</summary>
+<p>It merged and deployed green. <code>Remediation.test.jsx</code> would fail — but nothing in CI ever executed vitest; deploy.yml only built the frontend, and a contract-broken page still <em>builds</em> fine. The "pinned" status was a promise only developer machines kept.</p></details>
+<details><summary>2. Why is the pin for a CI-config finding a <em>pytest</em> file rather than a vitest test?</summary>
+<p>A vitest pin can't guard the vitest gate — deleting the gate also deletes the thing that would complain. The pin must live in a tier that runs regardless: pytest parses the workflow YAML and fails if the vitest step vanishes. Same pattern as FND-084's ruff-version pin.</p></details>
+<details><summary>3. Why does vitest run <em>before</em> <code>npm run build</code> instead of after?</summary>
+<p>Fail fast and never produce a deployable artifact from a red tree: in deploy.yml the build is the input to <code>flyctl deploy</code>, so tests must gate it, not trail it. The ordering is itself pinned (<code>ci_idx &lt; vitest_idx &lt; build_idx</code>).</p></details>
+<details><summary>4. What breaks if someone moves the frontend-test job's steps out of the <code>frontend</code> working directory?</summary>
+<p>The pin test fails its working-directory assert. Without it, <code>npx vitest run</code> at repo root would find no vitest install/config and could error — or worse, a future root-level vitest could pass while testing nothing relevant: a vacuously green gate.</p></details>
+<details><summary>5. Why check the key <code>True</code> when asserting ci.yml triggers on pull_request?</summary>
+<p>PyYAML implements YAML 1.1, where bare <code>on</code> parses as boolean <code>True</code> — so <code>workflow["on"]</code> is a KeyError and the triggers live under <code>workflow[True]</code>. The test checks both, with a comment, so the next reader isn't ambushed.</p></details>
+<details><summary>6. eslint reports 194 warnings — why does the lint gate still pass, and is that acceptable?</summary>
+<p><code>eslint .</code> exits 0 unless there are <em>errors</em> (or <code>--max-warnings</code> is set). Wiring it as-is adds a real error gate today without turning 194 pre-existing warnings into a born-red wall for unrelated PRs. Tightening to warnings-clean is a separate ratchet decision.</p></details>
+<details><summary>7. Why did this branch have to be re-based mid-task, and what failure mode did that avoid?</summary>
+<p>At session start FND-074 didn't exist on origin/main — it landed mid-session when PR #128 merged. Branching off the stale tip and hand-adding the ledger row would have been FM-2 (building on an unverified premise) and guaranteed a conflict. The premise check caught it; the branch was reset to the new tip and the premise re-verified there.</p></details>
+</details>
+
+<p style="margin-top:32px;font-size:12px;color:#9ca3af">Generated for FND-074 (branch fix/fnd-074-vitest-ci-gate) · reviewer APPROVE (3 minors addressed in-PR) · closes the risk-map gap the STORY-TAB debrief flagged as "vitest not in CI yet"</p>
 </body>
 </html>
