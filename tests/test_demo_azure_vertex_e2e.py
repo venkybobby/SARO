@@ -163,13 +163,14 @@ def test_committed_screencast_is_in_sync_with_the_demo():
         [sys.executable, str(REPO / "scripts/demo_azure_vertex_e2e.py")],
         capture_output=True,
         text=True,
+        encoding="utf-8",  # runner emits UTF-8 on every platform (FND-087)
         check=True,
         cwd=REPO,
     ).stdout
     timeline = build_timeline(raw)
     assert (
         REPO / "docs/demo/azure-vertex-e2e-screencast.svg"
-    ).read_text() == render_svg(timeline)
+    ).read_text(encoding="utf-8") == render_svg(timeline)
     assert (
         REPO / "docs/demo/azure-vertex-e2e-screencast.html"
-    ).read_text() == render_html(timeline)
+    ).read_text(encoding="utf-8") == render_html(timeline)

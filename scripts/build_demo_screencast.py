@@ -53,6 +53,7 @@ def capture_run() -> str:
         [sys.executable, str(_DEMO)],
         capture_output=True,
         text=True,
+        encoding="utf-8",  # the runner emits UTF-8 on every platform (FND-087)
         check=True,
         cwd=_REPO_ROOT,
     )
@@ -276,8 +277,8 @@ def main() -> int:
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     svg_path = _OUT_DIR / "azure-vertex-e2e-screencast.svg"
     html_path = _OUT_DIR / "azure-vertex-e2e-screencast.html"
-    svg_path.write_text(render_svg(timeline))
-    html_path.write_text(render_html(timeline))
+    svg_path.write_text(render_svg(timeline), encoding="utf-8")
+    html_path.write_text(render_html(timeline), encoding="utf-8")
     dur = timeline[-1][1] + HOLD_SECONDS
     print(f"rows={len(timeline)} duration={dur:.1f}s")
     print(f"wrote {svg_path.relative_to(_REPO_ROOT)}")

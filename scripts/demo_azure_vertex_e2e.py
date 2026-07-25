@@ -161,7 +161,11 @@ class Term:
 
 
 def _read_export(spec: ProviderSpec) -> list[str]:
-    return [ln for ln in spec.corpus.read_text().splitlines() if ln.strip()]
+    return [
+        ln
+        for ln in spec.corpus.read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    ]
 
 
 def _parse_lines(
@@ -233,7 +237,11 @@ def run_provider(spec: ProviderSpec, term: Term) -> dict[str, Any]:
 
     term.step(1, 5, f"Read customer-owned export — {spec.source_label}")
     lines = _read_export(spec)
-    term.ok(f"{len(lines)} log records read from {spec.corpus.relative_to(_REPO_ROOT)}")
+    # .as_posix(): the screencast is committed — output must not vary by OS
+    term.ok(
+        f"{len(lines)} log records read from "
+        f"{spec.corpus.relative_to(_REPO_ROOT).as_posix()}"
+    )
     term.info("read-only against customer storage — SARO holds no cloud write scope")
 
     term.step(2, 5, f"Adapter parse — {spec.adapter_id}")
@@ -291,7 +299,7 @@ def run_provider(spec: ProviderSpec, term: Term) -> dict[str, Any]:
     return {
         "provider": spec.display,
         "adapter_id": spec.adapter_id,
-        "corpus": str(spec.corpus.relative_to(_REPO_ROOT)),
+        "corpus": spec.corpus.relative_to(_REPO_ROOT).as_posix(),
         "records_read": len(lines),
         "records_normalized": len(records),
         "records_skipped": skipped,
@@ -304,6 +312,15 @@ def run_provider(spec: ProviderSpec, term: Term) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> int:
+    # Windows consoles/pipes default to cp1252, which cannot encode the demo's
+    # glyphs (✔ ▲ →) — force UTF-8 wherever the stream supports it (FND-087).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except Exception:  # non-TextIOWrapper stand-ins (pytest capture)
+                pass
+
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--provider", choices=["azure", "vertex", "both"], default="both"
