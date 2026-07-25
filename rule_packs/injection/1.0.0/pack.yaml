@@ -14,7 +14,7 @@
 # ATLAS mapping is evidence-only (Tier-3) and consumed by STORY-AISEC-002:
 #   AML.T0054       — LLM Jailbreak (instruction override / role escape)
 #   AML.T0051.001   — Indirect Prompt Injection (exfiltration / hidden directives)
-#   AML.T0051       — Prompt Injection (system-prompt / secret disclosure)
+#   AML.T0056       — Extract LLM System Prompt (system-prompt / secret disclosure)
 
 name: RP-PROMPT-INJECTION
 version: "1.0.0"
@@ -54,7 +54,9 @@ rules:
     title: "System-prompt / secret disclosure request"
     severity: "HIGH"
     pattern: "reveal (the )?(system prompt|secret|api[_ ]?key)"
-    atlas_technique_id: "AML.T0051"
+    # AML.T0056 "Extract LLM System Prompt" — verified more precise than the
+    # AML.T0051 parent for a system-prompt disclosure request (STORY-AISEC-002).
+    atlas_technique_id: "AML.T0056"
 
   - rule_id: "INJ-EXFILTRATION"
     title: "Exfiltration phrasing"

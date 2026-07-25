@@ -79,6 +79,10 @@ from rule_packs.injection.detector import (
     InjectionPack,
     load_injection_pack,
 )
+from rule_packs.atlas.registry import (
+    AtlasRegistry,
+    load_atlas_registry,
+)
 from services import rule_visibility
 from schemas import (
     AppliedRuleOut,
@@ -512,6 +516,17 @@ _COMPLIANCE_TRIGGERS: dict[str, list[dict[str, str]]] = {
     ],
 }
 
+# STORY-AISEC-002: every compliance trigger carries an optional ATLAS technique id
+# parallel to nist_subcategory_id. Detector-anchored decision: harm-domain triggers
+# are null — ATLAS catalogs attacks-on-ML, SARO's MIT domains are harms-from-AI, so
+# a domain-level attack-technique mapping would be guessed (AC-1 forbids). Real
+# ATLAS evidence flows from the injection detector (STORY-AISEC-001). setdefault
+# keeps the field present without duplicating it across ~30 trigger literals and
+# does not affect _compute_rule_pack_hash (which reads only framework + rule_id).
+for _atlas_triggers in _COMPLIANCE_TRIGGERS.values():
+    for _atlas_trigger in _atlas_triggers:
+        _atlas_trigger.setdefault("atlas_technique_id", None)
+
 # Remediation templates keyed by domain
 _REMEDIATIONS: dict[str, dict[str, str]] = {
     "Discrimination & Toxicity": {
@@ -724,6 +739,23 @@ class SARoEngine:
             self._injection_pack = load_injection_pack()
         except (OSError, yaml.YAMLError, KeyError, re.error) as exc:
             logger.warning("Could not load prompt-injection rule pack: %s", exc)
+        # STORY-AISEC-002: verified MITRE ATLAS technique registry (evidence-only).
+        # Warn-and-continue — a missing registry degrades to no ATLAS labels, never
+        # a crash.
+        self._atlas_registry: "AtlasRegistry | None" = None
+        try:
+            self._atlas_registry = load_atlas_registry()
+        except (
+            OSError,
+            yaml.YAMLError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            ValueError,
+        ) as exc:
+            # Broad on purpose: a structurally-malformed (bundled, trusted) registry
+            # must degrade to no ATLAS labels, never crash engine init.
+            logger.warning("Could not load ATLAS registry: %s", exc)
         # SARO-006: compute and cache rule pack hash at init time
         self._rule_pack_hash: str = self._compute_rule_pack_hash()
         # SPEC-E4: compute calibrated Bayesian priors from incident corpus
@@ -1751,6 +1783,8 @@ class SARoEngine:
                 )
                 # SARO-004: attach nist_subcategory_id as a dynamic attribute for trace recording
                 rule._nist_subcategory_id = t.get("nist_subcategory_id")  # type: ignore[attr-defined]
+                # STORY-AISEC-002: optional ATLAS technique id, same dynamic-attr pattern
+                rule._atlas_technique_id = t.get("atlas_technique_id")  # type: ignore[attr-defined]
                 applied.append(rule)
 
         frameworks_covered = {r.framework for r in applied}
@@ -1937,19 +1971,41 @@ class SARoEngine:
             if not findings:
                 continue
             flagged_any = True
+            registry = getattr(self, "_atlas_registry", None)
             # PII-redact every evidence fragment before it enters the trace.
+            # STORY-AISEC-002: resolve each indicator's ATLAS id to its verified
+            # technique name (evidence-shaped, Tier-3). An id absent from the
+            # registry yields no label rather than a guessed one.
             flagged = [
                 {
                     "rule_id": f.rule_id,
                     "title": f.title,
                     "severity": f.severity,
                     "atlas_technique_id": f.atlas_technique_id,
+                    "atlas_evidence": (
+                        registry.label(f.atlas_technique_id) if registry else None
+                    ),
                     "matched_on": f.matched_on,
                     "evidence_fragment": self._redact_pii(f.evidence[:200]),
                 }
                 for f in findings
             ]
             rule_ids = ", ".join(sorted({f.rule_id for f in findings})[:3])
+            atlas_labels = sorted(
+                {
+                    lbl
+                    for lbl in (
+                        registry.label(f.atlas_technique_id) if registry else None
+                        for f in findings
+                    )
+                    if lbl
+                }
+            )
+            atlas_sentence = (
+                f" Indicators consistent with {'; '.join(atlas_labels)}."
+                if atlas_labels
+                else ""
+            )
             self._traces.append(
                 {
                     "gate_id": 3,
@@ -1960,9 +2016,10 @@ class SARoEngine:
                     "reason": (
                         "Indicators consistent with prompt-injection / system-"
                         f"prompt-leakage detected in sample '{sample.sample_id}' "
-                        f"({len(findings)} indicator(s): {rule_ids}). Evidence for "
-                        "human auditor review — human review required; SARO does "
-                        "not certify, block, or determine intent."
+                        f"({len(findings)} indicator(s): {rule_ids})."
+                        f"{atlas_sentence} Evidence for human auditor review — "
+                        "human review required; SARO does not certify, block, or "
+                        "determine intent."
                     ),
                     "detail_json": {
                         "pack": f"{pack.name}@{pack.version}",
@@ -2137,6 +2194,10 @@ class SARoEngine:
             rule_pack_meta = getattr(self, "_applied_rule_packs", {}).get(key)
             # SARO-004: include nist_subcategory_id from trigger definition for traceability
             nist_sub = getattr(rule, "_nist_subcategory_id", None)
+            # STORY-AISEC-002: optional ATLAS technique id, resolved to a verified
+            # name and surfaced as evidence-shaped metadata (Tier-3). Null for
+            # harm-domain triggers by design (detector-anchored) — nothing guessed.
+            atlas_id = getattr(rule, "_atlas_technique_id", None)
             detail: dict[str, Any] = {
                 "framework": rule.framework,
                 "rule_id": rule.rule_id,
@@ -2148,6 +2209,13 @@ class SARoEngine:
                 detail["rule_pack"] = rule_pack_meta
             if nist_sub:
                 detail["nist_subcategory_id"] = nist_sub
+            _atlas_reg = getattr(self, "_atlas_registry", None)
+            atlas_label = (
+                _atlas_reg.label(atlas_id) if atlas_id and _atlas_reg else None
+            )
+            if atlas_label:
+                detail["atlas_technique_id"] = atlas_id
+                detail["atlas_evidence"] = f"indicators consistent with {atlas_label}"
             self._traces.append(
                 {
                     "gate_id": 4,

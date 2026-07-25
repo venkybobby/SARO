@@ -16,7 +16,7 @@ re-verified against upstream MITRE ATLAS** before use — see caveat below.
 | NIST AI RMF mapping table | yes | `rule_packs/nist_rmf_v1.0.yaml`, `rule_packs/nist-ai-rmf/` |
 | TRACE export carries provenance | yes | `docs/ARCHITECTURE.md` — `GET /api/v1/trace/{id}/export` embeds engine/rule-pack metadata |
 | Claims-matrix boundary | yes | `docs/COMPLIANCE_CLAIMS_MATRIX.md` (evidence-only, Tier-3 today) |
-| Upstream ATLAS IDs | PREMISE-UNVERIFIED at upstream | community frontmatter stores ATLAS under mixed keys and files AI-RMF codes under a `nist_csf:` key — **do not trust; re-verify each ID against atlas.mitre.org before adopting** |
+| ATLAS technique IDs | **VERIFIED** | Re-verified against upstream `github.com/mitre-atlas/atlas-data` (ATLAS.yaml), NOT the community skills frontmatter: AML.T0051 (LLM Prompt Injection), .000 Direct, .001 Indirect, T0054 (LLM Jailbreak), T0056 (Extract LLM System Prompt), T0024 (Exfiltration via AI Inference API), T0057 (LLM Data Leakage). Pinned in `rule_packs/atlas/1.0.0/atlas_techniques.yaml`. |
 
 ## Goal
 Add MITRE ATLAS (the AI/ML adversary framework) as a **second evidence axis**
@@ -72,6 +72,12 @@ new compliance claim.
 - **Sales-safe:** stays inside the claims matrix (Tier-3), so it strengthens the
   evidence story without creating an overclaim liability.
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 (optional atlas field, null when none) | `test_every_compliance_trigger_has_atlas_field`, `test_compliance_triggers_do_not_guess_atlas_ids` | `engine.py` (`_COMPLIANCE_TRIGGERS` setdefault; `_gate4_compliance_mapping`) |
+| AC-2 (evidence-shaped TRACE, Tier-3) | `test_injection_trace_names_atlas_technique_evidence_shaped` | `engine.py` (`_scan_injection_impl`, `_record_gate4_rule_traces`) |
+| AC-3 (every ATLAS id resolves in verified registry) | `test_registry_resolves_verified_atlas_ids`, `test_every_injection_pack_atlas_id_is_registered`, `test_atlas_ids_in_injection_trace_are_registered` | `rule_packs/atlas/registry.py`, `rule_packs/atlas/1.0.0/atlas_techniques.yaml` |
+| AC-4 (injection findings map to real ATLAS) | `test_atlas_ids_in_injection_trace_are_registered`, `test_system_prompt_rule_refined_to_atlas_t0056` | `rule_packs/injection/1.0.0/pack.yaml`, `engine.py` |
+| AC-5 (Tier-3, no conformance/verdict) | `test_injection_trace_names_atlas_technique_evidence_shaped` (`_FORBIDDEN` list) | `engine.py`, `rule_packs/atlas/registry.py` |
+| (provenance) | `test_registry_has_version_and_hash` | `rule_packs/atlas/registry.py` |

@@ -1,9 +1,9 @@
-# STORY-AISEC-001 — Deterministic prompt-injection normalization + detection rule-pack
+# STORY-AISEC-002 — MITRE ATLAS evidence axis on findings + TRACE
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (engine scoring path mapped; placement question resolved by code)
-- [ ] shape      (interview — load-bearing scoring/posture decisions below)
+- [x] discover   (Gate-4 compliance-trigger mapping + injection-finding ATLAS IDs mapped)
+- [ ] shape      (interview — crosswalk scope is the load-bearing, anti-guessing decision)
 - [x] preview    (skipped — backend-only, no UI surface)
 - [ ] plan
 - [ ] build
@@ -11,90 +11,87 @@ Stage: standard
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
-- Core scoring = 4-gate batch pipeline (`engine.py` `SARoEngine.run_audit`).
-  Gate 3 (`_gate3_risk_classification`, signals at `engine.py:160+ _RISK_SIGNALS`)
-  already does keyword/regex over sample prompt/output text, emitting weighted
-  `_SampleFlag`s → Bayesian domain scores → risk. This is the body-bearing path.
-- Observation packs (`rule_packs/observation/rp_obs_complete`, `rp_tool_scope`)
-  are body-free (INV-2) — envelope logs only. => injection detection (needs text)
-  belongs in the CORE scan path (Gate 3), NOT the observation family.
-- Single-output + batch ingestion both exist (`schemas.py` prompt/raw_output).
-- Optional Gate-3 LLM judge is the ONLY external-model exception (SARO-102);
-  this story is deterministic and must not touch that boundary.
+- `_COMPLIANCE_TRIGGERS` (engine.py:309+) maps 7 MIT **harm** domains
+  (Misinformation, Malicious Use, AI System Safety, Human-Computer Interaction,
+  Socioeconomic & Environmental, Discrimination & Toxicity, Privacy & Security)
+  → framework trigger dicts, each with a nullable `nist_subcategory_id`. The
+  ATLAS axis is a parallel optional `atlas_technique_id` field.
+- Stamped into TRACE via `_record_gate4_rule_traces`; surfaced in `AppliedRuleOut`.
+- **Taxonomy tension (load-bearing):** ATLAS = adversarial *attacks on* ML
+  systems; MIT domains = *harms from* AI outputs. Mostly orthogonal. Forcing
+  harm-domain→attack-technique mappings = guessing (AC-1 forbids). The genuinely
+  defensible ATLAS anchor is the AISEC-001 injection detector, which already
+  emits real ATLAS IDs (AML.T0051/.001, AML.T0054).
+- Branch base: stacked on `story/STORY-AISEC-001` (unmerged, CI-billing-blocked)
+  because AISEC-002 AC-4 consumes AISEC-001's injection ATLAS IDs and both touch
+  engine.py. Deviation from "branch from main" logged below.
 
 ## Premise check (Stage 3a)
 | Referenced artifact | Verified? | File path |
 |---|---|---|
-| Gate-3 keyword/regex signal mechanism | yes | `engine.py:160+` (`_RISK_SIGNALS`), `_gate3_risk_classification` |
-| Per-sample findings stream | yes | `engine.py` `_sample_findings`, `get_sample_findings()` |
-| Rule-pack loader (core) | yes | `rule_packs/loader.py`, `rule_packs/envelope_loader.py` |
-| Body-bearing scan inputs | yes | `schemas.py:601-605` (`prompt`, `raw_output`) |
-| Upstream normalization + heuristics | yes | cloned `detecting-indirect-prompt-injection/scripts/agent.py` |
+| Finding→framework mapping | yes | `engine.py:309+` `_COMPLIANCE_TRIGGERS`, `_record_gate4_rule_traces` |
+| nist_subcategory_id precedent | yes | `engine.py:316+` (nullable field per trigger) |
+| Injection ATLAS IDs (AISEC-001) | yes | `rule_packs/injection/1.0.0/pack.yaml` (AML.T0051/.001/T0054) |
+| AppliedRuleOut schema | pending | `schemas.py` — to confirm in DISCOVER-2 |
+| ATLAS technique IDs are real | pending | verify via atlas.mitre.org (AC-3) |
 
 ## Decision Log
 | Question | Answer | Architectural consequence |
 |---|---|---|
-| Injection findings affect risk score? | **Evidence-only (advisory)** | Detector emits findings onto the TRACE; does NOT feed Bayesian Gate-3 score. Existing score/flag tests do not move. Smallest, reversible increment. |
-| Normalization scope? | **New detector only** | Normalize inside the injection detector; existing `_RISK_SIGNALS` matching untouched → no existing detection/score behavior changes. Hardening all signals deferred to a follow-up. |
-| Corpus packaging? | **Versioned YAML rule-pack + SHA-256 hash** | Heuristics ship as `rule_packs/injection/<ver>/pack.yaml`, hashed like observation packs (satisfies AC-6). Editable without code change; auditable provenance. |
+| Crosswalk scope? | **Detector-anchored only** | ATLAS IDs flow only from the AISEC-001 injection detector (precise, per-rule). All 7 MIT compliance-domain triggers get the optional `atlas_technique_id` field but **null** everywhere — no domain-level guessing (strict AC-1). AISEC-002 value = verified registry + validation + Tier-3 surfacing of the injection findings' real ATLAS IDs. |
+| Refine AISEC-001 system-prompt map? | **Yes → AML.T0056** | INJ-SECRET-DISCLOSURE remapped AML.T0051 → AML.T0056 "Extract LLM System Prompt" (more precise, verified). Touches the AISEC-001 pack on this stacked branch; pinned by an updated test. |
+
+## Verified ATLAS registry (source: github.com/mitre-atlas/atlas-data, ATLAS.yaml)
+| ID | Exact name |
+|---|---|
+| AML.T0051 | LLM Prompt Injection |
+| AML.T0051.000 | Direct |
+| AML.T0051.001 | Indirect |
+| AML.T0054 | LLM Jailbreak |
+| AML.T0056 | Extract LLM System Prompt |
+| AML.T0024 | Exfiltration via AI Inference API |
+| AML.T0057 | LLM Data Leakage |
 
 ## Plan (tweak-likelihood order)
-1. **New rule-pack data** (most tweak-likely): `rule_packs/injection/1.0.0/pack.yaml`
-   — name/version/title, `normalization` config (max_decode_depth, max_scan_chars),
-   `rules[]` (rule_id, title, severity, regex `pattern`, optional
-   `atlas_technique_id`). Ports the upstream HEURISTICS corpus. Verify: pack loads
-   + hash test.
-2. **Detector module** `rule_packs/injection/detector.py`:
-   - `normalize(text) -> (str, list[str])` — zero-width strip, tag-range drop,
-     NFKC, bounded base64/ROT13 decode (depth+size capped). Verify: unit tests
-     AC-1/AC-2/edge.
-   - `load_injection_pack() -> InjectionPack` (compiles patterns, SHA-256 hash).
-     Verify: AC-6 provenance test.
-   - `scan(text, pack) -> list[InjectionFinding]` (evidence-shaped, matched_on
-     raw|decoded). Verify: AC-1..AC-3 unit tests + AC-4 no-network fixture.
-3. **Engine wiring** (`engine.py`): load pack once in `__init__` (warn-and-continue
-   like envelope allowlist); `_scan_injection(batch)` appends evidence-only
-   entries to `self._traces` (check_type `injection_scan`), PII-redacted fragments;
-   called in `run_audit` after `_record_gate3_domain_traces`. NOT added to `flags`
-   → zero score impact. Verify: integration test through `run_audit` (AC-1/AC-5).
-4. Mechanical: tests in `tests/test_aisec_001_injection_detector.py`; gates 1-7;
-   reviewer + security-auditor (rule_packs/ + input-handling touched); story index
-   row → IMPLEMENTED with SHA; docs/traceability. Trusted refactoring: none.
+1. **ATLAS registry data** `rule_packs/atlas/1.0.0/atlas_techniques.yaml` — 7
+   verified IDs + exact names + version. Verify: load + hash test.
+2. **Registry loader** `rule_packs/atlas/registry.py` — `load_atlas_registry()`,
+   `.resolve(id) -> name|None`, `.is_valid(id)`, version + SHA-256. Verify: unit
+   tests (AC-3).
+3. **ATLAS axis on compliance triggers** (engine.py): add `atlas_technique_id:
+   None` to every `_COMPLIANCE_TRIGGERS` entry (null — detector-anchored);
+   `rule._atlas_technique_id = t.get("atlas_technique_id")` in
+   `_gate4_compliance_mapping`; surface in `_record_gate4_rule_traces`
+   detail_json (mirrors nist_subcategory_id exactly). Demonstrates AC-1
+   "null when no mapping applies".
+4. **Injection ATLAS surfacing** (engine `_scan_injection_impl`): name the ATLAS
+   technique + resolved name in the trace reason/detail, Tier-3 ("indicators
+   consistent with MITRE ATLAS {id} {name}"). Verify: AC-2/AC-4 integration test.
+5. **Refine AISEC-001 pack**: INJ-SECRET-DISCLOSURE AML.T0051 → AML.T0056
+   (verified more-precise). Verify: registry-membership test over the pack.
+6. Tests `tests/test_aisec_002_atlas_axis.py` (AC-1..5 incl. Tier-3 forbidden-
+   phrase); gates 1-7; reviewer + security-auditor (engine + rule_packs);
+   index → IMPLEMENTED; traceability. Trusted refactoring: none.
 
 ## Compliance guardrails (enforced in code)
-- Evidence-shaped trace language only ("indicators consistent with…", "human
-  review required"); forbidden-phrase unit test guards it.
-- PII-redacted fragments only (reuse `self._redact_pii`).
-- Zero external model/network calls (no-network fixture asserts).
-- Decoded payloads recorded as evidence, never re-executed/interpolated.
+- Tier-3 only: no "ATLAS-compliant"/"certified"/verdict; evidence-shaped
+  "indicators consistent with ATLAS {id}"; forbidden-phrase test (AC-5).
+- Additive/backward-compatible: atlas field is optional, null where absent;
+  existing TRACE consumers unaffected.
+- No scoring change — descriptive metadata only.
 
 ## Review round 1 (reviewer + security-auditor agents)
-- **security-auditor: PASS.** No FAIL findings; DoS/ReDoS bounds empirically
-  validated; PII redaction + inert-data handling confirmed. INFO-2 (wrap scan in
-  try/except) applied. INFO-1 (redactor covers PII not secrets) is pre-existing
-  gate-3 behavior, not newly introduced — no FND.
-- **reviewer: REQUEST-CHANGES → all addressed:**
-  1. [BLOCKER] Out-of-scope demo-file edits on the branch → **root cause: FND-087
-     already merged on main (d6a14e6/#139)**; my working tree carried a divergent,
-     inferior duplicate (dropped line-53 encoding). Restored all three demo files
-     to main via `git checkout main --`; demo test 7/7 green. AISEC branch now
-     carries only AISEC files.
-  2. [MAJOR] Tests not in tests/regression/ → story NFR corrected: feature-story
-     tests live in `tests/` (regression/ is for FND pins). This is a feature.
-  3. [MINOR] Fragment offset misalignment → `_match` now searches original text
-     (patterns are IGNORECASE); dropped the separate `.lower()`.
-  4. [MINOR] `isprintable()` dropped newline-bearing decoded payloads → new
-     `_is_texty()` allows `\t\n\r`.
-  5. [MINOR] Untracked artifacts (demo-*/, .claude/launch.json) → not staged;
-     confirmed excluded from the AISEC commit.
+- **reviewer: APPROVE.** All 5 invariants verified. Minors addressed:
+  (1) subtechnique labels lost parent context → registry now stores fully-
+  qualified names ("LLM Prompt Injection: Indirect"); test updated.
+  (3) inconsistent None-registry access → `_record_gate4_rule_traces` now uses
+  `getattr(self, "_atlas_registry", None)`. (2) "uncommitted delta" → committing now.
+- **security-auditor: PASS.** No FAIL; ATLAS id is a trusted config constant
+  (never attacker-derived), inert dict lookup, yaml.safe_load, PII path
+  unchanged. INFO-1 (narrow except could let a malformed registry crash init)
+  → broadened `except` to include TypeError/AttributeError/ValueError.
 
 ## Deviations
-- `_scan_injection` guards `_injection_pack` with `getattr(self, ..., None)`
-  (not `self._injection_pack`): some tests construct the engine via `__new__`
-  and set only a subset of attributes. Conservative option mirrors the engine's
-  existing `getattr(self, "_sample_findings", [])` pattern. Aggressive option
-  (edit every bypass helper) rejected — brittle and wider blast radius.
-- Trace emission changed from one row PER SAMPLE (incl. pass) to one row per
-  FLAGGED sample + a single aggregate 'clean' trace. Reason: per-sample pass
-  rows bloat the TRACE (n rows/batch) and broke `TestEngineTracing` count/shape
-  assumptions. Cleaner and evidence-focused; my ACs unaffected.
+- Branch stacked on story/STORY-AISEC-001 (not main): AISEC-002 depends on
+  AISEC-001 (AC-4) and both edit engine.py; predecessor is unmerged only because
+  CI is billing-blocked. Conservative choice to avoid a same-file conflict.
