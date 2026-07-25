@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
+import yaml
 from scipy import stats
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -73,6 +74,10 @@ from rule_packs.envelope_loader import (
     EnvelopeAllowlistRule,
     is_model_allowed,
     load_envelope_allowlist,
+)
+from rule_packs.injection.detector import (
+    InjectionPack,
+    load_injection_pack,
 )
 from services import rule_visibility
 from schemas import (
@@ -710,6 +715,15 @@ class SARoEngine:
             self._envelope_allowlist_rule = load_envelope_allowlist()
         except (EnvelopeAllowlistLoadError, OSError) as exc:
             logger.warning("Could not load envelope allowlist rule pack: %s", exc)
+        # STORY-AISEC-001: load the evidence-only prompt-injection rule-pack.
+        # Warn-and-continue on any load failure (mirrors the envelope allowlist),
+        # so a missing/malformed pack never aborts engine init — injection
+        # scanning simply becomes a no-op.
+        self._injection_pack: "InjectionPack | None" = None
+        try:
+            self._injection_pack = load_injection_pack()
+        except (OSError, yaml.YAMLError, KeyError, re.error) as exc:
+            logger.warning("Could not load prompt-injection rule pack: %s", exc)
         # SARO-006: compute and cache rule pack hash at init time
         self._rule_pack_hash: str = self._compute_rule_pack_hash()
         # SPEC-E4: compute calibrated Bayesian priors from incident corpus
@@ -1067,6 +1081,8 @@ class SARoEngine:
         flags, gate3 = self._gate3_risk_classification(batch, risk_config=risk_config)
         gates.append(gate3)
         self._record_gate3_domain_traces(flags, gate3)
+        # STORY-AISEC-001: evidence-only injection scan (no score impact)
+        self._scan_injection(batch)
 
         # ── Gate 4: Compliance Mapping ────────────────────────────────────────
         applied_rules, gate4 = self._gate4_compliance_mapping(flags)
@@ -1225,6 +1241,8 @@ class SARoEngine:
         flags = flags + self._evaluate_envelope_allowlist(metadata)
         gates.append(gate3)
         self._record_gate3_domain_traces(flags, gate3)
+        # STORY-AISEC-001: evidence-only injection scan (no score impact)
+        self._scan_injection(batch)
 
         # Gate 4: Compliance Mapping
         applied_rules, gate4 = self._gate4_compliance_mapping(flags)
@@ -1885,6 +1903,100 @@ class SARoEngine:
                     "remediation_hint": remediation,
                     "signal_text": signal_text,
                     "top_sample_ids": top_sample_ids,
+                }
+            )
+
+    def _scan_injection(self, batch: "BatchIn") -> None:
+        """STORY-AISEC-001: evidence-only prompt-injection scan.
+
+        Runs the deterministic injection detector over each sample's text and
+        appends TRACE entries (``check_type='injection_scan'``). One trace per
+        FLAGGED sample plus a single aggregate 'pass' trace when nothing fires —
+        so a clean batch adds one row, not one per sample. Evidence-only: it
+        never appends a `_SampleFlag`, so the risk score and Bayesian domain
+        posteriors are unchanged. No external model, no network. Language stays
+        evidence-shaped (COMPLIANCE_CLAIMS_MATRIX): indicators + human review,
+        never a verdict.
+        """
+        # Defensive: some code paths construct the engine via __new__ and set only
+        # a subset of attributes (see tests); mirror the engine's getattr pattern.
+        pack = getattr(self, "_injection_pack", None)
+        if pack is None:
+            return
+        try:
+            self._scan_injection_impl(batch, pack)
+        except Exception as exc:  # evidence-only: never abort scoring on a scan error
+            logger.warning("Prompt-injection scan skipped after error: %s", exc)
+
+    def _scan_injection_impl(self, batch: "BatchIn", pack: "InjectionPack") -> None:
+        from rule_packs.injection.detector import scan as _scan_injection_text
+
+        flagged_any = False
+        for sample in batch.samples:
+            findings = _scan_injection_text(sample.text, pack)
+            if not findings:
+                continue
+            flagged_any = True
+            # PII-redact every evidence fragment before it enters the trace.
+            flagged = [
+                {
+                    "rule_id": f.rule_id,
+                    "title": f.title,
+                    "severity": f.severity,
+                    "atlas_technique_id": f.atlas_technique_id,
+                    "matched_on": f.matched_on,
+                    "evidence_fragment": self._redact_pii(f.evidence[:200]),
+                }
+                for f in findings
+            ]
+            rule_ids = ", ".join(sorted({f.rule_id for f in findings})[:3])
+            self._traces.append(
+                {
+                    "gate_id": 3,
+                    "gate_name": "Prompt-Injection Indicators (evidence-only)",
+                    "check_type": "injection_scan",
+                    "check_name": sample.sample_id,
+                    "result": "flagged",
+                    "reason": (
+                        "Indicators consistent with prompt-injection / system-"
+                        f"prompt-leakage detected in sample '{sample.sample_id}' "
+                        f"({len(findings)} indicator(s): {rule_ids}). Evidence for "
+                        "human auditor review — human review required; SARO does "
+                        "not certify, block, or determine intent."
+                    ),
+                    "detail_json": {
+                        "pack": f"{pack.name}@{pack.version}",
+                        "pack_hash": pack.pack_hash,
+                        "flagged_indicators": flagged[:20],
+                    },
+                    "remediation_hint": (
+                        "Review whether the flagged text represents an attempted "
+                        "instruction override or data-exfiltration directive; "
+                        "human validation required."
+                    ),
+                    "signal_text": flagged[0]["rule_id"],
+                    "top_sample_ids": [sample.sample_id],
+                }
+            )
+
+        if not flagged_any:
+            # One aggregate 'clean' trace so the TRACE positively records that the
+            # injection scan ran, without a row per sample.
+            self._traces.append(
+                {
+                    "gate_id": 3,
+                    "gate_name": "Prompt-Injection Indicators (evidence-only)",
+                    "check_type": "injection_scan",
+                    "check_name": "all_samples",
+                    "result": "pass",
+                    "reason": (
+                        "No prompt-injection indicators detected across "
+                        f"{len(batch.samples)} sample(s)."
+                    ),
+                    "detail_json": {"pack": f"{pack.name}@{pack.version}"},
+                    "remediation_hint": None,
+                    "signal_text": None,
+                    "top_sample_ids": None,
                 }
             )
 
