@@ -1,6 +1,6 @@
 # STORY-AISEC-002: MITRE ATLAS evidence axis on findings + TRACE
 
-**Status:** draft
+**Status:** IMPLEMENTED (4e58b0d)
 **Screen/Area:** Scoring engine (finding→framework mapping) / TRACE export / reports
 
 ## Source & attribution
