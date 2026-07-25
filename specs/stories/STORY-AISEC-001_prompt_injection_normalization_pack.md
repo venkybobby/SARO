@@ -1,6 +1,6 @@
 # STORY-AISEC-001: Deterministic prompt-injection normalization + detection rule-pack
 
-**Status:** draft
+**Status:** IMPLEMENTED (0d905d3)
 **Screen/Area:** Scoring engine / rule_packs (observation family) / TRACE evidence
 
 ## Source & attribution
