@@ -437,3 +437,8 @@ findings:
     test: tests/regression/test_fnd_086_bulk_and_jira_write_gates.py
     status: pinned
     quarantine_expires: null
+  - id: FND-087
+    title: "Azure/Vertex demo pipeline crashed on cp1252 consoles (Windows) and rendered OS-dependent path separators - screencast sync test failed on Windows while Linux CI stayed green (FND-038 class)"
+    test: tests/regression/test_fnd_087_demo_script_utf8_console.py
+    status: pinned
+    quarantine_expires: null
