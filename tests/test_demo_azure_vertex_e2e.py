@@ -168,9 +168,9 @@ def test_committed_screencast_is_in_sync_with_the_demo():
         cwd=REPO,
     ).stdout
     timeline = build_timeline(raw)
-    assert (
-        REPO / "docs/demo/azure-vertex-e2e-screencast.svg"
-    ).read_text(encoding="utf-8") == render_svg(timeline)
-    assert (
-        REPO / "docs/demo/azure-vertex-e2e-screencast.html"
-    ).read_text(encoding="utf-8") == render_html(timeline)
+    assert (REPO / "docs/demo/azure-vertex-e2e-screencast.svg").read_text(
+        encoding="utf-8"
+    ) == render_svg(timeline)
+    assert (REPO / "docs/demo/azure-vertex-e2e-screencast.html").read_text(
+        encoding="utf-8"
+    ) == render_html(timeline)

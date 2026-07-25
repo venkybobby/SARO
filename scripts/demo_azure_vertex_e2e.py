@@ -162,9 +162,7 @@ class Term:
 
 def _read_export(spec: ProviderSpec) -> list[str]:
     return [
-        ln
-        for ln in spec.corpus.read_text(encoding="utf-8").splitlines()
-        if ln.strip()
+        ln for ln in spec.corpus.read_text(encoding="utf-8").splitlines() if ln.strip()
     ]
 
 

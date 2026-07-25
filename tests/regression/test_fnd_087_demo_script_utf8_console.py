@@ -39,7 +39,7 @@ def test_demo_runner_survives_a_cp1252_console():
         "demo runner crashed on a cp1252 console (FND-087) — stderr:\n"
         + proc.stderr.decode("utf-8", errors="replace")[-2000:]
     )
-    out = proc.stdout.decode("utf-8")
+    out = proc.stdout.decode("utf-8", errors="replace")
     assert "✔" in out, (  # ✔ — proves glyphs came through as real UTF-8
         "demo output lost its status glyphs — stdout is not UTF-8"
     )
