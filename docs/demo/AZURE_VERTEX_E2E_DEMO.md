@@ -117,9 +117,12 @@ auditConfigs:
 
 ### 2.3 Route the audit logs to a customer-owned GCS bucket
 
+Worked example below uses the VeriAegis demo environment; substitute your own
+project id and bucket name.
+
 ```bash
-PROJECT=<gcp-project-id>
-BUCKET=<export-bucket-name>
+PROJECT="project-b73b6bc1-e4a6-4ee1-961"      # your GCP project id
+BUCKET="saro-vertex-export-veriaegis"         # your export bucket
 
 gcloud logging sinks create saro-observation-export \
   storage.googleapis.com/$BUCKET \
@@ -133,8 +136,29 @@ gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
   --role=roles/storage.objectCreator
 ```
 
-Cloud Logging delivers hourly NDJSON `LogEntry` objects. Grant SARO's reader
-principal `roles/storage.objectViewer` on the bucket (read-only, INV-6).
+Cloud Logging delivers hourly NDJSON `LogEntry` objects.
+
+### 2.4 Create SARO's read-only reader principal
+
+SARO never brings its own credentials — the customer creates a reader
+service account in their project and grants it **bucket-scoped, read-only**
+access (INV-6). Never grant a project-wide role.
+
+```bash
+gcloud iam service-accounts create saro-reader \
+  --project=$PROJECT \
+  --display-name="SARO read-only log export reader"
+# Resulting principal (the "SARO service account email"):
+#   saro-reader@$PROJECT.iam.gserviceaccount.com
+# Worked example: saro-reader@project-b73b6bc1-e4a6-4ee1-961.iam.gserviceaccount.com
+
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
+  --member="serviceAccount:saro-reader@$PROJECT.iam.gserviceaccount.com" \
+  --role=roles/storage.objectViewer
+```
+
+The reader's identity never sets SARO tenancy — the tenant binding stays
+operator-supplied configuration (INV-3), exactly as the demo's step 2 shows.
 
 > **Content hazard, handled by construction:** Vertex *Data Access* audit logs
 > can include `protoPayload.request`/`.response` — for generative calls, the

@@ -10,10 +10,14 @@ jobs:
   respond:
     name: Claude Team Q&A
     runs-on: ubuntu-latest
-    # Only trigger when @claude is mentioned
+    # Only trigger when @claude is mentioned AND the repo variable
+    # CLAUDE_INTERACTIVE_ENABLED is 'true' (2026-07-25: off by default — owner
+    # paused Anthropic API spend; flip the variable in Settings -> Actions ->
+    # Variables to re-enable without a commit).
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      vars.CLAUDE_INTERACTIVE_ENABLED == 'true' &&
+      ((github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')))
 
     permissions:
       contents: read
