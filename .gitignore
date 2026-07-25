@@ -69,3 +69,4 @@ demo-capture/shots/
 
 # E2E/demo run outputs (screenshots regenerated per run)
 /artifacts/
+.local-sqlite-demo.db
