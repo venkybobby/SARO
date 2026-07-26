@@ -50,6 +50,12 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     settings_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # FND-067: who to notify within the 72-hour breach-notification window
+    # (docs/ops/support-model.md §4). Captured at onboarding; nullable because
+    # existing tenants predate the field.
+    security_contact_email: Mapped[str | None] = mapped_column(
+        String(320), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
