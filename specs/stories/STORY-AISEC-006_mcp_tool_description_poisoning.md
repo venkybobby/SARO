@@ -1,6 +1,6 @@
 # STORY-AISEC-006: MCP tool-description poisoning evidence (scan tool descriptions)
 
-**Status:** draft
+**Status:** IMPLEMENTED (fc08197)
 **Screen/Area:** adapters/contract (ToolInvocation) / rule_packs/observation / TRACE evidence
 
 ## Origin
