@@ -1,0 +1,43 @@
+# RP-TOOL-POISONING@1.0.0 — MCP tool-description poisoning evidence (STORY-AISEC-006).
+#
+# Evaluates NormalizedInvocationRecord tool DESCRIPTIONS — the tool's advertised
+# metadata (adapters/contract.py ToolInvocation.description), never tool arguments
+# or results (INV-2 holds; a description is what the tool claims to do, loaded into
+# the model's context, not per-message content).
+#
+# The question: "does an advertised tool description contain hidden instructions?"
+# MCP tool poisoning (OWASP MCP03, ATLAS AML.T0010 ML Supply Chain Compromise)
+# smuggles injection directives into a tool's description; a capable model reads
+# and may follow them. This is indirect prompt injection via the tool supply
+# chain, so the description text is scanned with SARO's deterministic
+# prompt-injection detector (RP-PROMPT-INJECTION, STORY-AISEC-001) — no external
+# model, read-only, evidence-only.
+#
+# Rule semantics (rule_packs/observation/evaluate.py):
+#   tool_description_poisoning — a tool.description that trips the injection
+#                                detector fires, one finding per poisoned tool.
+#
+# No-op by default: descriptions are optional (default None), so this pack fires
+# nothing until an adapter/tenant supplies tool-description text.
+
+name: RP-TOOL-POISONING
+version: "1.0.0"
+title: "MCP tool-description poisoning"
+domain_trigger: "Governance & Compliance"
+
+obligation: >
+  Surface advertised tool descriptions that contain hidden instructions
+  consistent with prompt-injection / tool-poisoning. Evidence for human auditor
+  review — SARO does not certify, block, or determine intent. Evidence reference:
+  MITRE ATLAS AML.T0010 (ML Supply Chain Compromise), NIST AI RMF MANAGE 2.2
+  (deployment controls). Human review required.
+
+rules:
+  - rule_id: "TOOL-DESC-POISONING-1"
+    title: "Tool description contains injection indicators"
+    severity: "HIGH"
+    check: "tool_description_poisoning"
+    remediation: >
+      A tool's advertised description contains text consistent with an injection
+      directive. Review the tool/MCP server that supplied this description and
+      confirm whether it should be trusted; human validation required.

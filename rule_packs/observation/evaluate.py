@@ -164,7 +164,10 @@ def _check_tool_offered_not_allowed(rule, pack, record) -> list[Finding]:
         return []
     return [
         _finding(
-            rule, pack, record, {"offered_out_of_scope": offered, "allowed_tools": sorted(allowed)}
+            rule,
+            pack,
+            record,
+            {"offered_out_of_scope": offered, "allowed_tools": sorted(allowed)},
         )
     ]
 
@@ -178,6 +181,59 @@ def _check_tool_policy_absent(rule, pack, record) -> list[Finding]:
     return [_finding(rule, pack, record, {"tools_seen": used})]
 
 
+# STORY-AISEC-006: lazily-cached injection pack for tool-description scanning.
+# Loaded on first use (not at import) so a missing pack degrades this one check
+# rather than breaking the whole observation evaluator.
+_INJECTION_PACK: Any = None
+
+
+def _injection_pack() -> Any:
+    global _INJECTION_PACK
+    if _INJECTION_PACK is None:
+        from rule_packs.injection.detector import load_injection_pack
+
+        _INJECTION_PACK = load_injection_pack()
+    return _INJECTION_PACK
+
+
+def _check_tool_description_injection(rule, pack, record) -> list[Finding]:
+    """STORY-AISEC-006: scan each tool's advertised description for injection /
+    tool-poisoning indicators (ATLAS AML.T0010). Deterministic, no external model.
+    The finding carries the matched rule ids + ATLAS techniques and an
+    evidence-shaped sentence — never the raw description (no PII/content egress)."""
+    from rule_packs.injection.detector import scan as _scan_injection
+
+    inj_pack = _injection_pack()
+    findings: list[Finding] = []
+    for tool in record.tools:
+        desc = getattr(tool, "description", None)
+        if not desc:
+            continue
+        hits = _scan_injection(desc, inj_pack)
+        if not hits:
+            continue
+        indicators = sorted({h.rule_id for h in hits})
+        atlas = sorted({h.atlas_technique_id for h in hits if h.atlas_technique_id})
+        findings.append(
+            _finding(
+                rule,
+                pack,
+                record,
+                {
+                    "tool_name": tool.name,
+                    "indicators": indicators,
+                    "atlas_technique_ids": atlas,
+                    "evidence": (
+                        "indicators consistent with prompt-injection / tool-"
+                        "poisoning in the advertised tool description — human "
+                        "review required"
+                    ),
+                },
+            )
+        )
+    return findings
+
+
 _CHECKS = {
     "required_fields": _check_required_fields,
     "truncation_is_incomplete": _check_truncation,
@@ -185,6 +241,7 @@ _CHECKS = {
     "tool_not_in_allowlist": _check_tool_not_in_allowlist,
     "tool_offered_not_allowed": _check_tool_offered_not_allowed,
     "tool_policy_absent": _check_tool_policy_absent,
+    "tool_description_poisoning": _check_tool_description_injection,
 }
 
 

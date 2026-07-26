@@ -84,6 +84,13 @@ class ToolInvocation(BaseModel):
     NAME AND OUTCOME ONLY. Tool arguments and results are message content and
     are deliberately absent — RP-TOOL-SCOPE evaluates *which* tool was called
     against the tenant's allowed set, which never requires the arguments.
+
+    The optional ``description`` is the tool's *advertised* metadata (what the
+    tool claims to do, loaded into the model's context) — not per-invocation
+    message content, so it does not breach INV-2. It exists so RP-TOOL-POISONING
+    (STORY-AISEC-006) can scan it for hidden injection directives (MCP tool
+    poisoning, ATLAS AML.T0010). Optional and default-None: adapters populate it
+    only when the source log carries it.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -94,6 +101,11 @@ class ToolInvocation(BaseModel):
     )
     invoked: bool = Field(
         default=False, description="The model emitted a call to this tool."
+    )
+    description: str | None = Field(
+        default=None,
+        description="The tool's advertised description text (metadata), if the "
+        "source log carries it. Scanned for tool-poisoning by RP-TOOL-POISONING.",
     )
 
 

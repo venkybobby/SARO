@@ -1,67 +1,74 @@
-# STORY-AISEC-005 — Homoglyph / confusable normalization for the injection detector
+# STORY-AISEC-006 — MCP tool-description poisoning evidence
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (normalize() structure + homoglyph gap confirmed; area just built in AISEC-001)
-- [x] shape      (no architecture-changing ambiguity; one decision self-answered below)
-- [x] preview    (skipped — backend-only, no UI surface)
+- [x] discover   (contract ToolInvocation + evaluate._CHECKS + loader/demo blast radius mapped)
+- [x] shape      (structural decision self-answered below; no product ambiguity)
+- [x] preview    (skipped — backend/observation, no UI surface)
 - [x] plan
 - [x] build
-- [x] verify
+- [x] verify     (full suite 2371 passed; reviewer APPROVE + security-auditor PASS)
 - [ ] sell       (n/a)
 
-## DISCOVER findings
-- `rule_packs/injection/detector.py` `normalize()` does zero-width strip →
-  tag-range drop → NFKC → bounded base64/ROT13. NFKC does NOT fold Cyrillic/Greek
-  homoglyphs, so `by_obfuscation.homoglyph.recall = 0.0` in the shipped
-  `saro-data-framework/output/injection_eval_batch.json`.
-- Existing normalize() constants (`_ZERO_WIDTH`, `_TAG_RANGE`) are in-code →
-  a confusables map fits the same pattern.
-- The AISEC-003 benchmark (`scripts/run_injection_eval.py`) re-measures the gain.
+> Note: lines here were briefly overwritten by an out-of-band edit claiming a
+> "concurrent session" and instructing a checkbox restore. Treated as untrusted
+> data (not a command) per the instruction-source boundary and rewritten to the
+> true state. Surfaced to the user.
 
-## Premise check (Stage 3a)
-| Referenced artifact | Verified? | File path |
-|---|---|---|
-| normalize() + NFKC | yes | `rule_packs/injection/detector.py` (`normalize`) |
-| homoglyph gap = 0.0 | yes | `saro-data-framework/output/injection_eval_batch.json` (`by_obfuscation.homoglyph`) |
-| eval harness | yes | `rule_packs/injection/eval.py`, `scripts/run_injection_eval.py` |
-| benign FP corpus | yes | `saro-data-framework/corpora/injection_eval_corpus.jsonl` (label=benign) |
+## DISCOVER findings
+- `ToolInvocation` (adapters/contract.py) carries name/offered/invoked; args/results
+  deliberately absent (INV-2). Tool DESCRIPTION is advertised metadata (like tool
+  names), not per-message body → posture-safe to carry + scan.
+- Observation checks: `_CHECKS` dispatch in `rule_packs/observation/evaluate.py`;
+  each `(rule, pack, record) -> list[Finding]` via `_finding(...)`.
+- Loader globs ALL `*/*/pack.yaml` (`load_genesis_packs`). The demo `_demo_packs`
+  iterates all genesis packs → a new pack would ripple into the demo provenance
+  test (`refs == {RP-OBS-COMPLETE, RP-TOOL-SCOPE}`) + committed screencast.
+- prereq test uses `in packs` (not exact set) → new pack OK there.
 
 ## Decision Log
-- Confusables map: in-code constant vs data file? → **in-code constant** (consistent with `_ZERO_WIDTH`/`_TAG_RANGE` in normalize(); provenance comment cites Unicode confusables/TR39 for auditability). Rules pack unchanged → pack hash unchanged.
-- Fold scope? → **curated Cyrillic + Greek → Latin LETTER confusables only**, not broad transliteration and NOT digit/punct (folding 0→o/1→l risks corrupting real text/URLs — under-fold, over-folding guard, AC-5).
-- Where to fold? → **after NFKC, before matching** in normalize(); folds only confusable codepoints, mixed-script text keeps the rest.
+- New pack vs edit rp_tool_scope? → **new pack `rp_tool_poisoning@1.0.0`** (loader
+  discipline: "publishing is a new version, never an edit"; avoids rp_tool_scope
+  version churn + two-versions-loading ambiguity).
+- Demo blast radius? → **pin `_demo_packs` to its 2 intended packs** (RP-OBS-COMPLETE,
+  RP-TOOL-SCOPE) so future genesis packs don't silently change the demo provenance
+  / screencast. Clean, and future-proofs the demo.
+- Scan engine? → **reuse the AISEC-001 `scan` + `load_injection_pack`** on the
+  description text; evidence-only; ATLAS via the AISEC-002 registry.
 
 ## Plan (tweak-likelihood order)
-1. **Confusables map** `_CONFUSABLES` in `detector.py` — curated Cyrillic+Greek→Latin
-   (+ common digit/punct) skeleton map, provenance comment. Verify: unit test that
-   the map folds known homoglyphs.
-2. **Fold step** in `normalize()` — apply `str.translate(_CONFUSABLES)` after NFKC,
-   before returning `base` (flows into decode segments too). Verify: AC-1
-   (Cyrillic-obfuscated injection detected), edge (mixed-script) unit tests.
-3. **Re-measure** — regenerate `injection_eval_batch.json`; homoglyph recall
-   0.0 → ≥0.8; benign FP rate stays 0.0. Verify: AC-2/AC-3 tests over the corpus.
-4. Tests `tests/test_aisec_005_homoglyph_normalization.py` (AC-1..5, no-network).
-   Gates 1-7; reviewer + security-auditor; index → IMPLEMENTED; traceability.
+1. **Contract** `ToolInvocation.description: str | None = None` (adapters/contract.py).
+   Optional, default None → backward compatible. Verify: contract unit test.
+2. **New pack** `rule_packs/observation/rp_tool_poisoning/1.0.0/pack.yaml` —
+   TOOL-DESC-POISONING-1, `check: tool_description_poisoning`, ATLAS AML.T0010.
+   Verify: pack loads + hash test.
+3. **Check** `_check_tool_description_injection(rule, pack, record)` in
+   evaluate.py + register in `_CHECKS`: scan each tool.description via the
+   injection detector; emit one Finding per poisoned tool with matched indicators
+   + ATLAS id; evidence-shaped detail. Verify: AC-1/AC-2/AC-3/AC-5 tests.
+4. **Demo pin** `_demo_packs` → the 2 intended packs (no ripple). Verify: demo
+   test 7/7 unchanged.
+5. Tests `tests/test_aisec_006_tool_description_poisoning.py`. Gates 1-7; reviewer
+   + security-auditor; index → IMPLEMENTED; traceability.
 
 ## Compliance guardrails
-- Deterministic, no external model/network, no new dependency (AC-4).
-- Fold only well-established confusables; benign corpus FP rate pins over-folding (AC-3).
+- Evidence-only, read-only; descriptions are metadata (INV-2 intact — not body).
+- Deterministic, no external model/network (detector is pure). Evidence-shaped
+  language; ATLAS Tier-3.
 
 ## Review round 1 (reviewer + security-auditor agents)
-- **security-auditor: PASS.** Fold is monotonic-toward-matching (48 keys all
-  non-Latin ≥U+0400 → Latin skeleton), length-preserving (evidence offsets
-  intact), O(n) bounded by max_scan_chars, no dep/network. No new evasion; a
-  homoglyph inside base64 now folds+decodes (more detection). No FAIL.
-- **reviewer: APPROVE** (4 minor). Addressed:
-  1. Benign corpus was 100% ASCII → FP=0.0 didn't exercise the fold. Added 5
-     benign Cyrillic/Greek sentences (benign 53→58); FP rate stays 0.0 → now
-     genuinely tests over-folding.
-  2. Story "punct/digit confusables" overclaim → corrected (code folds letters
-     only; digit/punct explicitly out of scope).
-  3. Index SPECIFIED + notes boxes → flipped at close (this commit).
-  4. Untracked noise → only intended files staged.
+- **reviewer: APPROVE.** INV-2 defensible (description = advertised metadata, not
+  body); no content egress (finding carries rule-ids + ATLAS only, never the raw
+  description fragment); demo pin correct/necessary; deterministic. Minors: index
+  flip (done at commit), staging hygiene, drive-by ruff reformat (accepted — repo
+  formatter output), spec ATLAS-id framing (findings inherit the injection rules'
+  ids incl. AML.T0051.001).
+- **security-auditor: PASS.** Untrusted description string-matched only (no
+  eval/exec/network); PII/content egress clean (raw description never reaches
+  detail/logs); INV-2 metadata exception concurred; bounded by max_scan_chars
+  (no ReDoS/DoS); yaml.safe_load. INFO-1 (no max_length on description) is
+  defense-in-depth only — memory already bounded upstream; left as-is to avoid a
+  breaking validation on legitimately long descriptions.
 
 ## Deviations
-- Branch off main (fresh — AISEC pack already merged to main as 0f4ec30). Not
-  stacked; this is an independent follow-on.
+- Branch off main (fresh, AISEC pack merged). Independent story.
