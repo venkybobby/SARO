@@ -8,7 +8,7 @@ AuditTrace rows the three personas' pages query, with the honesty guarantees
 from __future__ import annotations
 
 import uuid
-from datetime import timezone
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine
@@ -63,7 +63,7 @@ def _rec(
         model_id=model_id,
         operation="PredictionService.GenerateContent",
         region="us-central1",
-        timestamp="2026-07-25T00:00:00Z",
+        timestamp=datetime(2026, 7, 25, tzinfo=timezone.utc),
         tools=tuple(tools),
         field_availability={
             "input_token_count": FieldAvailability.UNAVAILABLE,
