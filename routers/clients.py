@@ -314,6 +314,9 @@ def set_security_contact(
     tenant = db.get(Tenant, current_user.tenant_id)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    # Reviewer/security-auditor: the forensic question on this field is "who
+    # redirected breach notifications AWAY FROM whom" — record both values.
+    previous = tenant.security_contact_email
     tenant.security_contact_email = str(payload.security_contact_email)
     # STORY-366 AUDITED promise: use the router's sanctioned recorder helper.
     _log_event(
@@ -321,7 +324,10 @@ def set_security_contact(
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
         event_type="security_contact_updated",
-        event_data={"security_contact_email": tenant.security_contact_email},
+        event_data={
+            "previous": previous,
+            "new": tenant.security_contact_email,
+        },
     )
     db.commit()
     return {

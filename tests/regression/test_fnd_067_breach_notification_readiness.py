@@ -138,3 +138,13 @@ def test_invalid_email_is_rejected():
         json={"security_contact_email": "not-an-email"},
     )
     assert resp.status_code == 422
+
+
+def test_overlong_email_is_rejected_not_truncated():
+    """Boundary guard: > column width must 422 (validation), never truncate —
+    and this pin survives a future EmailStr → str regression."""
+    resp = _client_as(_user("admin")).put(
+        "/api/v1/clients/security-contact",
+        json={"security_contact_email": ("x" * 310) + "@example.com"},
+    )
+    assert resp.status_code == 422

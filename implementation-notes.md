@@ -7,8 +7,8 @@ Stage: standard
 - [x] shape      (owner instruction "Fix them all"; decisions defaulted + logged below)
 - [x] preview    (skipped — no user-facing design change; one UI copy generalization)
 - [x] plan       (per-finding task list; red-first pin per finding)
-- [ ] build
-- [ ] verify
+- [x] build      (four fixes red-first; gates green — regression 215, integration 370, unit 834, vitest 276, full mypy clean, ratchet holds)
+- [x] verify     (reviewer APPROVE x4 + security-auditor PASS; review round applied — previous-value forensics on the contact audit event, overlong-email boundary pin. CI verification pending the GitHub Actions billing restore — merge held.)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
@@ -36,4 +36,8 @@ Stage: standard
 | Landing | One branch/PR (findings batch, not stories); merge HELD until GitHub Actions billing is restored (jobs currently die at startup — merging unverified would break the no-red-merge rule). | PR opens now; owner unblocks billing; then merge. |
 
 ## Deviations
-None yet.
+- Reviewer/security round applied in-PR: audit event records {previous, new}
+  (forensic redirect question); >320-char email boundary pin added; FND-061
+  fixture re-roled to the FND-063-admitted role (assertions unchanged).
+- Merge deliberately HELD: GitHub Actions billing outage means CI cannot run;
+  merging unverified-by-CI would break the no-red-merge rule.
