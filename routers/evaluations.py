@@ -66,14 +66,18 @@ class EvaluationRunOut(BaseModel):
     total_samples_uploaded: int
     overall_passed: Optional[bool]
     elapsed_seconds: Optional[float]
-    api_url: str
-    error_message: Optional[str]
+    # FND-078: api_url (internal infra endpoint) and error_message (raw
+    # exception text) deliberately NOT serialized here — every listing role
+    # received them. They live on EvaluationRunDetailOut, whose route stays
+    # super_admin/operator-only. The ORM columns are unchanged.
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
 class EvaluationRunDetailOut(EvaluationRunOut):
+    api_url: str
+    error_message: Optional[str] = None
     run_summary_json: Optional[Any] = None  # parsed dict or raw string
 
 
