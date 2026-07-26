@@ -6,8 +6,8 @@ Stage: standard
 - [x] shape      (design determined by the existing judge pattern; decisions below)
 - [x] preview    (skipped — backend, no UI)
 - [x] plan
-- [ ] build
-- [ ] verify
+- [x] build
+- [x] verify     (full suite 2378 passed; reviewer APPROVE + security-auditor PASS)
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
