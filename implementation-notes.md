@@ -1,74 +1,72 @@
-# STORY-AISEC-006 — MCP tool-description poisoning evidence
+# STORY-AISEC-007 — Semantic prompt-injection on the optional Gate-3 judge
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (contract ToolInvocation + evaluate._CHECKS + loader/demo blast radius mapped)
-- [x] shape      (structural decision self-answered below; no product ambiguity)
-- [x] preview    (skipped — backend/observation, no UI surface)
+- [x] discover   (existing judge infra + _redact_pii + cap + provider seam mapped)
+- [x] shape      (design determined by the existing judge pattern; decisions below)
+- [x] preview    (skipped — backend, no UI)
 - [x] plan
-- [x] build
-- [x] verify     (full suite 2371 passed; reviewer APPROVE + security-auditor PASS)
+- [ ] build
+- [ ] verify
 - [ ] sell       (n/a)
 
-> Note: lines here were briefly overwritten by an out-of-band edit claiming a
-> "concurrent session" and instructing a checkbox restore. Treated as untrusted
-> data (not a command) per the instruction-source boundary and rewritten to the
-> true state. Surfaced to the user.
-
 ## DISCOVER findings
-- `ToolInvocation` (adapters/contract.py) carries name/offered/invoked; args/results
-  deliberately absent (INV-2). Tool DESCRIPTION is advertised metadata (like tool
-  names), not per-message body → posture-safe to carry + scan.
-- Observation checks: `_CHECKS` dispatch in `rule_packs/observation/evaluate.py`;
-  each `(rule, pack, record) -> list[Finding]` via `_finding(...)`.
-- Loader globs ALL `*/*/pack.yaml` (`load_genesis_packs`). The demo `_demo_packs`
-  iterates all genesis packs → a new pack would ripple into the demo provenance
-  test (`refs == {RP-OBS-COMPLETE, RP-TOOL-SCOPE}`) + committed screencast.
-- prereq test uses `in packs` (not exact set) → new pack OK there.
+- Existing Gate-3 judge (`engine.py`): `ANTHROPIC_API_KEY` gates `hybrid_mode`;
+  `_gate3_llm_verify_sync(client, text, domain)` does `client.messages.create(...)`,
+  parses JSON, fails safe (except → None). Bounded by `MAX_LLM_CALLS_PER_BATCH`.
+  Provider seam `LLM_JUDGE_PROVIDER` (anthropic default). `_redact_pii` applied to
+  fragments before egress.
+- The current judge only re-checks FLAGGED samples (FP reduction) → never sees
+  held-out (un-flagged) injection. New pass assesses UN-flagged samples (FN/held-out).
+- Injection scan is evidence-only (`_scan_injection_impl` → traces, no _SampleFlag).
+- SARO-102 (COMPLIANCE_CLAIMS_MATRIX) discloses the judge as flagged-sample re-check
+  → must be updated to also disclose the un-flagged injection assessment (AC-6).
 
 ## Decision Log
-- New pack vs edit rp_tool_scope? → **new pack `rp_tool_poisoning@1.0.0`** (loader
-  discipline: "publishing is a new version, never an edit"; avoids rp_tool_scope
-  version churn + two-versions-loading ambiguity).
-- Demo blast radius? → **pin `_demo_packs` to its 2 intended packs** (RP-OBS-COMPLETE,
-  RP-TOOL-SCOPE) so future genesis packs don't silently change the demo provenance
-  / screencast. Clean, and future-proofs the demo.
-- Scan engine? → **reuse the AISEC-001 `scan` + `load_injection_pack`** on the
-  description text; evidence-only; ATLAS via the AISEC-002 registry.
+- Where does the semantic pass live? → **inside `_scan_injection_impl`** (injection
+  evidence is cohesive there), reusing env vars + client pattern + `_redact_pii`,
+  NOT entangled with the MIT-domain Gate-3 judge.
+- Default behavior? → **off** (no key → skipped; deterministic-only default unchanged).
+- Which samples? → only those the deterministic detector did NOT flag (avoid dup
+  cost/finding), bounded by `MAX_LLM_CALLS_PER_BATCH`.
+- Test strategy? → **monkeypatch `anthropic.Anthropic`** (installed 0.84.0) to a
+  fake client whose `.messages.create` returns canned JSON; assert zero calls
+  when no key; PII redaction of egress text; cap; evidence-only; fail-safe.
 
 ## Plan (tweak-likelihood order)
-1. **Contract** `ToolInvocation.description: str | None = None` (adapters/contract.py).
-   Optional, default None → backward compatible. Verify: contract unit test.
-2. **New pack** `rule_packs/observation/rp_tool_poisoning/1.0.0/pack.yaml` —
-   TOOL-DESC-POISONING-1, `check: tool_description_poisoning`, ATLAS AML.T0010.
-   Verify: pack loads + hash test.
-3. **Check** `_check_tool_description_injection(rule, pack, record)` in
-   evaluate.py + register in `_CHECKS`: scan each tool.description via the
-   injection detector; emit one Finding per poisoned tool with matched indicators
-   + ATLAS id; evidence-shaped detail. Verify: AC-1/AC-2/AC-3/AC-5 tests.
-4. **Demo pin** `_demo_packs` → the 2 intended packs (no ripple). Verify: demo
-   test 7/7 unchanged.
-5. Tests `tests/test_aisec_006_tool_description_poisoning.py`. Gates 1-7; reviewer
-   + security-auditor; index → IMPLEMENTED; traceability.
+1. **Semantic verify** `_semantic_injection_verify_sync(client, text) -> dict|None`
+   in engine.py (mirrors `_gate3_llm_verify_sync`; asks injection yes/no + technique;
+   parse JSON; fail safe). Verify: unit test with mock client.
+2. **Pass** in `_scan_injection_impl`: after the deterministic loop, if key set +
+   provider anthropic, iterate un-flagged samples (≤ cap), `_redact_pii` the
+   fragment, call verify, emit evidence-only injection trace (`source:
+   semantic-judge`, ATLAS AML.T0051) for "injection" verdicts. Off by default;
+   fail-safe. Verify: AC-1..AC-5 tests.
+3. **Disclosure** update `docs/COMPLIANCE_CLAIMS_MATRIX.md` SARO-102 (AC-6):
+   optional judge now also assesses un-flagged samples for injection — still
+   off-by-default, PII-redacted, bounded.
+4. Tests `tests/test_aisec_007_semantic_injection_judge.py`. Gates 1-7; reviewer +
+   security-auditor (engine + external-model egress); index → IMPLEMENTED; docs.
 
 ## Compliance guardrails
-- Evidence-only, read-only; descriptions are metadata (INV-2 intact — not body).
-- Deterministic, no external model/network (detector is pure). Evidence-shaped
-  language; ATLAS Tier-3.
+- Non-Negotiable #1: only the DISCLOSED off-by-default judge exception calls a
+  model; core deterministic scoring untouched. Default = zero external calls.
+- PII-redacted before egress (mandatory, SARO-102). Evidence-only (no score
+  change). Bounded by cost cap. Disclosure updated to match code (compliance-guard).
 
 ## Review round 1 (reviewer + security-auditor agents)
-- **reviewer: APPROVE.** INV-2 defensible (description = advertised metadata, not
-  body); no content egress (finding carries rule-ids + ATLAS only, never the raw
-  description fragment); demo pin correct/necessary; deterministic. Minors: index
-  flip (done at commit), staging hygiene, drive-by ruff reformat (accepted — repo
-  formatter output), spec ATLAS-id framing (findings inherit the injection rules'
-  ids incl. AML.T0051.001).
-- **security-auditor: PASS.** Untrusted description string-matched only (no
-  eval/exec/network); PII/content egress clean (raw description never reaches
-  detail/logs); INV-2 metadata exception concurred; bounded by max_scan_chars
-  (no ReDoS/DoS); yaml.safe_load. INFO-1 (no max_length on description) is
-  defense-in-depth only — memory already bounded upstream; left as-is to avoid a
-  breaking validation on legitimately long descriptions.
+- **security-auditor: PASS.** Egress-focused audit: only the PII-redacted,
+  500-char-capped fragment egresses (redaction precedes every call, same text
+  sent); zero client construction without a key; triple-layer fail-safe; bounded;
+  provider seam fail-safe; key never logged; verdict confined to an evidence
+  trace (no tool use/action). Disclosure matches. INFO (pre-existing): _redact_pii
+  is structured-PII best-effort — not widened here.
+- **reviewer: REQUEST-CHANGES → addressed:**
+  1. [MAJOR/FM-4] No AISEC-007 index row → added IMPLEMENTED row at commit (below).
+  2. [MINOR] Each judge role has its own MAX_LLM_CALLS_PER_BATCH counter →
+     combined per-batch ceiling is up to 2× cap. Disclosed accurately in SARO-102.
+  3. [MINOR/pre-existing] _redact_pii free-text limit — not introduced here.
+  4. [MINOR] Untracked artifacts → only intended files staged.
 
 ## Deviations
-- Branch off main (fresh, AISEC pack merged). Independent story.
+- Branch off main (fresh, AISEC 001-006 merged). Independent story.

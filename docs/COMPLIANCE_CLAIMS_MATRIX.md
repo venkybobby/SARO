@@ -132,9 +132,9 @@ All Gate 1 error messages, schema docstrings, and remediation hints reference "i
 
 | Aspect | Detail |
 |---|---|
-| What it is | An **optional** Gate-3 "LLM-as-judge" verification pass that re-checks keyword/regex-flagged samples to reduce false positives. It does **not** compute or change the risk score's core math; it only confirms or drops individual flags. |
-| When it runs | **Only** when a tenant explicitly sets the provider API key (`ANTHROPIC_API_KEY`). With no key set, SARO is keyword-only and makes **zero** external calls — the default. |
-| What is sent | The **PII-redacted** sample fragment (`_redact_pii` applied before egress) and the domain definition — never raw PII, never client system data. |
+| What it is | An **optional** Gate-3 "LLM-as-judge" pass with two evidence-only roles: (a) it re-checks keyword/regex-flagged samples to reduce false positives (confirms or drops individual flags); and (b) **SARO-102b (STORY-AISEC-007):** it assesses samples the deterministic prompt-injection detector did **not** flag, to surface novel (held-out) injection the regex corpus misses. Neither role computes or changes the risk score's core math — both only produce evidence findings for human review. |
+| When it runs | **Only** when a tenant explicitly sets the provider API key (`ANTHROPIC_API_KEY`). With no key set, SARO is deterministic/keyword-only and makes **zero** external calls — the default. Each role is bounded by `MAX_LLM_CALLS_PER_BATCH` **independently**, so a batch with both roles active can issue up to **2 × `MAX_LLM_CALLS_PER_BATCH`** calls (role (a) over flagged samples, role (b) over un-flagged samples — disjoint sets). |
+| What is sent | The **PII-redacted** sample fragment (`_redact_pii` applied before egress) plus, for role (a) the domain definition or (b) an injection-assessment question — never raw PII, never client system data. |
 | Provider/model | Configurable: `SARO_LLM_JUDGE_PROVIDER` (default `anthropic`) and `SARO_LLM_JUDGE_MODEL` (default `claude-sonnet-4-20250514`). The model may be changed to a cheaper one without code changes. |
 | What it never does | Write to client systems · generate the audited output · issue any compliance verdict · alter SARO's read-only, evidence-only posture. |
 
