@@ -1,6 +1,6 @@
 # STORY-AISEC-005: Homoglyph / confusable normalization for the injection detector
 
-**Status:** draft
+**Status:** IMPLEMENTED (718e04f)
 **Screen/Area:** rule_packs/injection (detector normalize) / TRACE evidence
 
 ## Origin
