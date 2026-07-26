@@ -1,4 +1,5 @@
 """Board-level risk dashboard API endpoints."""
+
 import hashlib
 import hmac
 import io
@@ -36,7 +37,9 @@ _REPORT_DISCLAIMER = (
 # EVF Tier-3 status (docs/COMPLIANCE_CLAIMS_MATRIX.md — SARO-RISK-001): no framework
 # claim has completed External SME Validation, so no coverage percentage may be
 # published in external materials. Replaces the previously hardcoded fake percentages.
-_EVF_FRAMEWORK_STATUS = "Internal Review Only — Not for External Claim (EVF SARO-RISK-001)"
+_EVF_FRAMEWORK_STATUS = (
+    "Internal Review Only — Not for External Claim (EVF SARO-RISK-001)"
+)
 
 _SEVERITY_BY_RESULT = {"fail": 3, "triggered": 3, "flagged": 2, "warn": 1, "pass": 0}
 
@@ -88,14 +91,16 @@ def _get_audit_records(db: Session, tenant_id) -> list[dict]:
     )
     records = []
     for audit, report in rows:
-        records.append({
-            "audit_id": audit.id,
-            "created_at": str(audit.created_at),
-            "status": audit.status,
-            "risk_score": getattr(report, "risk_score", None) if report else None,
-            "confidence": getattr(report, "confidence", None) if report else None,
-            "source_model": getattr(audit, "source_model", None),
-        })
+        records.append(
+            {
+                "audit_id": audit.id,
+                "created_at": str(audit.created_at),
+                "status": audit.status,
+                "risk_score": getattr(report, "risk_score", None) if report else None,
+                "confidence": getattr(report, "confidence", None) if report else None,
+                "source_model": getattr(audit, "source_model", None),
+            }
+        )
     return records
 
 
@@ -184,38 +189,59 @@ def export_board_pdf(
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.units import inch
         from reportlab.platypus import (
-            Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
         )
 
         buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=letter,
-                                leftMargin=inch, rightMargin=inch,
-                                topMargin=inch, bottomMargin=inch)
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=letter,
+            leftMargin=inch,
+            rightMargin=inch,
+            topMargin=inch,
+            bottomMargin=inch,
+        )
         styles = getSampleStyleSheet()
         story = []
 
         # ── Header ───────────────────────────────────────────────────────────
         story.append(Paragraph("SARO Board Risk Summary", styles["Title"]))
-        story.append(Paragraph(
-            f"Generated: {datetime.utcnow().strftime('%d %B %Y')} | "
-            f"Audits analysed: {summary['audit_count']}",
-            styles["Normal"],
-        ))
+        story.append(
+            Paragraph(
+                f"Generated: {datetime.utcnow().strftime('%d %B %Y')} | "
+                f"Audits analysed: {summary['audit_count']}",
+                styles["Normal"],
+            )
+        )
         story.append(Spacer(1, 12))
 
         # ── RAG Status ───────────────────────────────────────────────────────
         rag = summary["rag_status"]
-        rag_color = {"GREEN": colors.green, "AMBER": colors.orange, "RED": colors.red}.get(rag, colors.grey)
-        rag_table = Table([[f"Overall Risk Status: {rag}  |  Score: {summary['overall_risk_score']}"]])
-        rag_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), rag_color),
-            ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 14),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ]))
+        rag_color = {
+            "GREEN": colors.green,
+            "AMBER": colors.orange,
+            "RED": colors.red,
+        }.get(rag, colors.grey)
+        rag_table = Table(
+            [[f"Overall Risk Status: {rag}  |  Score: {summary['overall_risk_score']}"]]
+        )
+        rag_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), rag_color),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 14),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
         story.append(rag_table)
         story.append(Spacer(1, 16))
 
@@ -224,41 +250,63 @@ def export_board_pdf(
         if vendors:
             vdata = [["Vendor / Model", "Audits", "Avg Score", "Status", "New?"]]
             for v in vendors:
-                vdata.append([
-                    v["vendor"],
-                    str(v["audit_count"]),
-                    str(v["avg_risk_score"]),
-                    v["rag_status"],
-                    "⚠️ New" if v.get("is_new") else "—",
-                ])
-            vtable = Table(vdata, colWidths=[2.5 * inch, 0.8 * inch, 1 * inch, 1 * inch, 0.8 * inch])
-            vtable.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]))
+                vdata.append(
+                    [
+                        v["vendor"],
+                        str(v["audit_count"]),
+                        str(v["avg_risk_score"]),
+                        v["rag_status"],
+                        "⚠️ New" if v.get("is_new") else "—",
+                    ]
+                )
+            vtable = Table(
+                vdata,
+                colWidths=[2.5 * inch, 0.8 * inch, 1 * inch, 1 * inch, 0.8 * inch],
+            )
+            vtable.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [colors.white, colors.HexColor("#f1f5f9")],
+                        ),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
+            )
             story.append(vtable)
         else:
             story.append(Paragraph("No vendor data available.", styles["Normal"]))
         story.append(Spacer(1, 16))
 
         # ── Remediation % ────────────────────────────────────────────────────
-        story.append(Paragraph(
-            f"Remediation Progress: {summary['remediation_pct']}%", styles["Heading3"],
-        ))
+        story.append(
+            Paragraph(
+                f"Remediation Progress: {summary['remediation_pct']}%",
+                styles["Heading3"],
+            )
+        )
         story.append(Spacer(1, 12))
 
         # ── Verification hash ────────────────────────────────────────────────
         canonical = json.dumps(
-            {"tenant_id": str(current_user.tenant_id), "generated_at": summary["generated_at"]},
+            {
+                "tenant_id": str(current_user.tenant_id),
+                "generated_at": summary["generated_at"],
+            },
             sort_keys=True,
         )
-        sig = hmac.new(_HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+        sig = hmac.new(
+            _HMAC_SECRET.encode(), canonical.encode(), hashlib.sha256
+        ).hexdigest()
         story.append(Paragraph(f"Verification hash: {sig[:24]}…", styles["Normal"]))
 
         # Required compliance disclaimer on every exported report (FND-018).
@@ -271,7 +319,9 @@ def export_board_pdf(
         return StreamingResponse(
             buf,
             media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=saro-board-risk-report.pdf"},
+            headers={
+                "Content-Disposition": "attachment; filename=saro-board-risk-report.pdf"
+            },
         )
 
     except ImportError:
@@ -293,10 +343,15 @@ def _require_board_access(current_user) -> None:
         return
     if current_user.persona_role in allowed_personas:
         return
-    raise HTTPException(status_code=403, detail="Board summary requires risk_officer or super_admin role")
+    raise HTTPException(
+        status_code=403,
+        detail="Board summary requires risk_officer or super_admin role",
+    )
 
 
-@router.get("/risk-dashboard/board-summary", summary="Board-ready RAG risk summary (SPEC-FE2)")
+@router.get(
+    "/risk-dashboard/board-summary", summary="Board-ready RAG risk summary (SPEC-FE2)"
+)
 def get_board_summary(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -331,10 +386,22 @@ def get_board_summary(
             "note": "No completed audits in the last 90 days.",
         }
 
+    # Content-risk board number must not blend in observation-coverage scores
+    # (services/observation_ingest.py writes ScanReports whose score is a
+    # severity rollup, not a content-risk posterior — labeled score_basis).
+    # Including them would let a log-coverage gap present as board content risk.
+    def _is_content_risk(report) -> bool:
+        basis = (
+            (report.report_json or {}).get("score_basis")
+            if report.report_json
+            else None
+        )
+        return basis != "observation_coverage"
+
     scores = [
         r.overall_risk_score
         for _, r in rows
-        if r and r.overall_risk_score is not None
+        if r and r.overall_risk_score is not None and _is_content_risk(r)
     ]
     max_score = max(scores) if scores else 0.0
     avg_score = round(sum(scores) / len(scores), 3) if scores else 0.0
@@ -431,7 +498,10 @@ def export_board_summary_pdf(
     summary = get_board_summary(db=db, current_user=current_user)
 
     if summary.get("rag_status") == "No data":
-        raise HTTPException(status_code=400, detail="No completed audits in the last 90 days — PDF export disabled")
+        raise HTTPException(
+            status_code=400,
+            detail="No completed audits in the last 90 days — PDF export disabled",
+        )
 
     try:
         from reportlab.lib import colors
@@ -439,14 +509,22 @@ def export_board_summary_pdf(
         from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import cm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+            HRFlowable,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
         )
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            leftMargin=1.5 * cm, rightMargin=1.5 * cm,
-            topMargin=1.5 * cm, bottomMargin=2 * cm,
+            buf,
+            pagesize=A4,
+            leftMargin=1.5 * cm,
+            rightMargin=1.5 * cm,
+            topMargin=1.5 * cm,
+            bottomMargin=2 * cm,
         )
         styles = getSampleStyleSheet()
         story = []
@@ -464,22 +542,30 @@ def export_board_summary_pdf(
         story.append(Spacer(1, 10))
 
         rag = summary.get("rag_status", "No data")
-        rag_color_map = {"RED": colors.red, "AMBER": colors.orange, "GREEN": colors.green}
+        rag_color_map = {
+            "RED": colors.red,
+            "AMBER": colors.orange,
+            "GREEN": colors.green,
+        }
         rag_color = rag_color_map.get(rag, colors.grey)
         score_val = summary.get("overall_risk_score", "N/A")
         rag_table = Table(
             [[f"Overall Risk: {rag}  |  Score: {score_val}"]],
             colWidths=[15 * cm],
         )
-        rag_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), rag_color),
-            ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 16),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("TOPPADDING", (0, 0), (-1, -1), 12),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-        ]))
+        rag_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), rag_color),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 16),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 12),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ]
+            )
+        )
         story.append(rag_table)
         story.append(Spacer(1, 10))
 
@@ -494,7 +580,9 @@ def export_board_summary_pdf(
                     )
                 )
         else:
-            story.append(Paragraph("No critical findings in the last 90 days.", styles["Normal"]))
+            story.append(
+                Paragraph("No critical findings in the last 90 days.", styles["Normal"])
+            )
         story.append(Spacer(1, 8))
 
         rem = summary.get("remediation_progress", {})
@@ -509,20 +597,28 @@ def export_board_summary_pdf(
 
         # FND-019: no published coverage percentage while EVF is Tier-3. Show the
         # frameworks in scope and their validation status, never a fabricated %.
-        story.append(Paragraph("Framework Alignment — Validation Status", styles["Heading2"]))
+        story.append(
+            Paragraph("Framework Alignment — Validation Status", styles["Heading2"])
+        )
         fc = summary.get("framework_coverage", {})
         if fc:
-            fw_data = [["Framework", "EVF Validation Status"]] + [[k, str(v)] for k, v in fc.items()]
+            fw_data = [["Framework", "EVF Validation Status"]] + [
+                [k, str(v)] for k, v in fc.items()
+            ]
             fw_table = Table(fw_data, colWidths=[6 * cm, 9 * cm])
-            fw_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("FONTSIZE", (0, 0), (-1, -1), 10),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]))
+            fw_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("FONTSIZE", (0, 0), (-1, -1), 10),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
+            )
             story.append(fw_table)
         story.append(Spacer(1, 12))
 
@@ -538,7 +634,9 @@ def export_board_summary_pdf(
         return StreamingResponse(
             buf,
             media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=saro-board-report.pdf"},
+            headers={
+                "Content-Disposition": "attachment; filename=saro-board-report.pdf"
+            },
         )
 
     except ImportError:
