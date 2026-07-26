@@ -3,23 +3,23 @@
   "pack": "RP-PROMPT-INJECTION@1.0.0",
   "pack_hash": "2db17670a5ada23ea0d647135f6a5018a42ee8ff68d93ffbd69384f18c1b52b0",
   "corpus": "saro-data-framework/corpora/injection_eval_corpus.jsonl",
-  "corpus_size": 347,
+  "corpus_size": 352,
   "metrics": {
-    "total": 347,
+    "total": 352,
     "by_class": {
-      "benign": 53,
+      "benign": 58,
       "injection": 98,
       "jailbreak": 98,
       "leakage": 98
     },
     "confusion": {
-      "true_positives": 193,
+      "true_positives": 227,
       "false_positives": 0,
-      "false_negatives": 101,
-      "true_negatives": 53
+      "false_negatives": 67,
+      "true_negatives": 58
     },
     "precision": 1.0,
-    "recall": 0.6565,
+    "recall": 0.7721,
     "false_positive_rate": 0.0,
     "by_obfuscation": {
       "base64": {
@@ -28,9 +28,9 @@
         "recall": 0.9444
       },
       "homoglyph": {
-        "detected": 0.0,
+        "detected": 34.0,
         "total": 36.0,
-        "recall": 0.0
+        "recall": 0.9444
       },
       "plain": {
         "detected": 91.0,
@@ -55,9 +55,9 @@
         "recall": 0.0
       },
       "targeted": {
-        "detected": 193.0,
+        "detected": 227.0,
         "total": 240.0,
-        "recall": 0.8042
+        "recall": 0.9458
       }
     },
     "interpretation": "Recall over 'targeted' payloads is a REGRESSION signal (payloads written to match the detector's rules). Recall over 'held-out' payloads is a GENERALIZATION probe (novel phrasings not derived from the rules) \u2014 the honest real-world-ish rate. Internal quality signal, not a certified detection rate."
