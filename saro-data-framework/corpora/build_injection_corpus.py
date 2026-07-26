@@ -266,6 +266,15 @@ _BENIGN_SEEDS = [
     "Admin rights are reviewed quarterly by the security team.",
     "The api gateway routes traffic to the correct service.",
     "The revealed painting drew a large crowd at the gallery.",
+    # Benign NON-LATIN sentences (Cyrillic/Greek). Confusable folding rewrites
+    # some of their characters to a Latin skeleton; these confirm the fold does
+    # not turn legitimate non-Latin prose into a false-positive match
+    # (STORY-AISEC-005 reviewer finding 1). Meanings are mundane, no directives.
+    "Привет, сегодня хорошая погода и мы идём гулять в парк.",  # ru: nice weather
+    "Спасибо за помощь, увидимся завтра на встрече в офисе.",  # ru: thanks, see you
+    "Это обычный отчёт о продажах за прошлый квартал.",  # ru: a routine sales report
+    "Καλημέρα, ο καιρός είναι ωραίος σήμερα στην Αθήνα.",  # el: good morning weather
+    "Ευχαριστούμε για τη συνάντηση και τα σχόλιά σας.",  # el: thanks for the meeting
 ]
 
 

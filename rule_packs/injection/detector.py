@@ -35,6 +35,26 @@ _TAG_RANGE = set(range(0xE0000, 0xE0080))
 # Long-ish base64-looking tokens; short ones decode to noise.
 _B64_TOKEN = re.compile(r"[A-Za-z0-9+/]{16,}={0,2}")
 
+# Confusable / homoglyph fold map (STORY-AISEC-005): well-established Cyrillic and
+# Greek Latin-lookalikes → their Latin skeleton, so an attacker who swaps
+# `ignore` → `іgnоrе` (Cyrillic) cannot evade the rules. Basis: the Unicode
+# confusables data (TR39). Deliberately CURATED, not a full transliteration —
+# only characters with an unambiguous Latin skeleton are folded, and NO Latin
+# codepoint is ever a key (that would corrupt legitimate text). NFKC (applied
+# just before this) already folds compatibility variants; this adds the
+# script-confusable set NFKC does not touch.
+# str.maketrans yields ordinal→ordinal entries (dict[int, int]); str.translate
+# accepts that form directly.
+_CONFUSABLES: dict[int, int] = {}
+# Cyrillic lowercase → Latin
+_CONFUSABLES.update(str.maketrans("аеорсхуіјѕкԁһԛѵԝ", "aeopcxyijskdhqvw"))
+# Cyrillic uppercase → Latin
+_CONFUSABLES.update(str.maketrans("АВЕКМНОРСТХУІЈЅ", "ABEKMHOPCTXYIJS"))
+# Greek uppercase → Latin
+_CONFUSABLES.update(str.maketrans("ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ", "ABEZHIKMNOPTYX"))
+# Greek lowercase (only the unambiguous ones) → Latin
+_CONFUSABLES.update(str.maketrans("ονρ", "ovp"))
+
 
 def _is_texty(s: str) -> bool:
     """True if ``s`` is human-readable text — printable once common whitespace
@@ -137,7 +157,9 @@ def normalize(
     text = text[:max_scan_chars]
     text = text.translate(_ZERO_WIDTH)
     text = "".join(ch for ch in text if ord(ch) not in _TAG_RANGE)
-    base = unicodedata.normalize("NFKC", text)
+    # NFKC first (compatibility variants), then fold script confusables so
+    # Cyrillic/Greek homoglyphs collapse to their Latin skeleton before matching.
+    base = unicodedata.normalize("NFKC", text).translate(_CONFUSABLES)
     decoded = _decode_segments(
         base, max_decode_depth=max_decode_depth, min_decoded_len=min_decoded_len
     )

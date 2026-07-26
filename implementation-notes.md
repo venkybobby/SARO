@@ -1,35 +1,67 @@
-# STORY-AISEC-004 — SPIKE: agentic/MCP tool-invocation evidence coverage
-Stage: trivial
-
-Spike/assessment — the deliverable is a DECISION DOCUMENT, not code (the story
-is SPECIFIED-only by design). Code gates (pytest/ratchet) do not apply; the
-output is the build/defer/reject assessment appended to the story file.
+# STORY-AISEC-005 — Homoglyph / confusable normalization for the injection detector
+Stage: standard
 
 ## Lifecycle
-- [x] discover   (rp_tool_scope current coverage + agentic/MCP threat set mapped)
-- [ ] shape      (n/a — no code; assessment is the artifact)
-- [ ] preview    (n/a)
-- [ ] plan       (n/a)
-- [x] build      (assessment authored)
-- [ ] verify     (n/a — doc)
+- [x] discover   (normalize() structure + homoglyph gap confirmed; area just built in AISEC-001)
+- [x] shape      (no architecture-changing ambiguity; one decision self-answered below)
+- [x] preview    (skipped — backend-only, no UI surface)
+- [x] plan
+- [x] build
+- [x] verify
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
-- `rule_packs/observation/rp_tool_scope/1.0.0/pack.yaml` ALREADY detects, from
-  envelope tool NAMES only (INV-2, no arguments/results): TOOL-SCOPE-VIOLATION-1
-  (invoked tool outside allowed_tools), TOOL-SCOPE-OFFERED-1 (out-of-scope tool
-  offered), TOOL-POLICY-ABSENT-1 (tools used, no declared policy).
-- Agentic/MCP threat set (cloned skills securing-agentic-ai-tool-invocation
-  [ATLAS AML.T0053], auditing-mcp-servers-for-tool-poisoning [AML.T0010,
-  OWASP MCP03]): tool poisoning, tool shadowing, rug pulls, toxic flows,
-  argument anomalies, SSRF, unauth MCP exposure, excessive agency.
-- Posture non-negotiables that bound the answer: #1 no external model in core
-  scoring, #3 never writes to client systems, #6 read-only connectors.
+- `rule_packs/injection/detector.py` `normalize()` does zero-width strip →
+  tag-range drop → NFKC → bounded base64/ROT13. NFKC does NOT fold Cyrillic/Greek
+  homoglyphs, so `by_obfuscation.homoglyph.recall = 0.0` in the shipped
+  `saro-data-framework/output/injection_eval_batch.json`.
+- Existing normalize() constants (`_ZERO_WIDTH`, `_TAG_RANGE`) are in-code →
+  a confusables map fits the same pattern.
+- The AISEC-003 benchmark (`scripts/run_injection_eval.py`) re-measures the gain.
+
+## Premise check (Stage 3a)
+| Referenced artifact | Verified? | File path |
+|---|---|---|
+| normalize() + NFKC | yes | `rule_packs/injection/detector.py` (`normalize`) |
+| homoglyph gap = 0.0 | yes | `saro-data-framework/output/injection_eval_batch.json` (`by_obfuscation.homoglyph`) |
+| eval harness | yes | `rule_packs/injection/eval.py`, `scripts/run_injection_eval.py` |
+| benign FP corpus | yes | `saro-data-framework/corpora/injection_eval_corpus.jsonl` (label=benign) |
 
 ## Decision Log
-- Deliverable form? → decision doc appended to the story file (spike output), not code
-- Framing? → "what evidence from logs the customer already exports", never "should SARO intercept tool calls" (it must not)
+- Confusables map: in-code constant vs data file? → **in-code constant** (consistent with `_ZERO_WIDTH`/`_TAG_RANGE` in normalize(); provenance comment cites Unicode confusables/TR39 for auditability). Rules pack unchanged → pack hash unchanged.
+- Fold scope? → **curated Cyrillic + Greek → Latin LETTER confusables only**, not broad transliteration and NOT digit/punct (folding 0→o/1→l risks corrupting real text/URLs — under-fold, over-folding guard, AC-5).
+- Where to fold? → **after NFKC, before matching** in normalize(); folds only confusable codepoints, mixed-script text keeps the rest.
+
+## Plan (tweak-likelihood order)
+1. **Confusables map** `_CONFUSABLES` in `detector.py` — curated Cyrillic+Greek→Latin
+   (+ common digit/punct) skeleton map, provenance comment. Verify: unit test that
+   the map folds known homoglyphs.
+2. **Fold step** in `normalize()` — apply `str.translate(_CONFUSABLES)` after NFKC,
+   before returning `base` (flows into decode segments too). Verify: AC-1
+   (Cyrillic-obfuscated injection detected), edge (mixed-script) unit tests.
+3. **Re-measure** — regenerate `injection_eval_batch.json`; homoglyph recall
+   0.0 → ≥0.8; benign FP rate stays 0.0. Verify: AC-2/AC-3 tests over the corpus.
+4. Tests `tests/test_aisec_005_homoglyph_normalization.py` (AC-1..5, no-network).
+   Gates 1-7; reviewer + security-auditor; index → IMPLEMENTED; traceability.
+
+## Compliance guardrails
+- Deterministic, no external model/network, no new dependency (AC-4).
+- Fold only well-established confusables; benign corpus FP rate pins over-folding (AC-3).
+
+## Review round 1 (reviewer + security-auditor agents)
+- **security-auditor: PASS.** Fold is monotonic-toward-matching (48 keys all
+  non-Latin ≥U+0400 → Latin skeleton), length-preserving (evidence offsets
+  intact), O(n) bounded by max_scan_chars, no dep/network. No new evasion; a
+  homoglyph inside base64 now folds+decodes (more detection). No FAIL.
+- **reviewer: APPROVE** (4 minor). Addressed:
+  1. Benign corpus was 100% ASCII → FP=0.0 didn't exercise the fold. Added 5
+     benign Cyrillic/Greek sentences (benign 53→58); FP rate stays 0.0 → now
+     genuinely tests over-folding.
+  2. Story "punct/digit confusables" overclaim → corrected (code folds letters
+     only; digit/punct explicitly out of scope).
+  3. Index SPECIFIED + notes boxes → flipped at close (this commit).
+  4. Untracked noise → only intended files staged.
 
 ## Deviations
-- Branch stacked on story/STORY-AISEC-003 (pack chain; predecessors unmerged due
-  to CI billing block). Doc-only, so no code conflict risk.
+- Branch off main (fresh — AISEC pack already merged to main as 0f4ec30). Not
+  stacked; this is an independent follow-on.
