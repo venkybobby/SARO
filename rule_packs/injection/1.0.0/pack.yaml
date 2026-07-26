@@ -1,0 +1,83 @@
+# RP-PROMPT-INJECTION@1.0.0 — prompt-injection & system-prompt-leakage indicators.
+#
+# EVIDENCE-ONLY. This pack surfaces indicators consistent with prompt-injection
+# and system-prompt-leakage in the audited prompt/output text. It does NOT change
+# SARO's risk score, does NOT block, and issues no verdict — human review is
+# required (docs/COMPLIANCE_CLAIMS_MATRIX.md).
+#
+# The heuristic corpus is the deterministic slice of the Apache-2.0 community
+# skill `detecting-indirect-prompt-injection` (mukul975/Anthropic-Cybersecurity-
+# Skills, scripts/agent.py `HEURISTICS`). Model-based detectors from that skill
+# (Llama Guard / deberta) are intentionally excluded: SARO's core scoring never
+# calls an external model (CLAUDE.md Non-Negotiable #1).
+#
+# ATLAS mapping is evidence-only (Tier-3) and consumed by STORY-AISEC-002:
+#   AML.T0054       — LLM Jailbreak (instruction override / role escape)
+#   AML.T0051.001   — Indirect Prompt Injection (exfiltration / hidden directives)
+#   AML.T0056       — Extract LLM System Prompt (system-prompt / secret disclosure)
+
+name: RP-PROMPT-INJECTION
+version: "1.0.0"
+title: "Prompt-injection & system-prompt-leakage indicators"
+
+obligation: >
+  Surface indicators consistent with prompt-injection or system-prompt-leakage in
+  the audited text. Evidence for human auditor review — SARO does not certify,
+  block, or determine intent. Evidence reference: MITRE ATLAS AML.T0051 / AML.T0054.
+
+# Bounds applied by the normalizer before matching (decode-bomb / DoS guards).
+normalization:
+  max_scan_chars: 20000
+  max_decode_depth: 2
+  min_decoded_len: 5
+
+rules:
+  - rule_id: "INJ-INSTRUCTION-OVERRIDE"
+    title: "Instruction-override phrasing"
+    severity: "HIGH"
+    pattern: "ignore (all |the )?(previous|prior|above) instructions"
+    atlas_technique_id: "AML.T0054"
+
+  - rule_id: "INJ-DISREGARD-SYSTEM"
+    title: "Disregard-system-prompt phrasing"
+    severity: "HIGH"
+    pattern: "disregard (the )?(system|previous) (prompt|instructions)"
+    atlas_technique_id: "AML.T0054"
+
+  - rule_id: "INJ-ROLE-ESCAPE"
+    title: "Role-escape / jailbreak persona phrasing"
+    severity: "HIGH"
+    pattern: "you are (now )?(an?|in) (developer|admin|dan|jailbreak)"
+    atlas_technique_id: "AML.T0054"
+
+  - rule_id: "INJ-SECRET-DISCLOSURE"
+    title: "System-prompt / secret disclosure request"
+    severity: "HIGH"
+    pattern: "reveal (the )?(system prompt|secret|api[_ ]?key)"
+    # AML.T0056 "Extract LLM System Prompt" — verified more precise than the
+    # AML.T0051 parent for a system-prompt disclosure request (STORY-AISEC-002).
+    atlas_technique_id: "AML.T0056"
+
+  - rule_id: "INJ-EXFILTRATION"
+    title: "Exfiltration phrasing"
+    severity: "MEDIUM"
+    pattern: "exfiltrat"
+    atlas_technique_id: "AML.T0051.001"
+
+  - rule_id: "INJ-SEND-TO-URL"
+    title: "Send-data-to-external-URL phrasing"
+    severity: "MEDIUM"
+    pattern: "send .* to https?://"
+    atlas_technique_id: "AML.T0051.001"
+
+  - rule_id: "INJ-NEW-INSTRUCTIONS"
+    title: "Injected new-instructions marker"
+    severity: "MEDIUM"
+    pattern: "new instructions?:"
+    atlas_technique_id: "AML.T0051.001"
+
+  - rule_id: "INJ-CONCEAL-FROM-USER"
+    title: "Conceal-from-user phrasing"
+    severity: "MEDIUM"
+    pattern: "do not (tell|inform) the user"
+    atlas_technique_id: "AML.T0051.001"

@@ -1,0 +1,31 @@
+# MITRE ATLAS technique registry — the verified set of ATLAS technique IDs SARO
+# references as EVIDENCE. Each ID + exact name was verified against the upstream
+# ATLAS data (github.com/mitre-atlas/atlas-data, ATLAS.yaml) — never trusted from
+# the community skills library, whose frontmatter mis-files framework codes
+# (see STORY-AISEC-002 premise check).
+#
+# ATLAS is referenced as EVIDENCE only (Tier-3, docs/COMPLIANCE_CLAIMS_MATRIX):
+# "indicators consistent with MITRE ATLAS {id}". SARO never claims ATLAS
+# coverage/conformance and never issues a verdict.
+
+name: ATLAS-REGISTRY
+version: "1.0.0"
+source: "https://github.com/mitre-atlas/atlas-data (ATLAS.yaml)"
+
+# Sub-technique names are stored fully-qualified ("parent: child") so an ATLAS
+# label reads unambiguously in a TRACE, matching upstream ATLAS display form.
+techniques:
+  - id: "AML.T0051"
+    name: "LLM Prompt Injection"
+  - id: "AML.T0051.000"
+    name: "LLM Prompt Injection: Direct"
+  - id: "AML.T0051.001"
+    name: "LLM Prompt Injection: Indirect"
+  - id: "AML.T0054"
+    name: "LLM Jailbreak"
+  - id: "AML.T0056"
+    name: "Extract LLM System Prompt"
+  - id: "AML.T0024"
+    name: "Exfiltration via AI Inference API"
+  - id: "AML.T0057"
+    name: "LLM Data Leakage"

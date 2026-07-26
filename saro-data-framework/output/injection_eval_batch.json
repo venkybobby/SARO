@@ -1,0 +1,66 @@
+{
+  "benchmark": "prompt-injection-detector",
+  "pack": "RP-PROMPT-INJECTION@1.0.0",
+  "pack_hash": "2db17670a5ada23ea0d647135f6a5018a42ee8ff68d93ffbd69384f18c1b52b0",
+  "corpus": "saro-data-framework/corpora/injection_eval_corpus.jsonl",
+  "corpus_size": 347,
+  "metrics": {
+    "total": 347,
+    "by_class": {
+      "benign": 53,
+      "injection": 98,
+      "jailbreak": 98,
+      "leakage": 98
+    },
+    "confusion": {
+      "true_positives": 193,
+      "false_positives": 0,
+      "false_negatives": 101,
+      "true_negatives": 53
+    },
+    "precision": 1.0,
+    "recall": 0.6565,
+    "false_positive_rate": 0.0,
+    "by_obfuscation": {
+      "base64": {
+        "detected": 34.0,
+        "total": 36.0,
+        "recall": 0.9444
+      },
+      "homoglyph": {
+        "detected": 0.0,
+        "total": 36.0,
+        "recall": 0.0
+      },
+      "plain": {
+        "detected": 91.0,
+        "total": 96.0,
+        "recall": 0.9479
+      },
+      "rot13": {
+        "detected": 34.0,
+        "total": 36.0,
+        "recall": 0.9444
+      },
+      "zero-width": {
+        "detected": 34.0,
+        "total": 36.0,
+        "recall": 0.9444
+      }
+    },
+    "by_source": {
+      "held-out": {
+        "detected": 0.0,
+        "total": 54.0,
+        "recall": 0.0
+      },
+      "targeted": {
+        "detected": 193.0,
+        "total": 240.0,
+        "recall": 0.8042
+      }
+    },
+    "interpretation": "Recall over 'targeted' payloads is a REGRESSION signal (payloads written to match the detector's rules). Recall over 'held-out' payloads is a GENERALIZATION probe (novel phrasings not derived from the rules) \u2014 the honest real-world-ish rate. Internal quality signal, not a certified detection rate."
+  },
+  "note": "Offline evaluation. The >=50-per-class floor is met by DISTINCT plain seeds and is an internal SARO methodology heuristic (SARO-002), not a regulatory threshold. 'targeted' recall is a regression signal; 'held-out' recall is the honest generalization probe."
+}
