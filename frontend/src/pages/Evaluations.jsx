@@ -53,9 +53,10 @@ export default function Evaluations({ token, user, embedded = false }) {
       .then((d) => { setEvals(Array.isArray(d) ? d : d.items || []); setLoading(false); })
       .catch((e) => {
         // STORY-TAB-004: a 403 is an access decision, not a failure — say so.
+        // FND-079: don't enumerate the privilege model in the denial copy.
         setError(
           `${e}` === "403"
-            ? "Your role does not have access to evaluation runs. Evaluation history is limited to admin, operator and super-admin accounts."
+            ? "Your role does not have access to evaluation runs. Contact an administrator if you need this history."
             : `${e}`
         );
         setLoading(false);
@@ -273,11 +274,9 @@ export default function Evaluations({ token, user, embedded = false }) {
                   {ev.created_at && <span>Started: {ev.created_at.slice(0, 16).replace("T", " ")}</span>}
                   {ev.completed_at && <span>Completed: {ev.completed_at.slice(0, 16).replace("T", " ")}</span>}
                 </div>
-                {ev.error_message && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", background: "#fee2e2", padding: "6px 10px", borderRadius: 5 }}>
-                    {ev.error_message}
-                  </div>
-                )}
+                {/* FND-078: the list response no longer carries error_message
+                    (internal exception text); failure forensics live on the
+                    super_admin/operator-only detail route. */}
                 {ev.metrics && (
                   <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}>
                     {Object.entries(ev.metrics).map(([k, v]) => (

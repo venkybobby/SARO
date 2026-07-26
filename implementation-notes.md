@@ -1,72 +1,43 @@
-# demo-persona-ui-verification — persona view verification for the demo (UI)
+# FND-078 / FND-079 / FND-063 / FND-067 — security-hardening findings batch
+
 Stage: standard
 
-Goal (user request, expert phrasing): the demo kit verifies the pipeline (CLI)
-and the public /demo flow, but nothing verifies the authenticated persona
-views — AI Auditor, Risk Officer ("risk auditor"), Compliance Lead ("lead"
-persona) — against the seeded demo data. Add a persona UI verification
-harness + runbook section so every persona's view is walked, screenshotted,
-and gated (exact tab set, zero ≥400 API responses).
-
 ## Lifecycle
-- [x] discover   (persona model mapped: Sidebar.jsx PERSONA_TABS/ROLE_LABELS, persona switcher, PATCH /users/{id}/persona super_admin-only, seed_demo single operator user)
-- [x] shape      (autonomous session — decisions defaulted + logged below)
-- [x] preview    (skipped — no UI change; harness drives the EXISTING UI)
-- [x] plan
-- [x] build      (harness + SQLite launcher + runbook Part 6 + 4 parser pins)
-- [x] verify     (live walk executed in-session: login, modal dismissal, switcher, 16 tab captures, 500-census, summary.json — see Deviations for SQLite limits)
+- [x] discover   (skipped — all four findings carry root-cause rows in quality/findings.md from their originating audits)
+- [x] shape      (owner instruction "Fix them all"; decisions defaulted + logged below)
+- [x] preview    (skipped — no user-facing design change; one UI copy generalization)
+- [x] plan       (per-finding task list; red-first pin per finding)
+- [x] build      (four fixes red-first; gates green — regression 215, integration 370, unit 834, vitest 276, full mypy clean, ratchet holds)
+- [x] verify     (reviewer APPROVE x4 + security-auditor PASS; review round applied — previous-value forensics on the contact audit event, overlong-email boundary pin. CI verification pending the GitHub Actions billing restore — merge held.)
 - [ ] sell       (n/a)
 
 ## Premise check (Stage 3a)
 
-| Referenced artifact | Verified? | File path |
+| referenced artifact | verified? | file path or PREMISE-UNVERIFIED |
 |---|---|---|
-| Persona tab map + switcher | yes | `frontend/src/components/Sidebar.jsx` (PERSONA_TABS L17, ROLE_LABELS L70, SWITCHABLE_PERSONAS L79, switcher menu L253) |
-| Persona switch endpoint (super_admin) | yes | `routers/auth.py:360` (`PATCH /users/{user_id}/persona`) |
-| Existing /demo browser walk | yes | `scripts/demo_capture_playwright.py` |
-| Live demo E2E gate | yes | `tests/e2e/test_demo_live_flow.py` |
-| Demo seed (tenant/user/corpus) | yes | `scripts/seed_demo.py` (single operator user, persona compliance_lead) |
-| Local walk precedent (SQLite + Vite) | yes | `docs/DEMO_READINESS_REVIEW_2026-07-19.md` |
-| Demo runbook to extend | yes | `docs/demo/AZURE_VERTEX_E2E_DEMO.md` |
-| Login form | yes | `frontend/src/pages/Login.jsx` (email/password inputs, submit) |
+| EvaluationRunOut carries api_url + error_message; Detail extends it | yes | routers/evaluations.py:54-77 |
+| require_role 403 echoes role tuple; or_persona variant is generic | yes | auth.py:303-304 vs auth.py:377 |
+| /remediation/oauth/jira/start gated by bare get_current_user | yes | routers/remediation.py:408-412 |
+| No security-contact field exists; docs/ops has no breach template | yes | grep models.py/clients.py; ls docs/ops |
+| Next migration slot | yes | migrations/041_pilot_feedback.sql → 042 |
+| No test pins the "Required:" wording | yes | grep tests/ |
+| CI billing outage (jobs die at 0 steps) — merge must wait | yes | gh api runs/jobs; memory project_github_actions_billing_block |
 
 ## Decision Log
 
-(format: question → answer → architectural consequence; autonomous session,
-answers defaulted conservatively)
+(format: question → defaulted answer → architectural consequence)
 
 | Question | Answer | Architectural consequence |
 |---|---|---|
-| Which personas? "ai auditor, risk auditor, lead implementation user" | Default walk = `ai_auditor`, `risk_officer`, `compliance_lead` (closest matches; no `implementation_lead` persona exists). `--all` covers all six. | Ambiguity absorbed by coverage; no new persona invented. |
-| One user per persona, or one super_admin walking the switcher? | One super_admin verification user + the product's own persona switcher. | Verifies the switcher itself; base role stays super_admin so no false 403s; mirrors how a presenter demos persona views (RB-005 §5). |
-| Where do expected tabs come from? | Parsed from Sidebar.jsx at runtime (PERSONA_TABS/TAB_REGISTRY/ROLE_LABELS). | Harness cannot drift from the frontend; a unit test pins the parser. |
-| New E2E CI job? | No — script + runbook section only (same posture as demo_capture_playwright.py, which is also operator-run). CI-blocked account anyway. | No workflow changes; no new Actions spend. |
-| Screenshots committed? | No — land in artifacts/persona-ui/ (env-dependent output). | No binary churn in git. |
-
-## Plan (tweak-likelihood order)
-
-1. `scripts/demo_persona_ui_verification.py` — login → per persona: switch via
-   sidebar → assert rendered nav == PERSONA_TABS[persona] exactly → click every
-   tab → screenshot → ≥400 census; `--ensure-user` seeds the super_admin
-   verification account; exit 0/1; summary.json.
-2. Runbook Part 6 (persona view verification): run steps + per-persona expected
-   tab table + manual checklist.
-3. Unit test pinning the Sidebar.jsx parser (personas + tab ids + labels parse
-   and cross-check), no browser needed.
-4. Mechanical: notes/gates/commit/PR.
+| FND-078: drop or sanitize? | Drop `api_url` + `error_message` from EvaluationRunOut (list + trigger responses); keep on EvaluationRunDetailOut (super_admin/operator only). ORM columns unchanged. | List consumers (incl. the AdminSettings embed + TrustCenter card) see no internal infra detail; failure text remains reachable via the gated detail route. |
+| FND-079 wording | Generic "Not authorised for this action." — mirrors require_role_or_persona; `_log_authz_denial` keeps the full role detail server-side. Evaluations.jsx 403 copy loses the role enumeration (pinned phrase kept). | Uniform disclosure posture across both authz helpers. |
+| FND-063 scope | Role-gate /start: require_role("admin","super_admin") + require_write_access. Single-slot pending nonce kept (documented residual — concurrent admin flows clobber; low risk, admin-only now). | Rebinding the tenant Jira connection becomes an admin capability; demo/read-only tokens blocked outright. |
+| FND-067 scope | docs/ops/breach-notification-template.md (initial/update/closure sections, [HUMAN — COUNSEL REVIEW] markers per FND-064 precedent) + nullable `tenants.security_contact_email` (migration 042) surfaced read/write on the client profile endpoints. | 72h-clock artifacts exist before an incident; contact captured at onboarding; counsel sign-off explicitly flagged, not implied. |
+| Landing | One branch/PR (findings batch, not stories); merge HELD until GitHub Actions billing is restored (jobs currently die at startup — merging unverified would break the no-red-merge rule). | PR opens now; owner unblocks billing; then merge. |
 
 ## Deviations
-- Live verification ran on the SQLite stand-in (no Docker in this environment).
-  Findings from the walk, all environmental to SQLite: (1) many API panels 500
-  via the UUID shim (`'str' object has no attribute 'hex'` — /auth/me,
-  compliance-matrix, evf, audits, risks…), so (2) the persona PATCH doesn't
-  apply and the nav stays on the login persona. Both are green in RB-006's
-  census against Postgres; the runbook and script docstrings state that the
-  Postgres stack (`scripts/run_local.ps1`) is the authoritative gate and the
-  SQLite launcher is a UI-mechanics smoke. Harness mechanics fully verified:
-  login, onboarding-modal dismissal, switcher interaction, per-tab capture,
-  ≥400 census attribution per persona, stale-run cleanup, exit-code gating.
-- Two UI facts discovered and handled in the harness (would block any
-  automated walk): the first-run onboarding modal overlays the app after
-  login, and the persona-switcher menu stays open over the nav until an
-  outside click.
+- Reviewer/security round applied in-PR: audit event records {previous, new}
+  (forensic redirect question); >320-char email boundary pin added; FND-061
+  fixture re-roled to the FND-063-admitted role (assertions unchanged).
+- Merge deliberately HELD: GitHub Actions billing outage means CI cannot run;
+  merging unverified-by-CI would break the no-red-merge rule.

@@ -298,10 +298,13 @@ def require_role(*roles: str):
     ) -> User:
         if current_user.role not in roles:
             _log_authz_denial(current_user, request, required=f"role:{roles}")
+            # FND-079: generic denial — do not echo the caller's role or the
+            # required tuple (the privilege model) to the client. The full
+            # detail is already recorded server-side by _log_authz_denial,
+            # matching require_role_or_persona's posture (FND-036).
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{current_user.role}' is not authorised for this action. "
-                f"Required: {roles}",
+                detail="Not authorised for this action.",
             )
         return current_user
 

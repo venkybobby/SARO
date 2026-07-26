@@ -20,9 +20,10 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, hash_password, require_role
+from auth import get_current_user, hash_password, require_role, require_write_access
 from database import get_db
 from models import AuditEvent, ClientConfig, Tenant, User
 from schemas import (
@@ -266,6 +267,73 @@ def list_clients(
         user_count = db.query(User).filter(User.tenant_id == tenant.id).count()
         results.append(_build_client_out(tenant, cfg, user_count))
     return results
+
+
+# ── FND-067: tenant security contact ─────────────────────────────────────────
+# Registered BEFORE the dynamic /{tenant_id} route (FND-051: FastAPI matches in
+# registration order — a later static path would be captured as tenant_id).
+
+
+class SecurityContactIn(BaseModel):
+    security_contact_email: EmailStr
+
+
+@router.get(
+    "/security-contact",
+    dependencies=[Depends(require_role("admin", "super_admin"))],
+    summary="FND-067: read this tenant's recorded security contact",
+)
+def get_security_contact(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    tenant = db.get(Tenant, current_user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return {
+        "tenant_id": str(tenant.id),
+        "security_contact_email": tenant.security_contact_email,
+    }
+
+
+@router.put(
+    "/security-contact",
+    dependencies=[
+        Depends(require_role("admin", "super_admin")),
+        Depends(require_write_access),
+    ],
+    summary="FND-067: set this tenant's security contact (72h breach-notification recipient)",
+)
+def set_security_contact(
+    payload: SecurityContactIn,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    """Who receives breach notifications for this tenant
+    (docs/ops/breach-notification-template.md; support-model.md §4)."""
+    tenant = db.get(Tenant, current_user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    # Reviewer/security-auditor: the forensic question on this field is "who
+    # redirected breach notifications AWAY FROM whom" — record both values.
+    previous = tenant.security_contact_email
+    tenant.security_contact_email = str(payload.security_contact_email)
+    # STORY-366 AUDITED promise: use the router's sanctioned recorder helper.
+    _log_event(
+        db,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        event_type="security_contact_updated",
+        event_data={
+            "previous": previous,
+            "new": tenant.security_contact_email,
+        },
+    )
+    db.commit()
+    return {
+        "tenant_id": str(tenant.id),
+        "security_contact_email": tenant.security_contact_email,
+    }
 
 
 @router.get(

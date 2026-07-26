@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_write_access
+from auth import get_current_user, require_role, require_write_access
 from database import get_db
 from models import Audit, AuditEvent, AuditTrace, Tenant, User
 from services.coverage_service import DEFAULT_OVERDUE_DAYS, build_coverage_report
@@ -407,7 +407,19 @@ async def list_audit_traces(
 # â”€â”€ Jira OAuth2 endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-@router.get("/remediation/oauth/jira/start")
+# FND-063: /start initiates a flow that REBINDS the whole tenant's Jira
+# connection to the completing Atlassian account — an admin capability, not
+# something every authenticated (or read-only demo) user may trigger.
+# Residual (documented): the pending nonce is a single per-tenant slot, so
+# two concurrent ADMIN flows can clobber each other — accepted at this
+# surface size.
+@router.get(
+    "/remediation/oauth/jira/start",
+    dependencies=[
+        Depends(require_role("admin", "super_admin")),
+        Depends(require_write_access),
+    ],
+)
 async def jira_oauth_start(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],

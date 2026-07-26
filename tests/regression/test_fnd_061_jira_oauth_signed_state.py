@@ -73,8 +73,11 @@ def _user() -> MagicMock:
     u = MagicMock(spec=User)
     u.id = uuid.uuid4()
     u.email = "officer@test.example"
-    u.role = "operator"
-    u.persona_role = "operator"
+    # FND-063: /start became an admin-class capability; these flow tests
+    # exercise the signed-state mechanics, so the fixture holds the role
+    # the gate admits (the denial half is pinned by test_fnd_063_*).
+    u.role = "admin"
+    u.persona_role = "admin"
     u.tenant_id = _TENANT_ID
     u.is_active = True
     u.read_only = False
