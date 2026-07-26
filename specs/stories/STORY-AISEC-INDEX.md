@@ -18,6 +18,7 @@
 | STORY-AISEC-003 | Adversarial prompt-injection eval corpora for saro-data-framework | IMPLEMENTED | 2669ca0 — `rule_packs/injection/eval.py` + 347-sample corpus + `scripts/run_injection_eval.py`; `tests/test_aisec_003_injection_eval.py` 10/10; targeted recall 0.80 / held-out 0.0 (honest split); full suite 2331 passed, ratchet 89.16%; reviewer APPROVE + security-auditor PASS |
 | STORY-AISEC-004 | SPIKE — agentic / MCP tool-invocation evidence coverage assessment | DRAFTED | assessment authored (spike output, no code by design) — `specs/stories/STORY-AISEC-004_agentic_tool_scope_spike.md` §Assessment |
 | STORY-AISEC-005 | Homoglyph / confusable normalization for the injection detector | IMPLEMENTED | 718e04f — `_CONFUSABLES` fold in `rule_packs/injection/detector.py` normalize(); homoglyph recall 0.0→0.9444, FPR stays 0.0; `tests/test_aisec_005_homoglyph_normalization.py` 8/8; full suite 2362 passed, ratchet 89.04%; reviewer APPROVE + security-auditor PASS |
+| STORY-AISEC-006 | MCP tool-description poisoning evidence (scan tool descriptions) | IMPLEMENTED | fc08197 — `ToolInvocation.description` + `rp_tool_poisoning` pack + `_check_tool_description_injection` (evidence-only, ATLAS AML.T0010); `tests/test_aisec_006_tool_description_poisoning.py` 9/9; full suite 2371 passed, ratchet 89.06%; reviewer APPROVE + security-auditor PASS |
 
 ## Recommended sequence & dependencies
 1. **AISEC-001** first — the deterministic detector; highest value, lowest posture
