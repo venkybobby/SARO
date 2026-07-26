@@ -1,6 +1,6 @@
 # STORY-AISEC-007: Semantic prompt-injection on the optional Gate-3 judge
 
-**Status:** draft
+**Status:** IMPLEMENTED (5204926)
 **Screen/Area:** engine.py (injection scan / optional LLM judge) / COMPLIANCE_CLAIMS_MATRIX
 
 ## Origin
