@@ -15,7 +15,7 @@
 |---|---|---|---|
 | STORY-AISEC-001 | Deterministic prompt-injection normalization + detection rule-pack | IMPLEMENTED | 0d905d3 — `rule_packs/injection/` + `engine._scan_injection` (evidence-only); `tests/test_aisec_001_injection_detector.py` 14/14; full suite 2309 passed, ratchet 89.10%; reviewer + security-auditor addressed |
 | STORY-AISEC-002 | MITRE ATLAS evidence axis on findings + TRACE | IMPLEMENTED | 4e58b0d — `rule_packs/atlas/` verified registry + `engine.py` ATLAS axis (evidence-only, detector-anchored); `tests/test_aisec_002_atlas_axis.py` 8/8; full suite 2321 passed, ratchet 89.13%; reviewer APPROVE + security-auditor PASS |
-| STORY-AISEC-003 | Adversarial prompt-injection eval corpora for saro-data-framework | SPECIFIED | spec only — `specs/stories/STORY-AISEC-003_adversarial_eval_corpora.md` |
+| STORY-AISEC-003 | Adversarial prompt-injection eval corpora for saro-data-framework | IMPLEMENTED | 2669ca0 — `rule_packs/injection/eval.py` + 347-sample corpus + `scripts/run_injection_eval.py`; `tests/test_aisec_003_injection_eval.py` 10/10; targeted recall 0.80 / held-out 0.0 (honest split); full suite 2331 passed, ratchet 89.16%; reviewer APPROVE + security-auditor PASS |
 | STORY-AISEC-004 | SPIKE — agentic / MCP tool-invocation evidence coverage assessment | SPECIFIED | spec only — `specs/stories/STORY-AISEC-004_agentic_tool_scope_spike.md` |
 
 ## Recommended sequence & dependencies

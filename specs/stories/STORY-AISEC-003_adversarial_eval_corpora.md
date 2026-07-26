@@ -1,6 +1,6 @@
 # STORY-AISEC-003: Adversarial prompt-injection eval corpora for saro-data-framework
 
-**Status:** draft
+**Status:** IMPLEMENTED (2669ca0)
 **Screen/Area:** saro-data-framework (offline evaluation) / detector benchmarking
 
 ## Source & attribution
