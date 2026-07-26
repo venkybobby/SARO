@@ -117,9 +117,12 @@ auditConfigs:
 
 ### 2.3 Route the audit logs to a customer-owned GCS bucket
 
+Worked example below uses the VeriAegis demo environment; substitute your own
+project id and bucket name.
+
 ```bash
-PROJECT=<gcp-project-id>
-BUCKET=<export-bucket-name>
+PROJECT="project-b73b6bc1-e4a6-4ee1-961"      # your GCP project id
+BUCKET="saro-vertex-export-veriaegis"         # your export bucket
 
 gcloud logging sinks create saro-observation-export \
   storage.googleapis.com/$BUCKET \
@@ -133,8 +136,29 @@ gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
   --role=roles/storage.objectCreator
 ```
 
-Cloud Logging delivers hourly NDJSON `LogEntry` objects. Grant SARO's reader
-principal `roles/storage.objectViewer` on the bucket (read-only, INV-6).
+Cloud Logging delivers hourly NDJSON `LogEntry` objects.
+
+### 2.4 Create SARO's read-only reader principal
+
+SARO never brings its own credentials — the customer creates a reader
+service account in their project and grants it **bucket-scoped, read-only**
+access (INV-6). Never grant a project-wide role.
+
+```bash
+gcloud iam service-accounts create saro-reader \
+  --project=$PROJECT \
+  --display-name="SARO read-only log export reader"
+# Resulting principal (the "SARO service account email"):
+#   saro-reader@$PROJECT.iam.gserviceaccount.com
+# Worked example: saro-reader@project-b73b6bc1-e4a6-4ee1-961.iam.gserviceaccount.com
+
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
+  --member="serviceAccount:saro-reader@$PROJECT.iam.gserviceaccount.com" \
+  --role=roles/storage.objectViewer
+```
+
+The reader's identity never sets SARO tenancy — the tenant binding stays
+operator-supplied configuration (INV-3), exactly as the demo's step 2 shows.
 
 > **Content hazard, handled by construction:** Vertex *Data Access* audit logs
 > can include `protoPayload.request`/`.response` — for generative calls, the
@@ -235,6 +259,51 @@ python scripts/build_demo_screencast.py
 | Counts differ from Part 4's table | Corpus drift — run `python scripts/azure_corpus_builder.py --check` and `python scripts/vertex_corpus_builder.py --check`; CI enforces byte-identity. |
 | No `TOOL-SCOPE-*` findings on a real export | Expected on standard Azure/Vertex logs: neither schema carries tool data (see `docs/adapter-capability-matrix.md`). Zero findings here means **no data to evaluate**, not a clean result — the demo corpora include enriched records precisely to show the rules firing. |
 | Real Vertex export parses 0 records | The sink filter likely captured a different service — records with `protoPayload.serviceName != aiplatform.googleapis.com` are skipped by design. |
+
+---
+
+## Part 6 — Persona view verification (UI)
+
+The pipeline walk (Parts 3–4) proves the engine; this part proves what each
+**user persona sees in the UI** against the same seeded demo data. It uses the
+product's own persona switcher — the control a presenter uses live to show the
+AI Auditor, Risk Officer, and Compliance Lead views.
+
+### 6.1 Run it
+
+```bash
+pip install playwright && playwright install chromium   # once
+
+python scripts/seed_demo.py                             # demo tenant + corpus
+python scripts/demo_persona_ui_verification.py --ensure-user
+uvicorn main:app --port 8000 &                          # backend
+(cd frontend && npm install && npm run dev) &           # Vite on :5173
+python scripts/demo_persona_ui_verification.py          # the walk
+```
+
+Default walk covers the three business personas; `--all` adds admin,
+super_admin, and operator. Screenshots land in `artifacts/persona-ui/<persona>/`,
+a machine-readable `summary.json` beside them. Exit 0 = pass.
+
+### 6.2 What each persona must see (parsed live from Sidebar.jsx)
+
+| Persona | Expected tabs |
+|---|---|
+| **AI Auditor** (`ai_auditor`) | Dashboard · TRACE View · Rule Packs · Upload & Scan · Knowledge Portal |
+| **Risk Officer** (`risk_officer`) | Dashboard · Risk Register · TRACE View · AI Insights · Reports |
+| **Compliance Lead** (`compliance_lead`) | Dashboard · Compliance Hub · TRACE View · Trust Center · Model Inventory · Upload & Scan · Reports |
+
+The harness asserts the rendered sidebar is **exactly** this set (parsed from
+`frontend/src/components/Sidebar.jsx` at runtime, so the table above is
+descriptive — the code is the authority), walks every tab, and fails on any
+API response ≥ 400 during the walk.
+
+### 6.3 Pass conditions (mirrors RB-006 discipline)
+
+- [ ] Each persona's sidebar shows its exact tab set — nothing missing, nothing leaking in
+- [ ] Every tab renders with seeded data (screenshots reviewed by a human)
+- [ ] Zero API responses ≥ 400 across all persona walks
+- [ ] Persona switcher itself works (each switch is a real `PATCH /api/v1/auth/users/{id}/persona`)
 
 ---
 

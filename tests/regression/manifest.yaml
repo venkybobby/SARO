@@ -294,8 +294,8 @@ findings:
     quarantine_expires: null
   - id: FND-063
     title: "GET /remediation/oauth/jira/start has no role/read-only gate — any authenticated tenant user can rebind the tenant's Jira connection (security-auditor, FND-061 review, pre-existing)"
-    test: tests/regression/test_fnd_063_jira_oauth_start_role_gate.py
-    status: open
+    test: tests/regression/test_fnd_063_jira_oauth_start_gate.py
+    status: pinned
     quarantine_expires: null
 
   - id: FND-064
@@ -319,7 +319,7 @@ findings:
   - id: FND-067
     title: "No breach-notification template and no tenant security-contact list, despite a 72-hour notification commitment (STORY-371 tabletop)"
     test: tests/regression/test_fnd_067_breach_notification_readiness.py
-    status: open
+    status: pinned
     quarantine_expires: null
 
   - id: FND-068
@@ -385,12 +385,12 @@ findings:
   - id: FND-078
     title: "Evaluations LIST response exposes api_url + raw error_message internals to every listing role (security-auditor, STORY-TAB-004, pre-existing)"
     test: tests/regression/test_fnd_078_evaluations_list_field_hygiene.py
-    status: open
+    status: pinned
     quarantine_expires: null
   - id: FND-079
     title: "require_role 403 echoes the required role tuple; require_role_or_persona deliberately doesn't — inconsistent disclosure posture (security-auditor, STORY-TAB-004, pre-existing)"
     test: tests/regression/test_fnd_079_require_role_generic_denial.py
-    status: open
+    status: pinned
     quarantine_expires: null
   - id: FND-080
     title: "Drift Alerts version grid never rendered (phantom framework_versions key); alert cards referenced never-produced fields; green state carried no freshness (STORY-TAB-005)"

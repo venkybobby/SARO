@@ -33,6 +33,10 @@ AUDITED: dict[tuple[str, str], str] = {
     # ── Tenant configuration ────────────────────────────────────────────────
     ("PUT", "/api/v1/risk-config"): "ADMIN_ACTION",
     ("DELETE", "/api/v1/risk-config"): "ADMIN_ACTION",
+    # FND-067: changing who receives breach notifications is an admin action
+    # with an incident-response consequence; handler writes
+    # event_type="security_contact_updated".
+    ("PUT", "/api/v1/clients/security-contact"): "ADMIN_ACTION",
     # ── Integration / adapter configuration ─────────────────────────────────
     ("POST", "/api/v1/github/configure"): "ADMIN_ACTION",
     ("DELETE", "/api/v1/github/disconnect"): "ADMIN_ACTION",
