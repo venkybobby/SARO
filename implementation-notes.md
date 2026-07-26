@@ -1,97 +1,108 @@
-# STORY-AISEC-002 — MITRE ATLAS evidence axis on findings + TRACE
+# STORY-AISEC-003 — Adversarial prompt-injection eval corpora + benchmark
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (Gate-4 compliance-trigger mapping + injection-finding ATLAS IDs mapped)
-- [ ] shape      (interview — crosswalk scope is the load-bearing, anti-guessing decision)
-- [x] preview    (skipped — backend-only, no UI surface)
+- [x] discover   (saro-data-framework structure + cross-package testability mapped)
+- [x] shape      (placement decision technically-determined by gate/test infra; logged)
+- [x] preview    (skipped — backend/offline, no UI surface)
 - [ ] plan
 - [ ] build
 - [ ] verify
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
-- `_COMPLIANCE_TRIGGERS` (engine.py:309+) maps 7 MIT **harm** domains
-  (Misinformation, Malicious Use, AI System Safety, Human-Computer Interaction,
-  Socioeconomic & Environmental, Discrimination & Toxicity, Privacy & Security)
-  → framework trigger dicts, each with a nullable `nist_subcategory_id`. The
-  ATLAS axis is a parallel optional `atlas_technique_id` field.
-- Stamped into TRACE via `_record_gate4_rule_traces`; surfaced in `AppliedRuleOut`.
-- **Taxonomy tension (load-bearing):** ATLAS = adversarial *attacks on* ML
-  systems; MIT domains = *harms from* AI outputs. Mostly orthogonal. Forcing
-  harm-domain→attack-technique mappings = guessing (AC-1 forbids). The genuinely
-  defensible ATLAS anchor is the AISEC-001 injection detector, which already
-  emits real ATLAS IDs (AML.T0051/.001, AML.T0054).
-- Branch base: stacked on `story/STORY-AISEC-001` (unmerged, CI-billing-blocked)
-  because AISEC-002 AC-4 consumes AISEC-001's injection ATLAS IDs and both touch
-  engine.py. Deviation from "branch from main" logged below.
+- `saro-data-framework/` is a SEPARATE package (own pyproject, MIT, deps:
+  datasets/huggingface-hub). Two package trees: `saro_data` (live) +
+  `saro_data_framework` (legacy). Converts HF datasets → SARO batch JSON in
+  `output/`. Schema `SampleOut(output, ground_truth 0/1, extra)`.
+- **Gate reality (load-bearing):** the /story gates run `pytest tests/` and the
+  ratchet covers the MAIN package only — `saro-data-framework/tests/` is NOT run
+  by the gates, and bandit even excludes `./saro-data-framework`. So AC-pinning
+  tests + the testable eval logic MUST live in the main repo to be gate-verified.
+- The injection detector (`rule_packs.injection.detector`) is in the main
+  package — importable from main-repo tests/scripts, not from the separate
+  saro-data-framework package without sys.path hacks.
 
 ## Premise check (Stage 3a)
 | Referenced artifact | Verified? | File path |
 |---|---|---|
-| Finding→framework mapping | yes | `engine.py:309+` `_COMPLIANCE_TRIGGERS`, `_record_gate4_rule_traces` |
-| nist_subcategory_id precedent | yes | `engine.py:316+` (nullable field per trigger) |
-| Injection ATLAS IDs (AISEC-001) | yes | `rule_packs/injection/1.0.0/pack.yaml` (AML.T0051/.001/T0054) |
-| AppliedRuleOut schema | pending | `schemas.py` — to confirm in DISCOVER-2 |
-| ATLAS technique IDs are real | pending | verify via atlas.mitre.org (AC-3) |
+| Offline eval framework | yes | `saro-data-framework/` (`src/`, `output/`, `config.yaml`) |
+| Detector under test (AISEC-001) | yes (IMPLEMENTED) | `rule_packs/injection/detector.py`, `.../1.0.0/pack.yaml` |
+| ≥50-sample heuristic (SARO-002) | yes | `docs/COMPLIANCE_CLAIMS_MATRIX.md` (Sampling Methodology Basis) |
+| Upstream payload taxonomies | yes | cloned red-team skills (garak/pyrit/promptfoo/system-prompt-leakage/rag) |
 
 ## Decision Log
-| Question | Answer | Architectural consequence |
-|---|---|---|
-| Crosswalk scope? | **Detector-anchored only** | ATLAS IDs flow only from the AISEC-001 injection detector (precise, per-rule). All 7 MIT compliance-domain triggers get the optional `atlas_technique_id` field but **null** everywhere — no domain-level guessing (strict AC-1). AISEC-002 value = verified registry + validation + Tier-3 surfacing of the injection findings' real ATLAS IDs. |
-| Refine AISEC-001 system-prompt map? | **Yes → AML.T0056** | INJ-SECRET-DISCLOSURE remapped AML.T0051 → AML.T0056 "Extract LLM System Prompt" (more precise, verified). Touches the AISEC-001 pack on this stacked branch; pinned by an updated test. |
+Self-answered — technically determined by test infra; momentum per user "continue".
 
-## Verified ATLAS registry (source: github.com/mitre-atlas/atlas-data, ATLAS.yaml)
-| ID | Exact name |
-|---|---|
-| AML.T0051 | LLM Prompt Injection |
-| AML.T0051.000 | Direct |
-| AML.T0051.001 | Indirect |
-| AML.T0054 | LLM Jailbreak |
-| AML.T0056 | Extract LLM System Prompt |
-| AML.T0024 | Exfiltration via AI Inference API |
-| AML.T0057 | LLM Data Leakage |
+- Where does testable eval logic live? → main package `rule_packs/injection/eval.py` (gates cover `tests/` + main pkg only)
+- Where do corpus + metrics live? → `saro-data-framework/` (corpora/ + output/), honoring the story's offline-asset intent
+- Corpus schema? → purpose-built JSONL (text/label/obfuscation), not `SampleOut(ground_truth)`
+- Corpus size? → ≥50 per class (SARO-002 internal heuristic, not a regulation)
+
+| Question | Answer | Consequence |
+|---|---|---|
+| Where does the testable eval logic live? | **Main package** `rule_packs/injection/eval.py` | Gates (`pytest tests/`) + ratchet cover it. Deviation from spec's "batch job in saro-data-framework" area — forced by test infra. |
+| Where do corpus + metrics live? | **saro-data-framework/** | Corpus `saro-data-framework/corpora/injection_eval_corpus.jsonl`; metrics `saro-data-framework/output/injection_eval_batch.json`. Honors the story's offline-asset intent. |
+| Corpus schema? | **Purpose-built JSONL** (`text`, `label`, `obfuscation`) | Clearer than shoehorning into `SampleOut(ground_truth)`; the eval needs 4-way label + obfuscation tag, not a 0/1 fairness schema. |
+| Corpus size? | **≥50 per class** (injection/jailbreak/leakage/benign) | AC-5 / SARO-002 internal heuristic; ≥200 inert payloads total, README states it's internal methodology not a regulatory threshold. |
 
 ## Plan (tweak-likelihood order)
-1. **ATLAS registry data** `rule_packs/atlas/1.0.0/atlas_techniques.yaml` — 7
-   verified IDs + exact names + version. Verify: load + hash test.
-2. **Registry loader** `rule_packs/atlas/registry.py` — `load_atlas_registry()`,
-   `.resolve(id) -> name|None`, `.is_valid(id)`, version + SHA-256. Verify: unit
-   tests (AC-3).
-3. **ATLAS axis on compliance triggers** (engine.py): add `atlas_technique_id:
-   None` to every `_COMPLIANCE_TRIGGERS` entry (null — detector-anchored);
-   `rule._atlas_technique_id = t.get("atlas_technique_id")` in
-   `_gate4_compliance_mapping`; surface in `_record_gate4_rule_traces`
-   detail_json (mirrors nist_subcategory_id exactly). Demonstrates AC-1
-   "null when no mapping applies".
-4. **Injection ATLAS surfacing** (engine `_scan_injection_impl`): name the ATLAS
-   technique + resolved name in the trace reason/detail, Tier-3 ("indicators
-   consistent with MITRE ATLAS {id} {name}"). Verify: AC-2/AC-4 integration test.
-5. **Refine AISEC-001 pack**: INJ-SECRET-DISCLOSURE AML.T0051 → AML.T0056
-   (verified more-precise). Verify: registry-membership test over the pack.
-6. Tests `tests/test_aisec_002_atlas_axis.py` (AC-1..5 incl. Tier-3 forbidden-
-   phrase); gates 1-7; reviewer + security-auditor (engine + rule_packs);
-   index → IMPLEMENTED; traceability. Trusted refactoring: none.
+1. **Corpus data** `saro-data-framework/corpora/injection_eval_corpus.jsonl` +
+   README — ≥50/class labeled inert payloads across obfuscation tags (plain/
+   zero-width/base64/rot13/homoglyph). Verify: corpus-shape + size unit tests.
+2. **Evaluator** `rule_packs/injection/eval.py` — `load_corpus(path)`,
+   `evaluate(corpus, pack) -> Metrics` (precision/recall/FP-rate/per-obfuscation).
+   Pure, offline. Verify: AC-2/AC-3 unit tests.
+3. **Batch runner** `scripts/run_injection_eval.py` — loads corpus + pack, runs
+   evaluate, writes `saro-data-framework/output/injection_eval_batch.json`.
+   Deterministic. Verify: runner smoke test (AC-2 output file).
+4. **Tests** `tests/test_aisec_003_injection_eval.py` (AC-1..5, no-network fixture).
+5. Gates 1-7; reviewer (+ security-auditor — touches rule_packs/); index →
+   IMPLEMENTED; traceability. Trusted refactoring: none.
 
-## Compliance guardrails (enforced in code)
-- Tier-3 only: no "ATLAS-compliant"/"certified"/verdict; evidence-shaped
-  "indicators consistent with ATLAS {id}"; forbidden-phrase test (AC-5).
-- Additive/backward-compatible: atlas field is optional, null where absent;
-  existing TRACE consumers unaffected.
-- No scoring change — descriptive metadata only.
+## Compliance guardrails
+- Payloads stored INERT (data only; never interpolated into a live LLM context,
+  including during any generation). No-network fixture asserts AC-4.
+- ≥50/class is an INTERNAL SARO methodology heuristic (SARO-002), not a
+  regulatory threshold — stated in the corpus README.
 
 ## Review round 1 (reviewer + security-auditor agents)
-- **reviewer: APPROVE.** All 5 invariants verified. Minors addressed:
-  (1) subtechnique labels lost parent context → registry now stores fully-
-  qualified names ("LLM Prompt Injection: Indirect"); test updated.
-  (3) inconsistent None-registry access → `_record_gate4_rule_traces` now uses
-  `getattr(self, "_atlas_registry", None)`. (2) "uncommitted delta" → committing now.
-- **security-auditor: PASS.** No FAIL; ATLAS id is a trusted config constant
-  (never attacker-derived), inert dict lookup, yaml.safe_load, PII path
-  unchanged. INFO-1 (narrow except could let a malformed registry crash init)
-  → broadened `except` to include TypeError/AttributeError/ValueError.
+- **security-auditor: PASS.** Payloads confirmed inert (string-matched only, no
+  eval/exec/subprocess/network); synthetic-only (RFC-2606 example domains, no
+  real secrets); json.loads parsing; local-only output. No FAIL.
+- **reviewer: REQUEST-CHANGES → all addressed (substantive rework):**
+  1. [MAJOR] Gamed metric (positives reverse-engineered from the detector) →
+     added a **held-out** subset of novel phrasings NOT derived from pack.yaml;
+     metrics now split `by_source` (targeted=regression, held-out=generalization).
+     Honest numbers: overall recall 0.85→0.66; targeted 0.80, **held-out 0.0**
+     (regex detector doesn't generalize — the real signal). README + emitted
+     JSON + story Benefits reworded: internal quality signal, NOT a certified
+     detection rate.
+  2. [MAJOR] Padded ≥50 floor → floor now met by ≥50 DISTINCT plain seeds/class
+     (50/50/50/53); encoding variants no longer counted toward it; benign
+     suffix-duplication removed. New test counts distinct plain seeds.
+  3. [MINOR] Non-deterministic `generated_at` in committed report → removed
+     (report now diffs cleanly; provenance = pack hash + corpus).
+  4. [MINOR] Working-tree hygiene → only intended files staged; cruft excluded.
+
+## Review round 2 (reviewer re-review of the rework)
+- **reviewer: conditional APPROVE.** Verified both MAJOR reworks hold (held-out
+  seeds genuinely avoid the regexes; held-out recall 0/54=0.0; floor = distinct
+  plain seeds 50/50/50/53; deterministic report). Flagged 3 doc-only FM-4 items
+  (I'd updated traceability/Result before the rename+rework):
+  1. Traceability cited two renamed tests → updated to the shipped names
+     (verified all 10 cited names exist).
+  2. Result block stale (n=229/recall=0.85) → refreshed to n=347, targeted 0.80
+     / held-out 0.0 / aggregate 0.66, labeled as internal signals.
+  3. eval.py "apples-to-apples" comment overstated → reworded (plain spans all
+     targeted-plain; encodings are the fixed 12-seed subset → indicative).
+  Reviewer's stated condition ("once Traceability and Result are corrected … this
+  is an APPROVE") is now satisfied and verified; fixes are doc/comment-only, no
+  metric or report change.
 
 ## Deviations
-- Branch stacked on story/STORY-AISEC-001 (not main): AISEC-002 depends on
-  AISEC-001 (AC-4) and both edit engine.py; predecessor is unmerged only because
-  CI is billing-blocked. Conservative choice to avoid a same-file conflict.
+- Eval logic in `rule_packs/injection/eval.py` (main package), not inside
+  saro-data-framework: forced by the gate/ratchet only covering `tests/` + the
+  main package. Corpus + metrics output still live under saro-data-framework/.
+- Branch stacked on story/STORY-AISEC-002 (needs AISEC-001's detector; 002 is the
+  current tip). CI billing-blocked so predecessors unmerged.
