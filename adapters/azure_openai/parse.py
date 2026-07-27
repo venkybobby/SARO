@@ -36,6 +36,7 @@ from adapters.contract import (
     NormalizedInvocationRecord,
     SourceProvenance,
     ToolInvocation,
+    clamp_tool_description,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
     if "." in text:
         head, _, tail = text.partition(".")
         digits = "".join(c for c in tail if c.isdigit())
-        offset = tail[len(digits):]
+        offset = tail[len(digits) :]
         text = f"{head}.{digits[:6]}{offset}"
     try:
         parsed = datetime.fromisoformat(text)
@@ -93,6 +94,28 @@ def _tool_names(container: Any) -> list[str]:
     return names
 
 
+def _tool_descriptions(container: Any) -> dict[str, str]:
+    """Map offered tool NAME → advertised description (STORY-AISEC-008).
+
+    Reads the request-side tool declaration only (metadata, INV-2 safe): the
+    description sits at ``item.description`` or ``item.function.description``.
+    """
+    out: dict[str, str] = {}
+    if not isinstance(container, list):
+        return out
+    for item in container:
+        if not isinstance(item, dict):
+            continue
+        fn_raw = item.get("function")
+        fn = fn_raw if isinstance(fn_raw, dict) else {}
+        name = item.get("name") or fn.get("name")
+        # Falsy top-level (None or "") falls through to the nested function form.
+        desc = item.get("description") or fn.get("description")
+        if isinstance(name, str) and name and desc is not None:
+            out[name] = desc
+    return out
+
+
 def _extract_tools(props: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...]]:
     """Return tool invocations, or None when the export carries no tool data.
 
@@ -102,12 +125,14 @@ def _extract_tools(props: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...]
     """
     offered: list[str] = []
     invoked: list[str] = []
+    descriptions: dict[str, str] = {}
     saw_tool_data = False
 
     for key in _TOOL_OFFERED_KEYS:
         if key in props:
             saw_tool_data = True
             offered.extend(_tool_names(props[key]))
+            descriptions.update(_tool_descriptions(props[key]))
     for key in _TOOL_INVOKED_KEYS:
         if key in props:
             saw_tool_data = True
@@ -117,12 +142,14 @@ def _extract_tools(props: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...]
         return None
 
     invoked_set = set(invoked)
-    all_names = sorted(set(offered) | invoked_set)
+    offered_set = set(offered)
+    all_names = sorted(offered_set | invoked_set)
     return tuple(
         ToolInvocation(
             name=name,
-            offered=name in set(offered),
+            offered=name in offered_set,
             invoked=name in invoked_set,
+            description=clamp_tool_description(descriptions.get(name)),
         )
         for name in all_names
     )
@@ -181,7 +208,9 @@ def parse_record(
             raise AzureRecordError(f"record is not valid JSON: {exc}") from exc
 
     if not isinstance(raw, dict):
-        raise AzureRecordError(f"record is not a JSON object (got {type(raw).__name__})")
+        raise AzureRecordError(
+            f"record is not a JSON object (got {type(raw).__name__})"
+        )
 
     category = raw.get("category") or raw.get("Category")
     if category and str(category) != SUPPORTED_CATEGORY:
@@ -196,15 +225,21 @@ def parse_record(
     availability: dict[str, FieldAvailability] = {}
 
     # ── Identity ────────────────────────────────────────────────────────────
-    request_id = raw.get("correlationId") or raw.get("CorrelationId") or props.get("requestId")
+    request_id = (
+        raw.get("correlationId") or raw.get("CorrelationId") or props.get("requestId")
+    )
     if not request_id:
-        raise AzureRecordError("record has no correlationId — cannot identify the invocation")
+        raise AzureRecordError(
+            "record has no correlationId — cannot identify the invocation"
+        )
 
     operation = raw.get("operationName") or raw.get("OperationName")
     if not operation:
         raise AzureRecordError("record has no operationName")
 
-    timestamp = _parse_timestamp(raw.get("time") or raw.get("Time") or raw.get("timeStamp"))
+    timestamp = _parse_timestamp(
+        raw.get("time") or raw.get("Time") or raw.get("timeStamp")
+    )
     if timestamp is None:
         raise AzureRecordError("record has no parseable timestamp")
 
@@ -222,23 +257,36 @@ def parse_record(
 
     # ── Token counts — present only on some configurations ──────────────────
     input_tokens = _int_or_none(props.get("promptTokens") or props.get("PromptTokens"))
-    output_tokens = _int_or_none(props.get("completionTokens") or props.get("CompletionTokens"))
+    output_tokens = _int_or_none(
+        props.get("completionTokens") or props.get("CompletionTokens")
+    )
     usage_reported = any(
         k in props
-        for k in ("promptTokens", "PromptTokens", "completionTokens", "CompletionTokens")
+        for k in (
+            "promptTokens",
+            "PromptTokens",
+            "completionTokens",
+            "CompletionTokens",
+        )
     )
     if input_tokens is None:
         availability["input_token_count"] = (
-            FieldAvailability.MISSING if usage_reported else FieldAvailability.UNAVAILABLE
+            FieldAvailability.MISSING
+            if usage_reported
+            else FieldAvailability.UNAVAILABLE
         )
     if output_tokens is None:
         availability["output_token_count"] = (
-            FieldAvailability.MISSING if usage_reported else FieldAvailability.UNAVAILABLE
+            FieldAvailability.MISSING
+            if usage_reported
+            else FieldAvailability.UNAVAILABLE
         )
 
     # ── Outcome ─────────────────────────────────────────────────────────────
     result_type = str(raw.get("resultType") or raw.get("ResultType") or "").lower()
-    result_signature = str(raw.get("resultSignature") or raw.get("ResultSignature") or "")
+    result_signature = str(
+        raw.get("resultSignature") or raw.get("ResultSignature") or ""
+    )
     error_code: Optional[str] = None
     if result_type and result_type not in _SUCCESS_RESULT_TYPES:
         error_code = result_signature or result_type

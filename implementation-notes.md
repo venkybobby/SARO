@@ -1,72 +1,78 @@
-# STORY-AISEC-007 — Semantic prompt-injection on the optional Gate-3 judge
+# STORY-AISEC-008 — Adapters populate ToolInvocation.description
 Stage: standard
 
 ## Lifecycle
-- [x] discover   (existing judge infra + _redact_pii + cap + provider seam mapped)
-- [x] shape      (design determined by the existing judge pattern; decisions below)
-- [x] preview    (skipped — backend, no UI)
+- [x] discover   (three adapter parsers + provider description-field locations mapped)
+- [x] shape      (decisions below; no product ambiguity — activates a shipped control)
+- [x] preview    (skipped — backend adapters, no UI)
 - [x] plan
 - [x] build
-- [x] verify     (full suite 2378 passed; reviewer APPROVE + security-auditor PASS)
+- [x] verify     (full suite 2387 passed; reviewer APPROVE + security-auditor PASS)
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
-- Existing Gate-3 judge (`engine.py`): `ANTHROPIC_API_KEY` gates `hybrid_mode`;
-  `_gate3_llm_verify_sync(client, text, domain)` does `client.messages.create(...)`,
-  parses JSON, fails safe (except → None). Bounded by `MAX_LLM_CALLS_PER_BATCH`.
-  Provider seam `LLM_JUDGE_PROVIDER` (anthropic default). `_redact_pii` applied to
-  fragments before egress.
-- The current judge only re-checks FLAGGED samples (FP reduction) → never sees
-  held-out (un-flagged) injection. New pass assesses UN-flagged samples (FN/held-out).
-- Injection scan is evidence-only (`_scan_injection_impl` → traces, no _SampleFlag).
-- SARO-102 (COMPLIANCE_CLAIMS_MATRIX) discloses the judge as flagged-sample re-check
-  → must be updated to also disclose the un-flagged injection assessment (AC-6).
+- Each adapter builds `ToolInvocation(name, offered, invoked)` from names only:
+  - Bedrock: `bedrock/parse.py` `_offered_tools` reads `toolConfig.tools[].toolSpec.name`
+    (Converse) + `tools[].name` (Anthropic). Description at `toolSpec.description`
+    / `tools[].description`.
+  - Azure: `azure_openai/parse.py` `_extract_tools`/`_tool_names` → `item.name` /
+    `item.function.name`. Description at `function.description`.
+  - Vertex: `vertex_ai/parse.py` `_extract_tools`/`_tool_names` → `item.name` /
+    `item.functionDeclaration.name`. Description at `functionDeclaration.description`.
+- Description is request-side (OFFERED) only; invoked `toolUse`/`tool_use` blocks
+  carry name+input, no description → invoked-only tools get description=None.
+- Downstream (contract field, `rp_tool_poisoning`, evaluator) all MERGED (AISEC-006).
 
 ## Decision Log
-- Where does the semantic pass live? → **inside `_scan_injection_impl`** (injection
-  evidence is cohesive there), reusing env vars + client pattern + `_redact_pii`,
-  NOT entangled with the MIT-domain Gate-3 judge.
-- Default behavior? → **off** (no key → skipped; deterministic-only default unchanged).
-- Which samples? → only those the deterministic detector did NOT flag (avoid dup
-  cost/finding), bounded by `MAX_LLM_CALLS_PER_BATCH`.
-- Test strategy? → **monkeypatch `anthropic.Anthropic`** (installed 0.84.0) to a
-  fake client whose `.messages.create` returns canned JSON; assert zero calls
-  when no key; PII redaction of egress text; cap; evidence-only; fail-safe.
+- Description source? → **offered/request-side tool config only** (that's where it
+  lives); invoked-only → None (never fabricated).
+- Length bound (AC-7 / auditor INFO)? → **truncate at capture to 8192 chars**
+  (`MAX_TOOL_DESCRIPTION_CHARS` in adapters/contract.py). Truncate, NOT reject —
+  a >8KB description must not break the parse.
+- Merge offered+invoked? → tools key by name today (offered+invoked collapse to one
+  ToolInvocation); attach the offered description to that single entry.
+- Shared helper vs per-adapter? → per-adapter `_tool_specs`-style extraction
+  (provider shapes differ), using the one shared cap constant.
+
+## SCOPE CORRECTION (DISCOVER, FM-2)
+Bedrock's production `parse` returns an `AuditSubmission` (scan path), NOT a
+`NormalizedInvocationRecord` — its observation/`ToolInvocation` path is TEST-ONLY
+(conformance harness via `from_bedrock_envelope`). So **Bedrock is out of scope**;
+only **Azure + Vertex** produce production observation records with ToolInvocation.
+Spec premise + ACs corrected accordingly.
 
 ## Plan (tweak-likelihood order)
-1. **Semantic verify** `_semantic_injection_verify_sync(client, text) -> dict|None`
-   in engine.py (mirrors `_gate3_llm_verify_sync`; asks injection yes/no + technique;
-   parse JSON; fail safe). Verify: unit test with mock client.
-2. **Pass** in `_scan_injection_impl`: after the deterministic loop, if key set +
-   provider anthropic, iterate un-flagged samples (≤ cap), `_redact_pii` the
-   fragment, call verify, emit evidence-only injection trace (`source:
-   semantic-judge`, ATLAS AML.T0051) for "injection" verdicts. Off by default;
-   fail-safe. Verify: AC-1..AC-5 tests.
-3. **Disclosure** update `docs/COMPLIANCE_CLAIMS_MATRIX.md` SARO-102 (AC-6):
-   optional judge now also assesses un-flagged samples for injection — still
-   off-by-default, PII-redacted, bounded.
-4. Tests `tests/test_aisec_007_semantic_injection_judge.py`. Gates 1-7; reviewer +
-   security-auditor (engine + external-model egress); index → IMPLEMENTED; docs.
+1. **Contract constant** `MAX_TOOL_DESCRIPTION_CHARS = 8192` + a `clamp_tool_description`
+   helper in adapters/contract.py. Verify: unit test the cap.
+2. **Azure** `_extract_tools` → capture `function.description` (clamped), attach to
+   ToolInvocation. Verify: AC-2 + AC-6 (poisoned/benign fixtures).
+3. **Vertex** `_extract_tools` → capture `functionDeclaration.description` (clamped).
+   Verify: AC-3 + AC-6.
+4. Tests `tests/test_aisec_008_adapter_tool_description.py` (AC-2..7 for Azure+Vertex;
+   AC-4 invoked-only=None; AC-5 backward-compat; AC-7 cap). Gates 1-7; reviewer +
+   security-auditor; index → IMPLEMENTED; conformance suite unchanged.
 
 ## Compliance guardrails
-- Non-Negotiable #1: only the DISCLOSED off-by-default judge exception calls a
-  model; core deterministic scoring untouched. Default = zero external calls.
-- PII-redacted before egress (mandatory, SARO-102). Evidence-only (no score
-  change). Bounded by cost cap. Disclosure updated to match code (compliance-guard).
+- INV-2: read only the request-side tool DECLARATION (metadata), never args/results.
+- Backward compatible: absent description → None; existing conformance/snapshot
+  fixtures unchanged unless deliberately given a description.
+- Bounded (8KB), deterministic, no new dependency.
 
 ## Review round 1 (reviewer + security-auditor agents)
-- **security-auditor: PASS.** Egress-focused audit: only the PII-redacted,
-  500-char-capped fragment egresses (redaction precedes every call, same text
-  sent); zero client construction without a key; triple-layer fail-safe; bounded;
-  provider seam fail-safe; key never logged; verdict confined to an evidence
-  trace (no tool use/action). Disclosure matches. INFO (pre-existing): _redact_pii
-  is structured-PII best-effort — not widened here.
+- **security-auditor: PASS.** Untrusted description string-matched only (defensive
+  isinstance guards; no eval/exec); bounded (8192 clamp + upstream MAX_RECORD_CHARS);
+  body-blind intact (Azure `properties`, Vertex `labels` — never protoPayload); no
+  new raw-content egress; bandit clean.
 - **reviewer: REQUEST-CHANGES → addressed:**
-  1. [MAJOR/FM-4] No AISEC-007 index row → added IMPLEMENTED row at commit (below).
-  2. [MINOR] Each judge role has its own MAX_LLM_CALLS_PER_BATCH counter →
-     combined per-batch ceiling is up to 2× cap. Disclosed accurately in SARO-102.
-  3. [MINOR/pre-existing] _redact_pii free-text limit — not introduced here.
-  4. [MINOR] Untracked artifacts → only intended files staged.
+  1. [BLOCKER/FM-4] code uncommitted + index SPECIFIED → committing code+test now,
+     index flipped to IMPLEMENTED citing the SHA (same PR).
+  2. [MINOR] drive-by ruff reformat in the two parse files → accepted (repo formatter).
+  3. [MINOR] empty-string top-level description shadowed the nested one → fixed:
+     `desc = item.get("description") or fn.get("description")` (falsy falls through).
+  - Scope correction (Bedrock out) confirmed accurate + honestly surfaced.
 
 ## Deviations
-- Branch off main (fresh, AISEC 001-006 merged). Independent story.
+- Spec authored + committed first (b9b65a4) on this branch, then built here — one
+  story PR (spec + code + index flip).
+- Bedrock OUT of scope (DISCOVER/FM-2): its production parse is scan-path
+  (AuditSubmission), no observation ToolInvocation. Azure + Vertex only.
