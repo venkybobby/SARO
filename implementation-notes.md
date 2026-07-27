@@ -6,8 +6,8 @@ Stage: standard
 - [x] shape      (decisions below; no product ambiguity — activates a shipped control)
 - [x] preview    (skipped — backend adapters, no UI)
 - [x] plan
-- [ ] build
-- [ ] verify
+- [x] build
+- [x] verify     (full suite 2387 passed; reviewer APPROVE + security-auditor PASS)
 - [ ] sell       (n/a)
 
 ## DISCOVER findings
