@@ -1,7 +1,7 @@
 # STORY-AISEC-008: Adapters populate ToolInvocation.description from provider logs
 
-**Status:** draft
-**Screen/Area:** adapters/{bedrock,azure_openai,vertex_ai}/parse.py / rule_packs/observation
+**Status:** IMPLEMENTED (01cd4ec)
+**Screen/Area:** adapters/{azure_openai,vertex_ai}/parse.py / rule_packs/observation (Bedrock N/A — scan-path)
 
 ## Origin
 STORY-AISEC-006 shipped the `ToolInvocation.description` field + the
