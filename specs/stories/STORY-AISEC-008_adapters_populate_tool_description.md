@@ -15,9 +15,9 @@ tool-description poisoning detection actually fire on real exported logs.
 |---|---|---|
 | Contract field (target) | yes (MERGED) | `adapters/contract.py` `ToolInvocation.description: str \| None` |
 | Poisoning pack + check (consumer) | yes (MERGED) | `rule_packs/observation/rp_tool_poisoning/1.0.0/pack.yaml`, `evaluate._check_tool_description_injection` |
-| Bedrock tool extraction (names-only today) | yes | `adapters/bedrock/parse.py` `_offered_tools` reads `toolConfig.tools[].toolSpec.name` (Converse) + `tools[].name` (Anthropic InvokeModel) |
-| Azure tool extraction | yes | `adapters/azure_openai/parse.py` `_extract_tools`/`_tool_names` reads `item.name` / `item.function.name` |
-| Vertex tool extraction | yes | `adapters/vertex_ai/parse.py` `_extract_tools`/`_tool_names` reads `item.name` / `item.functionDeclaration.name` |
+| **Bedrock observation-record path** | **PREMISE-CORRECTED** | `adapters/bedrock/parse.py` builds an **`AuditSubmission`** (scan path), NOT a `NormalizedInvocationRecord` — tool names go into `metadata.toolConfig/toolUse`. `from_bedrock_envelope` (→ observation record w/ `ToolInvocation`) is only called from `tests/conformance/providers.py` (test scaffolding). **Bedrock has no PRODUCTION observation `ToolInvocation` to populate** → out of scope here. |
+| Azure tool extraction (builds the record) | yes | `adapters/azure_openai/parse.py` `_extract_tools` builds `ToolInvocation(...)`; `parse` returns a `NormalizedInvocationRecord` (`tools=tools`). Description at `item.function.description`. |
+| Vertex tool extraction (builds the record) | yes | `adapters/vertex_ai/parse.py` `_extract_tools` builds `ToolInvocation(...)`; `parse` returns a `NormalizedInvocationRecord` (`tools=tools`). Description at `item.functionDeclaration.description`. |
 | Description lives in OFFERED config | yes | Bedrock `toolSpec.description`; Anthropic `tools[].description`; Azure `function.description`; Vertex `functionDeclaration.description` — all request-side (offered), not in the invoked `toolUse`/`tool_use` blocks |
 | Adapter conformance harness | yes | `tests/conformance/` (CI "Cross-adapter conformance suite") |
 
@@ -29,10 +29,15 @@ the request-side tool declarations; invoked-only tools (no offered declaration)
 carry `description=None`. Bounded, backward-compatible, adapter-agnostic downstream
 (the evaluator/contract are unchanged).
 
+> **Scope corrected during DISCOVER:** only Azure and Vertex have a production
+> observation-record path (their `parse` returns a `NormalizedInvocationRecord`
+> with `ToolInvocation`s). Bedrock's production `parse` goes to the scan path
+> (`AuditSubmission`); it has no production observation `ToolInvocation`, so it is
+> **out of scope** here (a Bedrock observation-record path would be its own story).
+
 ## Acceptance Criteria (Given/When/Then)
-- AC-1: Given a Bedrock Converse export whose `toolConfig.tools[].toolSpec`
-  carries a `description`, When parsed, Then the corresponding `ToolInvocation`
-  has that description; same for Anthropic-on-Bedrock `tools[].description`.
+- AC-1: **(Bedrock — N/A this story)** Bedrock has no production observation
+  record; deferred until a Bedrock observation path exists.
 - AC-2: Given an Azure OpenAI export with `function.description`, When parsed,
   Then the `ToolInvocation.description` is populated.
 - AC-3: Given a Vertex AI export with `functionDeclaration.description`, When
@@ -95,6 +100,13 @@ carry `description=None`. Bounded, backward-compatible, adapter-agnostic downstr
   the adapter test/fixture dirs; assert population (AC-1..3), None cases
   (AC-4/AC-5), and end-to-end poisoning firing (AC-6).
 
-## Traceability (filled at close by /story)
+## Traceability
 | AC | Test(s) | Files |
 |---|---|---|
+| AC-1 (Bedrock) | N/A — out of scope (no production observation path) | — |
+| AC-2 (Azure populates) | `test_azure_populates_description_and_poisoning_fires`, `test_azure_benign_description_populated_but_no_finding` | `adapters/azure_openai/parse.py` (`_tool_descriptions`, `_extract_tools`) |
+| AC-3 (Vertex populates) | `test_vertex_populates_description_and_poisoning_fires`, `test_vertex_benign_description_populated_but_no_finding` | `adapters/vertex_ai/parse.py` (`_tool_descriptions`, `_extract_tools`) |
+| AC-4 (invoked-only → None) | `test_azure_invoked_only_tool_has_no_description`, `test_vertex_invoked_only_tool_has_no_description` | both adapters |
+| AC-5 (no tools unchanged) | `test_azure_no_tools_unchanged`, adapter suites 70/70 | both adapters |
+| AC-6 (end-to-end poisoning fires) | the `..._poisoning_fires` tests (parse → evaluate `TOOL-DESC-POISONING-1`) | adapters + `rule_packs/observation` |
+| AC-7 (bounded 8 KB) | `test_clamp_bounds_and_coerces`, `test_azure_oversized_description_is_clamped` | `adapters/contract.py` (`clamp_tool_description`, `MAX_TOOL_DESCRIPTION_CHARS`) |
