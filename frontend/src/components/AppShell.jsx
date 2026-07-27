@@ -39,6 +39,7 @@ const KnowledgePortal = lazy(() => import("../pages/KnowledgePortal"));
 const AIInsights      = lazy(() => import("../pages/AIInsights"));
 const Reports         = lazy(() => import("../pages/Reports"));
 const Settings        = lazy(() => import("../pages/Settings"));
+const AuditTrail      = lazy(() => import("../pages/AuditTrail"));
 
 const PAGE_COMPONENTS = {
   dashboard:        Dashboard,
@@ -77,6 +78,7 @@ const PAGE_COMPONENTS = {
   ai_insights:      AIInsights,
   reports:          Reports,
   settings:         Settings,
+  audit_trail:      AuditTrail,
 };
 
 const LS_ONBOARDING_DISMISSED = "saro_onboarding_dismissed";

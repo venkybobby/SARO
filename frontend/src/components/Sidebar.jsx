@@ -5,6 +5,7 @@ import {
   ClipboardList, BookOpen,
   Lock, ShieldCheck, LogOut, ChevronRight,
   ShieldAlert, Sparkles, LineChart, ChevronDown,
+  ScrollText,
 } from "lucide-react";
 import { StatusDot } from "./ui/index.jsx";
 import DEMO_TABS from "../config/demoTabs.json";
@@ -24,7 +25,7 @@ const PERSONA_TABS = {
   ai_auditor: [
     "dashboard","trace_view",
     "rule_packs","upload",
-    "knowledge_portal",
+    "knowledge_portal","audit_trail",
   ],
   admin: [
     "dashboard","compliance_hub","trace_view",
@@ -38,8 +39,9 @@ const PERSONA_TABS = {
     "trust_center",
     "rule_packs","aims","upload",
     "admin_settings","risk_register","ai_insights","reports","settings",
+    "audit_trail",
   ],
-  operator: ["dashboard","upload","trace_view","knowledge_portal"],
+  operator: ["dashboard","upload","trace_view","knowledge_portal","audit_trail"],
 };
 
 const TAB_REGISTRY = {
@@ -65,6 +67,7 @@ const TAB_REGISTRY = {
   reports:          { label: "Reports",            icon: LineChart,       page: "reports" },
   settings:         { label: "Settings",           icon: Settings,        page: "settings" },
   knowledge_portal: { label: "Knowledge Portal",   icon: BookOpen,        page: "knowledge_portal" },
+  audit_trail:      { label: "Audit Trail",        icon: ScrollText,      page: "audit_trail" },
 };
 
 const ROLE_LABELS = {

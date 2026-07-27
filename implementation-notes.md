@@ -1,84 +1,96 @@
-# gcs-direct-read — pull Vertex logs straight from the customer GCS bucket
+# audit-trail-ui — surface the self-audit trail (audit_events) in the frontend
 Stage: standard
 
-Goal (expert phrasing): implement a real `gs://` ObjectStore backend so SARO
-reads the Vertex export directly from the customer-owned GCS bucket — no manual
-`gcloud storage cp` download. This is the load-bearing sales claim ("we pull
-from your logs"). Must preserve INV-6 (read-only), INV-3 (tenancy from operator
-config, never the log/bucket), and INV-2 (body-free — unchanged; parsing is
-untouched).
+Goal (expert phrasing): `GET /api/v1/audit/events` (routers/self_audit.py,
+STORY-META-001) exposes SARO's privileged-action hash-chain trail, but no
+frontend page ever calls it — it was built and tested as a backend-only,
+auditor-facing API. Root cause of "record visible in DB, invisible in UI" is
+not a filter/tenant/RLS bug: there is no UI consumer at all. Add one.
 
 ## Lifecycle
-- [x] discover   (ObjectStore protocol mapped: list_keys/read_text; LocalExportStore is the reference; build_store is the factory; VertexExportReader.uri_scheme="gs" already)
-- [x] shape      (autonomous session — decisions defaulted + logged below)
-- [x] preview    (skipped — backend/adapter only, no UI change)
+- [x] discover   (done inline during root-cause investigation — see chat)
+- [x] shape      (1a skipped — change is already specified; 1b: single
+                   AskUserQuestion resolved placement to "new page under nav";
+                   remaining decisions derived directly from existing backend
+                   authz, logged below rather than re-asked)
+- [ ] preview    (skipped — see Deviations: page reuses Reports.jsx's
+                   established list/KPI/disclaimer pattern verbatim, not a
+                   novel surface; verified live via browser preview instead
+                   of a throwaway mock)
 - [x] plan
-- [x] build      (GcsExportStore + parse_gs_uri/build_gcs_store; demo gs:// wiring; requirements; 7 tests; runbook)
-- [x] verify     (44 tests green incl. conformance + vertex adapter; security-auditor review requested)
-- [ ] sell       (n/a)
+- [x] build
+- [x] verify     (live browser verification, see Deviations for how)
+- [ ] sell — n/a (internal bug-fix/UI addition, not design-partner-facing)
 
-## Premise check (Stage 3a)
-
-| Referenced artifact | Verified? | File path |
+## Premise check
+| referenced artifact | verified? | file path |
 |---|---|---|
-| ObjectStore protocol (list_keys/read_text) | yes | `adapters/export_source.py:33-42` |
-| LocalExportStore reference impl | yes | `adapters/export_source.py:83-106` |
-| Scope guards (normalize_key, in_scope) | yes | `adapters/export_source.py:57-82` |
-| build_store factory | yes | `adapters/export_source.py:219-227` |
-| Vertex reader binds scheme "gs" | yes | `adapters/vertex_ai/source.py:25` (`uri_scheme = "gs"`) |
-| Demo driver rejects gs:// today | yes | `scripts/demo_vertex_to_ui.py` ("gs:// sources are not yet wired") |
-| GCS SDK NOT installed | yes | `python -c import google...` → ModuleNotFoundError |
-| Reader downloads text per key | yes | `adapters/export_source.py:190` (`store.read_text(...)`) |
+| `GET /api/v1/audit/events` | yes | routers/self_audit.py:54 |
+| `audit_events` table + hash chain (STORY-META-001) | yes | live Supabase `audit_events`, 17 rows, verified via MCP |
+| `_require_auditor` gate (super_admin/operator role, ai_auditor persona) | yes | routers/self_audit.py:24, auth.py:351 `require_role_or_persona` |
+| Sidebar persona/tab registry pattern | yes | frontend/src/components/Sidebar.jsx (PERSONA_TABS, TAB_REGISTRY) |
+| AppShell page routing | yes | frontend/src/components/AppShell.jsx (PAGE_COMPONENTS) |
+| Compliance disclaimer requirement for audit evidence pages | yes | docs/COMPLIANCE_CLAIMS_MATRIX.md "Required Disclaimer" |
 
 ## Decision Log
+- Q: where should the trail be visible? → User: new standalone page under nav
+  (not folded into TrustCenter/AdminSettings). Consequence: new page component
+  + new Sidebar/AppShell registrations.
+- Q (derived, not re-asked — backend already answers it): which personas see
+  the nav tab? → Mirror `_require_auditor` exactly: `super_admin`, `operator`
+  (role-based) and `ai_auditor` (persona-based) get the tab. `admin`/
+  `compliance_lead`/`risk_officer` do not — showing it to them would 403 on
+  load, which is worse than not showing it (matches how `evf_admin` is
+  already scoped in Sidebar.jsx).
+- Q (derived): who sees the tenant/system scope toggle? → Only `role in
+  {super_admin, operator}` per `_resolve_tenant`'s privileged check
+  (self_audit router raises 403 for `scope=system` otherwise); `ai_auditor`
+  persona-only users get tenant scope with no toggle.
+- Q (derived): does "Export" auto-fire? → No — `export=true` writes a new
+  EXPORT audit event as a side effect (self-referential by design per the
+  router docstring), so it must be an explicit button, never triggered by
+  page load/refetch.
 
-(format: question → answer → architectural consequence)
-
-| Question | Answer | Architectural consequence |
-|---|---|---|
-| SDK or raw REST for GCS? | `google-cloud-storage` SDK, **lazy-imported** inside the store (only when no client is injected). Add to requirements.txt. | Module import stays dependency-free (guard cleanliness, CI without the dep); missing SDK → one actionable error, not an opaque ImportError. |
-| Auth model? | Application Default Credentials (ADC) — picks up the `saro-reader` SA via `GOOGLE_APPLICATION_CREDENTIALS`, gcloud ADC, or workload identity. No keys in code/config. | Matches the runbook's read-only reader-principal story; no new secret to store; INV-6 read-only (SDK client used only for list+download). |
-| How is tenancy kept out of the bucket identity (INV-3)? | `container` = bucket name is operator-supplied via `--source gs://<bucket>`; the store never reads project/tenant hints from object content. Prefix scope enforced by the SAME `in_scope`/`normalize_key` used for local. | One isolation code path for local + GCS; no GCS-specific bypass. |
-| Read-only guarantee (INV-6)? | Store implements ONLY `list_keys`+`read_text` (list_blobs + download_as_text). No write/delete method exists to call by accident — same structural guarantee as LocalExportStore. | The Protocol has no write surface; a write can't be reached. |
-| Testable without network/SDK? | `GcsExportStore(bucket, client=<fake>)` — client is injectable; unit tests pass a fake exposing `list_blobs`/`blob().download_as_text()`. Real SDK only built when client is None. | CI needs no google dep and makes no network call; isolation logic tested on the real store class. |
-| gs:// parsing lives where? | New `build_gcs_store(source)` + a `parse_gs_uri` helper; demo script derives `container`=bucket and `prefix` from the `gs://bucket/prefix` URL so the operator passes one flag, not three. | Fewer mismatched-flag errors; `--container`/`--prefix` become optional when `--source` is a gs:// URL. |
-
-## Plan (tweak-likelihood order)
-
-1. `GcsExportStore` in `adapters/export_source.py` — `list_keys` (list_blobs +
-   in_scope filter), `read_text` (download_as_text), injectable client, lazy SDK
-   import with actionable error. `parse_gs_uri("gs://b/p") -> (bucket, prefix)`
-   and `build_gcs_store(...)`.
-2. Wire `scripts/demo_vertex_to_ui.py`: when `--source` starts `gs://`, build the
-   GCS store, derive container/prefix, drop the "not wired" bail-out.
-3. requirements.txt: add `google-cloud-storage`.
-4. Tests: fake-client store (list scoping incl. tenant-10 vs tenant-1, traversal
-   reject, read one blob), gs:// URI parse, missing-SDK error message.
-5. Runbook Part 2/7: replace the "download first" hop with the direct gs:// run.
-6. security-auditor review (new egress + input-handling path in adapters/).
-
-## Review round (security-auditor)
-
-Verdict: PASS — no FND. INV-6/INV-3/INV-2 + tenant isolation preserved; GCS path
-reuses the identical scope logic as the local store, no bypass. Applied
-defense-in-depth obs. #1: read_text now normalize_key()s the key so traversal is
-rejected at the store even if used outside the reader. Obs. #2 (traversal blob
-aborts batch) and #3 (empty prefix = whole bucket) are documented parity with
-LocalExportStore, no change.
-
-## CI fixes (post-merge, billing restored → real runners)
-
-- `test_missing_sdk_raises_actionable_error` failed in CI: google-cloud-storage
-  is now an installed dep, so the SDK import succeeds and `storage.Client()`
-  raises `DefaultCredentialsError` (no ADC in CI), not our RuntimeError. Fix:
-  `_default_client` now also wraps client construction and re-raises auth/init
-  failures as the same actionable RuntimeError (better operator UX — a demo run
-  without ADC gets the fix, not a raw google traceback). Test updated to cover
-  the SDK-present/creds-absent path.
-- pip-audit / Trivy failures are starlette 0.52.1 CVEs (a FastAPI transitive
-  dep) — pre-existing on main, NOT introduced by this branch (google-cloud-
-  storage pulls no starlette). Verified against origin/main; not this PR's to
-  fix (repo-wide dependency-waiver decision).
+## Plan
+1. `frontend/src/pages/AuditTrail.jsx` (new) — fetch `/api/v1/audit/events`
+   (+ optional `scope=system` toggle, actor/action_class filters), render
+   event table (created_at, action_class badge, actor, target, outcome,
+   seq, event_hash truncated) + chain-verification status strip + Export
+   button (separate confirm-and-fetch, not auto). Reuse PageHeader/Button/
+   Badge/EmptyState/Skeleton from components/ui, and the compliance
+   disclaimer footer (mirrors Reports.jsx).
+2. `frontend/src/components/Sidebar.jsx` — register `audit_trail` in
+   TAB_REGISTRY (icon: ClipboardList variant already imported elsewhere —
+   use `ScrollText` or similar new lucide import) and add to PERSONA_TABS for
+   `ai_auditor`, `super_admin`, `operator`.
+3. `frontend/src/components/AppShell.jsx` — lazy-import AuditTrail, register
+   `audit_trail: AuditTrail` in PAGE_COMPONENTS.
+4. Verify live: preview_start the frontend dev server, log in, confirm the
+   tab renders for a privileged persona and the demo tenant's `AUTH_EVENT`
+   row (026de909-...) appears when scoped to that tenant.
 
 ## Deviations
-None.
+- PREVIEW stage: skipped a throwaway HTML mock in favor of directly building
+  the page (reuses Reports.jsx's established pattern 1:1: PageHeader/Button/
+  Badge/EmptyState/Skeleton, same disclaimer footer) and verifying it live in
+  the browser preview — equivalent "stop and look" checkpoint, less waste.
+- Verification against production data was blocked: the sandbox's dev-server
+  processes (Vite proxy, would-be local uvicorn) get `ECONNREFUSED` reaching
+  any external host (Fly.io, Supabase) even though `curl` from the Bash tool
+  and the MCP Supabase tools reach them fine — an outbound-network
+  restriction scoped to `preview_start`-launched processes, not the sandbox
+  as a whole. Conservative option taken: stood up a disposable local stack
+  instead (Postgres in Docker on :5544 per `docs` local-run recipe, backend
+  via `uvicorn --env-file .env` — added `--env-file .env` to
+  `.claude/launch.json`'s backend config since pydantic-settings reads
+  `os.environ` directly and won't pick up a `.env` file on its own). Verified
+  the *mechanism* end-to-end there — a real login recorded a real AUTH_EVENT
+  and rendered in the new page, chain verification showed "verified intact",
+  Export correctly appended a new hash-chained EXPORT event and did NOT fire
+  on page load — which is the same mechanism that produced record
+  026de909-9ea8-4a67-b5a8-e344cd4010fc in production; did not re-fetch that
+  specific historical row (would require live prod DB access from a
+  sandboxed process, which is exactly what's blocked). `.env` /
+  `frontend/.env.local` are both gitignored (`.env.*` pattern); the
+  `--env-file .env` launch.json flag is harmless with no `.env` present
+  (uvicorn no-ops).
