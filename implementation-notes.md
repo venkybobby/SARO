@@ -66,5 +66,19 @@ rejected at the store even if used outside the reader. Obs. #2 (traversal blob
 aborts batch) and #3 (empty prefix = whole bucket) are documented parity with
 LocalExportStore, no change.
 
+## CI fixes (post-merge, billing restored → real runners)
+
+- `test_missing_sdk_raises_actionable_error` failed in CI: google-cloud-storage
+  is now an installed dep, so the SDK import succeeds and `storage.Client()`
+  raises `DefaultCredentialsError` (no ADC in CI), not our RuntimeError. Fix:
+  `_default_client` now also wraps client construction and re-raises auth/init
+  failures as the same actionable RuntimeError (better operator UX — a demo run
+  without ADC gets the fix, not a raw google traceback). Test updated to cover
+  the SDK-present/creds-absent path.
+- pip-audit / Trivy failures are starlette 0.52.1 CVEs (a FastAPI transitive
+  dep) — pre-existing on main, NOT introduced by this branch (google-cloud-
+  storage pulls no starlette). Verified against origin/main; not this PR's to
+  fix (repo-wide dependency-waiver decision).
+
 ## Deviations
 None.

@@ -130,15 +130,24 @@ class GcsExportStore:
     def _default_client() -> Any:
         try:
             from google.cloud import storage  # type: ignore[attr-defined]
-        except ImportError as exc:  # pragma: no cover — exercised via message test
+        except ImportError as exc:
             raise RuntimeError(
-                "Reading gs:// exports needs the google-cloud-storage SDK. "
-                "Install it (`pip install google-cloud-storage`) and authenticate "
-                "the SARO reader service account via Application Default "
-                "Credentials (GOOGLE_APPLICATION_CREDENTIALS or `gcloud auth "
-                "application-default login`)."
+                "Reading gs:// exports needs the google-cloud-storage SDK "
+                "(`pip install google-cloud-storage`)."
             ) from exc
-        return storage.Client()
+        try:
+            return storage.Client()
+        except Exception as exc:  # noqa: BLE001 — any auth/init failure → one clear message
+            # Most commonly DefaultCredentialsError: the SDK is installed but the
+            # SARO reader principal isn't authenticated. Surface the fix, not a
+            # raw google traceback.
+            raise RuntimeError(
+                "google-cloud-storage could not authenticate the SARO reader "
+                "principal. Provide Application Default Credentials for "
+                "saro-reader (set GOOGLE_APPLICATION_CREDENTIALS to its key, run "
+                "`gcloud auth application-default login`, or use workload "
+                f"identity). Underlying error: {exc}"
+            ) from exc
 
     def list_keys(self, container: str, prefix: str) -> list[str]:
         # container is the bucket; the reader passes config.container == bucket.

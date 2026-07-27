@@ -156,8 +156,10 @@ def test_out_of_scope_key_is_rejected_by_reader():
 # ── SDK-absent path (google-cloud-storage is not installed in CI) ────────────
 
 
-def test_missing_sdk_raises_actionable_error():
-    # No client injected -> _default_client tries to import the SDK, which is
-    # absent here; the error must name the package and the auth step.
-    with pytest.raises(RuntimeError, match="google-cloud-storage"):
+def test_no_client_raises_actionable_error():
+    # No client injected -> _default_client. Whether the SDK is absent (ImportError)
+    # or present-but-unauthenticated (DefaultCredentialsError in CI, where the dep
+    # is installed but no ADC exists), the operator must get one actionable
+    # RuntimeError naming the fix — never a raw google traceback.
+    with pytest.raises(RuntimeError, match="google-cloud-storage|reader principal"):
         GcsExportStore(BUCKET)
