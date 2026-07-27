@@ -74,12 +74,15 @@ def main(argv: list[str]) -> int:
         "--system", required=True, help="system id, e.g. gemini-prod (labels the audit)"
     )
     ap.add_argument(
-        "--source", required=True, help="gs://bucket  OR  a local export root directory"
+        "--source",
+        required=True,
+        help="gs://bucket[/prefix]  OR  a local export root directory",
     )
     ap.add_argument(
         "--container",
-        required=True,
-        help="bucket/container name the reader is scoped to",
+        default=None,
+        help="container/subdir the reader is scoped to (required for a local "
+        "--source; ignored for gs:// where the bucket comes from the URI)",
     )
     ap.add_argument("--prefix", default="", help="tenant object prefix (scope guard)")
     ap.add_argument(
@@ -102,19 +105,29 @@ def main(argv: list[str]) -> int:
 
     # 1. FETCH — the adapter reads the customer-owned export, read-only.
     if args.source.startswith("gs://"):
-        # No gs:// ObjectStore backend is wired yet (build_store only builds a
-        # LocalExportStore). Rather than crash with an opaque ValueError, tell
-        # the operator to download the export locally for now.
+        # Direct read from the customer's GCS bucket (INV-6). Container + prefix
+        # come from the URI, so --container/--prefix are ignored for gs://.
+        from adapters.export_source import build_gcs_store
+
+        try:
+            store, container, prefix = build_gcs_store(args.source)
+        except RuntimeError as exc:  # SDK missing — actionable message
+            print(str(exc))
+            return 2
+        reader = for_tenant(tenant_id, container, prefix=prefix, store=store)
         print(
-            "gs:// sources are not yet wired (no GCS ObjectStore backend). "
-            "Download the export objects locally and pass --source <dir> "
-            "--container <subdir> --prefix <prefix>. See runbook Part 7."
+            f"[1/4] fetch    — reading Vertex export directly from {args.source} "
+            "(GCS, read-only, INV-6)"
         )
-        return 2
-    reader = for_tenant(tenant_id, args.container, prefix=args.prefix, root=args.source)
-    print(
-        f"[1/4] fetch    — reading Vertex export from {args.source} (container={args.container})"
-    )
+    else:
+        if not args.container:
+            print("--container is required for a local --source directory")
+            return 2
+        container, prefix = args.container, args.prefix
+        reader = for_tenant(tenant_id, container, prefix=prefix, root=args.source)
+        print(
+            f"[1/4] fetch    — reading Vertex export from {args.source} (container={container})"
+        )
     # 2. PROCESS — parse.py normalizes to body-free records.
     records = reader.read_all()
     print(f"[2/4] process  — {len(records)} invocations normalized (body-free, INV-2)")

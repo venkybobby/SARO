@@ -316,20 +316,35 @@ the entry point is `scripts/demo_vertex_to_ui.py`.
 
 ### 7.1 Fetch → process → evaluate → store (one command)
 
-```bash
-# Download the Vertex export objects locally first:
-gcloud storage cp -r gs://saro-vertex-export-veriaegis ./vertex-export
+**Direct from the customer's GCS bucket** (the real posture — "we pull from your
+logs"). SARO reads the bucket read-only via the `saro-reader` service account
+(Application Default Credentials); nothing is downloaded by hand:
 
-# Then run the full pipeline (fetch → process → evaluate → store):
+```bash
+# Authenticate the reader principal once (or set GOOGLE_APPLICATION_CREDENTIALS
+# to its key / use workload identity):
+gcloud auth application-default login   # as saro-reader@<project>.iam.gserviceaccount.com
+
+python scripts/demo_vertex_to_ui.py \
+  --tenant <DEMO_TENANT_UUID> --system gemini-prod \
+  --source gs://saro-vertex-export-veriaegis/demo-tenant \
+  --allowed-tool lookup_care_pathway
+```
+
+The bucket and prefix come from the `gs://` URI, so `--container`/`--prefix`
+are not needed. Read access is `roles/storage.objectViewer` scoped to the bucket
+(INV-6); the store has no write method at all.
+
+**Local export** (offline demo, or a downloaded copy) — same pipeline, filesystem
+source:
+
+```bash
+gcloud storage cp -r gs://saro-vertex-export-veriaegis ./vertex-export
 python scripts/demo_vertex_to_ui.py \
   --tenant <DEMO_TENANT_UUID> --system gemini-prod \
   --source ./vertex-export --container saro-vertex-export-veriaegis \
   --prefix demo-tenant/ --allowed-tool lookup_care_pathway
 ```
-
-> A direct `gs://` source is not yet wired (no GCS `ObjectStore` backend); the
-> script exits with a clear message if given one. Download the export locally as
-> above — the adapter reads it read-only exactly as it would the bucket.
 
 It prints each stage and the `audit_id` it created:
 

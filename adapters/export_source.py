@@ -106,6 +106,78 @@ class LocalExportStore:
         return (self.root / container / key).read_text(encoding="utf-8")
 
 
+class GcsExportStore:
+    """Google Cloud Storage-backed store — reads the customer's export bucket
+    directly (no manual download), same read-only surface as LocalExportStore.
+
+    INV-6: only ``list_keys``/``read_text`` exist — list + download, never a
+    write. Bound to ONE bucket (``container``); the reader's prefix scope guard
+    (``in_scope``) still runs on top, so tenant isolation uses the identical
+    code path as the local store rather than a GCS-specific variant.
+
+    Auth is Application Default Credentials (the ``saro-reader`` service account
+    via ``GOOGLE_APPLICATION_CREDENTIALS``, gcloud ADC, or workload identity) —
+    no key material in code or config. The ``google-cloud-storage`` SDK is
+    imported lazily so this module stays import-safe where the dep is absent;
+    tests inject a fake ``client`` and never touch the SDK or the network.
+    """
+
+    def __init__(self, bucket: str, *, client: Any = None) -> None:
+        self.bucket = bucket
+        self._client = client or self._default_client()
+
+    @staticmethod
+    def _default_client() -> Any:
+        try:
+            from google.cloud import storage  # type: ignore[attr-defined]
+        except ImportError as exc:  # pragma: no cover — exercised via message test
+            raise RuntimeError(
+                "Reading gs:// exports needs the google-cloud-storage SDK. "
+                "Install it (`pip install google-cloud-storage`) and authenticate "
+                "the SARO reader service account via Application Default "
+                "Credentials (GOOGLE_APPLICATION_CREDENTIALS or `gcloud auth "
+                "application-default login`)."
+            ) from exc
+        return storage.Client()
+
+    def list_keys(self, container: str, prefix: str) -> list[str]:
+        # container is the bucket; the reader passes config.container == bucket.
+        scope = prefix.rstrip("/")
+        blobs = self._client.list_blobs(container, prefix=scope or None)
+        return sorted(b.name for b in blobs if in_scope(b.name, prefix))
+
+    def read_text(self, container: str, key: str) -> str:
+        # Defense-in-depth: reject traversal at the store too, so isolation does
+        # not rely solely on the reader's _check_scope even if a caller uses the
+        # store directly (security review, obs. #1).
+        key = normalize_key(key)
+        bucket = self._client.bucket(container)
+        return bucket.blob(key).download_as_text()
+
+
+def parse_gs_uri(source: str) -> tuple[str, str]:
+    """``gs://bucket/prefix/…`` → ``(bucket, prefix)``. Bucket only → prefix=''."""
+    if not source.startswith("gs://"):
+        raise ValueError(f"not a gs:// URI: {source!r}")
+    body = source[len("gs://") :]
+    bucket, _, prefix = body.partition("/")
+    if not bucket:
+        raise ValueError(f"gs:// URI has no bucket: {source!r}")
+    return bucket, prefix.strip("/")
+
+
+def build_gcs_store(
+    source: str, *, client: Any = None
+) -> tuple["GcsExportStore", str, str]:
+    """Build a GCS store from a ``gs://bucket/prefix`` URI.
+
+    Returns ``(store, container, prefix)`` so the caller binds the reader's
+    ``container``/``prefix`` from the URI — one flag instead of three.
+    """
+    bucket, prefix = parse_gs_uri(source)
+    return GcsExportStore(bucket, client=client), bucket, prefix
+
+
 def iter_raw_records(text: str) -> Iterator[Any]:
     """Yield raw records from NDJSON, a JSON array, or a ``{"records": [...]}`` wrapper.
 
