@@ -207,11 +207,19 @@ def _body_free_proof() -> list[str]:
     return sorted(NormalizedInvocationRecord.model_fields.keys())
 
 
+# The demo walks exactly these two genesis packs; pinning the set keeps the
+# walkthrough (and its committed provenance/screencast) stable as new genesis
+# packs are added (e.g. RP-TOOL-POISONING, STORY-AISEC-006).
+_DEMO_PACK_NAMES = ("RP-OBS-COMPLETE", "RP-TOOL-SCOPE")
+
+
 def _demo_packs(provider_key: str) -> list[ObservationPack]:
     packs = load_genesis_packs()
     out: list[ObservationPack] = []
     for ref in sorted(packs):
         pack = packs[ref]
+        if pack.name not in _DEMO_PACK_NAMES:
+            continue
         if pack.name == "RP-TOOL-SCOPE":
             pack = pack.with_allowed_tools(list(DEMO_ALLOWED_TOOLS[provider_key]))
         out.append(pack)

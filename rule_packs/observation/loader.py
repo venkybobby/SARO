@@ -29,7 +29,14 @@ import yaml
 
 _PACK_ROOT = Path(__file__).parent
 
-REQUIRED_PACK_FIELDS = ("name", "version", "title", "domain_trigger", "obligation", "rules")
+REQUIRED_PACK_FIELDS = (
+    "name",
+    "version",
+    "title",
+    "domain_trigger",
+    "obligation",
+    "rules",
+)
 REQUIRED_RULE_FIELDS = ("rule_id", "title", "severity", "check")
 
 # Checks this loader knows how to validate. A pack naming an unknown check is a
@@ -43,6 +50,7 @@ KNOWN_CHECKS = frozenset(
         "tool_not_in_allowlist",
         "tool_offered_not_allowed",
         "tool_policy_absent",
+        "tool_description_poisoning",  # STORY-AISEC-006
     }
 )
 
@@ -93,7 +101,9 @@ class ObservationPack:
     def content_hash(self) -> str:
         return self._hash
 
-    def with_allowed_tools(self, tools: list[str] | tuple[str, ...]) -> "ObservationPack":
+    def with_allowed_tools(
+        self, tools: list[str] | tuple[str, ...]
+    ) -> "ObservationPack":
         """Bind tenant tool policy for evaluation.
 
         Returns a NEW pack: the loaded pack is immutable, and tenant config must
@@ -155,30 +165,42 @@ def load_pack(path: str | Path) -> ObservationPack:
     for entry in raw["rules"] or []:
         for req in REQUIRED_RULE_FIELDS:
             if req not in entry:
-                raise ObservationPackLoadError(str(path), req, "required rule field missing")
+                raise ObservationPackLoadError(
+                    str(path), req, "required rule field missing"
+                )
         rule_id = str(entry["rule_id"])
         if rule_id in seen_ids:
-            raise ObservationPackLoadError(str(path), "rule_id", f"duplicate {rule_id!r}")
+            raise ObservationPackLoadError(
+                str(path), "rule_id", f"duplicate {rule_id!r}"
+            )
         seen_ids.add(rule_id)
 
         check = str(entry["check"])
         if check not in KNOWN_CHECKS:
             raise ObservationPackLoadError(
-                str(path), "check", f"unknown check {check!r} (known: {sorted(KNOWN_CHECKS)})"
+                str(path),
+                "check",
+                f"unknown check {check!r} (known: {sorted(KNOWN_CHECKS)})",
             )
         severity = str(entry["severity"]).upper()
         if severity not in SEVERITIES:
-            raise ObservationPackLoadError(str(path), "severity", f"unknown severity {severity!r}")
+            raise ObservationPackLoadError(
+                str(path), "severity", f"unknown severity {severity!r}"
+            )
         unavailable_severity = entry.get("unavailable_severity")
         if unavailable_severity is not None:
             unavailable_severity = str(unavailable_severity).upper()
             if unavailable_severity not in SEVERITIES:
                 raise ObservationPackLoadError(
-                    str(path), "unavailable_severity", f"unknown severity {unavailable_severity!r}"
+                    str(path),
+                    "unavailable_severity",
+                    f"unknown severity {unavailable_severity!r}",
                 )
         if check == "required_fields" and not entry.get("required_fields"):
             raise ObservationPackLoadError(
-                str(path), "required_fields", f"rule {rule_id!r} uses required_fields but lists none"
+                str(path),
+                "required_fields",
+                f"rule {rule_id!r} uses required_fields but lists none",
             )
 
         rules.append(
