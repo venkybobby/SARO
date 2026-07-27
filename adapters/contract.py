@@ -109,6 +109,23 @@ class ToolInvocation(BaseModel):
     )
 
 
+# STORY-AISEC-008: advertised tool descriptions are captured from provider logs
+# and can be adversarially large. Bound them at capture (truncate, never reject —
+# an oversized description must not break a parse) so a record cannot be inflated.
+MAX_TOOL_DESCRIPTION_CHARS = 8192
+
+
+def clamp_tool_description(desc: Any) -> str | None:
+    """Coerce + length-bound an advertised tool description, or None if absent.
+
+    Truncates to ``MAX_TOOL_DESCRIPTION_CHARS``; the injection detector caps its
+    own scan independently. Non-string input is coerced to str (never crashes)."""
+    if desc is None or desc == "":
+        return None
+    s = desc if isinstance(desc, str) else str(desc)
+    return s[:MAX_TOOL_DESCRIPTION_CHARS]
+
+
 class NormalizedInvocationRecord(BaseModel):
     """One model invocation, normalized across providers. Body-free by design."""
 

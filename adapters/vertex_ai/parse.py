@@ -23,6 +23,7 @@ from adapters.contract import (
     NormalizedInvocationRecord,
     SourceProvenance,
     ToolInvocation,
+    clamp_tool_description,
 )
 from adapters.vertex_ai.records import (
     MAX_RECORD_CHARS,
@@ -53,7 +54,7 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
     if "." in text:
         head, _, tail = text.partition(".")
         digits = "".join(c for c in tail if c.isdigit())
-        offset = tail[len(digits):]
+        offset = tail[len(digits) :]
         # Python parses at most microseconds; nanosecond precision is truncated,
         # not rounded — ordering within the stream is preserved either way.
         text = f"{head}.{digits[:6]}{offset}"
@@ -108,10 +109,34 @@ def _tool_names(container: Any) -> list[str]:
         if isinstance(item, str):
             names.append(item)
         elif isinstance(item, dict):
-            name = item.get("name") or (item.get("functionDeclaration") or {}).get("name")
+            name = item.get("name") or (item.get("functionDeclaration") or {}).get(
+                "name"
+            )
             if isinstance(name, str) and name:
                 names.append(name)
     return names
+
+
+def _tool_descriptions(container: Any) -> dict[str, str]:
+    """Map offered tool NAME → advertised description (STORY-AISEC-008).
+
+    Request-side tool declaration only (metadata, INV-2 safe): the description
+    sits at ``item.description`` or ``item.functionDeclaration.description``.
+    """
+    out: dict[str, str] = {}
+    if not isinstance(container, list):
+        return out
+    for item in container:
+        if not isinstance(item, dict):
+            continue
+        fd_raw = item.get("functionDeclaration")
+        fd = fd_raw if isinstance(fd_raw, dict) else {}
+        name = item.get("name") or fd.get("name")
+        # Falsy top-level (None or "") falls through to the nested declaration form.
+        desc = item.get("description") or fd.get("description")
+        if isinstance(name, str) and name and desc is not None:
+            out[name] = desc
+    return out
 
 
 def _extract_tools(source: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...]]:
@@ -122,12 +147,14 @@ def _extract_tools(source: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...
     """
     offered: list[str] = []
     invoked: list[str] = []
+    descriptions: dict[str, str] = {}
     saw_tool_data = False
 
     for key in _TOOL_OFFERED_KEYS:
         if key in source:
             saw_tool_data = True
             offered.extend(_tool_names(source[key]))
+            descriptions.update(_tool_descriptions(source[key]))
     for key in _TOOL_INVOKED_KEYS:
         if key in source:
             saw_tool_data = True
@@ -138,7 +165,12 @@ def _extract_tools(source: dict[str, Any]) -> Optional[tuple[ToolInvocation, ...
 
     offered_set, invoked_set = set(offered), set(invoked)
     return tuple(
-        ToolInvocation(name=n, offered=n in offered_set, invoked=n in invoked_set)
+        ToolInvocation(
+            name=n,
+            offered=n in offered_set,
+            invoked=n in invoked_set,
+            description=clamp_tool_description(descriptions.get(n)),
+        )
         for n in sorted(offered_set | invoked_set)
     )
 
@@ -167,7 +199,9 @@ def parse_record(
             raise VertexRecordError(f"record is not valid JSON: {exc}") from exc
 
     if not isinstance(raw, dict):
-        raise VertexRecordError(f"record is not a JSON object (got {type(raw).__name__})")
+        raise VertexRecordError(
+            f"record is not a JSON object (got {type(raw).__name__})"
+        )
 
     payload = raw.get("protoPayload") or {}
     if not isinstance(payload, dict):
@@ -187,7 +221,9 @@ def parse_record(
     # ── Identity ────────────────────────────────────────────────────────────
     request_id = raw.get("insertId") or (raw.get("operation") or {}).get("id")
     if not request_id:
-        raise VertexRecordError("entry has no insertId — cannot identify the invocation")
+        raise VertexRecordError(
+            "entry has no insertId — cannot identify the invocation"
+        )
 
     method_name = payload.get("methodName")
     if not method_name:
