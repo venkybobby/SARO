@@ -1,29 +1,42 @@
-# FND-090 — tenants.settings_json missing from prod schema, demo/token 500s
+# FND-091 — tenants missing from database.py startup self-heal
 Stage: trivial
 
 ## Lifecycle
-- [x] discover   (found live, mid-verification of FND-088's deploy)
-- [x] shape      (skipped — root cause is a one-line ALTER TABLE)
+- [x] discover   (security-auditor review of the FND-090 PR, 2026-07-29)
+- [x] shape      (skipped — user picked option (a) via AskUserQuestion: populate the dicts)
 - [ ] preview    (skipped — backend/DB only)
 - [x] plan       (see below)
 - [x] build
-- [ ] verify      (trivial task; regression test + live verification are the verification)
+- [x] verify      (regression test pinned + full suite green (2417 passed) +
+      independent reviewer/security-auditor approval, both no-blocker)
 - [ ] sell — n/a
 
 ## Plan
-Live verification of PR #153's FND-088 fix surfaced a pre-existing, unrelated
-schema drift: production's `tenants` table lacks `settings_json`, which
-`models.Tenant` has declared since migration 000's current file content
-(evidently added to the file after 000 was already applied to prod, with no
-follow-up incremental migration). `db.get(Tenant, id)` — used by the FND-088
-fix — selects every mapped column, so the missing column turned a graceful
-"demo tenant misconfigured" 503 into an unhandled 500 on every call to
-`GET /api/v1/demo/token`. This is currently live-broken (worse than the
-original FND-088 bug: total endpoint outage vs. an empty-tenant experience).
+`_APP_TABLE_EXPECTED_COLS` (drives drift detection in `ensure_app_schema()`) and
+`_SAFE_ALTER_COLS` (the ALTER-COLUMN healer for precious tables) have no
+`"tenants"` key/contents, despite the code's own comment claiming coverage for
+"precious tables (users, tenants)". `_SAFE_ALTER_COLS["tenants"]` already
+exists as an empty dict — already drop-exempt via the Step 2 `table_name not
+in _SAFE_ALTER_COLS` check — it just has nothing to ALTER, and `tenants` is
+entirely absent from `_APP_TABLE_EXPECTED_COLS` so drift is never even
+detected for it.
 
-Fix: `migrations/043_tenants_settings_json.sql` — `ALTER TABLE tenants ADD
-COLUMN IF NOT EXISTS settings_json JSON`. Auto-applied by
-`apply_pending_migrations()` on next backend restart (main.py:170).
+Decision (user, via AskUserQuestion): option (a) — populate both dicts, same
+pattern already used for `users`/`audit_traces`/`audits`/`scan_reports`.
+
+Fix (`database.py`):
+- `_APP_TABLE_EXPECTED_COLS["tenants"]` = full current column set from
+  `models.Tenant`: `id, name, slug, settings_json, security_contact_email,
+  created_at`.
+- `_SAFE_ALTER_COLS["tenants"]` = `{"settings_json": "JSON",
+  "security_contact_email": "VARCHAR(320)"}` — DDL types matched to
+  migrations 043 and 042 respectively.
+
+Regression test: `tests/regression/test_fnd_091_tenants_self_heal_coverage.py`
+(manifest already had this FND-091 entry logged at `status: open`) — pins
+both dicts, following the existing `TestDatabaseExpectedCols` /
+`TestDatabaseSafeAlterCols` patterns in `tests/test_s001_hf_queue.py` /
+`tests/test_dc_gaps.py`.
 
 ## Deviations
-None yet.
+None.
