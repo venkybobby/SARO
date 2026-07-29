@@ -462,3 +462,8 @@ findings:
     test: tests/regression/test_fnd_091_tenants_self_heal_coverage.py
     status: pinned
     quarantine_expires: null
+  - id: FND-092
+    title: "GET /api/v1/demo/token missing from _AUTH_STRICT_PREFIXES - fell through to the unthrottled default branch unlike sibling token-minting endpoints (security-auditor, FND-088 review); renumbered from FND-090 to avoid ID collision with main's unrelated FND-090/091 pair"
+    test: tests/regression/test_fnd_092_demo_token_rate_limited.py
+    status: pinned
+    quarantine_expires: null

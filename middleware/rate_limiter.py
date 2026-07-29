@@ -45,11 +45,15 @@ _EXACT_ALLOWLIST = frozenset({"/"})
 
 # Authentication endpoints get a stricter PER-IP limit to blunt credential
 # brute-forcing and magic-link email enumeration (default 10/min/IP).
+# FND-092: /api/v1/demo/token also mints a token (a public, unauthenticated
+# JWT for the demo tenant) and belongs in this set for the same reason —
+# without it, it fell through to the unthrottled default branch.
 _AUTH_STRICT_PREFIXES = (
     "/api/v1/auth/token",
     "/api/v1/auth/login",
     "/api/v1/auth/bootstrap",
     "/api/v1/auth/magic-link",
+    "/api/v1/demo/token",
 )
 _AUTH_RATE_LIMIT_RPM = int(os.environ.get("AUTH_RATE_LIMIT_RPM", "10"))
 

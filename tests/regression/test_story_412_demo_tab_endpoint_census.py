@@ -25,6 +25,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from main import app
+from middleware import rate_limiter
 from models import Tenant
 
 pytestmark = [pytest.mark.regression, pytest.mark.integration]
@@ -99,6 +100,16 @@ def _client() -> TestClient:
 @pytest.fixture()
 def demo_token(monkeypatch) -> str:
     monkeypatch.setenv("SARO_DEMO_TENANT_ID", str(TENANT_ID))
+    # FND-092 made /api/v1/demo/token subject to the strict per-IP rate limit.
+    # This census mints a fresh token per test via the real main.app, which
+    # would otherwise share a live Redis bucket with every other test hitting
+    # an _AUTH_STRICT_PREFIXES route in the same run.
+    monkeypatch.setattr(
+        rate_limiter,
+        "check_rate_limit",
+        lambda key, limit: {"allowed": True, "count": 0, "limit": limit,
+                             "remaining": limit, "retry_after": 1, "reset_epoch": 0},
+    )
     r = _client().get("/api/v1/demo/token")
     assert r.status_code == 200, r.text
     return r.json()["access_token"]
