@@ -417,6 +417,14 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "id", "audit_id", "generated_by_user_id",
         "format", "content", "content_hash", "version", "created_at",
     },
+    # FND-091: tenants is a precious table (never dropped, see _SAFE_ALTER_COLS
+    # below) — it must still be listed here so drift is *detected* in the first
+    # place. FND-090 (settings_json) and FND-067 (security_contact_email) both
+    # drifted invisibly before this entry existed.
+    "tenants": {
+        "id", "name", "slug", "settings_json",
+        "security_contact_email", "created_at",
+    },
 }
 
 # Tables that must NEVER be dropped to fix drift — use ALTER TABLE ADD COLUMN
@@ -425,7 +433,13 @@ _SAFE_ALTER_COLS: dict[str, dict[str, str]] = {
     "users": {
         "persona_role": "VARCHAR(50)",
     },
-    "tenants": {},
+    # FND-091: DDL types matched to migrations 042 (security_contact_email)
+    # and 043 (settings_json) — the same additive columns those migrations
+    # add, so a missed migration self-heals here instead of staying invisible.
+    "tenants": {
+        "settings_json": "JSON",
+        "security_contact_email": "VARCHAR(320)",
+    },
     # SARO-004: version column added to reference table — ALTER only, never drop.
     "nist_ai_rmf_controls": {
         "version": "VARCHAR(50) DEFAULT 'AI RMF 1.0'",

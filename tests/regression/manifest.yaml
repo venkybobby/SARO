@@ -460,5 +460,5 @@ findings:
   - id: FND-091
     title: "database.py self-heal (_APP_TABLE_EXPECTED_COLS / _SAFE_ALTER_COLS) has no tenants entry - dead no-op for the exact drift class FND-090 hit"
     test: tests/regression/test_fnd_091_tenants_self_heal_coverage.py
-    status: open
+    status: pinned
     quarantine_expires: null
