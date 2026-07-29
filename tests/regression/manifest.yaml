@@ -452,3 +452,13 @@ findings:
     test: tests/regression/test_fnd_089_rotation_ledger_updated.py
     status: open
     quarantine_expires: null
+  - id: FND-090
+    title: "tenants.settings_json missing from production schema turned FND-088's graceful 503 into an unhandled 500 - db.get(Tenant, id) selects every ORM column"
+    test: tests/regression/test_fnd_090_tenants_settings_json_migration.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-091
+    title: "database.py self-heal (_APP_TABLE_EXPECTED_COLS / _SAFE_ALTER_COLS) has no tenants entry - dead no-op for the exact drift class FND-090 hit"
+    test: tests/regression/test_fnd_091_tenants_self_heal_coverage.py
+    status: open
+    quarantine_expires: null

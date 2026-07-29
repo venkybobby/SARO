@@ -1,29 +1,29 @@
-# FND-088 / FND-089 — demo tenant misconfig fails silently; rotation ledger stale
+# FND-090 — tenants.settings_json missing from prod schema, demo/token 500s
 Stage: trivial
 
 ## Lifecycle
-- [x] discover   (skipped — well-trodden: routers/demo.py, secrets-runbook.md)
-- [x] shape      (skipped — fix already specified from red-team QA review)
-- [ ] preview    (skipped — backend-only + docs, no UI surface)
+- [x] discover   (found live, mid-verification of FND-088's deploy)
+- [x] shape      (skipped — root cause is a one-line ALTER TABLE)
+- [ ] preview    (skipped — backend/DB only)
 - [x] plan       (see below)
 - [x] build
-- [ ] verify      (trivial task; regression tests are the verification)
+- [ ] verify      (trivial task; regression test + live verification are the verification)
 - [ ] sell — n/a
 
 ## Plan
-FND-088: `routers/demo.py::get_demo_token` trusts `SARO_DEMO_TENANT_ID` on
-presence alone — a stale/wrong UUID (confirmed live: pointed at a tenant that
-doesn't exist in `tenants`) issues a token for a phantom tenant, and every
-subsequent read comes back empty with no distinguishing error. Fix: validate
-the env var resolves to an actual `Tenant` row before minting the token;
-return 503 with a clear detail otherwise. Pinned by
-`tests/regression/test_fnd_088_demo_token_validates_tenant.py`.
+Live verification of PR #153's FND-088 fix surfaced a pre-existing, unrelated
+schema drift: production's `tenants` table lacks `settings_json`, which
+`models.Tenant` has declared since migration 000's current file content
+(evidently added to the file after 000 was already applied to prod, with no
+follow-up incremental migration). `db.get(Tenant, id)` — used by the FND-088
+fix — selects every mapped column, so the missing column turned a graceful
+"demo tenant misconfigured" 503 into an unhandled 500 on every call to
+`GET /api/v1/demo/token`. This is currently live-broken (worse than the
+original FND-088 bug: total endpoint outage vs. an empty-tenant experience).
 
-FND-089: `docs/security/secrets-runbook.md` §6 (rotation log) and
-`RB-006-live-demo-verification.md` §G (rotation gate checklist) were never
-updated after the FND-003 `super_admin` credential rotation — user confirmed
-completion 2026-07-28, but the repo's own ledger still shows it open/unrotated.
-Docs-only fix, no regression test (not a code behavior).
+Fix: `migrations/043_tenants_settings_json.sql` — `ALTER TABLE tenants ADD
+COLUMN IF NOT EXISTS settings_json JSON`. Auto-applied by
+`apply_pending_migrations()` on next backend restart (main.py:170).
 
 ## Deviations
 None yet.
