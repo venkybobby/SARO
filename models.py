@@ -20,6 +20,7 @@ from sqlalchemy import (
     JSON as SA_JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -93,6 +94,15 @@ class User(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        # FND-093: defense-in-depth — role is only ever set to these two
+        # literals in code today; this stops a typo'd/arbitrary value from
+        # being persisted with no schema-level signal.
+        CheckConstraint(
+            "role IN ('super_admin', 'operator')", name="ck_users_role_valid"
+        ),
     )
 
     tenant: Mapped[Tenant] = relationship(back_populates="users")
