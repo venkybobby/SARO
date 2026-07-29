@@ -467,3 +467,8 @@ findings:
     test: tests/regression/test_fnd_092_demo_token_rate_limited.py
     status: pinned
     quarantine_expires: null
+  - id: FND-093
+    title: "users.role had no DB-level CHECK constraint / enum - a typo'd or arbitrary role string could be persisted with no schema-level guard; renumbered from FND-092 to avoid ID collision with main's unrelated FND-092 (demo/token rate limit)"
+    test: tests/regression/test_fnd_093_users_role_check_constraint.py
+    status: pinned
+    quarantine_expires: null
