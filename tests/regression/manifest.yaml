@@ -452,3 +452,8 @@ findings:
     test: tests/regression/test_fnd_089_rotation_ledger_updated.py
     status: open
     quarantine_expires: null
+  - id: FND-090
+    title: "GET /api/v1/demo/token missing from _AUTH_STRICT_PREFIXES - fell through to the unthrottled default branch unlike sibling token-minting endpoints (security-auditor, FND-088 review)"
+    test: tests/regression/test_fnd_090_demo_token_rate_limited.py
+    status: pinned
+    quarantine_expires: null
