@@ -170,7 +170,7 @@ async def update_demo_request(
         "Requires SARO_DEMO_TENANT_ID to be set (run scripts/seed_demo_tenant.py first)."
     ),
 )
-async def get_demo_token() -> dict:
+async def get_demo_token(db: Annotated[Session, Depends(get_db)]) -> dict:
     import os
     from datetime import timedelta
 
@@ -179,6 +179,28 @@ async def get_demo_token() -> dict:
         raise HTTPException(
             status_code=503,
             detail="Demo tenant not configured — run scripts/seed_demo_tenant.py first",
+        )
+
+    # FND-088: SARO_DEMO_TENANT_ID used to be trusted on presence alone. A
+    # stale/mistyped value (pointing at a tenant that was never created, or
+    # was since deleted) issued a token for a phantom tenant — every read
+    # came back empty, indistinguishable from a legitimately fresh tenant, so
+    # the misconfiguration was invisible to anyone but a human reading the
+    # dashboard. Fail loud instead: confirm the tenant row actually exists.
+    from models import Tenant
+
+    try:
+        tenant_uuid = uuid.UUID(demo_tenant_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=503,
+            detail="Demo tenant misconfigured — SARO_DEMO_TENANT_ID is not a valid UUID",
+        )
+    if not db.get(Tenant, tenant_uuid):
+        raise HTTPException(
+            status_code=503,
+            detail="Demo tenant misconfigured — SARO_DEMO_TENANT_ID does not match any "
+            "tenant. Run scripts/seed_demo_tenant.py or correct the secret.",
         )
 
     from auth import _secret_key, _algorithm

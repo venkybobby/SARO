@@ -442,3 +442,13 @@ findings:
     test: tests/regression/test_fnd_087_demo_script_utf8_console.py
     status: pinned
     quarantine_expires: null
+  - id: FND-088
+    title: "GET /api/v1/demo/token trusted SARO_DEMO_TENANT_ID on presence alone - a phantom tenant UUID silently issued a valid token instead of failing loud"
+    test: tests/regression/test_fnd_088_demo_token_validates_tenant.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-089
+    title: "secrets-runbook.md rotation log and RB-006 rotation gate checklist were never updated after the FND-003 credential rotation completed"
+    test: tests/regression/test_fnd_089_rotation_ledger_updated.py
+    status: open
+    quarantine_expires: null
