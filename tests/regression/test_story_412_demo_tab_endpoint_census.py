@@ -100,7 +100,7 @@ def _client() -> TestClient:
 @pytest.fixture()
 def demo_token(monkeypatch) -> str:
     monkeypatch.setenv("SARO_DEMO_TENANT_ID", str(TENANT_ID))
-    # FND-090 made /api/v1/demo/token subject to the strict per-IP rate limit.
+    # FND-092 made /api/v1/demo/token subject to the strict per-IP rate limit.
     # This census mints a fresh token per test via the real main.app, which
     # would otherwise share a live Redis bucket with every other test hitting
     # an _AUTH_STRICT_PREFIXES route in the same run.

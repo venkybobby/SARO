@@ -1,9 +1,13 @@
-"""FND-090: `GET /api/v1/demo/token` (routers/demo.py) was missing from
+"""FND-092: `GET /api/v1/demo/token` (routers/demo.py) was missing from
 `middleware/rate_limiter.py`'s `_AUTH_STRICT_PREFIXES`, so it fell through to
 the unthrottled default branch instead of the strict 10/min/IP cap sibling
 token-minting endpoints get (`/auth/token`, `/auth/login`, `/auth/magic-link`).
 Flagged by security-auditor during the FND-088 review as a pre-existing,
 non-blocking gap worth closing on its own.
+
+Originally logged as FND-090; renumbered to FND-092 after main independently
+landed an unrelated FND-090/FND-091 pair (tenants.settings_json migration gap
++ its database.py self-heal follow-up) while this fix was in review.
 """
 
 from __future__ import annotations

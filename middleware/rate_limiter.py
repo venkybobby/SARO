@@ -45,7 +45,7 @@ _EXACT_ALLOWLIST = frozenset({"/"})
 
 # Authentication endpoints get a stricter PER-IP limit to blunt credential
 # brute-forcing and magic-link email enumeration (default 10/min/IP).
-# FND-090: /api/v1/demo/token also mints a token (a public, unauthenticated
+# FND-092: /api/v1/demo/token also mints a token (a public, unauthenticated
 # JWT for the demo tenant) and belongs in this set for the same reason —
 # without it, it fell through to the unthrottled default branch.
 _AUTH_STRICT_PREFIXES = (

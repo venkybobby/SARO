@@ -453,7 +453,17 @@ findings:
     status: open
     quarantine_expires: null
   - id: FND-090
-    title: "GET /api/v1/demo/token missing from _AUTH_STRICT_PREFIXES - fell through to the unthrottled default branch unlike sibling token-minting endpoints (security-auditor, FND-088 review)"
-    test: tests/regression/test_fnd_090_demo_token_rate_limited.py
+    title: "tenants.settings_json missing from production schema turned FND-088's graceful 503 into an unhandled 500 - db.get(Tenant, id) selects every ORM column"
+    test: tests/regression/test_fnd_090_tenants_settings_json_migration.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-091
+    title: "database.py self-heal (_APP_TABLE_EXPECTED_COLS / _SAFE_ALTER_COLS) has no tenants entry - dead no-op for the exact drift class FND-090 hit"
+    test: tests/regression/test_fnd_091_tenants_self_heal_coverage.py
+    status: pinned
+    quarantine_expires: null
+  - id: FND-092
+    title: "GET /api/v1/demo/token missing from _AUTH_STRICT_PREFIXES - fell through to the unthrottled default branch unlike sibling token-minting endpoints (security-auditor, FND-088 review); renumbered from FND-090 to avoid ID collision with main's unrelated FND-090/091 pair"
+    test: tests/regression/test_fnd_092_demo_token_rate_limited.py
     status: pinned
     quarantine_expires: null

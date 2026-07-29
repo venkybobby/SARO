@@ -52,7 +52,7 @@ _seed()
 @pytest.fixture(autouse=True)
 def _reset_overrides(monkeypatch):
     app.dependency_overrides[get_db] = lambda: _Session()
-    # FND-090 made /api/v1/demo/token subject to the strict per-IP rate limit.
+    # FND-092 made /api/v1/demo/token subject to the strict per-IP rate limit.
     # This module exercises token-validation logic, not throttling, and its
     # repeated real calls would otherwise share a live Redis bucket with every
     # other test hitting an _AUTH_STRICT_PREFIXES route in the same run.
