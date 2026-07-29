@@ -55,15 +55,15 @@ only in interactive runs and redacts it in CI.
    the old value — expect 401/connection refusal. Record date + result below.
 5. Append a row to the rotation log (§6).
 
-## 4. FND-003 exposed credential — rotation status **[HUMAN — OPEN]**
+## 4. FND-003 exposed credential — rotation status **[PARTIAL — dead-check outstanding]**
 
 The historic exposure (plaintext super_admin credential committed to the public
 repo, tracked as FND-003) is remediated **forward** (env-var-only seeding since
-PR #119; CI gate above). Outstanding operator actions:
+PR #119; CI gate above).
 
-- [ ] Rotate the affected credential(s) in prod (Fly + Supabase + demo user).
-- [ ] Verify old credential dead against prod (procedure §3.4).
-- [ ] Record completion here with date.
+- [x] Rotate the affected credential(s) in prod (Fly + Supabase + demo user). — confirmed by operator 2026-07-28.
+- [ ] Verify old credential dead against prod (procedure §3.4). — **not independently verified**; see rotation log entry below.
+- [x] Record completion here with date. — see §6.
 
 ## 5. History remediation decision **[HUMAN — OPEN]**
 
@@ -74,7 +74,7 @@ Public repo ⇒ forks/clones may retain history regardless of what we rewrite.
 |---|---|---|
 | A. Scrub (`git filter-repo` on the exposed paths) + force-push | History clean on origin; forks/clones unaffected | Breaks all open PR bases, forks, local clones; invalidates commit-SHA references in docs/evidence |
 | B. Re-cut repo (fresh repo from current tree) | Same as A but total: loses issue/PR history | Highest disruption |
-| C. Rotate only; leave history; document | No disruption; exposed value is dead | Historical secret remains visible (dead) |
+| C. Rotate only; leave history; document | No disruption; exposed value rotated (§4) — dead-check not independently re-verified | Historical secret remains visible (rotated, not confirmed dead) |
 
 **Recommendation:** C now (rotation completes the control), revisit A before
 any repo-visibility change or if a buyer's security review requires it.
@@ -85,4 +85,4 @@ executed without explicit go-ahead.**
 
 | Date | Secret | Action | Old value verified dead? | By |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| 2026-07-28 | `super_admin` password (FND-003) | Rotated in prod (Fly + Supabase + demo user) | Not independently verified — operator-confirmed rotation only, no `§3.4` dead-credential check recorded | Venky (operator-confirmed; recorded by Claude Code per red-team QA review follow-up) |

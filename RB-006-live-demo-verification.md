@@ -90,9 +90,9 @@ fly ssh console -a saro-backend -C "printenv ALLOWED_ORIGINS"     # SHOULD be ht
 
 ## G. Credential rotation gate (from review finding #1 — blocks all external demos until done)
 
-- [ ] `scripts/seed_demo_tenant.py` no longer contains a literal password; it reads `SARO_DEMO_SEED_PW` from env.
-- [ ] The live demo tenant's `super_admin` password has been rotated away from the committed value.
-- [ ] Confirm no other literal credentials: `git grep -iE "password\s*=\s*[\"'][^\"']{6,}"` returns only test fixtures.
+- [x] `scripts/seed_demo_tenant.py` no longer contains a literal password; it reads `SARO_DEMO_SEED_PW` from env. — verified in code since PR #119.
+- [x] The live demo tenant's `super_admin` password has been rotated away from the committed value. — operator-confirmed 2026-07-28 (see `docs/security/secrets-runbook.md` §6 rotation log; old-value-dead check not independently re-verified here).
+- [ ] Confirm no other literal credentials: `git grep -iE "password\s*=\s*[\"'][^\"']{6,}"` returns only test fixtures. — not re-run as part of this pass; run before the next external demo.
 
 ## H. Browser pass (5 min, incognito)
 
