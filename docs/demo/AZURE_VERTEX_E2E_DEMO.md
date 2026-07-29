@@ -160,6 +160,29 @@ gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
 The reader's identity never sets SARO tenancy — the tenant binding stays
 operator-supplied configuration (INV-3), exactly as the demo's step 2 shows.
 
+### 2.5 Generate a bigger sample corpus (optional)
+
+A fresh export may hold only a handful of records. To produce a richer corpus
+for the demo, issue a batch of varied Vertex calls in your project and let the
+sink deliver them:
+
+```bash
+# Dry run — see the plan, no calls, no auth:
+python scripts/generate_vertex_demo_traffic.py --project $PROJECT --dry-run
+
+# 100 calls (70 happy · 15 streaming · 15 deliberate errors), 2 regions:
+python scripts/generate_vertex_demo_traffic.py --project $PROJECT
+```
+
+**Identity note:** this generator *calls* Vertex, so it needs an invoke
+principal with `roles/aiplatform.user` — your own ADC
+(`gcloud auth application-default login`) or a dedicated SA. That is **not**
+`saro-reader` (read-only storage). It is demo tooling that produces
+customer-side traffic; SARO's scoring still never calls a model (INV-1). The
+error calls surface as `OBS-ERROR-INVOCATION` findings; every record yields an
+`OBS-TOKEN-COUNTS` INFO. Wait for the hourly sink delivery, then re-run the
+reader (Part 7).
+
 > **Content hazard, handled by construction:** Vertex *Data Access* audit logs
 > can include `protoPayload.request`/`.response` — for generative calls, the
 > actual prompt and output. SARO's Vertex parser is **body-blind**: no code
