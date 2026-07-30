@@ -1,3 +1,7 @@
+# Production build target — used by fly.toml, .github/workflows/deploy.yml
+# (flyctl deploy), and .github/workflows/security-scans.yml. This is the
+# canonical backend image. For local docker-compose dev, see Dockerfile.api.
+#
 # ── Stage 1: dependency builder ──────────────────────────────────────────────
 FROM python:3.11-slim AS builder
 

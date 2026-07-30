@@ -64,6 +64,13 @@ scripts/node_modules/
 demo-capture/profiles/
 demo-capture/shots/
 
+# Synthetic Bedrock log fixtures (local scratch, regenerable) and local MCP
+# plugin cache — not app state, never intended for commit.
+/demo-logs/
+/demo-logs-a/
+/demo-logs-b/
+.claude/data/
+
 # Continuous-learning hook output (session-local, advisory)
 .claude/learnings/
 
