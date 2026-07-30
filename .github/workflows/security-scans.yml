@@ -72,7 +72,7 @@ jobs:
       - name: Build backend image
         run: docker build -t saro-backend:scan -f Dockerfile .
       - name: Trivy scan (CRITICAL,HIGH gate)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: saro-backend:scan
           format: table
