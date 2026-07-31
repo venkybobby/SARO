@@ -472,3 +472,8 @@ findings:
     test: tests/regression/test_fnd_093_users_role_check_constraint.py
     status: pinned
     quarantine_expires: null
+  - id: FND-094
+    title: "check_scan_waivers.py's ROW_RE silently dropped a waiver row if its Reason cell contained a literal | (e.g. a code span) - fails closed but is a footgun; parse_waivers() now raises WaiverParseError instead of silently skipping the row"
+    test: tests/regression/test_fnd_094_scan_waivers_pipe_column_shift.py
+    status: pinned
+    quarantine_expires: null

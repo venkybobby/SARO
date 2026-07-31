@@ -33,18 +33,52 @@ ROW_RE = re.compile(
 )
 
 
-def parse_waivers() -> list[tuple[str, date]]:
+class WaiverParseError(ValueError):
+    """A line in the active waiver table looks like a row but doesn't match ROW_RE.
+
+    Most commonly a literal `|` inside a Reason cell (e.g. a code span like
+    `` `grep "A\\|B"` ``), which shifts every column after it. Without this
+    check the row just silently drops out of the active waiver list — FND-094.
+    """
+
+
+def parse_waivers(path: Path = WAIVERS) -> list[tuple[str, date]]:
     rows: list[tuple[str, date]] = []
-    for line in WAIVERS.read_text(encoding="utf-8").splitlines():
-        m = ROW_RE.match(line.strip())
-        if m and m.group("id").upper() != "ID":
-            y, mo, d = map(int, m.group("expiry").split("-"))
-            rows.append((m.group("id"), date(y, mo, d)))
+    unparsed: list[str] = []
+    # Only the active table (above "## Retired waivers") is suppression-relevant.
+    active_section = path.read_text(encoding="utf-8").split("## Retired waivers", 1)[0]
+    for line in active_section.splitlines():
+        stripped = line.strip()
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            continue
+        if set(stripped) <= set("|-: "):
+            continue  # markdown separator row, e.g. |---|---|---|---|---|
+        m = ROW_RE.match(stripped)
+        if m:
+            if m.group("id").upper() != "ID":
+                y, mo, d = map(int, m.group("expiry").split("-"))
+                rows.append((m.group("id"), date(y, mo, d)))
+            continue
+        if stripped.lower().startswith("| id "):
+            continue  # header row
+        unparsed.append(stripped)
+    if unparsed:
+        joined = "\n".join(f"  {line}" for line in unparsed)
+        raise WaiverParseError(
+            "row(s) in the active waiver table don't match the expected "
+            "`| ID | Package | Reason | YYYY-MM-DD | Owner |` shape. A literal `|` "
+            "inside a cell misaligns columns and would otherwise drop the row "
+            f"silently — escape it as `\\|` or rephrase. Offending row(s):\n{joined}"
+        )
     return rows
 
 
 def main() -> int:
-    rows = parse_waivers()
+    try:
+        rows = parse_waivers()
+    except WaiverParseError as exc:
+        print(f"scan-waivers PARSE ERROR: {exc}", file=sys.stderr)
+        return 1
     if "--pip-args" in sys.argv:
         ids = [vid for vid, _ in rows if vid.upper().startswith(("PYSEC-", "GHSA-"))]
         print(" ".join(f"--ignore-vuln {vid}" for vid in ids))
