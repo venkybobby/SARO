@@ -1,6 +1,13 @@
 # Pinned (FND-069): an unpinned fastapi let CI install a newer Starlette that
 # nests included routers in app.routes, so the whole app read as 2 routes in CI
 # while flattening locally. Pin to the validated versions so CI == local.
+# CVE-2026-48818/CVE-2026-54283 fixes only exist in starlette>=1.1.0, which
+# requires fastapi>=0.135.0 (fastapi<0.135.0 pins starlette<1.0.0) — tried
+# fastapi==0.141.1/starlette==1.3.1 and it reintroduces FND-069 in a worse form:
+# even the recursive iter_api_routes() helper sees only 2 routes instead of 204+
+# against the real app. Not safe to ship; waived instead (security/scan-waivers.md,
+# PYSEC/CVE-2026-48818-starlette) pending a dedicated investigation into the new
+# nesting shape.
 fastapi==0.129.0
 starlette==0.52.1
 uvicorn[standard]>=0.29.0

@@ -3,6 +3,13 @@ name: deploy-railway
 description: Triggered when modifying Dockerfile, railway.toml, docker-compose, CI/CD deploy steps, or any Railway/Supabase configuration. Enforces SARO service topology, env var naming, and health check requirements.
 ---
 
+> **[SUPERSEDED]** — Canonical infrastructure is now `docs/ARCHITECTURE.md` (Fly.io +
+> Supabase; PT-012, frozen). This skill's Railway/Vercel topology, health-check body,
+> and `railway.toml` example are historical and do not describe the current deploy
+> target — do not follow them for a live deploy. For Fly.io deploy conventions, use
+> `docs/ARCHITECTURE.md` and `.github/workflows/deploy.yml` (`flyctl deploy`) directly.
+> Retained for historical reference only. See `docs/DOCUMENT_REGISTER.md`.
+
 # Deploy Railway Skill
 
 ## Trigger Conditions

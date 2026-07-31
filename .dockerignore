@@ -1,0 +1,33 @@
+# No .dockerignore existed before this — `COPY . /app` in Dockerfile stage 2
+# was shipping the entire repo into the production image, including multiple
+# node_modules trees (frontend/, demo-capture/ [Playwright, ~63MB], scripts/,
+# docs/evf/) that the FastAPI backend never imports. Confirmed via
+# `grep -rn "frontend|docs/evf|demo-capture|scripts/" main.py` — the backend
+# doesn't serve or import any of these; the frontend is a separate Fly.io app
+# per docs/ARCHITECTURE.md. This is also what Trivy's node-pkg findings
+# (brace-expansion, js-yaml CVEs) were scanning — dev/test-only JS deps that
+# were never meant to reach a shipped image.
+
+.git/
+**/node_modules/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+*.log
+demo-capture/
+demo-logs/
+demo-logs-a/
+demo-logs-b/
+.claude/

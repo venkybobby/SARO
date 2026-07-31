@@ -1,3 +1,6 @@
+# Local docker-compose dev only (see docker-compose.yml). The Fly.io production
+# build target is the root Dockerfile, referenced by fly.toml and
+# .github/workflows/deploy.yml — that one, not this one, is what gets deployed.
 FROM python:3.12-slim
 
 WORKDIR /app

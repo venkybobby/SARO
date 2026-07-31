@@ -69,13 +69,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Build backend image
         run: docker build -t saro-backend:scan -f Dockerfile .
+      - name: Derive .trivyignore from documented waivers
+        run: python scripts/check_scan_waivers.py --trivyignore > .trivyignore
       - name: Trivy scan (CRITICAL,HIGH gate)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: saro-backend:scan
           format: table
           exit-code: "1"
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
