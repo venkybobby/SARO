@@ -77,3 +77,8 @@ demo-capture/shots/
 # E2E/demo run outputs (screenshots regenerated per run)
 /artifacts/
 .local-sqlite-demo.db
+
+# CI-generated: scripts/check_scan_waivers.py --trivyignore regenerates this
+# fresh every run from security/scan-waivers.md; a stale local copy must
+# never be committed or confused with what CI actually derives.
+/.trivyignore

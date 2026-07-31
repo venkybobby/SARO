@@ -2,13 +2,21 @@
 """STORY-367 — waiver hygiene: expired security-scan waivers fail the build.
 
 Reads security/scan-waivers.md, parses the waiver table, and exits non-zero if
-any waiver's expiry date has passed. Also prints the --ignore-vuln arguments for
-pip-audit so the workflow derives its suppressions FROM the waiver file — a
-waiver that isn't documented can't suppress anything.
+any waiver's expiry date has passed. Also emits scanner-specific suppression
+args derived FROM the waiver file, so both gating scanners draw from the same
+documented source of truth — a waiver that isn't in the table can't suppress
+anything in either scanner.
+
+pip-audit and Trivy use different vulnerability-ID namespaces for the same
+underlying finding (PYSEC/GHSA vs CVE), so IDs are routed by prefix: PYSEC-*
+and GHSA-* go to pip-audit's --ignore-vuln, CVE-* go to Trivy's ignore file.
+A waiver row may need both a PYSEC/GHSA row and a CVE row if the same gap
+shows up in both scanners' advisory databases.
 
 Usage:
-  python scripts/check_scan_waivers.py            # validate expiries
-  python scripts/check_scan_waivers.py --pip-args # emit "--ignore-vuln ID ..."
+  python scripts/check_scan_waivers.py               # validate expiries
+  python scripts/check_scan_waivers.py --pip-args     # emit "--ignore-vuln ID ..."
+  python scripts/check_scan_waivers.py --trivyignore  # emit .trivyignore file contents
 """
 
 from __future__ import annotations
@@ -38,7 +46,12 @@ def parse_waivers() -> list[tuple[str, date]]:
 def main() -> int:
     rows = parse_waivers()
     if "--pip-args" in sys.argv:
-        print(" ".join(f"--ignore-vuln {vid}" for vid, _ in rows))
+        ids = [vid for vid, _ in rows if vid.upper().startswith(("PYSEC-", "GHSA-"))]
+        print(" ".join(f"--ignore-vuln {vid}" for vid in ids))
+        return 0
+    if "--trivyignore" in sys.argv:
+        ids = [vid for vid, _ in rows if vid.upper().startswith("CVE-")]
+        print("\n".join(ids))
         return 0
     today = date.today()
     expired = [(vid, exp) for vid, exp in rows if exp < today]

@@ -32,6 +32,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
+# Upgrade setuptools in place (proper pip upgrade, not a cross-stage file
+# merge — merging a newer setuptools in via COPY left old and new _vendor/
+# copies coexisting without actually replacing the active install). The
+# base image's stale setuptools bundles vulnerable _vendor/ copies of wheel
+# and jaraco.context (CVE-2026-24049, CVE-2026-23949); neither is a real
+# requirements.txt dependency, so this is the only place to fix them.
+RUN pip install --no-cache-dir --upgrade "setuptools>=80"
+
 # Copy application source
 COPY . /app
 
